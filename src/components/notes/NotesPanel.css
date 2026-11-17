@@ -1,0 +1,98 @@
+/*
+ * The notes panel is the today panel's sibling: same popover material and the
+ * same tokens, fields and HUD from TodayPanel.css. Only what differs is here.
+ */
+
+/* Adding: the field grows to a few lines; Return saves. */
+.note-add { box-sizing: border-box; align-items: flex-start; height: auto; min-height: 30px; padding-top: 6px; padding-bottom: 5px; }
+.note-add > .today-glyph { margin-top: 1px; }
+.note-add textarea { flex: 1; min-width: 0; height: 18px; padding: 0; color: var(--label); background: none; border: 0; outline: none; font: inherit; line-height: 18px; resize: none; }
+.note-add textarea::placeholder { color: var(--label-3); }
+.note-add .today-add__save { align-self: flex-end; margin: -2px 0 -2px; }
+
+.note-search {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  margin-top: 8px;
+  padding: 0 8px;
+  color: var(--label-2);
+  background: var(--fill-strong);
+  border-radius: var(--radius-control);
+  transition: box-shadow 120ms ease;
+}
+.note-search .today-glyph { width: 13px; height: 13px; }
+.note-search:focus-within { box-shadow: 0 0 0 3px var(--accent-ring); }
+.note-search input { flex: 1; min-width: 0; padding: 0; color: var(--label); background: none; border: 0; outline: none; font: inherit; font-size: 12px; }
+.note-search input::placeholder { color: var(--label-2); }
+.note-search input::-webkit-search-cancel-button { opacity: .5; }
+
+/* A row is one big copy target; its tools wait at the right edge until hovered. */
+.note-row { align-items: stretch; }
+.note-row + .note-row::before { left: 8px; }
+.note-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.note-row__text {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.note-row__text.is-expanded { display: block; -webkit-line-clamp: unset; }
+.note-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; padding-bottom: 6px; }
+.note-row__body .note-row__main { padding-bottom: 2px; }
+.note-row__meta { display: flex; align-items: center; gap: 3px; padding: 0 4px; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.note-row__more { margin-left: 6px; padding: 0 2px; color: var(--accent-strong); background: none; border: 0; border-radius: 3px; font: inherit; cursor: pointer; }
+.note-row__meta .today-glyph { width: 11px; height: 11px; color: var(--accent); }
+
+.note-row__tools { flex: none; display: flex; align-items: flex-start; gap: 1px; padding-top: 6px; opacity: 0; }
+/* Keyboard users see the tools as soon as anything in the row has focus. */
+.note-row:hover .note-row__tools, .note-row:focus-within .note-row__tools { opacity: 1; }
+.note-tool {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--label-2);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.note-tool .today-glyph { width: 13px; height: 13px; }
+.note-tool:hover { color: var(--label); background: var(--fill-strong); }
+.note-tool.is-on { color: var(--accent); }
+.note-tool--danger:hover { color: var(--red); background: var(--red-wash); }
+
+.note-field { width: 100%; height: auto; min-height: 28px; padding: 5px 8px; line-height: 18px; resize: none; }
+
+/* Copying (or being pointed out from chat) washes the row in the accent once. */
+.note-row.is-flashing { animation: note-flash 1.2s ease-out; }
+@keyframes note-flash {
+  from { background: var(--accent-wash); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+  to { background: transparent; box-shadow: inset 0 0 0 1px transparent; }
+}
+
+.notes-panel .today-hud > .today-glyph { width: 14px; height: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .note-row.is-flashing { animation: none; background: var(--accent-wash); }
+  .note-search { transition: none; }
+}

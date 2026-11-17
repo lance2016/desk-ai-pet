@@ -1,0 +1,189 @@
+{
+  "id": "girl-default",
+  "name": "Default Girl",
+  "version": "2.0.0",
+  "canvas": {
+    "width": 620,
+    "height": 640
+  },
+  "scale": 0.4,
+  "headArea": {
+    "x": 0,
+    "y": 0,
+    "width": 1,
+    "height": 0.55
+  },
+  "persona": {
+    "name": "小艾",
+    "personality": "温暖、自然，像朋友一样陪伴我",
+    "voice": "茉莉",
+    "voiceStyle": "温柔、自然、亲切的年轻女声，语速适中，像熟悉的朋友在轻声陪伴。"
+  },
+  "animations": [
+    {
+      "id": "idle",
+      "pose": "自然站立，正面朝前，双手放松垂在身体两侧，带着浅浅的微笑。这张是后面所有图的基准。",
+      "file": "animations/idle.png",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 0,
+      "label": "安静陪伴",
+      "description": "默认待机状态"
+    },
+    {
+      "id": "blink",
+      "pose": "和「安静陪伴」完全一样的站姿，只是双眼闭上，像眨眼的一瞬间。",
+      "file": "animations/blink.png",
+      "motion": "breathe",
+      "duration": 700,
+      "category": "idle",
+      "priority": 5,
+      "label": "眨眨眼",
+      "description": "空闲时自动播放"
+    },
+    {
+      "id": "look_around",
+      "pose": "站着，头和视线转向一侧，好奇地张望。",
+      "file": "animations/look_around.png",
+      "motion": "sway",
+      "duration": 3200,
+      "category": "idle",
+      "priority": 5,
+      "label": "四处张望",
+      "description": "空闲时自动播放"
+    },
+    {
+      "id": "wooden_fish",
+      "pose": "跪坐在坐垫上，面前放着木鱼，一只手举起小木槌正要敲下，闭着眼，神情平静。",
+      "file": "animations/wooden_fish.png",
+      "frames": 4,
+      "fps": 8,
+      "loop": true,
+      "duration": 2000,
+      "priority": 30,
+      "label": "敲木鱼",
+      "description": "敲木鱼的样子"
+    },
+    {
+      "id": "focus",
+      "label": "陪你专注",
+      "description": "专注模式中安静地陪你一起工作",
+      "pose": "盘腿坐着，双手放在腿上，眼睛闭上或半闭，安静专注的样子。",
+      "file": "animations/focus.png",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 15
+    },
+    {
+      "id": "think",
+      "pose": "站着，一根手指抵着下巴，头微微歪，眼睛看向上方，若有所思。",
+      "file": "animations/think.png",
+      "motion": "tilt",
+      "duration": 2400,
+      "priority": 10,
+      "label": "思考",
+      "description": "若有所思的样子"
+    },
+    {
+      "id": "happy",
+      "pose": "站着，双手高高举起，张嘴大笑，非常开心。",
+      "file": "animations/happy.png",
+      "motion": "bounce",
+      "duration": 1800,
+      "priority": 20,
+      "cooldown": 500,
+      "label": "开心",
+      "description": "开心地回应你"
+    },
+    {
+      "id": "pet_reaction",
+      "pose": "一只手从画面上方伸进来摸角色的头，角色闭眼微笑，脸颊微红，双手合在胸前。",
+      "file": "animations/pet_reaction.png",
+      "motion": "sway",
+      "duration": 2000,
+      "priority": 20,
+      "cooldown": 500,
+      "label": "摸摸头",
+      "description": "长按宠物，或在右键菜单点「摸摸头」时播放"
+    },
+    {
+      "id": "shy",
+      "pose": "站着，双手捂着脸颊，脸红，视线躲开，有点害羞。",
+      "file": "animations/shy.png",
+      "motion": "wiggle",
+      "duration": 1600,
+      "priority": 25,
+      "fallback": "happy",
+      "label": "害羞",
+      "description": "害羞的样子"
+    },
+    {
+      "id": "eat",
+      "pose": "坐在地上，双手捧着一碗食物或拿着点心正在吃，表情满足。",
+      "file": "animations/eat.png",
+      "motion": "sway",
+      "duration": 2800,
+      "priority": 30,
+      "cooldown": 3000,
+      "fallback": "happy",
+      "label": "吃东西",
+      "description": "吃东西的样子"
+    },
+    {
+      "id": "sleep",
+      "pose": "趴着或侧躺着睡着，闭着眼，可以枕着枕头。用横版画布（3:2），身体横着躺在画布底部。",
+      "file": "animations/sleep.png",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 50,
+      "label": "睡觉",
+      "description": "睡着时一直保持"
+    },
+    {
+      "id": "peek",
+      "pose": "躲在画布左边缘后面探出半个身子，朝右看。身体左边被画布左边缘直接切掉，像藏在屏幕边上。不要画出墙。",
+      "file": "animations/peek.png",
+      "loop": true,
+      "motion": "breathe",
+      "align": "left",
+      "category": "system",
+      "priority": 55,
+      "label": "探头",
+      "description": "躲到屏幕边上探头时播放"
+    },
+    {
+      "id": "wake_up",
+      "pose": "刚睡醒，坐在地上伸懒腰，双手举过头顶，闭眼打哈欠。",
+      "file": "animations/wake_up.png",
+      "motion": "pop",
+      "duration": 1200,
+      "category": "system",
+      "priority": 60,
+      "interruptible": false,
+      "label": "醒来",
+      "description": "睡醒时播放"
+    },
+    {
+      "id": "drag",
+      "pose": "被一只从画面上方伸进来的手拎起来，双脚离地悬空，表情有点慌张。",
+      "file": "animations/drag.png",
+      "loop": true,
+      "motion": "sway",
+      "category": "system",
+      "priority": 70,
+      "label": "被拎起",
+      "description": "拖动宠物时播放"
+    }
+  ],
+  "controls": [
+    {
+      "id": "focus",
+      "label": "专注",
+      "icon": "timer",
+      "command": "focus_toggle"
+    }
+  ]
+}

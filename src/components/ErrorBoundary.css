@@ -1,0 +1,23 @@
+/* Shown in any window after a crash; the pet window is transparent, so the box brings its own background. */
+.crash-box {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(260px, calc(100vw - 32px));
+  padding: 16px;
+  color: rgba(0, 0, 0, .85);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18), 0 0 0 .5px rgba(0, 0, 0, .08);
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  text-align: center;
+}
+.crash-box strong { font-size: 14px; }
+.crash-box p { margin: 6px 0 12px; color: rgba(0, 0, 0, .55); }
+.crash-box button { height: 26px; padding: 0 14px; color: #fff; background: #6f58c9; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+.crash-box button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(138, 114, 224, .38); }
+@media (prefers-color-scheme: dark) {
+  .crash-box { color: rgba(255, 255, 255, .88); background: #2e2d34; box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 0 .5px rgba(255, 255, 255, .1); }
+  .crash-box p { color: rgba(255, 255, 255, .55); }
+}

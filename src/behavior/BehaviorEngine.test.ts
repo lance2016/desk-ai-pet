@@ -1,0 +1,678 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ActionController } from "../actions/ActionController";
+import { ActionRegistry } from "../actions/ActionRegistry";
+import { EventBus } from "../core/EventBus";
+import { createSnapshot, PetState } from "../core/PetState";
+import { animationIds, FakeRenderer, makeManifest } from "../testing/fixtures";
+import type { PetEvents, PetStats } from "../types";
+import { BEHAVIOR_CONFIG, BehaviorEngine, type DueReminder, type ReminderSource } from "./BehaviorEngine";
+import { FOCUS_CONFIG, FocusTimer } from "./FocusTimer";
+
+const START_STATS: PetStats = { satiety: 50, energy: 50, mood: 50, affinity: 50 };
+
+interface SetupOptions {
+  stats?: Partial<PetStats>;
+  extraAnimations?: unknown[];
+  missing?: string[];
+  random?: () => number;
+  isIdleActionEnabled?: (id: string) => boolean;
+  reminders?: ReminderSource;
+  holdsReminders?: (now: number) => boolean;
+}
+
+function setup({ stats = {}, extraAnimations = [], missing = [], random = () => 0, isIdleActionEnabled, reminders, holdsReminders }: SetupOptions = {}) {
+  const manifest = makeManifest(extraAnimations);
+  const registry = new ActionRegistry();
+  registry.registerManifest(manifest, animationIds(manifest, missing));
+  const renderer = new FakeRenderer();
+  const bus = new EventBus<PetEvents>();
+  const docks: Array<string | null> = [];
+  bus.on("pet.dock_changed", ({ side }) => docks.push(side));
+  const said: string[] = [];
+  const badges: Array<string | null> = [];
+  bus.on("pet.say", ({ text }) => said.push(text));
+  bus.on("pet.badge", ({ text }) => badges.push(text));
+  const focus = new FocusTimer();
+  const state = new PetState({ ...createSnapshot(Date.now()), stats: { ...START_STATS, ...stats } });
+  const controller = new ActionController({ registry, renderer, bus });
+  controller.stop();
+  const engine = new BehaviorEngine({ bus, state, controller, registry, focus, random, isIdleActionEnabled, reminders, holdsReminders });
+  engine.start();
+  /** Moves time forward and runs the autonomous checks, as the runtime would. */
+  const pass = (ms: number) => {
+    vi.advanceTimersByTime(ms);
+    engine.tick(Date.now());
+  };
+  /** Like `pass`, ticking every second on the way, as the runtime does while the computer is awake. */
+  const passSteps = (ms: number) => {
+    for (let done = 0; done < ms; done += 1000) pass(Math.min(1000, ms - done));
+  };
+  return { bus, state, controller, renderer, engine, pass, passSteps, docks, focus, said, badges };
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(1_000_000);
+});
+afterEach(() => vi.useRealTimers());
+
+describe("user interaction", () => {
+  it("answers a pat with the petting reaction", () => {
+    const { bus, state, renderer } = setup();
+    bus.emit("pet.petted", {});
+    expect(renderer.last).toBe("pet_reaction");
+    expect(state.get().stats).toMatchObject({ mood: 53, affinity: 52 });
+  });
+
+  it("leaves a plain click to the chat bar: no reaction, no stats", () => {
+    const { bus, state, renderer } = setup();
+    const start = Date.now();
+    for (let click = 0; click < 3; click += 1) {
+      bus.emit("pet.clicked", { region: "body" });
+      vi.advanceTimersByTime(600);
+    }
+    expect(renderer.played).toEqual(["idle"]);
+    expect(state.get().stats).toMatchObject({ mood: 50, affinity: 50 });
+    expect(state.get().lastInteractionAt).toBeGreaterThan(start);
+  });
+
+  it("gives no stats for a pat the pet could not react to", () => {
+    const { bus, state } = setup();
+    bus.emit("pet.petted", {});
+    vi.advanceTimersByTime(100);
+    bus.emit("pet.petted", {});
+    expect(state.get().stats.mood).toBe(53);
+  });
+
+  it("wakes up from a pat without the petting reaction", () => {
+    const { bus, state, renderer } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.petted", {});
+    expect(state.get().activity).toBe("awake");
+    expect(renderer.played).not.toContain("pet_reaction");
+  });
+
+  it("feeds the pet", () => {
+    const { bus, state, renderer } = setup();
+    bus.emit("pet.fed", {});
+    expect(renderer.last).toBe("eat");
+    expect(state.get().stats).toMatchObject({ satiety: 75, mood: 55, affinity: 51 });
+  });
+
+  it("ignores feeding while the pet is still eating", () => {
+    const { bus, state } = setup();
+    bus.emit("pet.fed", {});
+    vi.advanceTimersByTime(500);
+    bus.emit("pet.fed", {});
+    expect(state.get().stats.satiety).toBe(75);
+  });
+
+  it("knocks the wooden fish on request", () => {
+    const { bus, state, renderer } = setup();
+    vi.advanceTimersByTime(5000);
+    bus.emit("pet.wooden_fish", {});
+    expect(renderer.last).toBe("wooden_fish");
+    expect(state.get().lastInteractionAt).toBe(Date.now());
+  });
+
+  it("knocks again on every press", () => {
+    const { bus, renderer } = setup();
+    bus.emit("pet.wooden_fish", {});
+    vi.advanceTimersByTime(300);
+    bus.emit("pet.wooden_fish", {});
+    expect(renderer.played).toEqual(["idle", "wooden_fish", "wooden_fish"]);
+  });
+
+  it("records every interaction, including drags", () => {
+    const { bus, state } = setup();
+    vi.advanceTimersByTime(5000);
+    bus.emit("pet.drag_started", {});
+    expect(state.get().lastInteractionAt).toBe(Date.now());
+  });
+});
+
+describe("being carried", () => {
+  it("dangles while dragged and returns to idle when dropped", () => {
+    const { bus, renderer, controller } = setup();
+    bus.emit("pet.drag_started", {});
+    expect(renderer.last).toBe("drag");
+
+    bus.emit("pet.drag_ended", { dockSide: null });
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("interrupts a reaction when picked up", () => {
+    const { bus, renderer } = setup();
+    bus.emit("pet.fed", {});
+    bus.emit("pet.drag_started", {});
+    expect(renderer.last).toBe("drag");
+  });
+
+  it("wakes up when picked up", () => {
+    const { bus, state, controller } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.drag_started", {});
+    expect(state.get().activity).toBe("awake");
+
+    bus.emit("pet.drag_ended", { dockSide: null });
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("keeps sleeping when the pack has no drag animation", () => {
+    const { bus, state, renderer } = setup({ missing: ["drag"] });
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: null });
+    expect(state.get().activity).toBe("sleeping");
+    expect(renderer.last).toBe("sleep");
+  });
+
+  it("does not act on its own while carried", () => {
+    const { bus, renderer, pass } = setup();
+    bus.emit("pet.drag_started", {});
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs);
+    expect(renderer.last).toBe("drag");
+  });
+});
+
+describe("hiding behind a screen edge", () => {
+  it("peeks out when dropped against an edge", () => {
+    const { bus, renderer, docks } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "right" });
+    expect(renderer.last).toBe("peek");
+    expect(docks).toEqual(["right"]);
+  });
+
+  it("stays hidden until the user comes back", () => {
+    const { bus, renderer, state, pass } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs);
+    expect(renderer.last).toBe("peek");
+    expect(state.get().activity).toBe("awake");
+  });
+
+  it("comes out happily when clicked, without the usual click rewards", () => {
+    const { bus, renderer, state, docks } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.clicked", { region: "head" });
+    expect(renderer.last).toBe("happy");
+    expect(docks).toEqual(["left", null]);
+    expect(state.get().stats.affinity).toBe(50);
+  });
+
+  it("leaves the edge when picked up again", () => {
+    const { bus, renderer, docks } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.drag_started", {});
+    expect(renderer.last).toBe("drag");
+    expect(docks).toEqual(["left", null]);
+  });
+
+  it("cannot be put to sleep while hidden", () => {
+    const { bus, renderer, state } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.sleep", {});
+    expect(renderer.last).toBe("peek");
+    expect(state.get().activity).toBe("awake");
+  });
+
+  it("comes out from the edge when fed", () => {
+    const { bus, renderer, docks, state } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.fed", {});
+    expect(docks).toEqual(["left", null]);
+    expect(renderer.last).toBe("eat");
+    expect(state.get().stats.satiety).toBe(75);
+  });
+
+  it("just stands at the edge when the pack has no peek animation", () => {
+    const { bus, controller, docks } = setup({ missing: ["peek"] });
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    expect(controller.current?.id).toBe("idle");
+    expect(docks).toEqual([]);
+  });
+});
+
+describe("sleeping and waking", () => {
+  it("falls asleep on request", () => {
+    const { bus, state, renderer } = setup();
+    bus.emit("pet.sleep", {});
+    expect(state.get().activity).toBe("sleeping");
+    expect(renderer.last).toBe("sleep");
+  });
+
+  it("wakes up on request and returns to idle", () => {
+    const { bus, state, renderer, controller } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.wake_up", {});
+    expect(state.get().activity).toBe("awake");
+    expect(renderer.last).toBe("wake_up");
+
+    vi.advanceTimersByTime(900);
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("wakes up when clicked, without the usual click reaction", () => {
+    const { bus, state, renderer } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.clicked", { region: "head" });
+    expect(state.get().activity).toBe("awake");
+    expect(renderer.played).not.toContain("pet_reaction");
+    expect(state.get().stats.affinity).toBe(50);
+  });
+
+  it("wakes up to be fed, then eats once awake", () => {
+    const { bus, state, renderer, pass } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.fed", {});
+    expect(state.get().activity).toBe("awake");
+    expect(renderer.last).toBe("wake_up");
+    expect(state.get().stats.satiety).toBe(50);
+    pass(1_000);
+    expect(renderer.last).toBe("eat");
+    expect(state.get().stats.satiety).toBe(75);
+  });
+
+  it("wakes up for an action from the dock or the action library", () => {
+    const { bus, renderer, pass } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.action_requested", { id: "wooden_fish" });
+    expect(renderer.last).toBe("wake_up");
+    pass(1_000);
+    expect(renderer.last).toBe("wooden_fish");
+  });
+
+  it("still wakes up when there is no wake-up animation", () => {
+    const { bus, state, controller } = setup({ missing: ["wake_up"] });
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.wake_up", {});
+    expect(state.get().activity).toBe("awake");
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("stays awake when the sleep request is refused", () => {
+    const { bus, state } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.wake_up", {});
+    // The wake-up animation cannot be interrupted.
+    bus.emit("pet.sleep", {});
+    expect(state.get().activity).toBe("awake");
+  });
+
+  it("ignores repeated sleep and stray wake requests", () => {
+    const { bus, renderer } = setup();
+    bus.emit("pet.wake_up", {});
+    expect(renderer.played).toEqual(["idle"]);
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.sleep", {});
+    expect(renderer.played).toEqual(["idle", "sleep"]);
+  });
+});
+
+describe("autonomous behavior", () => {
+  it("plays an idle action after the scheduled wait, then waits again", () => {
+    const { renderer, pass } = setup();
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.min - 1);
+    expect(renderer.played).toEqual(["idle"]);
+
+    pass(1);
+    expect(renderer.last).toBe("blink");
+
+    pass(1000);
+    expect(renderer.played).toEqual(["idle", "blink", "idle"]);
+  });
+
+  it("picks among all actions in the idle category, including newly added ones", () => {
+    const { renderer, pass } = setup({
+      extraAnimations: [{ id: "dance", file: "a/dance.png", category: "idle", duration: 1000 }],
+      random: () => 0.99,
+    });
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);
+    expect(renderer.last).toBe("dance");
+  });
+
+  it("does not play idle actions disabled by the user", () => {
+    let enabled = false;
+    const { renderer, pass } = setup({ isIdleActionEnabled: () => enabled });
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);
+    expect(renderer.played).toEqual(["idle"]);
+    enabled = true;
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);
+    expect(renderer.last).toBe("blink");
+  });
+
+  it("does nothing when the pack has no idle actions", () => {
+    const { renderer, pass } = setup({ missing: ["blink"] });
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);
+    expect(renderer.played).toEqual(["idle"]);
+  });
+
+  it("does not start an idle action over a reaction", () => {
+    const { bus, renderer, pass } = setup();
+    vi.advanceTimersByTime(BEHAVIOR_CONFIG.idleActionIntervalMs.min - 100);
+    bus.emit("pet.fed", {});
+    pass(100);
+    expect(renderer.last).toBe("eat");
+  });
+
+  it("falls asleep after a long time without interaction", () => {
+    const { state, renderer, pass } = setup({ missing: ["blink"] });
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs - 1);
+    expect(state.get().activity).toBe("awake");
+
+    pass(1);
+    expect(state.get().activity).toBe("sleeping");
+    expect(renderer.last).toBe("sleep");
+  });
+
+  it("does not fall asleep sooner when energy is low, since the user cannot see it", () => {
+    const { state, pass } = setup({ stats: { energy: 10 }, missing: ["blink"] });
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs - 1);
+    expect(state.get().activity).toBe("awake");
+  });
+
+  it("stays asleep until the user comes back", () => {
+    const { bus, state, renderer, pass } = setup({ missing: ["blink"] });
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs);
+    pass(60 * 60_000);
+    expect(renderer.last).toBe("sleep");
+
+    bus.emit("pet.clicked", { region: "body" });
+    expect(state.get().activity).toBe("awake");
+  });
+
+  it("stops reacting after it is stopped", () => {
+    const { bus, renderer, engine } = setup();
+    engine.stop();
+    bus.emit("pet.clicked", { region: "head" });
+    expect(renderer.played).toEqual(["idle"]);
+  });
+});
+
+describe("focus companion", () => {
+  it("leaves the screen edge before starting focus", () => {
+    const { bus, controller, docks, focus } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    expect(controller.current?.id).toBe("peek");
+    bus.emit("pet.focus_toggled", {});
+    expect(docks).toEqual(["left", null]);
+    expect(focus.get().phase).toBe("focusing");
+    expect(controller.current?.id).toBe("focus");
+  });
+  it("starts a round: says so, shows the countdown and settles into the focus pose", () => {
+    const { bus, controller, said, badges } = setup();
+    bus.emit("pet.focus_toggled", {});
+    expect(controller.current?.id).toBe("focus");
+    expect(said).toHaveLength(1);
+    expect(badges).toEqual(["专注 25:00"]);
+  });
+
+  it("updates the countdown and neither wanders off nor dozes while focusing", () => {
+    const { bus, state, controller, renderer, pass, badges } = setup();
+    bus.emit("pet.focus_toggled", {});
+    const played = renderer.played.length;
+    pass(1000);
+    expect(badges[badges.length - 1]).toBe("专注 24:59");
+    for (let minute = 0; minute < 24; minute += 1) pass(60_000);
+    expect(state.get().activity).toBe("awake");
+    expect(controller.current?.id).toBe("focus");
+    expect(renderer.played.slice(played)).toEqual([]);
+  });
+
+  it("goes back to the focus pose after reacting to a click", () => {
+    const { bus, controller, pass } = setup();
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.petted", {});
+    expect(controller.current?.id).toBe("pet_reaction");
+    pass(2000);
+    pass(1000);
+    expect(controller.current?.id).toBe("focus");
+  });
+
+  it("celebrates a finished round with a line that stays up, rewards it, then rests before stopping", () => {
+    const { bus, state, controller, passSteps, said, badges, focus } = setup();
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.emit("pet.focus_toggled", {});
+    passSteps(FOCUS_CONFIG.focusMs);
+    expect(controller.current?.id).toBe("happy");
+    expect(state.get().stats).toMatchObject({ mood: 55, affinity: 52 });
+    expect(focus.get().phase).toBe("resting");
+    expect(badges[badges.length - 1]).toBe("休息 05:00");
+    expect(shown).toEqual(["专注完成！辛苦啦，起来活动一下吧～"]);
+    bus.emit("pet.alert_dismissed", {});
+    expect(shown).toEqual(["专注完成！辛苦啦，起来活动一下吧～", null]);
+    passSteps(FOCUS_CONFIG.restMs);
+    expect(focus.get().phase).toBe("off");
+    expect(badges[badges.length - 1]).toBeNull();
+    expect(state.get().activity).toBe("awake");
+    expect(said).toHaveLength(2);
+  });
+
+  it("does not count a round the computer slept through", () => {
+    const { bus, pass, said, focus } = setup();
+    let completed = 0;
+    bus.on("pet.focus_completed", () => completed++);
+    bus.emit("pet.focus_toggled", {});
+    pass(1_000);
+    pass(2 * 60 * 60_000);
+    expect(focus.get().phase).toBe("off");
+    expect(completed).toBe(0);
+    expect(said[said.length - 1]).toContain("这轮专注先不算");
+  });
+
+  it("asks once before stopping a round", () => {
+    const { bus, focus, said, pass } = setup();
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.focus_toggled", {});
+    expect(focus.get().phase).toBe("focusing");
+    expect(said[said.length - 1]).toBe("再点一次就停止专注");
+    pass(BEHAVIOR_CONFIG.confirmStopMs + 1_000);
+    bus.emit("pet.focus_toggled", {});
+    expect(focus.get().phase).toBe("focusing");
+  });
+
+  it("stops a round when toggled twice or when sent to sleep", () => {
+    const first = setup();
+    first.bus.emit("pet.focus_toggled", {});
+    first.bus.emit("pet.focus_toggled", {});
+    first.bus.emit("pet.focus_toggled", {});
+    expect(first.focus.get().phase).toBe("off");
+    expect(first.controller.current?.id).toBe("idle");
+    expect(first.badges[first.badges.length - 1]).toBeNull();
+
+    const second = setup();
+    second.bus.emit("pet.focus_toggled", {});
+    second.bus.emit("pet.sleep", {});
+    expect(second.focus.get().phase).toBe("off");
+    expect(second.state.get().activity).toBe("sleeping");
+  });
+
+  it("stops a round or a rest at once from the menu", () => {
+    const { bus, focus, passSteps } = setup();
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.focus_stopped", {});
+    expect(focus.get().phase).toBe("off");
+    bus.emit("pet.focus_toggled", {});
+    passSteps(FOCUS_CONFIG.focusMs);
+    expect(focus.get().phase).toBe("resting");
+    bus.emit("pet.focus_stopped", {});
+    expect(focus.get().phase).toBe("off");
+  });
+
+  it("wakes up to start a round", () => {
+    const { bus, focus, state } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.focus_toggled", {});
+    expect(state.get().activity).toBe("awake");
+    expect(focus.get().phase).toBe("focusing");
+  });
+
+  it("starts a new round straight from the rest", () => {
+    const { bus, focus, passSteps } = setup();
+    bus.emit("pet.focus_toggled", {});
+    passSteps(FOCUS_CONFIG.focusMs);
+    bus.emit("pet.focus_toggled", {});
+    expect(focus.get().phase).toBe("focusing");
+  });
+});
+
+/** Reminders kept in memory, announced once like the real agenda. */
+function fakeReminders(items: DueReminder[]): ReminderSource & { reminded: string[] } {
+  const reminded: string[] = [];
+  return {
+    reminded,
+    due: (now) => items.filter((item) => item.remindAt !== null && item.remindAt <= now && !reminded.includes(item.id)),
+    markReminded: (ids) => reminded.push(...ids),
+  };
+}
+
+describe("reminders", () => {
+  function alerts(bus: EventBus<PetEvents>) {
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ text }) => shown.push(text));
+    return shown;
+  }
+
+  it("keeps a due reminder up until the user clicks it away", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() + 5_000 }]);
+    const { bus, renderer, pass } = setup({ reminders });
+    const shown = alerts(bus);
+    pass(4_000);
+    expect(shown).toEqual([]);
+    pass(1_000);
+    expect(shown).toEqual(["到点啦：开会"]);
+    expect(renderer.last).toBe("happy");
+    pass(60 * 60_000);
+    expect(shown).toEqual(["到点啦：开会"]);
+    expect(reminders.reminded).toEqual([]);
+    bus.emit("pet.alert_dismissed", {});
+    expect(shown).toEqual(["到点啦：开会", null]);
+    expect(reminders.reminded).toEqual(["r1"]);
+    pass(1_000);
+    expect(shown).toHaveLength(2);
+  });
+
+  it("wakes the pet and brings it out from the screen edge", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "喝水", remindAt: Date.now() + 1_000 }]);
+    const sleeping = setup({ reminders });
+    sleeping.bus.emit("pet.sleep", {});
+    sleeping.pass(1_000);
+    expect(sleeping.state.get().activity).toBe("awake");
+
+    const docked = setup({ reminders: fakeReminders([{ id: "r2", text: "喝水", remindAt: Date.now() + 1_000 }]) });
+    docked.bus.emit("pet.drag_started", {});
+    docked.bus.emit("pet.drag_ended", { dockSide: "left" });
+    docked.pass(1_000);
+    expect(docked.docks).toEqual(["left", null]);
+  });
+
+  it("gathers reminders on one line and words late ones differently", () => {
+    const items: DueReminder[] = [
+      { id: "a", text: "开会", remindAt: Date.now() },
+      { id: "b", text: "喝水", remindAt: Date.now() + BEHAVIOR_CONFIG.reminderLateMs + 2_000 },
+    ];
+    const { bus, pass } = setup({ reminders: fakeReminders(items) });
+    const shown = alerts(bus);
+    pass(0);
+    pass(BEHAVIOR_CONFIG.reminderLateMs + 2_000);
+    expect(shown).toEqual(["到点啦：开会", "别忘了：开会、喝水"]);
+  });
+
+  it("takes a reminder off the line when it is done elsewhere", () => {
+    const items: DueReminder[] = [{ id: "a", text: "开会", remindAt: Date.now() }];
+    const { bus, pass } = setup({ reminders: fakeReminders(items) });
+    const shown = alerts(bus);
+    pass(0);
+    items.pop();
+    pass(1_000);
+    expect(shown).toEqual(["到点啦：开会", null]);
+  });
+
+  it("waits on the badge during do-not-disturb, then shows the line", () => {
+    let quiet = true;
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
+    const { bus, badges, pass } = setup({ reminders, holdsReminders: () => quiet });
+    const shown = alerts(bus);
+    pass(1_000);
+    expect(shown).toEqual([]);
+    expect(badges[badges.length - 1]).toBe("提醒 1 · 勿扰");
+    quiet = false;
+    pass(1_000);
+    expect(shown).toEqual(["到点啦：开会"]);
+    expect(badges[badges.length - 1]).toBeNull();
+  });
+
+  it("shows waiting reminders next to the focus countdown", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
+    const { bus, badges, pass } = setup({ reminders, holdsReminders: () => true });
+    bus.emit("pet.focus_toggled", {});
+    pass(1_000);
+    expect(badges[badges.length - 1]).toBe("专注 24:59 · 提醒 1 · 勿扰");
+  });
+
+  it("names two reminders at most and counts the rest", () => {
+    const items: DueReminder[] = ["开会", "喝水", "交周报"].map((text, index) => ({ id: String(index), text, remindAt: Date.now() }));
+    const { bus, pass } = setup({ reminders: fakeReminders(items) });
+    const shown: Array<{ text: string | null; more?: boolean }> = [];
+    bus.on("pet.alert", (alert) => shown.push(alert));
+    pass(0);
+    expect(shown).toEqual([{ text: "别忘了：开会、喝水 等 3 件", more: true }]);
+  });
+
+  it("goes back behind the edge it came from once the line is dismissed", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "喝水", remindAt: Date.now() + 1_000 }]);
+    const { bus, docks, pass } = setup({ reminders });
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    pass(1_000);
+    expect(docks).toEqual(["left", null]);
+    pass(2_000);
+    bus.emit("pet.alert_dismissed", {});
+    pass(BEHAVIOR_CONFIG.backToEdgeAfterAlertMs);
+    expect(docks).toEqual(["left", null, "left"]);
+  });
+});
+
+describe("greetings", () => {
+  it("wakes the pet, brings it out and says the greeting", () => {
+    const { bus, state, docks, said, pass } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "right" });
+    bus.emit("pet.sleep", {});
+    pass(1_000);
+    bus.emit("pet.greeting", { text: "早上好！" });
+    expect(state.get().activity).toBe("awake");
+    expect(docks).toEqual(["right", null]);
+    expect(said).toEqual(["早上好！"]);
+  });
+
+  it("goes back behind the edge after a greeting", () => {
+    const { bus, docks, pass } = setup();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "right" });
+    bus.emit("pet.greeting", { text: "早上好！" });
+    pass(BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs);
+    expect(docks).toEqual(["right", null, "right"]);
+  });
+
+  it("reports a finished focus round, but not a stopped one", () => {
+    const { bus, passSteps } = setup();
+    let completed = 0;
+    bus.on("pet.focus_completed", () => completed++);
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.focus_toggled", {});
+    passSteps(FOCUS_CONFIG.focusMs);
+    expect(completed).toBe(1);
+  });
+});

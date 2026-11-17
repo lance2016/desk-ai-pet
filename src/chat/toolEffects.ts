@@ -1,0 +1,69 @@
+import { addAgendaItem, itemSummary, updateAgenda } from "../agenda/AgendaStore";
+import { confirmationFor, FALLBACK_REASONS, interpretToolCalls, type ToolNote, type ToolReminder } from "../agenda/chatTools";
+import { addNote, updateNotes } from "../notes/NoteStore";
+import { petWindow } from "../platform/petWindow";
+
+const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+/** A note the reply saved. The id is the stored note's, which may be an older one with the same text. */
+export interface SavedNote {
+  id: string;
+  text: string;
+}
+
+/** Saves `text` as a quick note and returns the stored note. Throws when it cannot be saved. */
+export function saveNote(text: string): SavedNote {
+  const notes = updateNotes((list) => addNote(list, { id: newId(), text }, Date.now()));
+  // Texts are unique: saving one that exists brings that note forward.
+  const saved = notes.find((note) => note.text === text.trim());
+  if (!saved) throw new Error("The note was not saved");
+  return { id: saved.id, text: saved.text };
+}
+
+/** What one reply saved, or failed to save, as the chat shows it under the reply. */
+export interface SavedLine {
+  /** The reminder or note to open; none for a failure. */
+  id?: string;
+  kind: "agenda" | "note" | "failed";
+  text: string;
+}
+
+export interface ToolEffects {
+  lines: SavedLine[];
+  /** A reply for when the model only called tools and said nothing. */
+  confirmation: string;
+}
+
+const TRIMMED = "（已截短）";
+
+function reminderLine(item: ToolReminder, now: number): SavedLine {
+  const marks = `${item.trimmed ? TRIMMED : ""}${item.onceOnly ? "（这种重复方式不支持，只提醒一次）" : ""}`;
+  return { id: item.id, kind: "agenda", text: `已设提醒：${itemSummary(item, now)}${marks}` };
+}
+
+function noteLine(note: ToolNote, saved: SavedNote): SavedLine {
+  const lead = note.fallback ? FALLBACK_REASONS[note.fallback] : "已存进备忘";
+  return { id: saved.id, kind: "note", text: `${lead}：${saved.text}${note.trimmed ? TRIMMED : ""}` };
+}
+
+/**
+ * Saves the reminders and notes and plays the action the model asked for.
+ * Returns a line for everything the reply asked to keep, including what could
+ * not be kept and why, and a reply for a reply-less answer.
+ */
+export function applyToolCalls(payloads: string[]): ToolEffects {
+  if (payloads.length === 0) return { lines: [], confirmation: "" };
+  const now = Date.now();
+  const { items, notes, failures, action } = interpretToolCalls(payloads, now, newId);
+  if (items.length > 0) updateAgenda((list) => items.reduce((next, item) => addAgendaItem(next, item, now), list));
+  const saved = notes.map((note) => noteLine(note, saveNote(note.text)));
+  if (action) void petWindow.requestAction(action).catch(() => {});
+  return {
+    lines: [
+      ...items.map((item) => reminderLine(item, now)),
+      ...saved,
+      ...failures.map((reason) => ({ kind: "failed" as const, text: `这条没记上：${reason}。可以再说一次，或者自己在提醒、备忘里添加` })),
+    ],
+    confirmation: confirmationFor(items, now, notes, failures),
+  };
+}

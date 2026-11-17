@@ -1,0 +1,117 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AI Pet",
+  "version": "../package.json",
+  "identifier": "com.aipet.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "AI Pet",
+        "width": 392,
+        "height": 384,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visibleOnAllWorkspaces": true,
+        "acceptFirstMouse": true
+      },
+      {
+        "label": "settings",
+        "title": "AI Pet 设置",
+        "url": "index.html?window=settings",
+        "width": 720,
+        "height": 560,
+        "visible": false,
+        "resizable": false,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false
+      },
+      {
+        "label": "chat",
+        "title": "和宠物聊天",
+        "url": "index.html?window=chat",
+        "width": 400,
+        "height": 560,
+        "minWidth": 340,
+        "minHeight": 400,
+        "visible": false,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false
+      },
+      {
+        "label": "today",
+        "title": "提醒",
+        "url": "index.html?window=today",
+        "width": 320,
+        "height": 440,
+        "visible": false,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true
+      },
+      {
+        "label": "notes",
+        "title": "备忘",
+        "url": "index.html?window=notes",
+        "width": 320,
+        "height": 460,
+        "visible": false,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost",
+      "devCsp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "hardenedRuntime": false,
+      "minimumSystemVersion": "13.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg4OTJBQTBDRjBCOUI4MjkKUldRcHVMbndES3FTaUllWXlPWHNLZUpyaHVTN2N2bGlaMFM2TFRLVjRNVFcxY1ZsMDJaMHZPV1gK",
+      "endpoints": ["https://github.com/lance2016/desk-ai-pet-releases/releases/latest/download/latest.json"]
+    }
+  }
+}

@@ -1,0 +1,359 @@
+:root {
+  /* Sampled from the character art. */
+  --ink: #2b2757; /* line art and hair */
+  --ink-soft: #6c67a0;
+  --paper: #fbfaff; /* the lilac white of her collar */
+  --lilac: #e7e3f8;
+  --spark: #f8cf4a; /* the yellow spark marks */
+  --satiety: #f39a3d; /* carrot hair clip */
+  --energy: #5aa7e6; /* sailor scarf */
+  --mood: #f58aa5; /* skirt stripe */
+  --affinity: #8a7fd8;
+
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  /* The window itself is transparent; nothing may paint a backdrop. */
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/*
+ * The window is a transparent stage: the pet sits in the middle, with room for
+ * the speech bubble above and the quick-chat input below. App sets the --stage-* margins and
+ * the --visible-* insets (how far the window hangs off screen).
+ */
+.app {
+  position: relative;
+  height: 100%;
+}
+
+.pet-frame {
+  position: absolute;
+  top: var(--stage-top);
+  left: var(--stage-side);
+  right: var(--stage-side);
+  bottom: var(--stage-bottom);
+}
+
+.stage {
+  width: 100%;
+  height: 100%;
+}
+
+.stage canvas {
+  display: block;
+}
+
+/* Overlays are laid out inside the on-screen part of the window. */
+.speech-area,
+.dock-area {
+  position: absolute;
+  left: var(--visible-left);
+  right: var(--visible-right);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Under the menu bar the bubble moves down onto the pet's head, so it can still be read. */
+.speech-area {
+  top: var(--visible-top, 0px);
+  height: calc(var(--stage-top) + 18px);
+  align-items: flex-end;
+  z-index: 3;
+}
+
+/* Keep the bubble and its tail near the visible peek pose at either edge. */
+.app--docked-left .speech-area { justify-content: flex-start; padding-left: 8px; }
+.app--docked-right .speech-area { justify-content: flex-end; padding-right: 8px; }
+.app--docked-left .speech-bubble::after { left: 28px; }
+.app--docked-right .speech-bubble::after { left: auto; right: 18px; }
+
+.speech-bubble {
+  position: relative;
+  max-width: min(240px, calc(100% - 16px));
+  margin: 0;
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--ink);
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid #e3ddf5;
+  border-radius: 14px;
+  box-shadow: 0 3px 10px #40366b2e;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-word;
+  animation: speech-in 180ms ease-out;
+}
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-right: 1px solid #e3ddf5;
+  border-bottom: 1px solid #e3ddf5;
+  transform: translateX(-50%) rotate(45deg);
+}
+.speech-bubble__spark { color: #8a7fd8; flex: 0 0 auto; }
+
+/* Due reminders: stays up until clicked, so it has to stand out and take the mouse. */
+.speech-bubble--alert {
+  /* Wider than a passing line, so the longest reminder plus the hint still fits above the pet. */
+  max-width: min(300px, calc(100% - 16px));
+  color: #5a2f1e;
+  background: #fff8e8;
+  border: 1.5px solid #f3b44a;
+  box-shadow: 0 4px 14px #c47b1a40;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: speech-in 180ms ease-out, alert-nudge 4s ease-in-out 1s infinite;
+}
+.speech-bubble--alert::after { border-color: #f3b44a; border-width: 0 1.5px 1.5px 0; border-style: solid; }
+.speech-bubble--alert small { display: block; margin-top: 2px; color: #a8743a; font-size: 10px; }
+/* The room above the pet is short: a long line is cut rather than pushed off the top of the window. */
+.speech-bubble__alert-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.speech-bubble__bell {
+  width: 15px; height: 15px; margin-top: 1px; flex: 0 0 auto;
+  fill: none; stroke: #e08a12; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* A short wiggle every few seconds draws the eye without being restless. */
+@keyframes alert-nudge {
+  0%, 84%, 100% { transform: none; }
+  87% { transform: rotate(-2deg); }
+  90% { transform: rotate(2deg); }
+  93% { transform: rotate(-1deg); }
+}
+
+@keyframes speech-in {
+  from { opacity: 0; transform: translateY(4px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.status-badge {
+  position: absolute;
+  z-index: 2;
+  left: max(var(--visible-left), var(--stage-side));
+  right: max(var(--visible-right), var(--stage-side));
+  bottom: calc(8px + var(--visible-bottom, 0px));
+  width: max-content;
+  max-width: calc(100% - var(--visible-left) - var(--visible-right) - 16px);
+  margin-inline: auto;
+  padding: 3px 9px;
+  color: #4c437e;
+  background: rgba(255, 255, 255, .95);
+  border: 1px solid #ded8f0;
+  border-radius: 11px;
+  box-shadow: 0 2px 6px #40366b24;
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.status-badge:hover { border-color: #c9bdf0; }
+.status-badge:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+.app--docked-left .status-badge { left: calc(var(--visible-left) + 8px); right: auto; margin: 0; }
+.app--docked-right .status-badge { right: calc(var(--visible-right) + 8px); left: auto; margin: 0; }
+
+/* Behind the Dock or off the bottom of the screen, the bar moves up over the pet's feet. */
+.dock-area {
+  bottom: var(--visible-bottom, 0px);
+  height: var(--stage-bottom);
+  align-items: center;
+  z-index: 2;
+}
+
+/* Compact glass controls float in the reserved side margins, never over the pet canvas. */
+.floating-controls-area {
+  position: absolute;
+  top: var(--stage-top);
+  right: var(--visible-right);
+  bottom: var(--stage-bottom);
+  left: var(--visible-left);
+  z-index: 4;
+  pointer-events: none;
+}
+.controls {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease, visibility 140ms;
+}
+.controls.is-visible { opacity: 1; visibility: visible; }
+.controls__rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+.controls__rail--left { left: 0; width: max(0px, calc(var(--stage-side) - var(--visible-left) + (100% + var(--visible-left) + var(--visible-right) - 2 * var(--stage-side)) * .16)); }
+.controls__rail--right { right: 0; width: max(0px, calc(var(--stage-side) - var(--visible-right) + (100% + var(--visible-left) + var(--visible-right) - 2 * var(--stage-side)) * .16)); }
+.controls--single-left .controls__rail--right,
+.controls--single-right .controls__rail--left { display: none; }
+.controls__actions {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 100%;
+  padding: 4px 0;
+}
+.controls__rail::-webkit-scrollbar { width: 4px; }
+.controls__rail::-webkit-scrollbar-thumb { background: #8a7fd866; border-radius: 4px; }
+.controls button {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--dock-button-size);
+  height: var(--dock-button-size);
+  padding: 0;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #51467f;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(233, 228, 250, .82));
+  border: 1px solid rgba(255, 255, 255, .92);
+  border-radius: 50%;
+  box-shadow: 0 3px 9px rgba(53, 43, 102, .12), inset 0 1px 0 rgba(255, 255, 255, .9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  pointer-events: auto;
+}
+.controls button:hover:not(:disabled) { color: #6a54cb; background: #fff; box-shadow: 0 6px 16px rgba(87, 67, 167, .24), inset 0 1px 0 #fff; }
+.controls button:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+.controls button:disabled { opacity: .48; cursor: default; }
+/* A running focus round: the button stays lit, so it reads as "on". */
+.controls button.is-active { box-shadow: 0 0 0 2px #8874d8, 0 4px 12px rgba(87, 67, 167, .3); }
+.controls .control-icon { display: block; width: var(--dock-icon-size); height: var(--dock-icon-size); flex: 0 0 auto; object-fit: contain; }
+.controls__action--primary { color: #fff !important; background: linear-gradient(145deg, #9b87e9, #7661d1) !important; border-color: rgba(255, 255, 255, .78) !important; box-shadow: 0 5px 15px rgba(100, 77, 194, .34), inset 0 1px 0 rgba(255, 255, 255, .55) !important; }
+.controls__action--primary:hover { background: linear-gradient(145deg, #a998f1, #806de0) !important; }
+
+/* Quick chat: the answer above the pet. Wider than a passing line, cut to a few lines; a click opens the whole chat. */
+.speech-bubble--reply {
+  max-width: min(320px, calc(100% - 16px));
+  pointer-events: auto;
+  cursor: pointer;
+}
+.speech-bubble--reply:hover { border-color: #c9bdf0; }
+.speech-bubble__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.speech-bubble--reply.is-error { color: #8a2c2c; background: #fff4f2; border-color: #f0beb6; }
+.speech-bubble__body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+/* Room above the pet is limited: the reply gives up lines to the extra row. */
+.speech-bubble--reply.has-extra .speech-bubble__text { -webkit-line-clamp: 2; }
+.speech-bubble__fix { color: #a8743a; font-size: 10px; }
+.speech-bubble__saved { display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; color: #4c437e; background: #f3f0fc; border-radius: 8px; font-size: 11px; }
+.speech-bubble__saved span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speech-bubble__saved button { flex: none; padding: 1px 7px; color: #6b5fc0; background: #fff; border: 1px solid #ddd5f5; border-radius: 6px; font: inherit; font-size: 10px; cursor: pointer; }
+.speech-bubble__saved.is-failed { color: #8a5a12; background: #fdf3e1; }
+.speech-bubble--reply.is-error::after { border-color: #f0beb6; }
+
+/* Quick chat stays in the bottom stage margin, separate from the floating controls. */
+.quick-chat {
+  width: min(300px, calc(100% - 8px));
+  height: 38px;
+  padding: 4px 4px 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid #d9d0f5;
+  border-radius: 19px;
+  box-shadow: 0 3px 12px #40366b38;
+  pointer-events: auto;
+  animation: speech-in 140ms ease-out;
+}
+.quick-chat:focus-within { border-color: #a596e6; }
+.quick-chat input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 13px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.quick-chat input::placeholder { color: #a39cc4; }
+.quick-chat button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #6b5fc0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.quick-chat button:hover:not(:disabled) { background: #f2edff; }
+.quick-chat button:disabled { opacity: .4; cursor: default; }
+.quick-chat button[type="submit"]:not(:disabled) { color: #fff; background: #8874d8; }
+.quick-chat svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+.load-error {
+  margin: 4px;
+  padding: 6px 8px;
+  background: var(--paper);
+  border: 1.5px solid var(--mood);
+  border-radius: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .controls,
+  .controls button {
+    transition: none;
+  }
+  .speech-bubble,
+  .speech-bubble--alert,
+  .quick-chat {
+    animation: none;
+  }
+}

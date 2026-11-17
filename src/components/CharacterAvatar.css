@@ -1,0 +1,13 @@
+.character-avatar { position: relative; flex: none; display: grid; place-items: center; overflow: hidden; border-radius: 50%; color: #8a72e0; background: #ece6fb; }
+.character-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; user-select: none; }
+/* Action images show the whole body; keep the head. */
+.character-avatar--head img { inset: auto; left: -35%; top: 4%; width: 170%; height: auto; object-fit: fill; }
+/* A saved crop sets width, left and top inline. */
+.character-avatar--cropped img { inset: auto; height: auto; max-width: none; object-fit: fill; }
+
+/* The peeking character: 78 × 64 (`FRAME_ASPECT.peek`), scaled by the caller's width. */
+.peek-picture { position: relative; display: block; overflow: hidden; aspect-ratio: 78 / 64; pointer-events: none; }
+.peek-picture img { position: absolute; user-select: none; }
+.peek-picture--top img { left: 0; top: 0; width: 100%; }
+.peek-picture--whole img { inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+.peek-picture--cropped img { max-width: none; }

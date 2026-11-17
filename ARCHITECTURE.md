@@ -1,0 +1,411 @@
+# 架构说明
+
+## 设计原则
+
+1. **宠物逻辑不依赖渲染库。** 只有 `PixiRenderer.ts` 引用 PixiJS。
+2. **宠物逻辑不依赖桌面框架。** 只有 `platform/petWindow.ts` 引用 Tauri。
+3. **动作是数据，不是代码。** 动作全部来自资源包的 `manifest.json`。
+4. **同一时间只有一个主动作。** 所有播放请求都经过 `ActionController`。
+
+## 目录
+
+```
+src/
+├── types.ts                 公共类型：动作定义、属性、事件
+├── core/
+│   ├── EventBus.ts          带类型的事件总线
+│   ├── PetState.ts          属性、活动状态、随时间衰减
+│   └── PetRuntime.ts        把各模块组装起来，对外提供 requestAction
+├── actions/
+│   ├── ActionRegistry.ts    动作的注册、查询、降级
+│   └── ActionController.ts  播放、优先级、打断、冷却
+├── behavior/
+│   └── BehaviorEngine.ts    交互响应和自主行为
+├── renderer/
+│   ├── PetRenderer.ts       渲染接口
+│   ├── PixiRenderer.ts      PixiJS 实现
+│   └── motions.ts           程序化动效（呼吸、弹跳、摇晃等）
+├── assets/
+│   ├── Manifest.ts          manifest 的格式定义和校验
+│   ├── AssetLoader.ts       读取资源包
+│   └── PackCatalog.ts       内置角色和自建角色列表、默认角色、按 ID 加载角色包
+├── storage/
+│   └── PetStorage.ts        存档接口，当前用 localStorage
+├── agenda/
+│   ├── AgendaStore.ts       提醒（每条都有时间）：校验、增删改、到点判断、本机存储与跨窗口同步、旧待办迁移
+│   ├── Repeat.ts            重复提醒的规则：工作日、每天、每周几，算本轮和下一次
+│   ├── Workdays.ts          中国法定工作日：打包的节假日数据、缺年份时下载补上
+│   └── chatTools.ts         聊天的工具调用：给模型的时间和动作、把工具调用转成提醒和备忘
+├── chat/
+│   ├── ChatThreads.ts       聊天会话：按角色保存多段对话、标题、上限、旧记录迁移
+│   ├── QuickChat.ts         快速聊天用哪段对话、要发的消息、气泡里的纯文本和停留时间
+│   └── toolEffects.ts       聊天回复里的工具调用：存提醒和备忘、让宠物做动作（两个聊天入口共用）
+├── notes/
+│   └── NoteStore.ts         备忘：校验、增删改、置顶、搜索、本机存储与跨窗口同步
+├── greeting/
+│   ├── FocusLog.ts          每天完成的专注轮数
+│   ├── GreetingSchedule.ts  早安晚安什么时候该说、今天说过没有
+│   ├── GreetingContent.ts   问候里提到的事实、模板问候
+│   └── Greeter.ts           定时检查、请模型写问候、失败时用模板
+├── preferences/
+│   ├── CharacterPreferences.ts 当前角色、按角色生成存储 key、旧数据迁移
+│   ├── QuietPreferences.ts  勿扰、免打扰时段，判断现在是否该安静
+│   ├── DisplayPreferences.ts 本机显示偏好与跨窗口同步
+│   └── DockPreferences.ts   Dock：内置按钮、角色按钮和动作合成一个有序列表，校验、迁移、同步
+├── platform/
+│   ├── petWindow.ts         原生窗口操作：移动、贴边、改大小、弹菜单、可点击区域
+│   ├── holidays.ts          下载某一年的法定节假日数据（原生端 `holidays.rs`）
+│   ├── updater.ts           检查、下载安装新版本（Tauri 更新插件）
+│   └── hitMask.ts           把宠物轮廓和菜单区域合成一张可点击区域表
+├── update/
+│   └── UpdateNotice.ts      宠物定时查新版本，同一个版本只提醒一次
+├── components/
+│   ├── PetStage.tsx         舞台，负责把鼠标操作转成事件
+│   ├── PetControls.tsx      按 Dock 列表显示宠物两侧的浮动按钮
+│   ├── QuickChat.tsx        快速聊天：宠物脚下的输入条、头顶的回复气泡和发送逻辑
+│   ├── ControlIcon.tsx      快捷按钮的内置图标
+│   ├── ControlIconView.tsx  渲染内置、资源包或用户上传图标
+│   ├── today/TodayPanel.tsx “提醒”小面板（独立窗口）
+│   ├── notes/NotesPanel.tsx “备忘”小面板（独立窗口，沿用 TodayPanel.css 的变量和控件）
+│   └── settings/
+│       ├── SettingsPage.tsx 独立设置窗口页面
+│       ├── QuietSettings.tsx 勿扰和免打扰时段
+│       ├── QuickChatSettings.tsx 快速聊天快捷键
+│       ├── UpdateRow.tsx    「关于」页的软件更新：检查、下载进度、重启
+│       └── SettingsPage.css 设置页样式
+└── App.tsx                  创建运行时，控制窗口大小和菜单显隐
+
+src-tauri/src/
+├── lib.rs                   托盘、右键菜单、隐藏 Dock 图标
+├── floating_panel.rs        把窗口变成浮动面板，能盖在全屏应用上；快速聊天时拿键盘、还键盘（仅 macOS）
+├── proxy.rs                 读系统代理，交给 curl
+├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
+└── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
+public/pets/girl-default/    默认资源包
+```
+
+## 模块职责
+
+| 模块 | 负责 | 不负责 |
+|---|---|---|
+| `PetState` | 四项属性、清醒/睡眠、最近互动时间、时间衰减 | 动画 |
+| `ActionRegistry` | 记录有哪些动作；动作缺失时找替代 | 决定何时播放 |
+| `ActionController` | 决定一个请求能否播放；动作结束后回到待机 | 决定想播什么；修改属性 |
+| `BehaviorEngine` | 把交互事件和时间流逝转成动作请求，并修改属性 | 实际播放 |
+| `PetRenderer` | 加载单图/多图图层、播放动画、命中检测 | 任何业务规则 |
+| `EventBus` | 传递事件 | 任何业务规则 |
+| `PetRuntime` | 创建并连接以上模块，管理它们的生命周期 | 业务规则 |
+
+## 调用关系
+
+```
+ 用户操作                     时间流逝
+    │                            │
+ PetStage / PetControls      PetRuntime（每秒一次）
+    │ 发事件                      │ state.advance() + behavior.tick()
+    ▼                            ▼
+ EventBus ───────────────▶ BehaviorEngine ───▶ PetState（改属性）
+                                 │
+                                 │ request("happy")
+                                 ▼
+ 外部模块 ─ requestAction ─▶ ActionController ◀── ActionRegistry（查询、降级）
+                                 │
+                                 │ playAction("happy")
+                                 ▼
+                            PetRenderer ──▶ 屏幕
+```
+
+要点：
+
+- **React 组件只发事件，不直接播放动作。** 例如点击喂食按钮只是发出 `pet.fed`。
+- **`BehaviorEngine` 只提出请求。** 请求被拒绝时不修改属性，所以连点喂食不会刷属性。
+- **动作结束由 `ActionController` 计时。** 结束时发出 `pet.action.completed`，然后回到待机。
+- **界面通过订阅 `PetState` 更新。** 用的是 React 自带的 `useSyncExternalStore`，没有引入状态管理库。
+
+## 事件
+
+| 事件 | 数据 | 谁发出 |
+|---|---|---|
+| `pet.clicked` | `{ region: "head" \| "body" }` | `PetStage` |
+| `pet.petted` | 无，摸摸头：长按宠物 0.5 秒不动，或右键菜单「摸摸头」 | `PetStage`、`App`（菜单） |
+| `pet.chat_requested` | 无，dock 的「聊聊天」打开快速聊天输入条 | `PetControls` |
+| `pet.drag_started` | 无 | `PetStage` |
+| `pet.drag_ended` | `{ dockSide: "left" \| "right" \| null }`，松手时贴到的屏幕边缘 | `PetStage` |
+| `pet.dock_changed` | `{ side: "left" \| "right" \| null }`，开始或结束贴边 | `BehaviorEngine` |
+| `pet.fed` | 无 | `PetControls` |
+| `pet.wooden_fish` | 无 | `PetControls` |
+| `pet.sleep` | 无 | `PetControls` |
+| `pet.wake_up` | 无 | `PetControls` |
+| `pet.focus_toggled` | 无，开始一轮专注或停止当前专注 | `PetControls` |
+| `pet.action.started` | `{ actionId }` | `ActionController` |
+| `pet.action.completed` | `{ actionId }` | `ActionController` |
+| `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
+| `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
+| `pet.greeting` | `{ text }`，宠物出来打招呼并说这句话 | `PetRuntime.greet()` |
+| `pet.alert` | `{ text \| null }`，常驻气泡（到点提醒），`null` 表示收起 | `BehaviorEngine` |
+| `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
+| `pet.badge` | `{ text \| null }`，角色旁的状态徽标，`null` 表示隐藏 | `PetRuntime.setBadge()`、`BehaviorEngine` |
+
+单击宠物的意思是“我要跟你说话”：`useQuickChat` 收到 `pet.clicked` 就打开输入条，`BehaviorEngine` 只负责叫醒和从边上出来，不播反应、不加属性。摸摸头不抢这个入口，改由 `pet.petted` 触发：`PetStage` 按下后计时 500 毫秒，期间没松手也没移动就发 `pet.petted`，之后松手不再算点击，移动仍然开始拖动。事件里仍带 `region`，但不再区分头部和身体。
+
+## 动作调度规则
+
+收到一个请求后，`ActionController` 按顺序判断：
+
+1. **找到可播放的动作。** 动作存在就用它；素材缺失就沿 `fallback` 找；都没有就用 `idle`。
+2. **已经在播同一个持续动作**（如待机时请求待机）：直接算成功，不重播。
+3. **冷却中**：拒绝。
+4. **能否打断当前动作**：当前动作必须允许被打断，并且新动作优先级不低于它。否则拒绝。
+5. **播放。** 有时长的动作到时间后结束，回到待机。
+
+`stop()` 无视优先级，直接回到待机。唤醒、松手、从边上出来时用它退出持续动作。
+
+## 属性规则
+
+属性范围 0～100，数值定义在 `PetState.ts` 和 `BehaviorEngine.ts` 顶部的常量里。
+
+| 情况 | 饱食 | 精力 | 心情 | 亲密 |
+|---|---|---|---|---|
+| 清醒，每分钟 | −1/3 | −1/4 | −1/6 | 不变 |
+| 睡眠，每分钟 | −1/6 | +2 | 不变 | 不变 |
+| 喂食 | +25 | | +5 | +1 |
+| 摸摸头（长按或菜单） | | | +3 | +2 |
+
+- 属性每满一分钟结算一次，结算后存档。互动造成的变化立即存档。
+- 应用关闭期间按"睡眠"结算，最多算 8 小时。
+- 情绪（开心、平静、低落、困倦、饿了）由属性推算，不单独存储。
+
+## 自主行为
+
+`BehaviorEngine.tick()` 每秒被调用一次，只做几次比较：
+
+- 清醒且正在待机时，每隔 6～14 秒从 `idle` 类动作里随机播放一个。
+- 超过 5 分钟没有互动就睡着。属性不影响入睡：界面上看不到属性，用户无从知道为什么它睡得早。
+- 睡着后一直睡到用户点击或按唤醒。
+
+## 舞台
+
+宠物窗口比角色大，是一块透明舞台。角色区域四周的留白由 `STAGE_MARGIN`（`platform/stageGeometry.ts`）定义：两侧给浮动快捷图标留宽度，头顶放气泡，脚下放快速聊天输入条。窗口大小等于角色区域（清单 `canvas` × `scale` × 用户尺寸）加上留白。
+
+- 渲染画布只占角色区域（`.pet-frame`），点击检测和动作轮廓都相对于它计算；命中区域表按留白偏移后再放进整窗。
+- 限制在屏幕内、判断贴边、贴边对齐都按角色区域计算，窗口的留白可以伸出屏幕。几何计算是 `stageGeometry.ts` 里的纯函数。
+- 窗口伸出屏幕的宽度通过 `petWindow.offscreenInsets()` 读出，写进 `--visible-left`、`--visible-right`。气泡和浮动快捷图标只在屏幕可见的范围内布局，宠物贴边时快捷图标会移到仍可见的一侧。
+- 探头时气泡及状态徽标靠近对应屏幕边缘，气泡尾巴指向角色；贴边状态变化时重新计算提醒气泡的可点击区域。
+- 普通气泡和徽标只显示，不接收鼠标，不进入命中区域表。浮动快捷图标和提醒用的常驻气泡显示时加入命中区域表；快捷图标逐个加入，避免透明舞台上的整块区域挡住桌面点击。
+- `SpeechQueue` 一次只显示一句，按字数决定停留时间（2.5～8 秒），最多排队 3 句，超出时丢掉最早排队的。
+
+## 专注陪伴
+
+`FocusTimer`（`behavior/FocusTimer.ts`）只管时间：关闭 → 专注 25 分钟 → 休息 5 分钟 → 关闭。时间由调用方传入，电脑睡眠后醒来也能按真实时间结算。`PetRuntime.focus` 对外提供快照和订阅，快捷按钮据此显示“专注 / 停止专注 / 再来一轮”。
+
+宠物在专注时怎么表现，由 `BehaviorEngine` 决定：
+
+- 开始时退出贴边姿势，说一句话，在角色下方的徽标显示倒计时，请求 `focus` 动作。快速聊天打开时暂时隐藏徽标，避免和输入条重叠。
+- 专注期间不播放随机小动作，也不会睡着。点击、喂食照常有反应，结束后回到 `focus` 姿势。
+- 专注结束：播放 `happy`，被接受时心情 +5、亲密 +2，然后进入休息并改为显示休息倒计时。
+- 休息结束：提醒可以再来一轮，徽标隐藏。
+- 专注中再按一次按钮会停止；按“休息”让宠物睡觉也会停止；睡着时专注按钮无效。
+- 专注结束和休息结束都算一次互动，避免刚结束就因为“太久没互动”睡着。
+
+## 提醒和备忘
+
+要记的东西只按有没有时间分：有时间的是提醒（`agenda/AgendaStore.ts`，界面上叫「提醒」，代码里沿用 agenda 和 today），没有时间的是备忘（`notes/NoteStore.ts`，代码里叫 notes）。这样 AI 不用猜“记一下”是哪种意思。
+
+聊天里的工具调用由 `chat/toolEffects.ts` 的 `applyToolCalls` 落库，并把存下的提醒和备忘交回给聊天。聊天窗口在回复下面、快速聊天在回复气泡里显示“已设提醒：今天 15:00 · 开会”（`itemSummary()`）和「修改」，或“已存进备忘：…”和「查看」。修改调用 `petWindow.openToday(id)`，先发 `pet://today-item` 再显示面板，面板直接进入这一条的编辑状态。
+
+提醒存在全局 key `ai-pet:agenda:v1`，不属于某个角色。每条都有 `remindAt`，还有 `doneAt` 和 `remindedAt`。聊天窗口和提醒面板都能写入：面板可以新增（`addAgendaItem`，开始输入时时间默认是今天下一个整点）、改文字和时间（`editAgendaItem`，时间变了就清掉 `remindedAt`，让新时间重新提醒）、勾选、删除和撤销删除（`restoreAgendaItem`）；宠物窗口读取并标记已提醒；三个窗口通过 `storage` 事件和 BroadcastChannel 同步。添加时清掉今天以前完成的提醒，最多保留 100 条；满了先挤掉已完成的，再挤掉已经提醒过、时间已过的一次性提醒，最后才轮到最早创建的，所以几个月前建的「每天吃药」不会被挤掉。已经提醒过、过期 3 天还没勾的一次性提醒（`archiveStale`）在添加时和面板打开时自动归入已完成。一次性提醒改到以后的时间会重新变成未完成。读取时逐条校验（`storage/listStorage.ts` 的 `readList`），坏的一条丢掉、其余保留；整份读不了时先把原文另存到 `ai-pet:agenda:v1:broken`。备忘同样处理。
+
+**重复提醒。** 提醒可以带 `repeat`：`"workdays"`（中国法定工作日），或星期数字数组（0 是周日，七天都有就是每天）；一次性提醒是 `null`，旧数据读进来默认 `null`。重复提醒的 `remindAt` 是第一次提醒的时间，只用它的时分和起点，`addAgendaItem` 和 `editAgendaItem` 会把传入的时间换成“现在之后的第一次”（`firstOccurrence`）。改了规则或时分就从现在重新开始，清掉 `remindedAt`；只改文字不影响。
+
+重复提醒不在存储里滚动时间，每次都现算（`Repeat.ts`）：
+
+- 本轮（`occurrenceAt`）：时间已经到了的最近一次。今天的时间没到，本轮就还是上一次。第一次之前没有本轮。
+- 到点：本轮没完成、`remindedAt` 早于本轮。应用关了几天也只补最近一次；错过的那次（比如落在勿扰里、电脑合盖）一直算到点，直到被点掉、勾掉，或下一次的时间到了。
+- 勾选：重复提醒的 `doneAt` 存的是被勾掉的那一次（面板当时显示的时间），不是勾选的时刻。所以补勾昨晚错过的那次，不会连今天的一起勾掉。
+- 完成（`isDone`）：面板上显示为已完成，指 `doneAt` 在今天或之后。第二天自动变回未完成；所以添加时清理旧的已完成提醒会跳过重复提醒。
+- 面板显示的时间（`shownAt`）：到点还没处理的显示本轮，否则显示下一次；已经提前勾掉的那次跳过。列表按这个时间排序。
+
+**法定工作日。** `Workdays.ts` 读 `chinese-days` 包的 `dist/chinese-days.json`（打包进应用）：`holidays` 里的日子放假，`workdays` 里的周末补班，其余按周一到周五。宠物窗口每小时调一次 `refreshHolidays`，每天最多真正检查一次：今年没有数据就下载今年，10 月起明年没有就下载明年。下载走原生命令 `fetch_holiday_year`（`holidays.rs`），先试 npmmirror，再试 jsDelivr；404 表示还没公布，第二天再试；网络失败下一小时再试。下载到的年份用 Zod 校验，存在全局 key `ai-pet:holidays:v1`，同一年整年替换打包的数据。没有数据的年份按周一到周五算，提醒面板和设置页会写出数据只到哪一年。
+
+以前的版本允许没有时间的普通待办。`loadAgenda` 读到这种条目会略过；每个窗口启动时（`main.tsx`）把没做完的用 `timelessAgendaTexts` 取出存成备忘，再用 `dropTimelessAgenda` 从提醒里删掉，做完的直接丢弃。备忘遇到相同文字只更新时间，所以多个窗口重复执行也没关系。
+
+**一句话创建。** 聊天请求带上 `context`：本地时间（`YYYY-MM-DD HH:mm 周X`）和角色可从外部触发的动作名。`chat.rs` 据此在请求里加三个工具，系统提示要求按有没有时间选工具：
+
+- `add_reminder(text, remind_at, repeat?)`：设一个提醒，`remind_at` 必填，是本地时间字符串。`repeat` 是 `workdays`、`daily` 或 `1,3,5` 这样的星期数字（7 是周日）；有 `repeat` 时只取 `remind_at` 的时分，第一次提醒由前端算，模型把日期算错也没关系。
+- `save_note(text)`：存一条备忘，没有时间的待办、资料、想法都用它，最多 500 字。
+- `play_action(action)`：只有动作列表非空时提供，`action` 限定在列表里。
+
+原生端把流式返回的工具调用拼完整，回复成功后逐个发 `tool` 事件，再发 `done`。聊天窗口用 `chatTools.ts` 校验参数：提醒的时间缺失、不存在，或一次性提醒早于现在一分钟以上的，改存成备忘；`repeat` 读不懂就当一次性提醒；动作经 `petWindow.requestAction` 交给宠物窗口，照常检查类别和调度规则。模型只调了工具、没有文字时，聊天窗口拼一句确认（如“好，15:00 提醒你：开会”“好，以后工作日 11:00 都提醒你：点外卖”“好，存进备忘了”）作为回复存进历史。
+
+**备忘。** 备忘存在全局 key `ai-pet:notes:v1`，最多 200 条。保存和已有备忘完全相同的文字时，不新增，只把那条更新时间提前。满了会挤掉最久没改的未置顶备忘，面板底部提示「备忘满了，移除了最旧的一条」并可以撤销（撤销会拿掉刚加的那条）；快到上限时计数显示成「195/200」。列表先排置顶，再按 `updatedAt` 倒序；复制不改顺序，免得点了之后那一行从鼠标下跑走。聊天的 `save_note` 和聊天窗口的「存进备忘」都调用 `toolEffects.ts` 的 `saveNote`；「查看」调用 `petWindow.openNotes(id)`，先发 `pet://note` 让面板清掉搜索并高亮这一条，再显示面板。备忘面板和提醒面板一样，失焦就隐藏。
+
+**到点提醒。** `BehaviorEngine.tick()` 每秒向 `ReminderSource` 要到点、且用户还没看过的事项：
+
+- 手动勿扰开着时（`holdsReminders`）新到点的不弹出，只把数量放进徽标，例如“专注 12:00 · 提醒 1 · 勿扰”。免打扰时段不拦提醒：时间是用户自己定的。
+- 否则叫醒宠物、从贴边处出来（记下原来贴的边）、请求 `happy`，并发 `pet.alert` 显示常驻气泡。同时到点的合成一句“到点啦：A、B”；其中有超过 10 分钟的改说“别忘了：…”；超过两件写“别忘了：A、B 等 N 件”并带 `more`，点击时同时打开提醒面板。之后又到点的事项会并进同一个气泡。宠物窗口被隐藏时，`App` 收到 `pet.alert` 会调 `show_pet` 不抢焦点地显示它。
+- 气泡点掉 1.5 秒后、问候说完 10 秒后，原来贴边的宠物回到探头状态；期间用户点它、拖它、按按钮都会取消。
+- 常驻气泡不自动消失。`PetSpeech` 把它画成醒目的样式，并通过 `alertRef` 交给 `App` 加进命中区域表，所以能点到。点击发 `pet.alert_dismissed`，`BehaviorEngine` 这时才标记 `remindedAt`。没点掉就退出的提醒，下次启动会再出现。
+- 气泡里的事项在“提醒”里被勾掉或删除后，下一秒就从气泡里拿掉；全部拿掉时气泡收起。
+- 普通的话照常短暂显示，期间暂时盖住常驻气泡，说完后常驻气泡回来。
+
+## 早安和晚安
+
+宠物窗口每 15 秒调用一次 `Greeter.check()`：
+
+1. 安静时（勿扰或免打扰时段内）直接返回。
+2. `greetingDue()` 判断该不该问候。早安窗口是免打扰结束后的 4 个小时；晚安窗口是免打扰开始前 30 分钟。时段开关不影响这两个时间点。“一天”从免打扰结束时算起，所以跨午夜的晚安仍算前一天。
+3. 该问候时，先在 `ai-pet:greetings:v1` 记下今天已问候，再去生成内容，避免请求慢或失败时问两次。
+4. `collectFacts()` 从提醒和专注记录里整理事实：未完成数、今天完成数、下一个提醒、今天最近一次提醒（即路线图里的 `latest_reminder`）、今天和昨天的专注轮数。早安提今天的事和昨天的专注，晚安提今天的完成情况。
+5. 原生命令 `deepseek_greet` 用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候（和 `deepseek_title` 共用 `complete_once()`）。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
+6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求 `happy` 并说话。到点提醒也用同一段逻辑叫宠物出来。
+
+专注记录存在全局 key `ai-pet:focus-log:v1`，按本地日期计数，保留 14 天。`BehaviorEngine` 在专注正常结束时发 `pet.focus_completed`，宠物窗口收到后记一笔。
+
+## 懂分寸
+
+`QuietPreferences` 是全局设置：勿扰开关和每天的免打扰时段（默认 23:00～08:00，可跨午夜）。`isQuietAt()` 判断某一时刻是否安静。
+
+- 勿扰在右键菜单里是一个勾选项。原生端只负责显示勾选和发 `pet://dnd`，保存由宠物窗口完成；宠物窗口启动时调用 `set_pet_dnd` 把已保存的状态同步到菜单。设置页修改后同样调用它。
+- 安静（勿扰或免打扰时段）影响宠物主动开口：`PetRuntime.sayProactively()` 和问候直接丢弃。到点提醒只看手动勿扰，见上节。用户点了才有的反应（点击、喂食、专注开始和停止）和番茄钟的结束提示不受影响。
+- `sayProactively()` 还限制频率：两句主动的话至少间隔 20 分钟。提醒不走这个入口，不受频率限制。
+
+## 拖动和贴边
+
+拖动没有交给系统处理，而是由 `PetStage` 自己移动窗口。这样能准确知道什么时候松手。
+
+1. 按下后移动超过 4 像素，`PetStage` 发出 `pet.drag_started`，之后每帧最多移动一次窗口。
+2. `BehaviorEngine` 请求 `drag` 动作。睡着的宠物被拎起来会醒。
+3. 松手时 `PetStage` 检查角色是否碰到屏幕左右边缘，发出 `pet.drag_ended`。
+4. 碰到边缘且资源包里有 `peek` 动作时，`BehaviorEngine` 播放 `peek` 并发出 `pet.dock_changed`。
+5. `App` 收到后移动窗口，让角色贴齐屏幕边缘。`PetRuntime` 收到后在右边缘时让渲染器镜像。
+
+贴边期间宠物不会自己做小动作，也不会睡着。点击它或再次拖动就会出来。
+
+## 浮在最上面和鼠标穿透
+
+**浮在全屏应用上方。** macOS 只允许"不激活自身应用的面板"出现在别的应用的全屏空间里。`floating_panel.rs` 在窗口首次显示前把它转成这种面板，并设为可加入所有空间。副作用是点击宠物不会抢走当前应用的焦点。「提醒」「备忘」两个弹出层也转成这种面板（`apply_popover`），在当前空间打开、用 `take_keyboard` 拿键盘，不激活应用，所以在全屏应用里打开也不会被切出全屏；聊天和设置仍是普通窗口。
+
+**鼠标穿透。** 窗口是矩形，但只有画出来的部分应该挡鼠标：
+
+1. `PixiRenderer.opaqueMask()` 按 4 像素的格子报告当前画面哪些格子不透明。
+2. `hitMask.ts` 把它向外扩 2 格，再加上菜单的矩形，得到整窗的可点击区域表。
+3. 动作切换、镜像、窗口大小或菜单显隐变化时，`App` 把这张表发给原生端。
+4. `click_through.rs` 每 40 毫秒比较一次光标位置和这张表，切换窗口是否接收鼠标，并把"光标是否在宠物上"通知前端。
+5. 前端据此显示或收起菜单。鼠标按键按下期间不切换，避免拖动中途丢失事件。
+
+菜单的显隐不依赖网页自己的悬停事件，因为窗口不接收鼠标时网页收不到任何事件。
+
+## 为 AI 预留的入口
+
+外部模块通过三个入口影响宠物，都不能修改属性：
+
+- `requestAction(id)`：请求播放动作，规则见下。
+- `say(text)`：在气泡里说一句话。
+- `setBadge(text | null)`：显示或隐藏状态徽标。
+- `sayProactively(text)`：宠物主动说的话，安静时或距上一句不到 20 分钟时丢弃，返回是否显示。
+- `greet(text)`：和 `sayProactively` 规则相同，但宠物会醒来、从贴边处出来再说。
+
+`requestAction(id)` 的规则：
+
+- 动作先经过 `ActionRegistry` 校验，不存在的动作降级为待机。
+- 再交给 `ActionController`，受优先级和冷却约束。
+- 这个入口不接触 `PetState`，所以改不了属性。
+- `system` 类动作（`sleep`、`wake_up`、`peek`、`drag`）和宠物状态绑定，外部请求会被拒绝。
+
+文字对话窗口通过平台封装调用原生 DeepSeek 请求；请求开始后可请求 `think` 动作，不直接修改宠物属性。模型通过 `play_action` 工具选的动作同样经过宠物窗口的检查和 `requestAction`。
+
+### 文字对话与密钥
+
+**就绪状态。** 聊天窗口打开和每次获得焦点时都查一遍 DeepSeek 和 MiMo 的 Key 是否已保存。DeepSeek 没 Key 时发送按钮禁用并显示设置入口；MiMo 没 Key 时麦克风点了直接打开语音设置。顶栏状态由 `chat/chatStatus.ts` 的 `chatStatus()` 算出：录音中、识别中、生成中优先，其次是检查中和未配置，再其次是上一次失败（网络错误、Key 无效、余额不足、请求太频繁、识别失败），都没有就是待命。下一次发送或录音时清掉失败状态。
+
+**错误分类。** 原生端返回的是给人看的中文报错，`chat/serviceErrors.ts` 的 `classifyServiceError()` 按关键词把它们分成未配置、Key 无效、余额不足、请求太频繁、网络错误和其他，聊天窗口、快速聊天和语音识别共用。Key 问题给“去设置”，其余只说明原因。
+
+
+聊天窗口为独立 Tauri 窗口，从快速聊天的输入条或回复气泡打开，定位在宠物旁边的屏幕范围内。聊天历史和对话偏好使用本机存储；服务商 Key 只存系统钥匙串，前端不读取已保存的 Key。原生端限定 DeepSeek 与 MiMo 的 HTTPS 地址，将密钥和请求体通过标准输入传给系统 curl。从访达启动的应用没有代理环境变量，`proxy.rs` 每次请求时用 `scutil --proxy` 读系统设置里的 HTTPS 或 SOCKS 代理，交给 curl（环境变量里已有代理时不覆盖，不支持自动代理配置 PAC）。DeepSeek SSE 被解析为增量事件；请求使用 ID 区分，停止、关闭窗口和主动退出时取消子进程。MiMo ASR 只接收 WAV/MP3 base64，识别文本回填输入框由用户确认后发送；MiMo TTS 的原生命令和 `pcmAudioPlayer.ts` 仍保留，但聊天窗口暂时不再朗读回复。录音仅驻留内存、限制两分钟且不写入聊天记录。语音偏好保存在本机。钥匙串与网络请求当前支持 macOS，麦克风权限说明写在应用 Info.plist。
+
+### 快速聊天
+
+聊天是所有功能的入口（建提醒、记事、让宠物做动作都靠一句话），所以要能随时开口。输入条和回复都在宠物窗口里，不另开窗口。
+
+- **打开。** 全局快捷键（`tauri-plugin-global-shortcut`，在 Rust 端注册，前端不需要插件权限）按下时，`quick_chat.rs` 在宠物被隐藏时先显示它，再发 `pet://quick-chat` 给宠物窗口；单击宠物发 `pet.clicked`，浮动快捷图标里的「聊聊天」发 `pet.chat_requested`。`useQuickChat` 收到任一个都打开输入条。
+- **键盘。** 宠物窗口是不激活应用的面板，`canBecomeKeyWindow` 返回 true，所以能接收键盘而不把用户正在用的应用切走（和 Spotlight 一样）。打开时调用 `take_pet_keyboard`，让面板成为 key window 并把焦点交给网页；Esc 或再按快捷键收起时调用 `release_pet_keyboard`，面板先移出再不抢焦点地放回，键盘回到原来的应用。点到别的应用时网页收到 `blur`，输入条直接收起。
+- **快捷键。** 默认 `⇧⌘ Space`，设置页可以录制任意组合，存成 `Shift+Super+Space` 这样的写法，按键名直接用 `KeyboardEvent.code`。组合必须含 ⌃ 或 ⌘：macOS 15 起，只用 ⌥ 或 ⌥⇧ 的 `RegisterEventHotKey` 能注册成功，但系统不再转发按键。前端 `recordShortcut` 和原生 `parse_shortcut` 各查一遍。录制时先注销旧快捷键，否则同样的按键会被它截走。设置页改了直接注册；宠物窗口启动时按保存的值注册一次，失败（被别的应用占用）时让宠物说一句提示。注册在主线程完成，命令写成 `async`，避免主线程等自己。
+- **对话。** 每次发送都从本机重新读聊天记录：最近一段在 30 分钟内更新过就接着它，否则新开一段。先把用户这句存进去，回复完成后再存回复，第一轮回复后照常起标题。工具调用和聊天窗口共用 `applyToolCalls`。回复失败或被停止时，把这句从聊天记录里拿掉、放回输入框，重发时不会重复。
+- **回复气泡。** 回复显示在 `PetSpeech` 的位置，有回复时普通气泡和提醒气泡让开。Markdown 转成一行纯文本，最多四行，被截断时底部写「点开看完整回复」。存下的提醒和备忘只显示一条（有没记上的优先），其余写「还有 N 条」。输入条开着时一直显示；收起后按长度停留 6～20 秒。点击在聊天窗口打开这段对话（没有 Key 时打开设置）。输入条和回复气泡显示时都加进可点击区域表。
+- **和聊天窗口同步。** 原生端按窗口互斥：每个窗口同时只有一个请求，聊天窗口和宠物窗口可以各自在回复；同一个窗口再发会收到「上一条还在回复」，前端把这句放回输入框。原生端把聊天流只发给发起请求的窗口；关闭聊天窗口只取消它自己的请求。聊天窗口只在当前角色的聊天记录 key 变化时重新读取，内容没变不刷新；`petWindow.openChat(threadId)` 先发 `pet://chat-thread` 让它切到这段对话再显示。快速聊天回复到一半时点「在聊天窗口打开」，宠物窗口停掉自己的请求，改发 `pet://chat-resume`，聊天窗口切到这段对话并重新回答最后一句。两边同时在同一段对话里生成回复时，后完成的一方会覆盖前一方，这种情况很少，暂不处理。
+
+## 快捷按钮和设置窗口
+
+- Dock 是宠物两侧浮动快捷图标使用的有序列表，由 `preferences/DockPreferences.ts` 管理，存在角色 key `dock:v1`。列表里有三类按钮：每个角色都有的内置按钮（`APP_CONTROLS`：聊聊天、提醒、备忘，命令 `chat_open`、`today_open`、`notes_open`），资源包 `manifest.json.controls` 定义的角色按钮，以及从动作库加入的动作。按钮可以改名、换图标、隐藏和排序；动作只能隐藏、排序和移除。
+- 读取时按角色现有的按钮和动作过滤：清单里没有的按钮、不能手动播放的动作丢掉，新出现的按钮追加在末尾。还没有 `dock:v1` 时，从旧的 `control-preferences:v1` 和 `action-shortcuts:v1` 迁移一次；“恢复默认 Dock”三个 key 一起清掉。
+- 改动即时保存，通过 `storage` 事件和 BroadcastChannel（`ai-pet:dock`）同步到宠物窗口；设置页的 Dock 页和动作库也互相同步。排序用指针事件实现，不用 HTML 拖放，避免被原生窗口的拖放处理截走。
+- 图标既可选用内置 SVG，也可引用包内 PNG 或用户上传的 PNG/JPG/WebP。新增命令仍需在 `PetControl` schema 和组件的安全映射中显式注册。
+- 动作主图仍按原有帧动画和 `motion` 预设运行；`layers` 可叠加独立透明图片或帧表，逐层指定位置、层级和局部动效。主图动效会同步带动全部图层。
+- 快捷按钮在画布两侧向内延伸的区域沿弧线排列，鼠标移入时显示、拖动时收起；按钮位于角色画面上方，靠屏幕边缘时移到仍可见的一侧。按钮过多时侧栏可滚动。渲染轮廓与每个可见按钮的矩形共同组成鼠标命中区域，不把透明舞台整片设为可点击。
+- 窗口置顶通过原生事件同步菜单、设置与本机偏好；按钮收起时间通过显示偏好同步。
+- 右键菜单与托盘菜单共享原生菜单，其中“设置…”打开独立 Tauri 窗口。设置页通过 `platform/petWindow.ts` 调整窗口尺寸和置顶状态，不直接依赖 Tauri API。
+- 设置窗口仿照 macOS 系统设置：侧栏是彩色图标块，内容是分组列表。颜色都是 `SettingsPage.css` 顶部的语义变量，深色模式只换变量。
+
+## 角色
+
+一个角色就是 `public/pets/` 下的一个资源包目录，`public/pets/index.json` 列出所有内置角色。清单的 `persona` 字段给出默认称呼、性格、音色和语气。
+
+本机数据分三层：
+
+| 层 | 内容 | 存储 key |
+|---|---|---|
+| 角色包（只读） | 形象、动作、快捷按钮默认值、`persona` | 资源包文件 |
+| 按角色的用户数据 | 属性、聊天会话、对话设置（含改过的名字和性格）、语音设置、Dock、禁用的空闲动作、动作外观覆盖 | `ai-pet:character:<角色ID>:<名称>`；外观覆盖在 IndexedDB 中按角色 ID 区分 |
+| 全局设置 | 当前角色、自建角色列表、尺寸、置顶、显示偏好、API Key | 原有全局 key（自建角色在 `ai-pet:custom-characters:v1`）与钥匙串 |
+
+- 当前角色存在 `ai-pet:active-character:v1`，通过 `storage` 事件和 BroadcastChannel 通知所有窗口。
+- `main.tsx` 订阅当前角色。宠物窗口和聊天窗口以角色 ID 作为 React `key`，切换时整个重新挂载：旧的运行时销毁，进行中的聊天请求和录音被取消。设置页不重新挂载，只重新加载角色包，并以角色 ID 作为 `key` 重建 AI、语音和动作库子页面。
+- 每个窗口启动时调用 `migrateLegacyCharacterData()`，把引入角色之前的全局 key 一次性移到 `girl-default` 名下；新 key 已有数据时不覆盖。
+- 角色包的清单 `id` 必须和目录名一致，`loadCharacterPack()` 会检查。宠物窗口也通过它加载角色，再把加载好的包交给 `PetRuntime.create({ pack })`。
+- 自建角色的 ID 以 `custom-` 开头，只存名字、性格和借用的内置角色 `base`。`loadCharacterPack()` 加载 `base` 的资源包，换上自己的 `id` 和 `persona`，所以按角色 ID 存的数据（包括 IndexedDB 里的动作外观）天然和原角色分开。删除时调用 `clearCharacterData()` 清掉该角色所有 `characterKey` 数据，并逐个重置动作外观。
+- 显示的名字统一用 `characterName()`：用户在「角色」页改过就用改过的，否则用 `persona.name`。聊天窗口监听 `storage` 事件，设置页改名后立即更新。
+- 聊天记录按段保存在 `chat-threads:v1`，最近的一段在最前，每段最多保存和显示 200 条（`CHAT_LIMITS.messages`），发给模型的只有最近 30 条（`CHAT_LIMITS.context`，`contextMessages()`）；每个角色最多 20 段。旧版的单份 `chat-history:v1` 第一次读取时转成一段对话后删除。
+- 标题先用用户的第一句话。全局开关 `ai-pet:chat-auto-titles:v1` 打开时（默认打开），一段聊天的第一轮回复结束后，聊天窗口调用原生命令 `deepseek_title`，把第一句话和回复各截到 500 字发给 DeepSeek，要一个不超过 12 字的标题；`cleanTitle()` 去掉引号和标点后用 `retitleThread()` 写回，不改变排序。失败就保留原标题，不重试。
+- 聊天窗口的头像和小人按角色存在 `chat-appearance:v1`：每个位置是一个动作 ID 或一张上传图片（`data:` URL），可以带一个取景 `crop`；小人还可以是 `hidden`。`pictureFor()` 把它变成图片地址和取景。上传图保存的是缩到 512 像素以内的原图（不透明的存 JPEG，带透明的存 PNG），不是裁好的结果，所以可以反复调整。
+- 取景（`src/appearance/pictureCrop.ts`）记录画面中心点在图上的位置 `x`、`y`、取景框占图片宽度的比例 `zoom`，以及图片高宽比 `ratio`。`cropStyle()` 把它换算成 `<img>` 的 `width`、`left`、`top` 百分比；头像框是 1:1 的圆，小人框是 `FRAME_ASPECT.peek`（78:64）。裁剪弹窗 `PictureCropper` 和显示端用同一套换算，所见即所得。没有取景时沿用旧的默认取景：动作图头像裁到头部，小人露出顶部，上传图整张显示。动作已不存在时退回 `idle`，并丢掉原来的取景。
+- 聊天窗口通过 `petWindow.setTitle()` 把标题栏改成“和<角色名>聊天”，需要 `core:window:allow-set-title` 权限。
+- 你的称呼存在全局 `ai-pet:user-profile:v1`（`UserProfile.ts`），所有角色共用。`requestPreferences()` 把它作为 `userName` 和角色的对话设置一起发给 `deepseek_start` 与 `deepseek_greet`，`chat.rs` 的 `user_address()` 校验后在系统提示词里加一句“称呼用户为「…」”。长度上限 20，两边一致。
+- 首次引导：`ai-pet:onboarded:v1` 不存在时，宠物窗口启动后查 `deepseek_key_status`。已有 Key 就直接记为完成（老用户不打扰），没有就调用 `open_settings`；设置页同样检查，然后显示 `WelcomeGuide`。完成或跳过都写入标记。
+- `open_settings` 显示并聚焦设置窗口；带 `section` 时先向设置窗口发 `pet://settings-section`，设置页切到对应分区。浏览器模式下改为打开 `?window=settings&section=…`。
+- 回复的 Markdown 由 `src/chat/markdown.ts` 解析成数据（段落、标题、列表、代码块，以及粗体、斜体、行内代码），`ChatMarkdown` 只生成 React 元素，不使用 `innerHTML`。链接不渲染成可点击的元素，因为在聊天窗口里打开会让页面跳走。未闭合的标记和代码块按原样显示，流式输出时不会闪烁。
+- 对话设置和语音设置在用户没改过时使用 `persona` 的值。系统提示词仍在 `chat.rs` 拼接，性格长度上限 1000 字，与 `PERSONA_LIMITS` 保持一致。
+
+## 换平台时要改什么
+
+| 目标 | 需要重写 | 可以复用 |
+|---|---|---|
+| Windows | 基本不用改，验证透明窗口即可 | 全部 |
+| iOS / Android | `platform/`、`src-tauri`、界面布局 | `core`、`actions`、`behavior`、`renderer`、`assets`、`storage` |
+| 换渲染库 | 新写一个 `PetRenderer` 实现 | 其余全部 |
+| 换存储方式 | 新写一个 `PetStorage` 实现 | 其余全部 |
+
+## 测试
+
+`core`、`actions`、`behavior`、`assets`、`storage` 和 `motions.ts` 有单元测试，用假的渲染器和假时钟，不需要浏览器。渲染、窗口和界面靠实际运行验证。
+
+## 动作库与用户偏好
+
+动作库从资源包读取动作、可选的显示名称和描述；新增动作无需修改设置页。普通且有结束时间的动作可保存为快捷入口，设置窗口通过平台层向宠物窗口发送请求；宠物窗口检查动作存在、类别和休息状态，再经 `PetRuntime.requestAction()` 调度。睡眠、拖拽、贴边等系统动作只展示触发方式。空闲动作的禁用列表保存在本机，`BehaviorEngine` 选取空闲动作时读取过滤；原有动作及素材不被修改。拖动结束及缩放后限制窗口水平位置在当前屏幕内，避免快捷按钮被屏幕边缘裁掉。
+
+### 动作外观覆盖
+
+`appearance/AppearanceStore.ts` 使用 IndexedDB 按资源包 ID 与动作 ID 保存经 Zod 校验的外观覆盖，保存完成才通知主窗口；设置窗口等待主窗口加载结果。导入逐帧图时先按原动作帧尺寸合成横向 PNG，帧图可重新排序和删除。外观覆盖可包含独立图层及其位置、缩放、层级、动效和主图可见帧范围；旧数据未包含图层字段时保留资源包默认图层。`PetRuntime` 启动时恢复覆盖，更新交由渲染器原子切换；加载失败保留默认资源。切换外观后重算鼠标命中区域。动作调度、优先级和属性规则仍来自资源包及行为引擎。
+
+用户自己做的动作（`actions/UserActions.ts`）只保存名称和时长，存在角色 key `user-actions:v1`；图片就是同一个 ID 的外观覆盖。`withUserActions` 把它们追加到清单后面，条目的 `file` 借用待机图，类别为 `custom`，优先级 20。宠物窗口通过 `PetRuntime.create({ userActions })` 拿到它们；设置页新建、修改或删除后照常发外观变更通知，`refreshAppearance` 先重读列表，用 `PetRenderer.addAnimation`/`removeAnimation` 和 `ActionRegistry.register`/`unregister` 增删，再发出 `pet.actions.changed`，Dock 随之刷新。ID 形如 `my-xxxx`，含连字符，所以 `chatContext` 不会把它们交给 AI。
+
+## 开机启动与备份
+
+`src-tauri/src/system.rs` 用 ServiceManagement 的 `SMAppService.mainAppService` 把 app 注册为登录项，状态有 `on`、`off`、`approval`（在系统设置里被关掉）三种；`preferences/LaunchAtLogin.ts` 让安装版第一次运行时打开一次，开发构建跳过。备份由 `storage/Backup.ts` 生成：所有 `ai-pet:` 开头的 localStorage 值加上 IndexedDB 里的外观覆盖，Zod 校验后才恢复。恢复先替换 localStorage（失败则写回原值），再在一个 IndexedDB 事务里替换外观（失败则把 localStorage 也写回），最后由原生端 `restart_app` 重启，让所有窗口重新读取。保存文件用 `tauri-plugin-dialog` 的原生保存面板，只从 Rust 调用，前端没有对应权限。
+
+## 应用内更新
+
+用 Tauri 更新插件（`tauri-plugin-updater`，前端权限 `updater:default`）。应用读 `tauri.conf.json` 里 `plugins.updater.endpoints` 指向的 `latest.json`（公开仓库 `desk-ai-pet-releases` 最新 Release 里的文件），版本号更高时下载 `.app.tar.gz`，用 `pubkey` 校验签名后替换 `/Applications` 里的 app，再由 `restart_app` 重启。插件自带读系统代理（`system-proxy` 特性），不经过 `proxy.rs`。
+
+- 宠物窗口：`update/UpdateNotice.ts` 在启动一分钟后和之后每 24 小时查一次，发现新版本走 `sayProactively()` 说一句，说出去才把版本号记进 `ai-pet:update-announced:v1`，所以同一版本只提醒一次，被勿扰挡住的下次再说。开发模式不查。
+- 设置窗口：「关于」页的 `UpdateRow` 负责手动检查、显示更新说明和下载进度、重启。
+- 发布：`scripts/release.sh` 只在发布模式下打开 `createUpdaterArtifacts` 并读私钥（`~/.tauri/ai-pet-updater.key`），本机安装（`--local`）不需要私钥。`latest.json` 由脚本生成，平台名按本机架构（目前只有 `darwin-aarch64`）。

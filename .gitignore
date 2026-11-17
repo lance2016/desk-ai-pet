@@ -1,0 +1,32 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test coverage output
+coverage
+
+# Local package tarballs
+*.tgz
+generated_images/exec-c3fd7412-81ba-4b06-ad71-454aa4d1da98.png
+generated_images/exec-adc9023f-4bea-47dc-b557-4b761dc63ae5.png

@@ -1,0 +1,39 @@
+import { useEffect, useState } from "react";
+import { petWindow } from "../../platform/petWindow";
+import { loadQuietPreferences, saveQuietPreferences, subscribeQuietPreferences, type QuietPreferences } from "../../preferences/QuietPreferences";
+
+/** Do-not-disturb and daily quiet hours. Shared by every character. */
+export function QuietSettings({ onError }: { onError: (message: string | null) => void }) {
+  const [value, setValue] = useState(loadQuietPreferences);
+  useEffect(() => subscribeQuietPreferences(() => setValue(loadQuietPreferences())), []);
+
+  const update = (next: QuietPreferences) => {
+    try {
+      saveQuietPreferences(next);
+      setValue(next);
+      onError(null);
+    } catch (reason) {
+      console.error("Could not save the quiet settings", reason);
+      onError("勿扰设置没能保存，请再试一次。");
+    }
+  };
+  const updateDoNotDisturb = (enabled: boolean) => {
+    update({ ...value, doNotDisturb: enabled });
+    void petWindow.setDoNotDisturb(enabled).catch((reason: unknown) => { console.error("Could not tick do-not-disturb in the menu", reason); onError("已经生效，但右键菜单里的勾没跟上，重启 AI Pet 后会对上。"); });
+  };
+  const hours = value.quietHours;
+
+  return (
+    <article className="settings-card">
+      <div className="settings-row"><div className="settings-row__body"><strong>勿扰</strong><span>开着时宠物不主动说话，到点的提醒先显示在宠物旁边的徽标上，关掉后再弹出。右键菜单里也能开关</span></div><button type="button" role="switch" aria-checked={value.doNotDisturb} aria-label="勿扰" className={value.doNotDisturb ? "toggle is-on" : "toggle"} onClick={() => updateDoNotDisturb(!value.doNotDisturb)}><span /></button></div>
+      <div className="settings-divider" />
+      <div className="settings-row"><div className="settings-row__body"><strong>定时勿扰</strong><span>每天这段时间宠物不主动说话，你定了时间的提醒照常弹出。可以跨过午夜</span></div><button type="button" role="switch" aria-checked={hours.enabled} aria-label="定时勿扰" className={hours.enabled ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, quietHours: { ...hours, enabled: !hours.enabled } })}><span /></button></div>
+      {/* Greyed out, not hidden, when off: the greetings still go by these times. */}
+      <div className={hours.enabled ? "quiet-hours" : "quiet-hours is-off"}>
+        <label>从<input type="time" disabled={!hours.enabled} value={hours.start} onChange={(event) => { const start = event.currentTarget.value; if (start) update({ ...value, quietHours: { ...hours, start } }); }} /></label>
+        <label>到<input type="time" disabled={!hours.enabled} value={hours.end} onChange={(event) => { const end = event.currentTarget.value; if (end) update({ ...value, quietHours: { ...hours, end } }); }} /></label>
+      </div>
+      <p className="quiet-hours__note">宠物在结束时间（{hours.end}）后道早安，开始时间前半小时道晚安。定时勿扰关着也按这两个时间问候。</p>
+    </article>
+  );
+}
