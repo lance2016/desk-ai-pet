@@ -16,7 +16,20 @@ export interface ArtPrompts {
   action: string;
 }
 
-const FRAMING = "只画一个角色、一个姿势。全身入画，角色居中，脚踩在画布底边附近，四周少留空白";
+/**
+ * Every picture is drawn on the same square canvas with the character at the
+ * same scale, so pictures line up with one another. Square is the image
+ * model's default size, which it keeps to most reliably across a long chat;
+ * it also holds a lying or arms-up pose at the standing scale.
+ */
+export const ART_CANVAS = { width: 1024, height: 1024 } as const;
+/** Head to toe when standing up straight: three quarters of the canvas. */
+export const ART_FIGURE_HEIGHT = 760;
+/** From the feet to the bottom edge. */
+export const ART_GROUND_GAP = 40;
+
+const CANVAS = `画布：正方形 ${ART_CANVAS.width}×${ART_CANVAS.height} 像素（1:1）。每一张都用这个尺寸，不要改成竖版或横版，也不要裁切或加白边。`;
+const FRAMING = "只画一个角色、一个姿势，全身都在画布里，左右居中";
 const CLEAN_EDGES = "轮廓清晰，头发和衣服的边缘干净，不要大片半透明或发光效果。";
 
 function numbered(rules: readonly string[]): string[] {
@@ -34,8 +47,9 @@ export const DEFAULT_ART_PROMPTS: ArtPrompts = {
     "【要求】",
     ...numbered([
       "透明背景的 PNG。不要地面、阴影、边框、文字和水印，也不要星星、爱心这类装饰。",
+      CANVAS,
+      `角色大小：站直时从头顶到脚底约 ${ART_FIGURE_HEIGHT} 像素（画布高度的四分之三），脚底离画布底边约 ${ART_GROUND_GAP} 像素。`,
       `${FRAMING}。`,
-      "竖版画布（2:3）。",
       CLEAN_EDGES,
     ]),
   ].join("\n"),
@@ -46,10 +60,11 @@ export const DEFAULT_ART_PROMPTS: ArtPrompts = {
     "",
     "【要求】",
     ...numbered([
-      "同一个角色：脸、发型、服装、配色和画风都和定稿图一致，身材比例和角色大小也保持不变。",
+      "同一个角色：脸、发型、服装、配色和画风都和定稿图一致，头身比例不变。",
       "透明背景的 PNG。不要地面、阴影、边框、文字和水印，也不要星星、爱心、Zzz、思考气泡这类装饰。动作说明里写到的、拿在手里的道具可以画。",
+      CANVAS,
+      `角色大小和定稿图一样：按站直时身高约 ${ART_FIGURE_HEIGHT} 像素的比例来画。举手、跳起、弯腰、躺下都不要为了装进画面把角色缩小，也不要放大。身体最低处（脚底，躺下时是贴地的一侧）离画布底边约 ${ART_GROUND_GAP} 像素。`,
       `${FRAMING}，动作说明另有要求的除外。`,
-      "默认用竖版画布（2:3），动作说明里写了横版的除外。",
       CLEAN_EDGES,
     ]),
   ].join("\n"),

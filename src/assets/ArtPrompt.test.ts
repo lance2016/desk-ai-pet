@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ACTION_SLOT, ART_PROMPT_MAX_CHARS, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts } from "./ArtPrompt";
+import { STANDARD_ACTIONS } from "../actions/StandardActions";
+import { ACTION_SLOT, ART_CANVAS, ART_FIGURE_HEIGHT, ART_PROMPT_MAX_CHARS, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts } from "./ArtPrompt";
 
 describe("art prompts", () => {
   it("ships two templates that each say where the action goes", () => {
@@ -14,6 +15,19 @@ describe("art prompts", () => {
     expect(DEFAULT_ART_PROMPTS.first).toContain("参考图");
     expect(DEFAULT_ART_PROMPTS.action).not.toContain("【画风】");
     expect(DEFAULT_ART_PROMPTS.action).toContain("和定稿图一致");
+  });
+
+  it("gives every picture the same canvas size and character scale", () => {
+    const size = `${ART_CANVAS.width}×${ART_CANVAS.height} 像素`;
+    for (const prompt of [DEFAULT_ART_PROMPTS.first, DEFAULT_ART_PROMPTS.action]) {
+      expect(prompt).toContain(size);
+      expect(prompt).toContain(`${ART_FIGURE_HEIGHT} 像素`);
+    }
+    expect(ART_FIGURE_HEIGHT).toBeLessThan(ART_CANVAS.height);
+  });
+
+  it("asks no action for a canvas of its own shape", () => {
+    for (const action of STANDARD_ACTIONS) expect(action.pose).not.toMatch(/横版|竖版|\d:\d/);
   });
 
   it("writes an action's name and pose into a template", () => {

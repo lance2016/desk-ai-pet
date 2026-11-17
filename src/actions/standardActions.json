@@ -37,7 +37,7 @@
       "tier": "core",
       "label": "睡觉",
       "description": "睡着时一直保持",
-      "pose": "趴着或侧躺着睡着，闭着眼，可以枕着枕头。用横版画布（3:2），身体横着躺在画布底部。",
+      "pose": "趴着或侧躺着睡着，闭着眼，可以枕着枕头。身体横着躺在画布下部，画布仍是正方形。",
       "loop": true,
       "motion": "breathe",
       "category": "system",
