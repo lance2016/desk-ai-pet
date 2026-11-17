@@ -5,9 +5,9 @@
 #   scripts/release.sh --local    build + install only (no git checks, no publish)
 #
 # The release version is the "version" field of package.json; tauri.conf.json reads it from there.
-# Releases go to the public RELEASES_REPO, because the app cannot read a private repo. The app
-# reads latest.json from its latest release (plugins.updater.endpoints in tauri.conf.json) and
-# checks the update against the public key there, so the private key below must never be lost.
+# Releases go to RELEASES_REPO, which must be public: the app reads latest.json from its latest
+# release (plugins.updater.endpoints in tauri.conf.json) and checks the update against the public
+# key there, so the private key below must never be lost.
 # Release notes shown in the app: RELEASE_NOTES="..." scripts/release.sh
 set -euo pipefail
 
@@ -31,7 +31,7 @@ step() { printf '\n==> %s\n' "$*"; }
 VERSION="$(node -p 'require("./package.json").version')"
 TAG="v${VERSION}"
 ZIP="src-tauri/target/release/bundle/macos/AI-Pet-${TAG}-macos-$(uname -m).zip"
-RELEASES_REPO="lance2016/desk-ai-pet-releases"
+RELEASES_REPO="lance2016/desk-ai-pet"
 UPDATER_KEY="${AI_PET_UPDATER_KEY:-$HOME/.tauri/ai-pet-updater.key}"
 UPDATE_ASSET="AI-Pet-${TAG}-macos-$(uname -m).app.tar.gz"
 UPDATE_DIR="src-tauri/target/release/bundle/updater"
@@ -116,8 +116,6 @@ gh release create "$TAG" "$ZIP" "${UPDATE_DIR}/${UPDATE_ASSET}" "${UPDATE_DIR}/l
   --repo "$RELEASES_REPO" \
   --title "${APP_NAME} ${TAG}" \
   --notes "$NOTES" \
+  --target "$(git rev-parse HEAD)" \
   --latest
-# The source stays private; the tag marks which commit this release was built from.
-git tag "$TAG"
-git push --quiet origin "$TAG"
 echo "Published: $(gh release view "$TAG" --repo "$RELEASES_REPO" --json url --jq .url)"

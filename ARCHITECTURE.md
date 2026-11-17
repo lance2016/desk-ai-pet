@@ -404,7 +404,7 @@ public/pets/girl-default/    默认资源包
 
 ## 应用内更新
 
-用 Tauri 更新插件（`tauri-plugin-updater`，前端权限 `updater:default`）。应用读 `tauri.conf.json` 里 `plugins.updater.endpoints` 指向的 `latest.json`（公开仓库 `desk-ai-pet-releases` 最新 Release 里的文件），版本号更高时下载 `.app.tar.gz`，用 `pubkey` 校验签名后替换 `/Applications` 里的 app，再由 `restart_app` 重启。插件自带读系统代理（`system-proxy` 特性），不经过 `proxy.rs`。
+用 Tauri 更新插件（`tauri-plugin-updater`，前端权限 `updater:default`）。应用读 `tauri.conf.json` 里 `plugins.updater.endpoints` 指向的 `latest.json`（公开仓库 `desk-ai-pet` 最新 Release 里的文件，仓库必须保持公开），版本号更高时下载 `.app.tar.gz`，用 `pubkey` 校验签名后替换 `/Applications` 里的 app，再由 `restart_app` 重启。插件自带读系统代理（`system-proxy` 特性），不经过 `proxy.rs`。
 
 - 宠物窗口：`update/UpdateNotice.ts` 在启动一分钟后和之后每 24 小时查一次，发现新版本走 `sayProactively()` 说一句，说出去才把版本号记进 `ai-pet:update-announced:v1`，所以同一版本只提醒一次，被勿扰挡住的下次再说。开发模式不查。
 - 设置窗口：「关于」页的 `UpdateRow` 负责手动检查、显示更新说明和下载进度、重启。
