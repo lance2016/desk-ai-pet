@@ -198,16 +198,16 @@ export class PetRuntime {
    * Like `sayProactively`, but the pet also comes out to meet the user: it
    * wakes up, leaves the screen edge and cheers. For morning and evening greetings.
    */
-  greet(text: string): boolean {
-    if (!this.allowProactive(text)) return false;
+  greet(text: string, allowQuiet = false): boolean {
+    if (!this.allowProactive(text, allowQuiet)) return false;
     this.bus.emit("pet.greeting", { text: text.trim() });
     return true;
   }
 
   /** Checks quiet time and the gap since the last proactive line, and claims the slot. */
-  private allowProactive(text: string): boolean {
+  private allowProactive(text: string, allowQuiet = false): boolean {
     const now = Date.now();
-    if (!text.trim() || this.isQuiet(now)) return false;
+    if (!text.trim() || (!allowQuiet && this.isQuiet(now))) return false;
     if (this.lastProactiveAt !== null && now - this.lastProactiveAt < PROACTIVE_GAP_MS) return false;
     this.lastProactiveAt = now;
     return true;

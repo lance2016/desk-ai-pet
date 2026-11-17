@@ -15,6 +15,8 @@ interface Props {
   large?: boolean;
   /** Replaces the usual one-line instruction. */
   hint?: string;
+  /** A file check that should be visible before the user applies the placement. */
+  warning?: string;
   /** Drawn over the frame, positioned in its terms: lines and outlines to line the picture up with. */
   guide?: ReactNode;
   onCancel: () => void;
@@ -31,8 +33,9 @@ const KEY_ZOOM = 1.1;
 const SLIDER = { min: -Math.log(CROP_LIMITS.maxZoom), max: -Math.log(CROP_LIMITS.minZoom) } as const;
 
 /** Drag to move, scroll or slide to zoom; the frame shows exactly what the chat will show. */
-export function PictureCropper({ title, src, crop: initial, fallback, frameAspect, round, large = false, hint, guide, onCancel, onConfirm }: Props) {
+export function PictureCropper({ title, src, crop: initial, fallback, frameAspect, round, large = false, hint, warning, guide, onCancel, onConfirm }: Props) {
   const [crop, setCrop] = useState(initial);
+  const [viewScale, setViewScale] = useState(1);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const view = useRef<HTMLDivElement>(null);
   const viewSize = large ? LARGE_VIEW : VIEW;
@@ -46,6 +49,12 @@ export function PictureCropper({ title, src, crop: initial, fallback, frameAspec
     left: frameLeft + frameWidth / 2 - crop.x * pictureWidth,
     top: frameTop + frameHeight / 2 - crop.y * pictureWidth * crop.ratio,
   };
+  useEffect(() => {
+    const fitView = () => setViewScale(Math.max(0.5, Math.min(1, (window.innerHeight - 260) / viewSize.height, (window.innerWidth - 72) / viewSize.width)));
+    fitView();
+    window.addEventListener("resize", fitView);
+    return () => window.removeEventListener("resize", fitView);
+  }, [viewSize.height, viewSize.width]);
 
   const pointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -55,14 +64,14 @@ export function PictureCropper({ title, src, crop: initial, fallback, frameAspec
     const last = drag.current;
     if (!last) return;
     drag.current = { x: event.clientX, y: event.clientY };
-    setCrop((current) => panCrop(current, event.clientX - last.x, event.clientY - last.y, frameWidth));
+    setCrop((current) => panCrop(current, (event.clientX - last.x) / viewScale, (event.clientY - last.y) / viewScale, frameWidth));
   };
   const pointerUp = () => { drag.current = null; };
   const wheel = (event: WheelEvent<HTMLDivElement>) => setCrop((current) => zoomCrop(current, Math.exp(event.deltaY * WHEEL_SPEED)));
   const key = (event: KeyboardEvent<HTMLDivElement>) => {
     const moves: Record<string, [number, number]> = { ArrowLeft: [-KEY_STEP_PX, 0], ArrowRight: [KEY_STEP_PX, 0], ArrowUp: [0, -KEY_STEP_PX], ArrowDown: [0, KEY_STEP_PX] };
     const move = moves[event.key];
-    if (move) { event.preventDefault(); setCrop((current) => panCrop(current, move[0], move[1], frameWidth)); }
+    if (move) { event.preventDefault(); setCrop((current) => panCrop(current, move[0] / viewScale, move[1] / viewScale, frameWidth)); }
     else if (event.key === "+" || event.key === "=") setCrop((current) => zoomCrop(current, 1 / KEY_ZOOM));
     else if (event.key === "-") setCrop((current) => zoomCrop(current, KEY_ZOOM));
   };
@@ -74,18 +83,19 @@ export function PictureCropper({ title, src, crop: initial, fallback, frameAspec
     <div className={large ? "cropper__card is-large" : "cropper__card"}>
       <h2 id="cropper-title">{title}</h2>
       <p>{hint ?? "拖动图片调整位置，滚动或拖动下方滑块缩放。"}</p>
-      <div ref={view} className="cropper__view" style={{ width: viewSize.width, height: viewSize.height }} tabIndex={0} aria-label="拖动调整图片位置，方向键微调，加减号缩放"
+      <div ref={view} className="cropper__view" style={{ width: viewSize.width * viewScale, height: viewSize.height * viewScale }} tabIndex={0} aria-label="拖动调整图片位置，方向键微调，加减号缩放"
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onWheel={wheel} onKeyDown={key}>
-        <img src={src} alt="" draggable={false} style={{ width: picture.width, left: picture.left, top: picture.top }} />
-        <span className={round ? "cropper__frame is-round" : "cropper__frame"} style={{ width: frameWidth, height: frameHeight, left: frameLeft, top: frameTop }}>{guide}</span>
+        <img src={src} alt="" draggable={false} style={{ width: picture.width * viewScale, left: picture.left * viewScale, top: picture.top * viewScale }} />
+        <span className={round ? "cropper__frame is-round" : "cropper__frame"} style={{ width: frameWidth * viewScale, height: frameHeight * viewScale, left: frameLeft * viewScale, top: frameTop * viewScale }}>{guide}</span>
       </div>
+      {warning && <p className="cropper__warning" role="status">{warning}</p>}
       <label className="cropper__zoom"><span>缩小</span>
         <input type="range" min={SLIDER.min} max={SLIDER.max} step="any" value={-Math.log(crop.zoom)} aria-label="缩放" onChange={(event) => { const zoom = Math.exp(-Number(event.currentTarget.value)); setCrop((current) => ({ ...current, zoom })); }} />
         <span>放大</span></label>
       <div className="cropper__actions">
         <button type="button" className="cropper__reset" onClick={() => setCrop(fallback)}>重置</button>
         <button type="button" onClick={onCancel}>取消</button>
-        <button type="button" className="is-primary" onClick={() => onConfirm(crop)}>确定</button>
+        <button type="button" className="is-primary" onClick={() => onConfirm(crop)}>应用摆位</button>
       </div>
     </div>
   </div>;

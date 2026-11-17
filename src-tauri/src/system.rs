@@ -177,3 +177,18 @@ mod tests {
         assert!(!web_link("x-apple.systempreferences:com.apple.preference.security"));
     }
 }
+/// Seconds since the last keyboard or mouse event in the current session.
+#[tauri::command]
+pub fn system_idle_seconds() -> Option<f64> {
+    #[cfg(target_os = "macos")]
+    {
+        #[link(name = "CoreGraphics", kind = "framework")]
+        unsafe extern "C" {
+            fn CGEventSourceSecondsSinceLastEventType(state: i32, event_type: u32) -> f64;
+        }
+        let seconds = unsafe { CGEventSourceSecondsSinceLastEventType(0, u32::MAX) };
+        if seconds.is_finite() && seconds >= 0.0 { Some(seconds) } else { None }
+    }
+    #[cfg(not(target_os = "macos"))]
+    { None }
+}

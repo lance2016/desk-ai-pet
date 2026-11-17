@@ -9,6 +9,7 @@ export const MOTION_PRESETS = [
   "pop",
   "tilt",
   "nod",
+  "float",
 ] as const;
 
 export type MotionPreset = (typeof MOTION_PRESETS)[number];

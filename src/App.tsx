@@ -9,6 +9,8 @@ import type { ReminderSource } from "./behavior/BehaviorEngine";
 import { loadFocusLog, recordFocusRound } from "./greeting/FocusLog";
 import { collectFacts } from "./greeting/GreetingContent";
 import { Greeter } from "./greeting/Greeter";
+import { Companion } from "./behavior/Companion";
+import { loadCompanionPreferences } from "./preferences/CompanionPreferences";
 import { loadGreetingRecord, saveGreetingRecord } from "./greeting/GreetingSchedule";
 import { chatPlatform } from "./platform/chat";
 import { holidayPlatform } from "./platform/holidays";
@@ -54,6 +56,7 @@ const HIT_MASK_DELAY_MS = 30;
 const DISPLAY_SETTLE_MS = 500;
 /** How often to see whether a morning or evening greeting is due. */
 const GREETING_CHECK_MS = 15_000;
+const COMPANION_CHECK_MS = 30_000;
 /** How often to see whether a missing year of holiday data can be downloaded; it is looked up once a day. */
 const HOLIDAY_CHECK_MS = 60 * 60_000;
 
@@ -279,6 +282,25 @@ export default function App({ packId }: AppProps) {
       stopFocusLog();
     };
   }, [runtime, packId]);
+
+  useEffect(() => {
+    if (!runtime) return;
+    const companion = new Companion(window.localStorage, (text, allowQuiet) => runtime.greet(text, Boolean(allowQuiet) && !loadQuietPreferences().doNotDisturb));
+    let active = true;
+    let pending = false;
+    const check = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const idle = await systemPlatform.idleSeconds();
+        if (active && idle !== null) companion.check(Date.now(), idle, loadCompanionPreferences(), runtime.focus.get().phase === "focusing");
+      } catch (error) { console.warn("Could not check system activity", error); }
+      finally { pending = false; }
+    };
+    void check();
+    const timer = setInterval(() => void check(), COMPANION_CHECK_MS);
+    return () => { active = false; clearInterval(timer); };
+  }, [runtime]);
 
   // Working-day reminders need each year's official holidays; fetch a year once it is published.
   useEffect(() => {

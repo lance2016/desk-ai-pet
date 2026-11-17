@@ -37,6 +37,24 @@ describe("art prompts", () => {
     expect(prompt).not.toContain(ACTION_SLOT);
   });
 
+  it("asks for transparent wooden fish frames with a separate effect", () => {
+    const action = { id: "wooden_fish", label: "敲木鱼" };
+    for (const template of [DEFAULT_ART_PROMPTS.action, "我的画风：水彩。{动作}"]) {
+      const prompt = fillArtPrompt(template, action);
+      expect(prompt).toContain("2 行 × 3 列的六宫格");
+      expect(prompt).toContain("透明背景的 PNG");
+      expect(prompt).toContain("不要画任何文字");
+      expect(prompt).toContain("不跨格");
+      expect(prompt).not.toContain(ACTION_SLOT);
+    }
+  });
+
+  it("requests a transparent PNG for both single-image templates", () => {
+    for (const prompt of [DEFAULT_ART_PROMPTS.first, DEFAULT_ART_PROMPTS.action]) {
+      expect(prompt).toContain("透明背景的 PNG");
+    }
+  });
+
   it("describes an action without a pose by its name", () => {
     expect(fillArtPrompt(ACTION_SLOT, { id: "spin" })).toBe("spin：表现「spin」的样子。");
   });

@@ -437,3 +437,10 @@ public/pets/girl-default/    默认资源包
 - 宠物窗口：`update/UpdateNotice.ts` 在启动一分钟后和之后每 24 小时查一次，发现新版本走 `sayProactively()` 说一句，说出去才把版本号记进 `ai-pet:update-announced:v1`，所以同一版本只提醒一次，被勿扰挡住的下次再说。开发模式不查。
 - 设置窗口：「关于」页的 `UpdateRow` 负责手动检查、显示更新说明和下载进度、重启。
 - 发布：`scripts/release.sh` 只在发布模式下打开 `createUpdaterArtifacts` 并读私钥（`~/.tauri/ai-pet-updater.key`），本机安装（`--local`）不需要私钥。`latest.json` 由脚本生成，平台名按本机架构（目前只有 `darwin-aarch64`）。
+# 主动陪伴
+
+`Companion` 定期通过 `platform/system.ts` 读取 macOS 的系统空闲秒数，在本机判断深夜持续使用、连续使用与离开后返回。采样中断时不推断使用时长。场景通过 `PetRuntime.greet()` 共用主动说话间隔和问候动作；仅深夜关心允许用户选择绕过定时勿扰，手动勿扰始终生效。专注期间暂停场景触发，专注动作和完成提示由 `BehaviorEngine` 管理。
+
+AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带，原生端按 UTF-16 长度校验；问候和标题不使用。聊天预览通过 `deepseek_preview` 在本机调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
+
+动作图层的上飘淡出按主图指定的显示帧范围计算进度，预览与渲染器共用动效采样。文字图层先生成透明 PNG，再按普通图层保存。

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MOTION_PRESETS } from "../types";
 import { sampleAdjustedMotion, sampleMotion } from "./motions";
 
-const REST = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 };
+const REST = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, alpha: 1 };
 
 describe("sampleMotion", () => {
   it("keeps the pet still for the 'none' motion", () => {
@@ -21,6 +21,13 @@ describe("sampleMotion", () => {
     for (const key of Object.keys(REST) as Array<keyof typeof REST>) {
       expect(end[key]).toBeCloseTo(REST[key], 5);
     }
+  });
+
+  it("raises and fades a timed floating label", () => {
+    const middle = sampleMotion("float", 0.25, 0.5);
+    expect(middle.y).toBeCloseTo(-22.5);
+    expect(middle.alpha).toBeCloseTo(0.5);
+    expect(sampleMotion("float", 0.5, 1).alpha).toBe(0);
   });
 
   it("lifts the pet off the ground while bouncing", () => {

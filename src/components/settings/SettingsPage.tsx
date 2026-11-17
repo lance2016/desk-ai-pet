@@ -17,6 +17,7 @@ import { VoiceSettings } from "./VoiceSettings";
 import { ActionLibrary } from "./ActionLibrary";
 import { DockSettings } from "./DockSettings";
 import { QuietSettings } from "./QuietSettings";
+import { CompanionSettings } from "./CompanionSettings";
 import { HolidaySettings } from "./HolidaySettings";
 import { QuickChatSettings } from "./QuickChatSettings";
 import { WelcomeGuide } from "./WelcomeGuide";
@@ -24,6 +25,7 @@ import { BackupSettings } from "./BackupSettings";
 import { UpdateRow } from "./UpdateRow";
 import { LaunchAtLoginRow } from "./LaunchAtLoginRow";
 import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
+import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 
 const SCALES = [
@@ -32,7 +34,7 @@ const SCALES = [
   { value: 1.3, label: "大" },
 ] as const;
 const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
-const SECTIONS = ["character", "general", "dock", "actions", "ai", "voice", "privacy", "about"] as const;
+const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "privacy", "about"] as const;
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["dock", "actions"];
 type SettingsSection = (typeof SECTIONS)[number];
@@ -42,6 +44,7 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
   const paths: Record<SettingsSection, ReactNode> = {
     character: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>,
     general: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2A1.7 1.7 0 0 0 17 3.4l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" /></>,
+    companion: <><path d="M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1Z" /></>,
     dock: <><rect x="3" y="14" width="18" height="6" rx="2" /><path d="M7 17h.01M12 17h.01M17 17h.01M8 4h8v6H8z" /></>,
     actions: <><path d="M12 20c-3 0-5-1.4-5-3.8 0-2 2.3-3.6 5-3.6s5 1.6 5 3.6c0 2.4-2 3.8-5 3.8Z" /><circle cx="5.5" cy="10" r="2" /><circle cx="10" cy="6" r="2" /><circle cx="15" cy="6" r="2" /><circle cx="19" cy="10" r="2" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
@@ -56,6 +59,7 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
 const NAV: readonly { id: SettingsSection; label: string }[] = [
   { id: "character", label: "角色" },
   { id: "general", label: "通用" },
+  { id: "companion", label: "主动陪伴" },
   { id: "dock", label: "快捷按钮" },
   { id: "actions", label: "动作库" },
   { id: "ai", label: "AI 对话" },
@@ -230,10 +234,12 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
 
+        {section === "companion" && <CompanionSettings onError={setError} />}
+
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
-        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} />}
+        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onCharacter={() => go("character")} />}
         {section === "voice" && packInfo && <VoiceSettings key={packId} packId={packId} />}
         {section === "privacy" && (
           <div className="settings-section">
@@ -245,7 +251,7 @@ export function SettingsPage({ packId }: { packId: string }) {
             </div>
             <h2 className="settings-group-title">会发出去的内容</h2>
             <div className="settings-group settings-prose">
-              <p>聊天时，会发给 DeepSeek 的有：这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格，以及宠物会做的动作名称。早安晚安会把今天的提醒数量、专注轮数和提醒内容发给 DeepSeek 来写问候。用语音输入时，录音会发给 MiMo 识别，不会保存。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。缺少今年或明年的法定节假日安排时，宠物每天最多一次从公开的节假日数据源下载，请求里不带任何个人信息。宠物每天会去 GitHub 查一次有没有新版本，同样不带个人信息。</p>
+              <p>聊天时，会发给 DeepSeek 的有：这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格、聊天补充要求，以及宠物会做的动作名称。早安晚安会把今天的提醒数量、专注轮数和提醒内容发给 DeepSeek 来写问候。用语音输入时，录音会发给 MiMo 识别，不会保存。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。缺少今年或明年的法定节假日安排时，宠物每天最多一次从公开的节假日数据源下载，请求里不带任何个人信息。宠物每天会去 GitHub 查一次有没有新版本，同样不带个人信息。</p>
             </div>
           </div>
         )}

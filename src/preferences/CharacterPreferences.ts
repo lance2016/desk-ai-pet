@@ -10,6 +10,7 @@ const ACTIVE_KEY = "ai-pet:active-character:v1";
 export const CHARACTER_DATA = {
   pet: "pet",
   chatPreferences: "chat-preferences:v1",
+  chatInstructions: "chat-instructions:v1",
   chatHistory: "chat-history:v1",
   chatThreads: "chat-threads:v1",
   chatAppearance: "chat-appearance:v1",

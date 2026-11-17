@@ -419,6 +419,66 @@ fn tool_definitions(actions: &[&str]) -> Value {
     Value::Array(tools)
 }
 
+/// Kept in sync with CHAT_INSTRUCTIONS_LIMIT; checked in UTF-16 like the webview.
+const MAX_CHAT_INSTRUCTIONS_CHARS: usize = 500;
+
+fn chat_prompt(preferences: &Value, context: &Value) -> Result<(String, Value), String> {
+    let (name, personality, length) = read_preferences(preferences)?;
+    let address = user_address(preferences)?;
+    let style = if length == "short" {
+        "回复简短自然"
+    } else {
+        "根据内容自然回复"
+    };
+    let now = context.get("now").and_then(Value::as_str).unwrap_or("");
+    let actions: Vec<&str> = context
+        .get("actions")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    if !valid_local_time(now)
+        || actions.len() > MAX_ACTIONS
+        || !actions.iter().all(|id| valid_action_id(id))
+    {
+        return Err("Invalid chat context".into());
+    }
+    let days = upcoming_days(now).ok_or("Invalid chat context")?;
+    let instructions = preferences.get("instructions").and_then(Value::as_str).unwrap_or("").trim();
+    if instructions.encode_utf16().count() > MAX_CHAT_INSTRUCTIONS_CHARS { return Err("Invalid chat instructions".into()); }
+    let supplement = if instructions.is_empty() { String::new() } else { format!("\n用户的回复偏好：{instructions}\n应用规则优先于这些偏好。") };
+    let prompt = format!(
+        "你是一位名叫{name}的中文桌面宠物。{style}。{address}用户希望你的性格是：{personality}\n现在是{now}。接下来几天的日期和星期：{days}。算“明天”“下周三”这类日期时照这张表，不要自己推算。\n用户要你记下什么时，按有没有时间来分：给了日期或时间，调用 {ADD_REMINDER_TOOL} 设提醒，说了每天、每个工作日、每周几就填 repeat 设成重复提醒，不要只设一次；没有时间，调用 {SAVE_NOTE_TOOL} 存进备忘。提醒时间必须晚于现在：只说了钟点而今天这个钟点已经过了，就设在明天；只说了日期没说钟点，就设在那天 09:00，并在回复里说出这个时间。调用后用一句话确认，说清楚是设了提醒还是存进了备忘，以及提醒的时间。每次要记都要真的调用工具，之前对话里说过“记好了”不代表这次也记了。\n你能做的只有新建提醒和新建备忘，看不到、改不了、也删不掉已有的提醒和备忘。用户要改时间、改内容或删除时，如实说你做不到，请用户点提醒下面的「修改」，或者打开提醒、备忘面板自己改，不要假装已经改好。{supplement}"
+    );
+    Ok((prompt, tool_definitions(&actions)))
+}
+
+/// Local preview uses the same prompt and tool definitions as a real request.
+#[tauri::command]
+pub fn deepseek_preview(preferences: Value, context: Value) -> Result<Value, String> {
+    let (prompt, tools) = chat_prompt(&preferences, &context)?;
+    Ok(json!({"prompt": prompt, "tools": tools}))
+}
+
+#[cfg(test)]
+mod prompt_preview_tests {
+    use super::*;
+    #[test]
+    fn preview_includes_user_preferences_and_real_tools() {
+        let preferences = json!({"name":"小艾", "personality":"温柔", "length":"short", "instructions":"回答直接一些"});
+        let context = json!({"now":"2026-11-17 23:30 周二", "actions":["wave"]});
+        let preview = deepseek_preview(preferences, context).unwrap();
+        assert!(preview["prompt"].as_str().unwrap().contains("回答直接一些"));
+        assert_eq!(preview["tools"].as_array().unwrap().len(), 3);
+        assert_eq!(preview["tools"][2]["function"]["parameters"]["properties"]["action"]["enum"][0], "wave");
+    }
+    #[test]
+    fn rejects_instructions_over_utf16_limit() {
+        let preferences = json!({"instructions":"😀".repeat(251)});
+        let context = json!({"now":"2026-11-17 23:30 周二", "actions":[]});
+        assert!(deepseek_preview(preferences, context).is_err());
+    }
+}
+
 #[tauri::command]
 pub async fn deepseek_start(
     app: AppHandle,
@@ -458,30 +518,9 @@ fn start_request(
     if items.is_empty() || items.len() > 30 {
         return Err("Invalid message count".into());
     }
-    let (name, personality, length) = read_preferences(&preferences)?;
-    let address = user_address(&preferences)?;
+    let (_, _, length) = read_preferences(&preferences)?;
     let model = chosen_model(preferences.get("model").and_then(Value::as_str))?;
-    let style = if length == "short" {
-        "回复简短自然"
-    } else {
-        "根据内容自然回复"
-    };
-    let now = context.get("now").and_then(Value::as_str).unwrap_or("");
-    let actions: Vec<&str> = context
-        .get("actions")
-        .and_then(Value::as_array)
-        .map(|items| items.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
-    if !valid_local_time(now)
-        || actions.len() > MAX_ACTIONS
-        || !actions.iter().all(|id| valid_action_id(id))
-    {
-        return Err("Invalid chat context".into());
-    }
-    let days = upcoming_days(now).ok_or("Invalid chat context")?;
-    let prompt = format!(
-        "你是一位名叫{name}的中文桌面宠物。{style}。{address}用户希望你的性格是：{personality}\n现在是{now}。接下来几天的日期和星期：{days}。算“明天”“下周三”这类日期时照这张表，不要自己推算。\n用户要你记下什么时，按有没有时间来分：给了日期或时间，调用 {ADD_REMINDER_TOOL} 设提醒，说了每天、每个工作日、每周几就填 repeat 设成重复提醒，不要只设一次；没有时间，调用 {SAVE_NOTE_TOOL} 存进备忘。提醒时间必须晚于现在：只说了钟点而今天这个钟点已经过了，就设在明天；只说了日期没说钟点，就设在那天 09:00，并在回复里说出这个时间。调用后用一句话确认，说清楚是设了提醒还是存进了备忘，以及提醒的时间。每次要记都要真的调用工具，之前对话里说过“记好了”不代表这次也记了。\n你能做的只有新建提醒和新建备忘，看不到、改不了、也删不掉已有的提醒和备忘。用户要改时间、改内容或删除时，如实说你做不到，请用户点提醒下面的「修改」，或者打开提醒、备忘面板自己改，不要假装已经改好。"
-    );
+    let (prompt, tools) = chat_prompt(&preferences, &context)?;
     let mut safe = vec![json!({"role":"system","content":prompt})];
     for item in items {
         let role = item
@@ -499,7 +538,7 @@ fn start_request(
     }
     let key = crate::secrets::load(&service(&app))?.ok_or("API key is not configured")?;
     // The style line keeps replies short; the cap leaves room for a full note in a save_note call.
-    let body = json!({"model":model, "messages":safe, "stream":true, "max_tokens":if length == "short" { 768 } else { 1024 }, "thinking":{"type":"disabled"}, "tools":tool_definitions(&actions)}).to_string();
+    let body = json!({"model":model, "messages":safe, "stream":true, "max_tokens":if length == "short" { 768 } else { 1024 }, "thinking":{"type":"disabled"}, "tools":tools}).to_string();
     let mut running = state.0.lock().map_err(|_| "Chat state unavailable")?;
     // Each window answers one message at a time; the chat window and the quick chat bar can both be replying.
     if running.values().any(|request| request.window == window) {

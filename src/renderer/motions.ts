@@ -7,6 +7,7 @@ export interface MotionTransform {
   scaleX: number;
   scaleY: number;
   rotation: number;
+  alpha: number;
 }
 
 /**
@@ -15,7 +16,7 @@ export interface MotionTransform {
  */
 type Motion = (seconds: number, progress: number) => Partial<MotionTransform>;
 
-const REST: MotionTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 };
+const REST: MotionTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, alpha: 1 };
 const TAU = Math.PI * 2;
 
 /** Rises from 0 to 1 and returns to 0 across the action. */
@@ -47,6 +48,8 @@ const MOTIONS: Record<MotionPreset, Motion> = {
     const settle = Math.sin(TAU * 1.5 * progress) * (1 - progress);
     return { scaleY: 1 + 0.08 * settle, scaleX: 1 - 0.05 * settle };
   },
+  // A short rise and fade for an impact label.
+  float: (_seconds, progress) => ({ y: -45 * progress, alpha: 1 - progress }),
   // Leans to one side, holds, and comes back.
   tilt: (_seconds, progress) => ({ rotation: 0.06 * arc(progress) }),
   // Small quick nods, as when talking.
@@ -64,5 +67,5 @@ export function sampleMotion(preset: MotionPreset, seconds: number, progress: nu
 export function sampleAdjustedMotion(preset: MotionPreset, seconds: number, progress: number, speed: number, strength: number): MotionTransform {
   const value = sampleMotion(preset, seconds * speed, Math.min(1, progress * speed));
   return { x: value.x * strength, y: value.y * strength, rotation: value.rotation * strength,
-    scaleX: 1 + (value.scaleX - 1) * strength, scaleY: 1 + (value.scaleY - 1) * strength };
+    scaleX: 1 + (value.scaleX - 1) * strength, scaleY: 1 + (value.scaleY - 1) * strength, alpha: value.alpha };
 }

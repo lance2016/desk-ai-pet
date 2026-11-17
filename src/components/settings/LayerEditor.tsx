@@ -1,9 +1,9 @@
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import { appearanceLayerSchema, type AppearanceLayer } from "../../appearance/AppearanceStore";
 import { MOTION_PRESETS, type MotionPreset } from "../../types";
 
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
-const LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
+const LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头", float: "上飘淡出" };
 interface Props {
   layers: AppearanceLayer[];
   frames: number;
@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function LayerEditor({ layers, frames, canvas, resolveAsset, onChange, onError, busy, onBusyChange }: Props) {
+  const [text, setText] = useState("功德 +1");
   const update = (index: number, next: Partial<AppearanceLayer>) => onChange(layers.map((layer, i) => i === index ? { ...layer, ...next } : layer));
   const move = (index: number, offset: number) => {
     const next = [...layers];
@@ -47,6 +48,19 @@ export function LayerEditor({ layers, frames, canvas, resolveAsset, onChange, on
     };
     reader.readAsDataURL(file);
   };
+  const addText = () => {
+    const value = text.trim();
+    if (!value) { onError("请输入要显示的文字。"); return; }
+    const picture = document.createElement("canvas"); picture.width = 400; picture.height = 100;
+    const context = picture.getContext("2d");
+    if (!context) { onError("文字图片无法生成，请再试一次。"); return; }
+    context.font = "bold 46px system-ui, sans-serif"; context.textAlign = "center"; context.textBaseline = "middle";
+    context.lineJoin = "round"; context.lineWidth = 9; context.strokeStyle = "#ffffff"; context.fillStyle = "#d99725";
+    context.strokeText(value, 200, 50, 370); context.fillText(value, 200, 50, 370);
+    const startFrame = Math.min(frames, 4);
+    const layer = appearanceLayerSchema.parse({ name: value.slice(0, 30), source: { image: picture.toDataURL("image/png") }, frames: 1, fps: 12, x: 0, y: -canvas.height * 0.7, scaleX: 0.6, scaleY: 0.6, rotation: 0, zIndex: 1, motion: "float", startFrame: frames > 1 ? startFrame : undefined, endFrame: frames > 1 ? frames : undefined });
+    onChange([...layers, layer]); onError("");
+  };
   return <fieldset className="action-editor__group layer-editor" disabled={busy}><legend>叠加图层</legend>
     <p>为角色添加独立图片，例如木鱼、装饰或“功德 +1”文字。相同层级按列表顺序叠放；透明 PNG 效果最佳。</p>
     {layers.map((layer, index) => <article className="layer-card" key={index}>
@@ -65,6 +79,7 @@ export function LayerEditor({ layers, frames, canvas, resolveAsset, onChange, on
       <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => select(event, index)} />替换图层图片</label>
       <p>坐标单位为原图像素（画布 {canvas.width} × {canvas.height}）；横向帧图可设置图层帧数。</p>
     </article>)}
+    {layers.length < 8 && <div className="layer-editor__text"><label>飘字内容 <input value={text} maxLength={20} onChange={(event) => setText(event.currentTarget.value)} /></label><button type="button" className="settings-button" onClick={addText}>添加飘字</button><span>默认从第 4 帧开始上飘淡出，可在下方调整。</span></div>}
     {layers.length < 8 && <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => select(event, null)} />添加图片图层</label>}
     {layers.length === 0 && <p>暂未添加图层。</p>}
   </fieldset>;

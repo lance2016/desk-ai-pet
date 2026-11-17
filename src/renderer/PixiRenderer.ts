@@ -398,6 +398,7 @@ export class PixiRenderer implements PetRenderer {
     this.sprite.position.set(centerX + motion.x * facing, this.manifest.canvas.height + motion.y);
     this.sprite.scale.set(motion.scaleX * facing, motion.scaleY);
     this.sprite.rotation = motion.rotation * facing;
+    this.sprite.alpha = motion.alpha;
 
     for (const layer of this.layerSprites) {
       const layerTime = layerElapsedSeconds(layer.definition, elapsedMs / 1000, frames.length, entry.fps, entry.loop);
@@ -417,6 +418,7 @@ export class PixiRenderer implements PetRenderer {
         motion.scaleY * layer.definition.scaleY * layerMotion.scaleY,
       );
       layer.sprite.rotation = (motion.rotation + layer.definition.rotation + layerMotion.rotation) * facing;
+      layer.sprite.alpha = motion.alpha * layerMotion.alpha;
       layer.sprite.visible = isLayerVisible(layer.definition, frameIndex, frames.length);
     }
   }

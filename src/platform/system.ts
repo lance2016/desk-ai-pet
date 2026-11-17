@@ -16,6 +16,11 @@ export type LaunchAtLogin = "on" | "off" | "approval" | "unavailable";
 export const systemPlatform = {
   isNative: isTauri(),
 
+  /** Only the elapsed time, never the contents of keyboard or mouse events. */
+  async idleSeconds(): Promise<number | null> {
+    return isTauri() ? invoke<number | null>("system_idle_seconds") : null;
+  },
+
   async launchAtLogin(): Promise<LaunchAtLogin> {
     if (!isTauri()) return "unavailable";
     return invoke<LaunchAtLogin>(LAUNCH_STATUS_COMMAND);

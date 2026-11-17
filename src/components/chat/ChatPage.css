@@ -176,8 +176,11 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 
 /* Composer: one rounded field with the mic inside, the send button beside it. */
 .chat-composer { position: relative; display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px 14px; }
-/* Sits on the composer; only its top 50 px show above it. */
-.chat-peek { position: absolute; right: 56px; bottom: calc(100% - 14px); width: 78px; }
+/* Show only the top of the picture; the crop ends at the input's top edge. */
+.chat-peek { position: absolute; z-index: 0; right: 70px; bottom: calc(100% - 34px); width: 78px; clip-path: inset(0 0 24px); }
+.peek-picture.chat-peek { pointer-events: auto; cursor: default; }
+.peek-picture.chat-peek img { transform: translateY(12px); transform-origin: 50% 100%; transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
+.peek-picture.chat-peek:hover img { transform: translateY(0); }
 .chat-input { position: relative; z-index: 1; flex: 1; display: flex; align-items: flex-end; gap: 2px; padding: 4px 4px 4px 12px; border: 1px solid var(--field-border); border-radius: var(--radius-group); background: var(--field); transition: border-color .15s, box-shadow .15s; }
 .chat-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 .chat-input.is-recording { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-wash); }

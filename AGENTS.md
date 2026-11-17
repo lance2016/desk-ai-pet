@@ -76,6 +76,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 窗口权限 | `petWindow.ts` 里调用的窗口 API | `src-tauri/capabilities/default.json` |
 | 设置窗口路由 | `src-tauri/tauri.conf.json` 的 `settings` 窗口 URL | `src/main.tsx` 的 `window=settings` 路由 |
 | 性格长度上限 | `PERSONA_LIMITS.personality`（`src/types.ts`） | `MAX_PERSONALITY_CHARS`（`src-tauri/src/chat.rs`） |
+| 聊天补充要求长度上限（UTF-16） | `CHAT_INSTRUCTIONS_LIMIT`（`src/preferences/ChatInstructions.ts`） | `MAX_CHAT_INSTRUCTIONS_CHARS`（`src-tauri/src/chat.rs`） |
 | 你的称呼长度上限 | `USER_PROFILE_LIMITS.nickname`（`src/preferences/UserProfile.ts`） | `MAX_USER_NAME_CHARS`（`src-tauri/src/chat.rs`） |
 | 聊天工具名、提醒和备忘长度上限、动作名格式 | `src/agenda/chatTools.ts`、`AGENDA_LIMITS.text`、`NOTE_LIMITS.text`（`src/notes/NoteStore.ts`） | `src-tauri/src/chat.rs` 的 `ADD_REMINDER_TOOL`、`SAVE_NOTE_TOOL`、`PLAY_ACTION_TOOL`、`MAX_ITEM_CHARS`、`MAX_NOTE_CHARS`、`valid_action_id` |
 | 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `chat.rs` 里 `add_reminder` 的 `repeat` 参数说明 |

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { isLayerVisible, layerElapsedSeconds, layerMotionProgress } from "../../appearance/layerTiming";
 import { ACTION_SLOT } from "../../assets/ArtPrompt";
 import type { AnimationEntry } from "../../assets/Manifest";
@@ -19,9 +19,9 @@ import { MOTION_PRESETS, type MotionPreset } from "../../types";
 
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_SHEET_WIDTH = 8192;
-const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
-type Mode = "single" | "frames" | "sheet";
-interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by. */ reference?: { image: string; frames: number }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
+const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头", float: "上飘淡出" };
+type Mode = "single" | "frames" | "sheet" | "grid";
+interface Props { initialFile?: File; action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by. */ reference?: { image: string; frames: number }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
 
 function decode(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("图片无法读取，请换一张图片")); image.src = src; });
@@ -34,7 +34,7 @@ function readFile(file: File): Promise<string> {
 }
 
 /** Picked pictures in the cropper, or placed already and open to adjust again. */
-interface Picked extends PickedFrames { names: string[]; first: FirstFrame; crop: PictureCrop; fallback: PictureCrop }
+interface Picked extends PickedFrames { names: string[]; first: FirstFrame; crop: PictureCrop; fallback: PictureCrop; warning?: string }
 /** The idle picture, read once, for the cropper's guides. */
 interface Guide { frame: Size; visible: Rect }
 
@@ -52,7 +52,7 @@ function asPng(image: HTMLImageElement, src: string): string {
   return canvas.toDataURL("image/png");
 }
 
-function VisualPreview({ image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset }: { image: string; frames: number; fps: number; motion: MotionPreset; loop: boolean; speed: number; strength: number; duration?: number; layers: AppearanceLayer[]; stage: { width: number; height: number }; align: "left" | "center"; resolveAsset: (file: string) => string }) {
+export function VisualPreview({ image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset, size = PREVIEW_SIZE }: { image: string; frames: number; fps: number; motion: MotionPreset; loop: boolean; speed: number; strength: number; duration?: number; layers: AppearanceLayer[]; stage: { width: number; height: number }; align: "left" | "center"; resolveAsset: (file: string) => string; size?: { width: number; height: number } }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const pixelRatio = Math.max(1, Math.round(window.devicePixelRatio || 1));
   useEffect(() => {
@@ -68,14 +68,14 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
         const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 1;
         const index = loop ? Math.floor(elapsed * safeFps) % count : Math.min(count - 1, Math.floor(elapsed * safeFps));
         const frameWidth = asset.naturalWidth / count; const frameHeight = asset.naturalHeight;
-        const fit = Math.min(canvas.width / stage.width, canvas.height / stage.height) * .9;
+        const fit = Math.min(canvas.width / stage.width, canvas.height / stage.height);
         const progress = duration ? Math.min(1, elapsed * 1000 / duration) : (elapsed % 2) / 2;
         const effect = sampleAdjustedMotion(motion, elapsed, progress, speed, strength);
         const center = align === "left" ? frameWidth / 2 : stage.width / 2;
         // On the desktop a left-aligned action's stage edge is the screen edge; the preview box's left side stands in for it.
         const stageLeft = align === "left" ? 0 : (canvas.width - stage.width * fit) / 2;
         ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save();
-        ctx.translate(stageLeft, canvas.height * .95 - stage.height * fit); ctx.scale(fit, fit);
+        ctx.translate(stageLeft, (canvas.height - stage.height * fit) / 2); ctx.scale(fit, fit);
         const drawLayer = (layer: AppearanceLayer, layerImage: HTMLImageElement) => {
           if (!isLayerVisible(layer, index, count)) return;
           const layerCount = Number.isInteger(layer.frames) && layer.frames > 0 ? layer.frames : 1;
@@ -85,14 +85,14 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
           const width = layerImage.naturalWidth / layerCount; const height = layerImage.naturalHeight;
           const layerProgress = layerMotionProgress(layer, layerTime, count, safeFps, progress);
           const layerMotion = sampleMotion(layer.motion, layerTime, layerProgress);
-          ctx.save(); ctx.translate(center + effect.x + layer.x + layerMotion.x, stage.height + effect.y + layer.y + layerMotion.y);
+          ctx.save(); ctx.globalAlpha = effect.alpha * layerMotion.alpha; ctx.translate(center + effect.x + layer.x + layerMotion.x, stage.height + effect.y + layer.y + layerMotion.y);
           ctx.rotate(effect.rotation + layer.rotation + layerMotion.rotation);
           ctx.scale(effect.scaleX * layer.scaleX * layerMotion.scaleX, effect.scaleY * layer.scaleY * layerMotion.scaleY);
           ctx.drawImage(layerImage, frameIndex * width, 0, width, height, -width / 2, -height, width, height); ctx.restore();
         };
         const order = layers.map((layer, i) => ({ layer, img: layerImages[i] })).sort((a, b) => a.layer.zIndex - b.layer.zIndex);
         for (const item of order.filter((item) => item.layer.zIndex < 0)) drawLayer(item.layer, item.img);
-        ctx.save(); ctx.translate(center + effect.x, stage.height + effect.y); ctx.rotate(effect.rotation); ctx.scale(effect.scaleX, effect.scaleY);
+        ctx.save(); ctx.globalAlpha = effect.alpha; ctx.translate(center + effect.x, stage.height + effect.y); ctx.rotate(effect.rotation); ctx.scale(effect.scaleX, effect.scaleY);
         ctx.drawImage(asset, index * frameWidth, 0, frameWidth, frameHeight, -frameWidth / 2, -frameHeight, frameWidth, frameHeight); ctx.restore();
         for (const item of order.filter((item) => item.layer.zIndex >= 0)) drawLayer(item.layer, item.img);
         ctx.restore(); frame = requestAnimationFrame(draw);
@@ -101,12 +101,36 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
     }).catch((error) => console.warn("Failed to load action preview", error));
     return () => { cancelled = true; cancelAnimationFrame(frame); };
   }, [image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset, pixelRatio]);
-  return <canvas ref={ref} width={PREVIEW_SIZE.width * pixelRatio} height={PREVIEW_SIZE.height * pixelRatio} style={PREVIEW_SIZE} aria-label="动作动画预览" />;
+  return <canvas ref={ref} width={size.width * pixelRatio} height={size.height * pixelRatio} style={size} aria-label="动作动画预览" />;
 }
 
-export function ActionEditor({ action, packId, blank = false, prompt, reference, canvas, resolveAsset, onClose, onSaved }: Props) {
+/** Show the actual saved frame, including its transparent margins and shared placement. */
+function FrameThumbnail({ image, frames, index }: { image: string; frames: number; index: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let active = true;
+    void decode(image).then((asset) => {
+      if (!active || !ref.current) return;
+      const context = ref.current.getContext("2d");
+      if (!context) return;
+      const width = asset.naturalWidth / frames;
+      const height = asset.naturalHeight;
+      const scale = Math.min(ref.current.width / width, ref.current.height / height);
+      context.clearRect(0, 0, ref.current.width, ref.current.height);
+      context.drawImage(asset, index * width, 0, width, height, (ref.current.width - width * scale) / 2, (ref.current.height - height * scale) / 2, width * scale, height * scale);
+    }).catch((reason: unknown) => console.warn("Could not load the frame thumbnail", reason));
+    return () => { active = false; };
+  }, [image, frames, index]);
+  return <canvas ref={ref} width={144} height={144} aria-label={`第 ${index + 1} 帧图片`} />;
+}
+
+export function ActionEditor({ initialFile, action, packId, blank = false, prompt, reference, canvas, resolveAsset, onClose, onSaved }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<Mode>(action.frames > 1 && !blank ? "sheet" : "single");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<Mode>(initialFile && action.id === "wooden_fish" ? "grid" : action.frames > 1 && !blank ? "sheet" : "single");
+  const [gridRows, setGridRows] = useState(2);
+  const [gridColumns, setGridColumns] = useState(action.id === "wooden_fish" ? 3 : 2);
+  const [gridSource, setGridSource] = useState<string | null>(null);
   const [image, setImage] = useState(blank ? "" : resolveAsset(action.file));
   const [frames, setFrames] = useState(action.frames);
   const [fps, setFps] = useState(action.fps);
@@ -122,6 +146,7 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
   const [picked, setPicked] = useState<Picked | null>(null);
   const [cropping, setCropping] = useState<Picked | null>(null);
   const [guide, setGuide] = useState<Guide | null>(null);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const align = action.align;
   const [layers, setLayers] = useState<AppearanceLayer[]>(() => action.layers.map(({ file, ...options }) => ({ source: { file }, ...options })));
   /** The user's own actions also have a name and a length; a new one has no id yet. */
@@ -131,6 +156,7 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
   const [seconds, setSeconds] = useState((action.duration ?? 0) / 1000);
   const duration = own ? Math.round(seconds * 1000) : action.duration;
   const title = isNew ? "新建动作" : `${blank && !custom ? "上传" : "编辑"}「${(own ? label.trim() : "") || action.label || action.id}」`;
+  const actionName = (own ? label.trim() : "") || action.label || action.id || "新动作";
   /** Frame strips, frame rates and extra layers are for people who draw their own frames. */
   const [advanced, setAdvanced] = useState(!blank && (action.frames > 1 || action.layers.length > 0));
   /** What the editor held once loaded, to tell whether leaving would throw changes away. */
@@ -205,13 +231,14 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
     const first = await readFirstFrame(frames);
     if (!first.visible) throw new Error("这张图片是全透明的，请换一张");
     const fallback = await startingCrop(first, staged);
-    setCropping({ ...frames, names, first, crop: fallback, fallback });
+    setCropping({ ...frames, names, first, crop: fallback, fallback, warning: first.opaque ? "这张图片没有透明像素，宠物可能会连底色一起显示。仍可继续摆位。" : undefined });
     return first;
   };
   const placeCropped = async (target: Picked, crop: PictureCrop) => {
     setBusy(true); setError("");
     try {
       const sheet = await placeFrames(target, crop, canvas, align, MAX_SHEET_WIDTH);
+      if (mode === "grid" && action.id === "wooden_fish" && target.count === 6 && !picked) { setFps(6); setLoop(true); }
       setImage(sheet); setFrames(target.count); setSourceNames(target.names); setPicked({ ...target, crop });
       if (target.count === 1) setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined })));
     } catch (reason) { console.error("Could not place the picture", reason); setError(reason instanceof Error && /[\u4e00-\u9fa5]/.test(reason.message) ? reason.message : "图片没能摆好，换一张试试。"); }
@@ -240,8 +267,8 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
     setMode(value); setSourceNames([]); setError("");
     if (value === "single") setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined })));
   };
-  const selectFiles = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; if (!files.length) return;
+  const processFiles = async (files: File[]) => {
+    if (!files.length) return;
     setBusy(true); setError("");
     try {
       if (mode !== "frames" && files.length !== 1) throw new Error("请选择一张图片");
@@ -249,12 +276,52 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
       const ordered = mode === "frames" ? [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) : files;
       const images = await Promise.all(ordered.map(readFile));
       if (mode === "frames" && images.length < 2) throw new Error("请至少选择两张逐帧图片");
+      if (mode === "grid") {
+        setGridSource(images[0]);
+        await openGrid(images[0], gridRows, gridColumns, ordered[0].name);
+        return;
+      }
       const count = mode === "frames" ? images.length : mode === "sheet" ? frames : 1;
       if (!Number.isInteger(count) || count < 1 || count > 16) throw new Error("帧数请设置为 1 到 16 之间的整数。");
-      const first = await openCropper({ images, count }, ordered.map((file) => file.name), false);
-      if (first.opaque) setError("这张图没有透明背景，宠物会连着底色一起显示。可以先去掉背景再上传。");
+      await openCropper({ images, count }, ordered.map((file) => file.name), false);
     } catch (reason) { console.error("Could not read the picked pictures", reason); setError(reason instanceof Error && /[\u4e00-\u9fa5]/.test(reason.message) ? reason.message : "图片没能读出来，换一张试试。"); }
     finally { setBusy(false); }
+  };
+  const openGrid = async (src: string, rows: number, columns: number, name: string) => {
+    if (!Number.isInteger(rows) || !Number.isInteger(columns) || rows < 1 || columns < 1 || rows * columns > 16 || rows * columns < 2) throw new Error("宫格需有 2 到 16 帧，请检查行数和列数。");
+    const asset = await decode(src);
+    if (asset.naturalWidth % columns || asset.naturalHeight % rows) throw new Error("图片宽高不能被列数和行数整除，请检查宫格设置。");
+    const width = asset.naturalWidth / columns; const height = asset.naturalHeight / rows;
+    const output = document.createElement("canvas"); output.width = width; output.height = height;
+    const context = output.getContext("2d"); if (!context) throw new Error("无法处理图片");
+    const images = Array.from({ length: rows * columns }, (_, index) => {
+      context.clearRect(0, 0, width, height);
+      context.drawImage(asset, (index % columns) * width, Math.floor(index / columns) * height, width, height, 0, 0, width, height);
+      return output.toDataURL("image/png");
+    });
+    await openCropper({ images, count: images.length }, images.map((_, i) => `${name} · 第 ${i + 1} 帧`), false);
+  };
+  const initialHandled = useRef(false);
+  useEffect(() => {
+    if (!initialFile || busy || initialHandled.current) return;
+    initialHandled.current = true;
+    void processFiles([initialFile]);
+  }, [initialFile, busy]);
+  const selectFiles = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = "";
+    await processFiles(files);
+  };
+  const dragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault(); setDraggingFiles(true);
+  };
+  const dragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+    setDraggingFiles(false);
+  };
+  const dropFiles = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault(); setDraggingFiles(false);
+    void processFiles(Array.from(event.dataTransfer.files));
   };
   const editFrameOrder = async (index: number, direction: -1 | 0 | 1) => {
     if (!image || frames < 2) return;
@@ -337,33 +404,44 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
     <div className="action-editor__header"><div>{dirty
       ? <ConfirmButton className="action-editor__back" disabled={busy} confirmLabel="再点一次，放弃改动" onConfirm={onClose}>‹ 返回动作库</ConfirmButton>
       : <button type="button" className="action-editor__back" disabled={busy} onClick={onClose}>‹ 返回动作库</button>}<h2>{title}</h2><p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p></div></div>
-    <div className={action.align === "left" ? "action-editor__preview is-left" : "action-editor__preview"}>{image ? <><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} resolveAsset={resolveAsset} /><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新预览</button></> : <span>选择图片后预览</span>}</div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
       <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>
     </fieldset>}
-    <fieldset className="action-editor__group" disabled={busy}><legend>素材类型</legend><div className="action-editor__types">{([ ["single", "单张图片"], ["frames", "多张逐帧"], ["sheet", "横向帧图"] ] as const).filter(([value]) => value !== "sheet" || advanced || mode === "sheet").map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p>{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张相同尺寸的图片，按文件名数字顺序播放。" : "使用横向排列、每帧等宽的图片，例如现有的木鱼素材。"}</p>
+    <fieldset className="action-editor__group action-editor__materials" disabled={busy}><legend>动作图片</legend><div className="action-editor__types" role="group" aria-label="素材类型">{([ ["single", "单张图片"], ["frames", "多张逐帧"], ["sheet", "横向帧图"], ["grid", "宫格图片"] ] as const).map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p className="action-editor__mode-note">{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张同尺寸图片，按文件名数字顺序播放。" : mode === "sheet" ? "选择一张横向帧图，各帧需等宽排列。" : "按从左到右、从上到下拆分，所有帧使用同一摆位。"}</p>
+      {mode === "grid" && <div className="action-editor__field"><label>行数 <NumberField min={1} max={16} value={gridRows} onChange={setGridRows} /></label><label>列数 <NumberField min={1} max={16} value={gridColumns} onChange={setGridColumns} /></label>{gridSource && <button type="button" className="settings-button" onClick={() => { setError(""); void openGrid(gridSource, gridRows, gridColumns, sourceNames[0]?.split(" · ")[0] ?? "宫格图片").catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "宫格图片无法拆分")); }}>重新拆分并摆位</button>}</div>}
       {mode === "sheet" && <label className="action-editor__field">帧数<NumberField min={1} max={16} value={frames} onChange={changeSheetFrames} /></label>}
-      <p>建议使用透明背景的 PNG，单张图片不超过 4 MB。选好后在摆位框里拖动、缩放，按待机图的身高摆好，所有动作才会一样大。</p>
-      <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" multiple={mode === "frames"} onChange={(e) => void selectFiles(e)} />选择{mode === "frames" ? "逐帧图片" : "图片"}</label>
-      {image && <button type="button" className="settings-button action-editor__adjust" disabled={busy} onClick={() => void adjust()}>调整位置和大小</button>}
-      <CopyButton className="settings-link action-editor__prompt" text={prompt} title={own ? `粘贴到 ChatGPT 后，把 ${ACTION_SLOT} 换成想要的姿势` : "和角色的图一起发给 ChatGPT，画出这一张"} onMessage={setError}>{own ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton>
-      {mode !== "single" && image && frames > 1 && Number.isInteger(frames) && frames <= 16 && <div className="action-editor__frames" aria-label="帧顺序">{Array.from({ length: frames }, (_, index) => <div key={index}><span title={sourceNames[index] ?? `第 ${index + 1} 帧`}>{sourceNames[index] ?? `第 ${index + 1} 帧`}</span><button type="button" disabled={busy || index === 0} aria-label={`第 ${index + 1} 帧前移`} onClick={() => void editFrameOrder(index, -1)}>↑</button><button type="button" disabled={busy || index === frames - 1} aria-label={`第 ${index + 1} 帧后移`} onClick={() => void editFrameOrder(index, 1)}>↓</button><button type="button" disabled={busy} aria-label={`删除第 ${index + 1} 帧`} onClick={() => void editFrameOrder(index, 0)}>×</button></div>)}</div>}
+      <div className={draggingFiles ? "action-editor__dropzone is-dragging" : "action-editor__dropzone"} onClick={(event) => { if (event.target === event.currentTarget || event.target instanceof HTMLSpanElement && !event.target.closest("label")) fileRef.current?.click(); }} onDragOver={dragOver} onDragLeave={dragLeave} onDrop={dropFiles}>
+        <label className="action-editor__upload"><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple={mode === "frames"} onChange={(e) => void selectFiles(e)} /><span>{image ? "更换图片" : mode === "frames" ? "选择多张图片" : "选择图片"}</span></label>
+        {image && <button type="button" className="settings-button action-editor__adjust" disabled={busy} onClick={() => void adjust()}>重新摆位</button>}
+        <span className="action-editor__drop-hint">或把图片拖到这里</span>
+        <span className="action-editor__format">支持 PNG、JPG、WebP；建议透明 PNG，每张不超过 4 MB。选好后进入摆位。</span>
+        {sourceNames.length > 0 && <span className="action-editor__file-meta" title={sourceNames.join("、")}>{mode === "frames" ? `已选 ${sourceNames.length} 张图片` : sourceNames[0]}</span>}
+      </div>
+      <div className="action-editor__prompt-row"><span>{own ? "还没准备好图片？" : "需要重新生成这张图？"}</span><CopyButton className="settings-link action-editor__prompt" text={prompt} title={own ? `粘贴到 ChatGPT 后，把 ${ACTION_SLOT} 换成想要的姿势` : "和角色的图一起发给 ChatGPT，画出这一张"} onMessage={setError}>{own ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton></div>
+      {image && frames > 1 && Number.isInteger(frames) && frames <= 16 && <div className="action-editor__sequence">
+        <div className="action-editor__sequence-head"><strong>帧顺序</strong><span>按顺序播放，可调整或删除</span></div>
+        <div className="action-editor__frames" aria-label="帧顺序">{Array.from({ length: frames }, (_, index) => <div key={index}><FrameThumbnail image={image} frames={frames} index={index} /><span title={sourceNames[index] ?? `第 ${index + 1} 帧`}>第 {index + 1} 帧</span><div className="action-editor__frame-controls"><button type="button" disabled={busy || index === 0} aria-label={`第 ${index + 1} 帧前移`} onClick={() => void editFrameOrder(index, -1)}>←</button><button type="button" disabled={busy || index === frames - 1} aria-label={`第 ${index + 1} 帧后移`} onClick={() => void editFrameOrder(index, 1)}>→</button><button type="button" disabled={busy} aria-label={`删除第 ${index + 1} 帧`} onClick={() => void editFrameOrder(index, 0)}>×</button></div></div>)}</div>
+        <label className="action-editor__field">播放速度 <span><NumberField min={1} max={30} value={fps} onChange={setFps} /> 帧 / 秒</span></label>
+        <label className="action-editor__field">循环播放 <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.currentTarget.checked)} /></label>
+        {duration && fps > 0 && (frames - 1) / fps * 1000 > duration && <p className="settings-error">这个动作会在 {(duration / 1000).toFixed(1)} 秒后结束，当前速度可能播放不到最后一帧。可以{own ? "加长播放时长、" : ""}提高帧速或减少帧数。</p>}
+      </div>}
     </fieldset>
-    <fieldset className="action-editor__group" disabled={busy}><legend>播放效果</legend>
-      {mode !== "single" && advanced && <><label className="action-editor__field">播放速度 <span><NumberField min={1} max={30} value={fps} onChange={setFps} /> 帧 / 秒</span></label><label className="action-editor__field">循环播放 <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.currentTarget.checked)} /></label></>}
+    <div className="action-editor__preview"><span className="action-editor__preview-label">动作预览</span>{image ? <><div className="action-editor__stage" style={{ aspectRatio: `${canvas.width} / ${canvas.height}` }}><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} resolveAsset={resolveAsset} size={{ width: 240, height: Math.round(240 * canvas.height / canvas.width) }} /></div><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新播放</button></> : <span>选择图片后在这里预览</span>}</div>
+    <fieldset className="action-editor__group action-editor__motion" disabled={busy}><legend>动效</legend>
       <label className="action-editor__field">图片动效 <select value={motion} onChange={(e) => setMotion(e.currentTarget.value as MotionPreset)}>{MOTION_PRESETS.map((value) => <option key={value} value={value}>{MOTION_LABELS[value]}</option>)}</select></label>
-      {motion !== "none" && <><label className="action-editor__field">动效速度 <span><input type="range" min="0.25" max="3" step="0.05" value={motionSpeed} onChange={(e) => setMotionSpeed(Number(e.currentTarget.value))} /> {motionSpeed.toFixed(2)}×</span></label><label className="action-editor__field">动效幅度 <span><input type="range" min="0" max="2" step="0.05" value={motionStrength} onChange={(e) => setMotionStrength(Number(e.currentTarget.value))} /> {Math.round(motionStrength * 100)}%</span></label></>}
-      {!own && <p>动作的持续时间和触发时机由宠物行为决定。</p>}
-      {mode !== "single" && duration && frames > 1 && fps > 0 && (frames - 1) / fps * 1000 > duration && <p className="settings-error">这个动作会在 {(duration / 1000).toFixed(1)} 秒后结束，当前速度可能播放不到最后一帧。可以{own ? "加长播放时长、" : ""}提高帧速或减少帧数。</p>}
+      {!own && <p>触发时机和持续时间由宠物行为决定。</p>}
     </fieldset>
     <details className="action-editor__advanced" open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)}>
-      <summary>高级：横向帧图、帧速、叠加图层</summary>
-      {advanced && <LayerEditor layers={layers} frames={mode === "single" ? 1 : frames} canvas={canvas} resolveAsset={resolveAsset} onChange={setLayers} onError={setError} busy={busy} onBusyChange={setBusy} />}
+      <summary>更多设置：动效幅度、图层</summary>
+      {advanced && <div className="action-editor__advanced-content">
+        {motion !== "none" && <><label className="action-editor__field">动效速度 <span><input type="range" min="0.25" max="3" step="0.05" value={motionSpeed} onChange={(e) => setMotionSpeed(Number(e.currentTarget.value))} /> {motionSpeed.toFixed(2)}×</span></label><label className="action-editor__field">动效幅度 <span><input type="range" min="0" max="2" step="0.05" value={motionStrength} onChange={(e) => setMotionStrength(Number(e.currentTarget.value))} /> {Math.round(motionStrength * 100)}%</span></label></>}
+        <LayerEditor layers={layers} frames={mode === "single" ? 1 : frames} canvas={canvas} resolveAsset={resolveAsset} onChange={setLayers} onError={setError} busy={busy} onBusyChange={setBusy} />
+      </div>}
     </details>
     {error && <p className="settings-error" role="alert">{error}</p>}
-    {cropping && <PictureCropper title={`摆好「${(own ? label.trim() : "") || action.label || action.id}」`} src={cropping.first.display} crop={cropping.crop} fallback={cropping.fallback} frameAspect={canvas.width / canvas.height} round={false} large
-      hint={`框就是宠物在桌面上的画面。拖动摆位置，滚动或拖动滑块缩放：脚踩「地面」线，站直时头顶到「待机身高」虚线。举手、跳起按身体对齐，手可以超出虚线。${align === "left" ? "身体左边贴住框的左边。" : ""}`}
+    {cropping && <PictureCropper title={`摆好「${actionName}」`} src={cropping.first.display} crop={cropping.crop} fallback={cropping.fallback} frameAspect={canvas.width / canvas.height} round={false} large warning={cropping.warning}
+      hint={`拖动摆位置，滚轮或滑块缩放。站姿头顶对齐虚线，脚踩地面线。${align === "left" ? "探头动作靠左边缘。" : ""}`}
       guide={<StageGuide guide={guide} stage={canvas} />}
       onCancel={() => setCropping(null)} onConfirm={(crop) => void placeCropped(cropping, crop)} />}
     <div className="action-editor__footer">
