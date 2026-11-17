@@ -309,6 +309,7 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__upload { position: relative; display: inline-flex; align-items: center; height: 24px; padding: 0 12px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
 .action-editor__upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .action-editor__prompt { margin-left: 12px; text-align: left; }
+.action-editor .action-editor__adjust { margin-left: 8px; height: 24px; }
 .action-editor__files { overflow-wrap: anywhere; }
 .action-editor__field { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; }
 .action-editor__field input[type=number] { width: 60px; height: 24px; padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
@@ -423,6 +424,15 @@ button.dock-row__body { cursor: pointer; }
 .welcome__card, .cropper__card { position: relative; box-sizing: border-box; padding: 24px; text-align: center; background: var(--group); border-radius: 12px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3); }
 .welcome__card { width: min(420px, 100%); }
 .cropper__card { width: min(380px, 100%); }
+.cropper__card.is-large { width: min(400px, 100%); }
+.cropper__card.is-large > p { line-height: 1.5; text-align: left; }
+/* Guides over the action cropper's frame, which is the pet's stage: its bottom edge is the ground. */
+.stage-guide { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.stage-guide__ghost { position: absolute; bottom: 0; overflow: hidden; opacity: .32; }
+.stage-guide__ghost img { display: block; height: 100%; max-width: none; }
+.stage-guide__line { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--accent-strong); filter: drop-shadow(0 0 1px #fff); }
+.stage-guide__line.is-ground { bottom: 2px; border-top-style: solid; }
+.stage-guide__line em { position: absolute; right: 4px; bottom: 2px; padding: 0 4px; color: #fff; background: var(--accent-strong); border-radius: 3px; font-size: 10px; font-style: normal; line-height: 15px; }
 .welcome__skip { position: absolute; top: 12px; right: 14px; padding: 2px 6px; color: var(--label-2); background: none; border: 0; font-size: 12px; cursor: pointer; }
 .welcome__avatar { width: 64px; height: 64px; margin: 0 auto; box-shadow: 0 0 0 3px var(--group), 0 4px 14px rgba(111, 88, 201, .2); font-size: 26px; }
 .welcome__steps { display: flex; justify-content: center; gap: 6px; margin: 14px 0 16px; padding: 0; list-style: none; color: var(--label-3); font-size: 11px; }

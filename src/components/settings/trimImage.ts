@@ -27,30 +27,10 @@ export function visibleBounds(pixels: ArrayLike<number>, width: number, height: 
 }
 
 /**
- * Cuts the empty margin around a picture, so a drawing made on a large canvas (as image models do)
- * fills the action's frame and stands on the ground instead of floating.
- */
-export async function trimTransparentEdges(source: string): Promise<{ image: string; opaque: boolean }> {
-  const picture = await loadImage(source);
-  const canvas = document.createElement("canvas");
-  canvas.width = picture.naturalWidth; canvas.height = picture.naturalHeight;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("无法处理图片");
-  context.drawImage(picture, 0, 0);
-  const { bounds, opaque } = visibleBounds(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-  if (!bounds) throw new Error("这张图片是全透明的，请换一张");
-  if (bounds.width === canvas.width && bounds.height === canvas.height) return { image: source, opaque };
-  const output = document.createElement("canvas");
-  output.width = bounds.width; output.height = bounds.height;
-  output.getContext("2d")?.drawImage(canvas, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
-  return { image: output.toDataURL("image/png"), opaque };
-}
-
-/**
  * Decodes through an image element, not `fetch`: the app's CSP lets images load
  * `data:` URLs but blocks `fetch` from reading them.
  */
-function loadImage(source: string): Promise<HTMLImageElement> {
+export function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const picture = new Image();
     picture.onload = () => resolve(picture);

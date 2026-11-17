@@ -120,7 +120,12 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     if (created) requestAnimationFrame(() => document.querySelector(".settings-content")?.scrollTo({ top: 0 }));
   };
 
-  if (editing) return <ActionEditor key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} prompt={isUserAction(editing) ? usablePrompts.action : promptFor(editing)} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
+  const idle = actions.find((action) => action.id === BASE_ACTION);
+  const ownIdle = appearances?.[BASE_ACTION];
+  /** The idle picture as the pet wears it, to size every other picture by. A custom character's borrowed one lends only its height. */
+  const reference = ownIdle ? { image: ownIdle.image, frames: ownIdle.frames, ghost: true } : idle ? { image: resolveAsset(idle.file), frames: idle.frames, ghost: !isCustomPack } : undefined;
+
+  if (editing) return <ActionEditor key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} prompt={isUserAction(editing) ? usablePrompts.action : promptFor(editing)} reference={reference} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
 
   const userActions = actions.filter(isUserAction);
   const draft = draftUserAction(actions);

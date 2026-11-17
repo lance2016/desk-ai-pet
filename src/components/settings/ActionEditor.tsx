@@ -10,7 +10,10 @@ import { NumberField } from "./NumberField";
 import { setUnsavedChanges } from "./unsavedChanges";
 import { LayerEditor } from "./LayerEditor";
 import { CopyButton } from "./CopyButton";
-import { trimTransparentEdges } from "./trimImage";
+import { PictureCropper } from "./PictureCropper";
+import { placeFrames, readFirstFrame, type FirstFrame, type PickedFrames } from "./placePicture";
+import type { PictureCrop } from "../../appearance/pictureCrop";
+import { cropFromPlacement, fittedPlacement, promptPlacement, restingPlacement, type Rect, type Size } from "../../appearance/stagePlacement";
 import { deleteUserAction, isUserAction, newUserActionId, saveUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
 import { MOTION_PRESETS, type MotionPreset } from "../../types";
 
@@ -18,7 +21,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_SHEET_WIDTH = 8192;
 const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
 type Mode = "single" | "frames" | "sheet";
-interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
+interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by; `ghost` also shows it faintly while placing. */ reference?: { image: string; frames: number; ghost: boolean }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
 
 function decode(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("图片无法读取，请换一张图片")); image.src = src; });
@@ -30,23 +33,20 @@ function readFile(file: File): Promise<string> {
   });
 }
 
-/** Normalize uploaded frames to the original frame size, preserving aspect and bottom alignment. */
-async function makeSheet(sources: string[], sourceFrames: number, stage: { width: number; height: number }): Promise<string> {
-  const images = await Promise.all(sources.map(decode));
-  const count = sources.length > 1 ? sources.length : sourceFrames;
-  if (!Number.isInteger(count) || count < 1 || count > 16 || stage.width * count > MAX_SHEET_WIDTH) throw new Error("帧数太多，超出当前宠物画布允许的大小");
-  if (sources.length === 1 && images[0].naturalWidth % count !== 0) throw new Error("帧图的宽度必须能被帧数整除");
-  if (sources.length > 1 && images.some((image) => image.naturalWidth !== images[0].naturalWidth || image.naturalHeight !== images[0].naturalHeight)) throw new Error("逐帧图片的宽高必须相同，避免播放时抖动");
-  const output = document.createElement("canvas"); output.width = stage.width * count; output.height = stage.height;
-  const ctx = output.getContext("2d"); if (!ctx) throw new Error("无法处理图片");
-  for (let index = 0; index < count; index += 1) {
-    const image = images[sources.length > 1 ? index : 0];
-    const width = image.naturalWidth / (sources.length > 1 ? 1 : count);
-    const height = image.naturalHeight;
-    const scale = Math.min(stage.width / width, stage.height / height);
-    ctx.drawImage(image, sources.length > 1 ? 0 : index * width, 0, width, height, index * stage.width + (stage.width - width * scale) / 2, stage.height - height * scale, width * scale, height * scale);
-  }
-  return output.toDataURL("image/png");
+/** Picked pictures in the cropper, or placed already and open to adjust again. */
+interface Picked extends PickedFrames { names: string[]; first: FirstFrame; crop: PictureCrop; fallback: PictureCrop }
+/** The idle picture, read once, for the cropper's guides. */
+interface Guide { image: string; frames: number; ghost: boolean; frame: Size; visible: Rect }
+
+const percent = (value: number, total: number) => `${(value / total) * 100}%`;
+
+/** The picture as a PNG data URL, which is how pictures are stored. */
+function asPng(image: HTMLImageElement, src: string): string {
+  if (src.startsWith("data:image/png")) return src;
+  const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d"); if (!context) throw new Error("无法处理图片");
+  context.drawImage(image, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 function VisualPreview({ image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset }: { image: string; frames: number; fps: number; motion: MotionPreset; loop: boolean; speed: number; strength: number; duration?: number; layers: AppearanceLayer[]; stage: { width: number; height: number }; align: "left" | "center"; resolveAsset: (file: string) => string }) {
@@ -98,9 +98,8 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
   return <canvas ref={ref} width={240} height={210} aria-label="动作动画预览" />;
 }
 
-export function ActionEditor({ action, packId, blank = false, prompt, canvas, resolveAsset, onClose, onSaved }: Props) {
+export function ActionEditor({ action, packId, blank = false, prompt, reference, canvas, resolveAsset, onClose, onSaved }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [frameSize, setFrameSize] = useState(canvas);
   const [mode, setMode] = useState<Mode>(action.frames > 1 && !blank ? "sheet" : "single");
   const [image, setImage] = useState(blank ? "" : resolveAsset(action.file));
   const [frames, setFrames] = useState(action.frames);
@@ -114,6 +113,10 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
   const [custom, setCustom] = useState(false);
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const [cropping, setCropping] = useState<Picked | null>(null);
+  const [guide, setGuide] = useState<Guide | null>(null);
+  const align = action.align;
   const [layers, setLayers] = useState<AppearanceLayer[]>(() => action.layers.map(({ file, ...options }) => ({ source: { file }, ...options })));
   /** The user's own actions also have a name and a length; a new one has no id yet. */
   const own = isUserAction(action);
@@ -139,12 +142,8 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([decode(resolveAsset(action.file)), isNew ? Promise.resolve(null) : loadAppearance(packId, action.id)]).then(([original, stored]) => {
+    Promise.allSettled([isNew ? Promise.resolve(null) : loadAppearance(packId, action.id)]).then(([stored]) => {
       if (!active) return;
-      if (original.status === "fulfilled") {
-        const width = original.value.naturalWidth / action.frames;
-        if (Number.isInteger(width) && width > 0) setFrameSize({ width, height: original.value.naturalHeight });
-      }
       if (stored.status === "rejected") {
         console.error("Could not read the saved picture", stored.reason);
         setCustom(true); setError("换过的图片没能读出来，可以点「恢复默认」改回原来的。");
@@ -158,7 +157,77 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
       setBusy(false);
     });
     return () => { active = false; };
-  }, [action.id, action.file, action.frames, packId, resolveAsset, isNew]);
+  }, [action.id, packId, isNew]);
+
+  /** Read once per reference; picking a picture waits for it, so the first placement never misses it. */
+  const guideReady = useRef<Promise<Guide | null>>(Promise.resolve(null));
+  useEffect(() => {
+    let active = true;
+    const read = async (): Promise<Guide | null> => {
+      if (!reference) return null;
+      const { image: src, frames: count, ghost } = reference;
+      const first = await readFirstFrame({ images: [src], count });
+      return first.visible ? { image: src, frames: count, ghost, frame: first.frame, visible: first.visible } : null;
+    };
+    const ready = read().catch((reason: unknown) => { console.warn("Could not read the idle picture for the guides", reason); return null; });
+    guideReady.current = ready;
+    void ready.then((value) => { if (active) setGuide(value); });
+    return () => { active = false; };
+  }, [reference?.image, reference?.frames, reference?.ghost]);
+
+  /** The size the pack's own picture of this action has: a picture of another shape is fitted to it. */
+  const usualFrame = async (): Promise<Size> => {
+    try {
+      const original = await decode(resolveAsset(action.file));
+      const width = original.naturalWidth / action.frames;
+      return Number.isInteger(width) && width > 0 ? { width, height: original.naturalHeight } : canvas;
+    } catch (reason) { console.warn("Could not read the action's own picture", reason); return canvas; }
+  };
+
+  /**
+   * Where picked pictures start in the cropper. One already at stage scale stays
+   * where the pet shows it; one drawn to the art prompt's square canvas gets
+   * the idle picture's scale; anything else fills the action's usual frame.
+   */
+  const startingCrop = async (first: FirstFrame, staged: boolean): Promise<PictureCrop> => {
+    if (staged) return cropFromPlacement(restingPlacement(first.frame, canvas, align), first.frame, canvas);
+    const known = await guideReady.current;
+    const placement = (known && promptPlacement(first.frame, canvas, align, known.visible.height, first.visible?.x))
+      ?? fittedPlacement(first.visible ?? { x: 0, y: 0, ...first.frame }, await usualFrame(), canvas, align);
+    return cropFromPlacement(placement, first.frame, canvas);
+  };
+  const openCropper = async (frames: PickedFrames, names: string[], staged: boolean): Promise<FirstFrame> => {
+    const first = await readFirstFrame(frames);
+    if (!first.visible) throw new Error("这张图片是全透明的，请换一张");
+    const fallback = await startingCrop(first, staged);
+    setCropping({ ...frames, names, first, crop: fallback, fallback });
+    return first;
+  };
+  const placeCropped = async (target: Picked, crop: PictureCrop) => {
+    setBusy(true); setError("");
+    try {
+      const sheet = await placeFrames(target, crop, canvas, align, MAX_SHEET_WIDTH);
+      setImage(sheet); setFrames(target.count); setSourceNames(target.names); setPicked({ ...target, crop });
+      if (target.count === 1) setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined })));
+    } catch (reason) { console.error("Could not place the picture", reason); setError(reason instanceof Error && /[\u4e00-\u9fa5]/.test(reason.message) ? reason.message : "图片没能摆好，换一张试试。"); }
+    finally { setCropping(null); setBusy(false); }
+  };
+  /** Opens the cropper again: on the pictures as picked if there are any, otherwise on the picture shown now. */
+  const adjust = async () => {
+    if (picked) { setCropping(picked); return; }
+    setBusy(true); setError("");
+    try { await openCropper({ images: [image], count: frames }, sourceNames, true); }
+    catch (reason) { console.error("Could not open the picture to adjust it", reason); setError("这张图片没能打开，换一张试试。"); }
+    finally { setBusy(false); }
+  };
+  /** A strip split another way is a new set of frames: place them again. */
+  const changeSheetFrames = (count: number) => {
+    setFrames(count);
+    if (count === 1) setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined })));
+    if (!picked || picked.images.length !== 1 || !Number.isInteger(count) || count < 1 || count > 16) return;
+    setPicked(null);
+    openCropper({ images: picked.images, count }, picked.names, false).catch((reason: unknown) => { console.warn("Could not split the strip", reason); setError(reason instanceof Error && /[\u4e00-\u9fa5]/.test(reason.message) ? reason.message : "帧图没能按这个帧数分开。"); });
+  };
 
   /** Picking another kind keeps the picture until the user really picks new files; picking the same kind does nothing. */
   const changeMode = (value: Mode) => {
@@ -171,18 +240,14 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
     setBusy(true); setError("");
     try {
       if (mode !== "frames" && files.length !== 1) throw new Error("请选择一张图片");
-      if (mode === "frames" && (files.length > 16 || files.length * frameSize.width > MAX_SHEET_WIDTH)) throw new Error("选择的图片过多，超出当前动作允许的帧数");
+      if (mode === "frames" && files.length > 16) throw new Error("选择的图片过多，最多 16 帧");
       const ordered = mode === "frames" ? [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) : files;
-      const picked = await Promise.all(ordered.map(readFile));
-      // Frames are left as they are: trimming each one on its own would make them jump.
-      const trimmed = mode === "single" ? await trimTransparentEdges(picked[0]) : null;
-      const sources = trimmed ? [trimmed.image] : picked;
-      if (mode === "frames" && sources.length < 2) throw new Error("请至少选择两张逐帧图片");
-      const count = mode === "frames" ? sources.length : mode === "sheet" ? frames : 1;
-      const sheet = mode === "sheet" ? sources[0] : await makeSheet(sources, count, frameSize);
-      if (mode === "sheet") { const decoded = await decode(sheet); if (!Number.isInteger(count) || count < 1 || decoded.naturalWidth % count !== 0) throw new Error("帧图的宽度必须能被帧数整除"); }
-      setImage(sheet); setFrames(count); setSourceNames(ordered.map((file) => file.name));
-      if (trimmed?.opaque) setError("这张图没有透明背景，宠物会连着底色一起显示。可以先去掉背景再上传。");
+      const images = await Promise.all(ordered.map(readFile));
+      if (mode === "frames" && images.length < 2) throw new Error("请至少选择两张逐帧图片");
+      const count = mode === "frames" ? images.length : mode === "sheet" ? frames : 1;
+      if (!Number.isInteger(count) || count < 1 || count > 16) throw new Error("帧数请设置为 1 到 16 之间的整数。");
+      const first = await openCropper({ images, count }, ordered.map((file) => file.name), false);
+      if (first.opaque) setError("这张图没有透明背景，宠物会连着底色一起显示。可以先去掉背景再上传。");
     } catch (reason) { console.error("Could not read the picked pictures", reason); setError(reason instanceof Error && /[\u4e00-\u9fa5]/.test(reason.message) ? reason.message : "图片没能读出来，换一张试试。"); }
     finally { setBusy(false); }
   };
@@ -192,15 +257,16 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
     if (direction !== 0 && (target < 0 || target >= frames)) return;
     setBusy(true); setError("");
     try {
-      const normalized = await makeSheet([image], frames, frameSize);
-      const asset = await decode(normalized);
+      const asset = await decode(image);
+      const frameWidth = asset.naturalWidth / frames; const frameHeight = asset.naturalHeight;
+      if (!Number.isInteger(frameWidth)) throw new Error("帧图的宽度必须能被帧数整除");
       const order = Array.from({ length: frames }, (_, i) => i);
       if (direction === 0) order.splice(index, 1);
       else [order[index], order[target]] = [order[target], order[index]];
-      const output = document.createElement("canvas"); output.width = frameSize.width * order.length; output.height = frameSize.height;
+      const output = document.createElement("canvas"); output.width = frameWidth * order.length; output.height = frameHeight;
       const context = output.getContext("2d"); if (!context) throw new Error("无法处理帧图");
-      order.forEach((sourceIndex, outputIndex) => context.drawImage(asset, sourceIndex * frameSize.width, 0, frameSize.width, frameSize.height, outputIndex * frameSize.width, 0, frameSize.width, frameSize.height));
-      setImage(output.toDataURL("image/png"));
+      order.forEach((sourceIndex, outputIndex) => context.drawImage(asset, sourceIndex * frameWidth, 0, frameWidth, frameHeight, outputIndex * frameWidth, 0, frameWidth, frameHeight));
+      setImage(output.toDataURL("image/png")); setPicked(null);
       setSourceNames(order.map((sourceIndex) => sourceNames[sourceIndex] ?? `第 ${sourceIndex + 1} 帧`));
       setFrames(order.length);
       if (order.length === 1) setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined })));
@@ -216,7 +282,7 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
     setBusy(true); setError("");
     const id = action.id || newUserActionId();
     try {
-      const mainFrames = mode === "single" ? 1 : frames;
+      const mainFrames = frames;
       for (const layer of layers) {
         const parsed = appearanceLayerSchema.safeParse(layer);
         if (!parsed.success) throw new Error(`图层“${layer.name || "未命名"}”的参数无效，请检查帧数、位置和缩放。`);
@@ -224,8 +290,9 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
         const layerImage = await decode("image" in layer.source ? layer.source.image : resolveAsset(layer.source.file));
         if (layerImage.naturalWidth % layer.frames !== 0) throw new Error(`图层“${layer.name || "未命名"}”的图片宽度不能被帧数整除。`);
       }
-      const normalized = await makeSheet([image], mainFrames, frameSize);
-      const value: ActionAppearance = { image: normalized, frames: mainFrames, fps, motion, motionSpeed, motionStrength, loop, layers };
+      const decoded = await decode(image);
+      if (decoded.naturalWidth % mainFrames !== 0) throw new Error("帧图的宽度必须能被帧数整除。");
+      const value: ActionAppearance = { image: asPng(decoded, image), frames: mainFrames, fps, motion, motionSpeed, motionStrength, loop, layers };
       await saveAppearance(packId, id, value);
       if (own) {
         try { saveUserAction(packId, { id, label: label.trim(), duration: Math.round(seconds * 1000) }); }
@@ -271,9 +338,10 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>
     </fieldset>}
     <fieldset className="action-editor__group" disabled={busy}><legend>素材类型</legend><div className="action-editor__types">{([ ["single", "单张图片"], ["frames", "多张逐帧"], ["sheet", "横向帧图"] ] as const).filter(([value]) => value !== "sheet" || advanced || mode === "sheet").map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p>{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张相同尺寸的图片，按文件名数字顺序播放。" : "使用横向排列、每帧等宽的图片，例如现有的木鱼素材。"}</p>
-      {mode === "sheet" && <label className="action-editor__field">帧数<NumberField min={1} max={16} value={frames} onChange={(count) => { setFrames(count); if (count === 1) setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined }))); }} /></label>}
-      <p>建议使用透明背景的 PNG，单张图片不超过 4 MB；图片会按原动作尺寸等比适配。</p>
+      {mode === "sheet" && <label className="action-editor__field">帧数<NumberField min={1} max={16} value={frames} onChange={changeSheetFrames} /></label>}
+      <p>建议使用透明背景的 PNG，单张图片不超过 4 MB。选好后在摆位框里拖动、缩放，按待机图的身高摆好，所有动作才会一样大。</p>
       <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" multiple={mode === "frames"} onChange={(e) => void selectFiles(e)} />选择{mode === "frames" ? "逐帧图片" : "图片"}</label>
+      {image && <button type="button" className="settings-button action-editor__adjust" disabled={busy} onClick={() => void adjust()}>调整位置和大小</button>}
       <CopyButton className="settings-link action-editor__prompt" text={prompt} title={own ? `粘贴到 ChatGPT 后，把 ${ACTION_SLOT} 换成想要的姿势` : "和角色的图一起发给 ChatGPT，画出这一张"} onMessage={setError}>{own ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton>
       {mode !== "single" && image && frames > 1 && Number.isInteger(frames) && frames <= 16 && <div className="action-editor__frames" aria-label="帧顺序">{Array.from({ length: frames }, (_, index) => <div key={index}><span title={sourceNames[index] ?? `第 ${index + 1} 帧`}>{sourceNames[index] ?? `第 ${index + 1} 帧`}</span><button type="button" disabled={busy || index === 0} aria-label={`第 ${index + 1} 帧前移`} onClick={() => void editFrameOrder(index, -1)}>↑</button><button type="button" disabled={busy || index === frames - 1} aria-label={`第 ${index + 1} 帧后移`} onClick={() => void editFrameOrder(index, 1)}>↓</button><button type="button" disabled={busy} aria-label={`删除第 ${index + 1} 帧`} onClick={() => void editFrameOrder(index, 0)}>×</button></div>)}</div>}
     </fieldset>
@@ -289,6 +357,10 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
       {advanced && <LayerEditor layers={layers} frames={mode === "single" ? 1 : frames} canvas={canvas} resolveAsset={resolveAsset} onChange={setLayers} onError={setError} busy={busy} onBusyChange={setBusy} />}
     </details>
     {error && <p className="settings-error" role="alert">{error}</p>}
+    {cropping && <PictureCropper title={`摆好「${(own ? label.trim() : "") || action.label || action.id}」`} src={cropping.first.display} crop={cropping.crop} fallback={cropping.fallback} frameAspect={canvas.width / canvas.height} round={false} large
+      hint={`框就是宠物在桌面上的画面。拖动摆位置，滚动或拖动滑块缩放：脚踩「地面」线，站直时头顶到「待机身高」虚线。举手、跳起按身体对齐，手可以超出虚线。${align === "left" ? "身体左边贴住框的左边。" : ""}`}
+      guide={<StageGuide guide={guide} stage={canvas} align={align} />}
+      onCancel={() => setCropping(null)} onConfirm={(crop) => void placeCropped(cropping, crop)} />}
     <div className="action-editor__footer">
       {!own && <ConfirmButton disabled={!custom || busy} confirmLabel="再点一次，改回原来的图片" onConfirm={() => void restore()}>恢复默认</ConfirmButton>}
       {own && !isNew && <ConfirmButton className="is-danger" disabled={busy} confirmLabel="再点一次删除" onConfirm={() => void remove()}>删除动作</ConfirmButton>}
@@ -298,4 +370,15 @@ export function ActionEditor({ action, packId, blank = false, prompt, canvas, re
       <button type="button" className="save-button" disabled={busy} onClick={() => void save()}>{busy ? "处理中…" : isNew ? "创建动作" : "保存并应用"}</button>
     </div>
   </div>;
+}
+
+/** The cropper's guides, in the frame's terms: the ground, the idle picture's height and, faintly, the idle picture itself. */
+function StageGuide({ guide, stage, align }: { guide: Guide | null; stage: Size; align: "left" | "center" }) {
+  return <span className="stage-guide" aria-hidden="true">
+    {guide?.ghost && align === "center" && <span className="stage-guide__ghost" style={{ left: percent((stage.width - guide.frame.width) / 2, stage.width), width: percent(guide.frame.width, stage.width), height: percent(guide.frame.height, stage.height) }}>
+      <img src={guide.image} alt="" draggable={false} style={{ width: `${guide.frames * 100}%` }} />
+    </span>}
+    {guide && <span className="stage-guide__line is-head" style={{ top: percent(stage.height - guide.frame.height + guide.visible.y, stage.height) }}><em>待机身高</em></span>}
+    <span className="stage-guide__line is-ground"><em>地面</em></span>
+  </span>;
 }

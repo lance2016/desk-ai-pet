@@ -191,6 +191,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。
 - 新增动作：放图片，在 `manifest.json` 的 `animations` 里加一条。不需要改代码。每个角色都该有的动作加进标准动作目录，写好 `tier`、`pose` 和 `fallback`；没有这张图的角色会自动借图，所以引擎可以直接按名字请求，不用判断有没有图。
+- 上传的动作图经过摆位框，按舞台像素保存（`src/appearance/stagePlacement.ts`）。不要再按图片外框把它缩放进某个尺寸：举手、躺下的外框和站姿不同，按外框缩放会让角色忽大忽小。默认摆位要等待机图读完再算（`guideReady`），否则会按兜底规则摆错。
 - 不要假设角色画全了动作。自建角色可能只有一张待机图，其余都是借图（`src/appearance/looks.ts`）。只有 `requiresArt` 的动作（目前是 `peek`）会因为没图而不能播，用到它的地方要看请求结果里的 `actionId`。
 - 新增动效：改 `src/renderer/motions.ts` 和 `src/types.ts` 的 `MOTION_PRESETS`。
 - 行为引擎按名字使用的动作见 `ACTIONS.md` 的"内置动作名"。改名要同步改 `BehaviorEngine.ts`。
