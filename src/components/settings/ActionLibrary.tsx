@@ -25,9 +25,11 @@ interface Props {
   resolveAsset: (file: string) => string;
   /** The user made, changed or deleted one of their own actions. */
   onActionsChanged: () => void;
+  /** Any action got or lost a picture of its own: portraits elsewhere may change. */
+  onPicturesChanged: () => void;
 }
 
-export function ActionLibrary({ actions, controls, packId, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged }: Props) {
+export function ActionLibrary({ actions, controls, packId, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged, onPicturesChanged }: Props) {
   const [editing, setEditing] = useState<AnimationEntry | null>(null);
   const [revision, setRevision] = useState(0);
   /** Null until read: a custom character's page depends on which pictures are replaced. */
@@ -100,7 +102,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     if (created) requestAnimationFrame(() => document.querySelector(".settings-content")?.scrollTo({ top: 0 }));
   };
 
-  if (editing) return <ActionEditor key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); if (isUserAction(editing)) onActionsChanged(); }} />;
+  if (editing) return <ActionEditor key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
 
   const userActions = actions.filter(isUserAction);
   const draft = draftUserAction(actions);

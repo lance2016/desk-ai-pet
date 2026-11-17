@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { chatPlatform } from "../../platform/chat";
+import { loadChatModel } from "../../preferences/ChatModel";
 import { petWindow } from "../../platform/petWindow";
 import { loadQuickChatShortcut, quickChatShortcutLabel } from "../../preferences/QuickChatPreferences";
 import { loadUserProfile, markOnboarded, saveUserProfile, USER_PROFILE_LIMITS } from "../../preferences/UserProfile";
@@ -47,7 +48,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
     try { await chatPlatform.saveKey(key); setKey(""); }
     catch (reason) { setStatus(deepSeekProblem(reason, "保存")); setBusy(false); return; }
     setStatus("正在试着连一下 DeepSeek…");
-    try { await chatPlatform.test(); setKeyWorks(true); setStatus(""); setStep(2); }
+    try { await chatPlatform.test(loadChatModel()); setKeyWorks(true); setStatus(""); setStep(2); }
     catch (reason) { setKeyWorks(false); setStatus(deepSeekProblem(reason, "连接")); }
     finally { setBusy(false); }
   };

@@ -4,7 +4,8 @@ import { isCustomCharacter, loadCharacterPack, loadPackCatalog, type CatalogEntr
 import type { AnimationEntry, PetControl, PetPersona } from "../../assets/Manifest";
 import { chatPlatform } from "../../platform/chat";
 import { petWindow } from "../../platform/petWindow";
-import { loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
+import { chatPictureActions, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
+import { characterPictures } from "../../appearance/characterPictures";
 import { characterName } from "../../preferences/ChatPreferences";
 import { isOnboarded, markOnboarded } from "../../preferences/UserProfile";
 import { loadDisplayPreferences, saveDisplayPreferences, saveOnTop, type DisplayPreferences } from "../../preferences/DisplayPreferences";
@@ -95,7 +96,10 @@ export function SettingsPage({ packId }: { packId: string }) {
   }, []);
   const current = catalog.find((entry) => entry.id === packId);
   const reloadCatalog = useCallback(() => {
-    loadPackCatalog().then(setCatalog).catch((reason: unknown) => { console.error("Could not load the characters", reason); setError("角色列表没能读出来，关掉设置窗口再打开试试。"); });
+    // Portraits show the pictures each character really wears, never ones a custom character borrows.
+    loadPackCatalog()
+      .then((entries) => Promise.all(entries.map(async (entry) => ({ ...entry, actionImages: await characterPictures(entry.id, entry.actionImages, chatPictureActions(loadChatAppearance(entry.id))) }))))
+      .then(setCatalog).catch((reason: unknown) => { console.error("Could not load the characters", reason); setError("角色列表没能读出来，关掉设置窗口再打开试试。"); });
   }, []);
   useEffect(reloadCatalog, [reloadCatalog]);
 
@@ -226,7 +230,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
 
-        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} />}
+        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
         {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} />}

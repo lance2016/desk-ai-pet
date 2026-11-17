@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryStorage } from "../testing/fixtures";
 import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
-import { DEFAULT_CHAT_APPEARANCE, loadChatAppearance, pictureFor, resetChatAppearance, saveChatAppearance } from "./ChatAppearance";
+import { chatPictureActions, DEFAULT_CHAT_APPEARANCE, loadChatAppearance, pictureFor, resetChatAppearance, saveChatAppearance } from "./ChatAppearance";
 
 const IMAGES = { idle: "/pets/a/idle.png", happy: "/pets/a/happy.png" };
 const UPLOAD = "data:image/png;base64,AAAA";
@@ -49,5 +49,13 @@ describe("chat appearance", () => {
     storage.setItem(characterKey("cat", CHARACTER_DATA.chatAppearance), "{");
     expect(loadChatAppearance("cat", storage)).toEqual(DEFAULT_CHAT_APPEARANCE);
     warn.mockRestore();
+  });
+});
+
+describe("chatPictureActions", () => {
+  it("lists the chosen actions once, after the portrait they fall back to", () => {
+    expect(chatPictureActions(DEFAULT_CHAT_APPEARANCE)).toEqual(["idle"]);
+    expect(chatPictureActions({ avatar: { action: "happy" }, peek: "hidden" })).toEqual(["idle", "happy"]);
+    expect(chatPictureActions({ avatar: { dataUrl: UPLOAD }, peek: { action: "idle" } })).toEqual(["idle"]);
   });
 });

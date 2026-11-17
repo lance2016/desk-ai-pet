@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { PetPersona } from "../assets/Manifest";
 import { PERSONA_LIMITS } from "../types";
 import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
+import { loadChatModel } from "./ChatModel";
 import { loadUserProfile } from "./UserProfile";
 const schema = z.object({ name: z.string().trim().min(1).max(PERSONA_LIMITS.name), personality: z.string().trim().max(PERSONA_LIMITS.personality), length: z.enum(["short", "normal"]) });
 export type ChatPreferences = z.infer<typeof schema>;
@@ -20,10 +21,10 @@ export function characterName(packId: string, ownName: string, storage: Storage 
   try { const raw = storage.getItem(key(packId)); return raw ? schema.parse(JSON.parse(raw)).name : ownName; }
   catch { return ownName; }
 }
-/** What a chat or greeting request sends: the character's preferences plus how to address the user. */
-export type ChatRequestPreferences = ChatPreferences & { userName: string };
+/** What a chat or greeting request sends: the character's preferences, how to address the user and which model answers. */
+export type ChatRequestPreferences = ChatPreferences & { userName: string; model: string };
 export function requestPreferences(packId: string, persona?: PetPersona, storage: Storage = window.localStorage): ChatRequestPreferences {
-  return { ...loadChatPreferences(packId, persona, storage), userName: loadUserProfile(storage).nickname };
+  return { ...loadChatPreferences(packId, persona, storage), userName: loadUserProfile(storage).nickname, model: loadChatModel(storage) };
 }
 export function saveChatPreferences(packId: string, value: ChatPreferences, storage: Storage = window.localStorage): void { storage.setItem(key(packId), JSON.stringify(schema.parse(value))); }
 export function resetChatPreferences(packId: string, storage: Storage = window.localStorage): void { storage.removeItem(key(packId)); }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
 import { chatContext } from "../../agenda/chatTools";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
@@ -12,7 +12,9 @@ import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
 import { chatPlatform, type ChatMessage } from "../../platform/chat";
 import { mimoPlatform } from "../../platform/mimo";
 import { systemPlatform } from "../../platform/system";
-import { loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
+import { chatPictureActions, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
+import { loadChatModel } from "../../preferences/ChatModel";
+import { characterPictures } from "../../appearance/characterPictures";
 import { characterName, requestPreferences } from "../../preferences/ChatPreferences";
 import { CharacterAvatar } from "../CharacterAvatar";
 import { ConfirmButton } from "../ConfirmButton";
@@ -73,6 +75,9 @@ export function ChatPage({ packId }: { packId: string }) {
   const [name, setName] = useState("宠物");
   const ownName = useRef<string | null>(null);
   const [images, setImages] = useState<Record<string, string>>({});
+  /** The pack's own pictures; what is shown also depends on pictures replaced in settings. */
+  const packImages = useRef<Record<string, string> | null>(null);
+  const wornPictures = useCallback(() => characterPictures(packId, packImages.current ?? {}, chatPictureActions(loadChatAppearance(packId))), [packId]);
   const [look, setLook] = useState(() => loadChatAppearance(packId));
   const [personaReady, setPersonaReady] = useState(false);
   const personaRef = useRef<PetPersona | undefined>(undefined);
@@ -165,18 +170,27 @@ export function ChatPage({ packId }: { packId: string }) {
   useEffect(() => {
     let active = true;
     loadCharacterPack(packId)
-      .then((pack) => {
+      .then(async (pack) => {
         if (!active) return;
         personaRef.current = pack.manifest.persona;
         actionIdsRef.current = pack.manifest.animations.filter(canShortcut).map((action) => action.id);
-        setImages(actionImages(pack));
+        packImages.current = actionImages(pack);
+        const pictures = await wornPictures();
+        if (!active) return;
+        setImages(pictures);
         ownName.current = pack.manifest.persona?.name ?? pack.manifest.name;
         setName(characterName(packId, ownName.current));
       })
       .catch((reason: unknown) => console.warn("Failed to load the character persona; using defaults", reason))
       .finally(() => { if (active) setPersonaReady(true); });
     return () => { active = false; };
-  }, [packId]);
+  }, [packId, wornPictures]);
+  // Replaced pictures live in IndexedDB, which sends no storage event: look again when the window comes back.
+  useEffect(() => {
+    const onFocus = () => { if (packImages.current) void wornPictures().then(setImages); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [wornPictures]);
   useEffect(() => {
     if (!historyValid || messages === savedMessages.current) return;
     savedMessages.current = messages;
@@ -333,7 +347,7 @@ export function ChatPage({ packId }: { packId: string }) {
   /** Asks the model for a short title after a thread's first reply; the first message stays the title if that fails. */
   async function nameThread(id: string, user: string, reply: string) {
     try {
-      const title = await chatPlatform.title(user, reply);
+      const title = await chatPlatform.title(user, reply, loadChatModel());
       const next = retitleThread(latest.current.threads, id, title);
       setThreads(next);
       saveThreads(packId, next);

@@ -86,10 +86,11 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |
 | 快速聊天快捷键规则（必须含 ⌃ 或 ⌘、按键名） | `recordShortcut`、`KEY_CODE`（`src/preferences/QuickChatPreferences.ts`） | `parse_shortcut`（`src-tauri/src/quick_chat.rs`） |
-| 服务报错的措辞 | `src-tauri/src/chat.rs` 的 `failure_message`、`mimo.rs`、`secrets.rs` 的 `keychain_error` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、钥匙串、余额不足、过于频繁、服务繁忙、发不出去、还在回复、网络/中断 |
+| 服务报错的措辞 | `src-tauri/src/chat.rs` 的 `failure_message`、`mimo.rs`、`secrets.rs` 的 `keychain_error` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、模型名、钥匙串、余额不足、过于频繁、服务繁忙、发不出去、还在回复、网络/中断 |
 | 角色名长度上限 | `PERSONA_LIMITS.name`（`src/types.ts`） | `read_preferences` 里的 20（`src-tauri/src/chat.rs`） |
 | 发给模型的消息条数 | `CHAT_LIMITS.context`（`src/chat/ChatThreads.ts`，保存和显示的上限是另一个值 `CHAT_LIMITS.messages`） | `start_request` 里的 `items.len() > 30`（`chat.rs`） |
 | 单条消息长度 | `MAX_MESSAGE_CHARS`（`ChatThreads.ts`，按 UTF-16 长度） | `chat.rs` 的 `content.len() > 16_000`（按字节，单位不同：中文 16000 字节约 5000 字） |
+| 聊天模型 | `DEFAULT_CHAT_MODEL`、`CHAT_MODEL_PATTERN`（`src/preferences/ChatModel.ts`） | `DEFAULT_MODEL`、`valid_model`（`chat.rs`） |
 | 一次回复的工具调用上限 | `MAX_CALLS_SHOWN`（`src/agenda/chatTools.ts`） | `MAX_TOOL_CALLS`（`chat.rs`） |
 | MiMo 音色列表 | `MIMO_VOICES`（`src/types.ts`） | `mimo_synthesize` 里的音色名单（`mimo.rs`） |
 | 快捷键禁用名单 | `RESERVED_SHORTCUTS`（`QuickChatPreferences.ts`） | `RESERVED_SHORTCUTS`（`quick_chat.rs`） |
@@ -188,6 +189,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
+- 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。
 - 新增动作：放图片，在 `manifest.json` 的 `animations` 里加一条。不需要改代码。每个角色都该有的动作加进标准动作目录，写好 `tier`、`pose` 和 `fallback`；没有这张图的角色会自动借图，所以引擎可以直接按名字请求，不用判断有没有图。
 - 不要假设角色画全了动作。自建角色可能只有一张待机图，其余都是借图（`src/appearance/looks.ts`）。只有 `requiresArt` 的动作（目前是 `peek`）会因为没图而不能播，用到它的地方要看请求结果里的 `actionId`。
 - 新增动效：改 `src/renderer/motions.ts` 和 `src/types.ts` 的 `MOTION_PRESETS`。

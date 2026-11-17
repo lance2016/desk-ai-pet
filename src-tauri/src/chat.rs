@@ -13,6 +13,10 @@ use tauri::{AppHandle, Emitter, State, WebviewWindow};
 
 const ENDPOINT: &str = "https://api.deepseek.com/chat/completions";
 const CHAT_EVENT: &str = "pet://chat-stream";
+/// Used when a request names no model. Must match `DEFAULT_CHAT_MODEL` in `src/preferences/ChatModel.ts`.
+const DEFAULT_MODEL: &str = "deepseek-flash";
+/// Longest model name the user may type; see `CHAT_MODEL_PATTERN`.
+const MAX_MODEL_CHARS: usize = 64;
 /// Must match `PERSONA_LIMITS.personality` in `src/types.ts`.
 const MAX_PERSONALITY_CHARS: usize = 1000;
 /// Must match `USER_PROFILE_LIMITS.nickname` in `src/preferences/UserProfile.ts`.
@@ -249,6 +253,35 @@ fn parse_stream_line(line: &str) -> StreamLine {
     }
 }
 
+/// A model name as `CHAT_MODEL_PATTERN` (`src/preferences/ChatModel.ts`) allows it: it goes into the request body.
+fn valid_model(model: &str) -> bool {
+    let bytes = model.as_bytes();
+    !bytes.is_empty()
+        && bytes.len() <= MAX_MODEL_CHARS
+        && bytes[0].is_ascii_alphanumeric()
+        && bytes.iter().all(|c| c.is_ascii_alphanumeric() || b"._:/-".contains(c))
+}
+
+/// The model to ask: the one given, or the default when none is.
+fn chosen_model(model: Option<&str>) -> Result<&str, String> {
+    let model = model.unwrap_or(DEFAULT_MODEL);
+    if valid_model(model) { Ok(model) } else { Err("Invalid model".into()) }
+}
+
+#[cfg(test)]
+mod model_tests {
+    use super::chosen_model;
+    #[test]
+    fn accepts_model_names_and_nothing_else() {
+        assert_eq!(chosen_model(None).unwrap(), "deepseek-flash");
+        assert_eq!(chosen_model(Some("deepseek-pro")).unwrap(), "deepseek-pro");
+        assert_eq!(chosen_model(Some("org/model:v1.5")).unwrap(), "org/model:v1.5");
+        for bad in ["", "-flash", "deepseek chat", "模型", "x\"}", &"a".repeat(65)] {
+            assert!(chosen_model(Some(bad)).is_err(), "{bad}");
+        }
+    }
+}
+
 /// Name, personality and reply length from the character's chat preferences.
 fn read_preferences(preferences: &Value) -> Result<(&str, &str, &str), String> {
     let text = |key: &str, fallback: &'static str| {
@@ -427,6 +460,7 @@ fn start_request(
     }
     let (name, personality, length) = read_preferences(&preferences)?;
     let address = user_address(&preferences)?;
+    let model = chosen_model(preferences.get("model").and_then(Value::as_str))?;
     let style = if length == "short" {
         "回复简短自然"
     } else {
@@ -465,7 +499,7 @@ fn start_request(
     }
     let key = crate::secrets::load(&service(&app))?.ok_or("API key is not configured")?;
     // The style line keeps replies short; the cap leaves room for a full note in a save_note call.
-    let body = json!({"model":"deepseek-flash", "messages":safe, "stream":true, "max_tokens":if length == "short" { 768 } else { 1024 }, "thinking":{"type":"disabled"}, "tools":tool_definitions(&actions)}).to_string();
+    let body = json!({"model":model, "messages":safe, "stream":true, "max_tokens":if length == "short" { 768 } else { 1024 }, "thinking":{"type":"disabled"}, "tools":tool_definitions(&actions)}).to_string();
     let mut running = state.0.lock().map_err(|_| "Chat state unavailable")?;
     // Each window answers one message at a time; the chat window and the quick chat bar can both be replying.
     if running.values().any(|request| request.window == window) {
@@ -720,11 +754,12 @@ pub fn deepseek_cancel(state: State<'_, Arc<ChatState>>, request_id: String) -> 
 }
 
 #[tauri::command]
-pub async fn deepseek_test(app: AppHandle) -> Result<(), String> {
+pub async fn deepseek_test(app: AppHandle, model: Option<String>) -> Result<(), String> {
     let service = service(&app);
+    let model = chosen_model(model.as_deref())?.to_string();
     tauri::async_runtime::spawn_blocking(move || {
         let key = crate::secrets::load(&service)?.ok_or("请先配置 API Key")?;
-        let body = json!({"model":"deepseek-flash","messages":[{"role":"user","content":"你好"}],"stream":false,"max_tokens":1,"thinking":{"type":"disabled"}}).to_string();
+        let body = json!({"model":model,"messages":[{"role":"user","content":"你好"}],"stream":false,"max_tokens":1,"thinking":{"type":"disabled"}}).to_string();
         let mut child = Command::new("/usr/bin/curl").args(["--disable", "--config", "-", "--silent", "--show-error", "--fail-with-body", "--connect-timeout", CONNECT_TIMEOUT, "--max-time", "20", "--proto", "=https", ENDPOINT]).args(crate::proxy::curl_args()).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|_| "无法启动网络请求".to_string())?;
         let config = format!("header = \"Authorization: Bearer {}\"\nheader = \"Content-Type: application/json\"\ndata = \"{}\"\n{WRITE_OUT_STATUS}", config_quote(&key), config_quote(&body));
         if let Some(mut input) = child.stdin.take() { if input.write_all(config.as_bytes()).is_err() { let _ = child.kill(); let _ = child.wait(); return Err("无法发送测试请求".into()); } }
@@ -732,6 +767,8 @@ pub async fn deepseek_test(app: AppHandle) -> Result<(), String> {
         let status = String::from_utf8_lossy(&output.stdout).lines().rev().find_map(status_line).flatten();
         if output.status.success() && status.is_some_and(|code| (200..300).contains(&code)) { return Ok(()); }
         eprintln!("DeepSeek test failed ({status:?}): {}", String::from_utf8_lossy(&output.stderr).trim());
+        // A one-word message cannot be rejected for its content: the model name is what is wrong.
+        if matches!(status, Some(400 | 404 | 422)) { return Err("模型名不可用，DeepSeek 不认识这个模型。".into()); }
         Err(failure_message(status).into())
     }).await.map_err(|_| "测试请求异常".to_string())?
 }
@@ -750,6 +787,7 @@ pub async fn deepseek_greet(
 ) -> Result<String, String> {
     let (name, personality, _) = read_preferences(&preferences)?;
     let address = user_address(&preferences)?;
+    let model = chosen_model(preferences.get("model").and_then(Value::as_str))?;
     let occasion = match kind.as_str() {
         "morning" => "向用户问好，开始新的一天",
         "evening" => "跟用户道晚安，收个尾",
@@ -768,7 +806,7 @@ pub async fn deepseek_greet(
         "现在是{now}。请用一句不超过 40 个字的话{occasion}。可以自然地提到下面一两条信息，不要逐条罗列，不要加引号：\n- {}",
         facts.join("\n- ")
     );
-    let body = json!({"model":"deepseek-flash","messages":[{"role":"system","content":system},{"role":"user","content":user}],"stream":false,"max_tokens":120,"thinking":{"type":"disabled"}}).to_string();
+    let body = json!({"model":model,"messages":[{"role":"system","content":system},{"role":"user","content":user}],"stream":false,"max_tokens":120,"thinking":{"type":"disabled"}}).to_string();
     complete_once(service(&app), body).await
 }
 
@@ -776,7 +814,8 @@ const MAX_TITLE_SOURCE_CHARS: usize = 500;
 
 /// Names a conversation from its first exchange, in a few words.
 #[tauri::command]
-pub async fn deepseek_title(app: AppHandle, user: String, reply: String) -> Result<String, String> {
+pub async fn deepseek_title(app: AppHandle, user: String, reply: String, model: Option<String>) -> Result<String, String> {
+    let model = chosen_model(model.as_deref())?;
     let clip = |text: &str| text.chars().take(MAX_TITLE_SOURCE_CHARS).collect::<String>();
     let (user, reply) = (clip(user.trim()), clip(reply.trim()));
     if user.is_empty() || reply.is_empty() {
@@ -785,7 +824,7 @@ pub async fn deepseek_title(app: AppHandle, user: String, reply: String) -> Resu
     let prompt = format!(
         "用不超过 12 个字概括下面这段对话的主题，作为聊天标题。只输出标题本身，不要标点、引号或解释。\n用户：{user}\n回复：{reply}"
     );
-    let body = json!({"model":"deepseek-flash","messages":[{"role":"user","content":prompt}],"stream":false,"max_tokens":40,"thinking":{"type":"disabled"}}).to_string();
+    let body = json!({"model":model,"messages":[{"role":"user","content":prompt}],"stream":false,"max_tokens":40,"thinking":{"type":"disabled"}}).to_string();
     complete_once(service(&app), body).await
 }
 

@@ -41,6 +41,12 @@ export function resetChatAppearance(packId: string, storage: Storage = window.lo
   storage.removeItem(key(packId));
 }
 
+/** Actions whose pictures the chat window may show: the chosen ones and the portrait they fall back to. */
+export function chatPictureActions(appearance: ChatAppearance): string[] {
+  const chosen = [appearance.avatar, appearance.peek].flatMap((picture) => picture !== "hidden" && "action" in picture ? [picture.action] : []);
+  return [...new Set([PORTRAIT_ACTION, ...chosen])];
+}
+
 export interface ShownPicture { src: string; fromAction: boolean; crop?: PictureCrop }
 
 /**

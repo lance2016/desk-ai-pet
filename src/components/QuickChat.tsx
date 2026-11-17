@@ -9,6 +9,7 @@ import { chatPlatform, type ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
 import { canShortcut } from "../preferences/ActionPreferences";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
+import { loadChatModel } from "../preferences/ChatModel";
 import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 
@@ -90,7 +91,7 @@ function saveReply(packId: string, request: Request, text: string): void {
   const messages = [...(thread?.messages ?? request.history), { role: "assistant" as const, content: text }];
   saveThreads(packId, recordThread(fresh.threads, request.threadId, messages, Date.now()));
   if (request.history.some((message) => message.role === "assistant") || !loadAutoTitles()) return;
-  chatPlatform.title(request.history[0].content, text)
+  chatPlatform.title(request.history[0].content, text, loadChatModel())
     .then((title) => {
       const latest = loadThreads(packId);
       if (latest.valid) saveThreads(packId, retitleThread(latest.threads, request.threadId, title));

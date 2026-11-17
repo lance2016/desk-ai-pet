@@ -392,6 +392,7 @@ public/pets/girl-default/    默认资源包
 - 自建角色换了自己的待机图之后，只有用户上传过的图才算它的：没上传的动作借它自己的图（`looks.ts` 的 `planLooks`），不再显示 `base` 的形象。`PetRuntime` 启动时和每次换图后都重新算一遍每个动作显示谁的图（`showLooks`），出借的动作换了图，借它的动作跟着换。
 - 显示的名字统一用 `characterName()`：用户在「角色」页改过就用改过的，否则用 `persona.name`。聊天窗口监听 `storage` 事件，设置页改名后立即更新。
 - 聊天记录按段保存在 `chat-threads:v1`，最近的一段在最前，每段最多保存和显示 200 条（`CHAT_LIMITS.messages`），发给模型的只有最近 30 条（`CHAT_LIMITS.context`，`contextMessages()`）；每个角色最多 20 段。旧版的单份 `chat-history:v1` 第一次读取时转成一段对话后删除。
+- 模型是全局设置 `ai-pet:chat-model:v1`（`src/preferences/ChatModel.ts`），默认 `deepseek-flash`。`requestPreferences()` 把它带进聊天和问候请求，`deepseek_title`、`deepseek_test` 单独传 `model`。原生端用 `valid_model` 再校验一次格式；`deepseek_test` 收到 400、404、422 时报「模型名不可用」，设置页据此拒绝换成写错的自定义模型。
 - 标题先用用户的第一句话。全局开关 `ai-pet:chat-auto-titles:v1` 打开时（默认打开），一段聊天的第一轮回复结束后，聊天窗口调用原生命令 `deepseek_title`，把第一句话和回复各截到 500 字发给 DeepSeek，要一个不超过 12 字的标题；`cleanTitle()` 去掉引号和标点后用 `retitleThread()` 写回，不改变排序。失败就保留原标题，不重试。
 - 聊天窗口的头像和小人按角色存在 `chat-appearance:v1`：每个位置是一个动作 ID 或一张上传图片（`data:` URL），可以带一个取景 `crop`；小人还可以是 `hidden`。`pictureFor()` 把它变成图片地址和取景。上传图保存的是缩到 512 像素以内的原图（不透明的存 JPEG，带透明的存 PNG），不是裁好的结果，所以可以反复调整。
 - 取景（`src/appearance/pictureCrop.ts`）记录画面中心点在图上的位置 `x`、`y`、取景框占图片宽度的比例 `zoom`，以及图片高宽比 `ratio`。`cropStyle()` 把它换算成 `<img>` 的 `width`、`left`、`top` 百分比；头像框是 1:1 的圆，小人框是 `FRAME_ASPECT.peek`（78:64）。裁剪弹窗 `PictureCropper` 和显示端用同一套换算，所见即所得。没有取景时沿用旧的默认取景：动作图头像裁到头部，小人露出顶部，上传图整张显示。动作已不存在时退回 `idle`，并丢掉原来的取景。

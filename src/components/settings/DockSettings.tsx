@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type PointerEvent } from "react";
 import type { AnimationEntry, PetControl } from "../../assets/Manifest";
 import { canShortcut } from "../../preferences/ActionPreferences";
+import { characterPictures } from "../../appearance/characterPictures";
+import { PORTRAIT_ACTION } from "../../assets/PackCatalog";
 import { DOCK_LIMITS, dockControls, loadDock, resetDock, saveDock, setDockAction, subscribeDock, type DockCommand, type DockItem } from "../../preferences/DockPreferences";
 import type { ControlIconPreset } from "../../types";
 import { ControlIcon } from "../ControlIcon";
@@ -53,6 +55,8 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
+  /** The character as it looks now; undefined while reading, null when it has no picture of its own yet. */
+  const [portrait, setPortrait] = useState<string | null | undefined>(undefined);
   const rows = useRef(new Map<string, HTMLLIElement>());
   // Another window (or the action library) may change the dock; follow it unless a drag is under way.
   const draggingRef = useRef(false);
@@ -136,7 +140,14 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
   };
 
   const actionOf = (id: string) => actions.find((action) => action.id === id);
-  const idle = actions.find((action) => action.id === "idle");
+  const idle = actions.find((action) => action.id === PORTRAIT_ACTION);
+  const idleFile = idle ? resolveAsset(idle.file) : null;
+  useEffect(() => {
+    let active = true;
+    const packImages: Record<string, string> = idleFile ? { [PORTRAIT_ACTION]: idleFile } : {};
+    void characterPictures(packId, packImages, [PORTRAIT_ACTION]).then((pictures) => { if (active) setPortrait(pictures[PORTRAIT_ACTION] ?? null); });
+    return () => { active = false; };
+  }, [packId, idleFile]);
   const labelOf = (item: DockItem) => (item.kind === "control" ? item.label : actionOf(item.id)?.label ?? item.id);
   const addable = actions.filter((action) => canShortcut(action) && !items.some((item) => item.kind === "action" && item.id === action.id));
   const shown = items.filter((item) => item.enabled);
@@ -183,9 +194,9 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
               </span>
             ))}
           </div>
-          {idle
-            ? <img className="dock-preview__pet" src={resolveAsset(idle.file)} alt="宠物预览" />
-            : <span className="dock-preview__pet-placeholder">宠物</span>}
+          {portrait
+            ? <img className="dock-preview__pet" src={portrait} alt="宠物预览" />
+            : <span className="dock-preview__pet-placeholder">{portrait === null && <>还没有自己的图片<br />去「动作库」上传</>}</span>}
           <div className="dock-preview__rail" aria-label="宠物右侧快捷图标">
             {shown.filter((_, index) => index % 2 === 1).map((item) => (
               <span key={keyOf(item)} className="dock-preview__button" title={labelOf(item)} aria-label={labelOf(item)}>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { loadAppearance } from "../appearance/AppearanceStore";
 import type { AnimationEntry } from "../assets/Manifest";
+import { isCustomCharacter } from "../assets/PackCatalog";
+import { ControlIcon } from "./ControlIcon";
 import type { DockItem } from "../preferences/DockPreferences";
 import { ActionThumbnail } from "./settings/ActionThumbnail";
 import { ControlIconView } from "./ControlIconView";
@@ -16,17 +18,20 @@ function hasIllustration(item: Extract<DockItem, { kind: "control" }>): boolean 
     || (item.command === "focus_toggle" && icon === "timer");
 }
 
-/** An action's own picture: the one the user put in its place, else the pack's. */
+/** An action's own picture: the one the user put in its place, else the pack's. A custom character never shows a borrowed one. */
 function ActionFace({ packId, action, resolveAsset }: { packId: string; action: AnimationEntry; resolveAsset: (file: string) => string }) {
-  const [custom, setCustom] = useState<{ image: string; frames: number } | null>(null);
+  /** Undefined while reading, so a borrowed picture never flashes first. */
+  const [custom, setCustom] = useState<{ image: string; frames: number } | null | undefined>(undefined);
   useEffect(() => {
     let active = true;
-    if (typeof indexedDB === "undefined") return;
+    if (typeof indexedDB === "undefined") { setCustom(null); return; }
     loadAppearance(packId, action.id)
       .then((appearance) => { if (active) setCustom(appearance ? { image: appearance.image, frames: appearance.frames } : null); })
-      .catch((error: unknown) => console.warn(`Could not load the picture of ${action.id}`, error));
+      .catch((error: unknown) => { console.warn(`Could not load the picture of ${action.id}`, error); if (active) setCustom(null); });
     return () => { active = false; };
   }, [packId, action.id]);
+  if (custom === undefined) return <span className="control-action-face" />;
+  if (custom === null && isCustomCharacter(packId)) return <ControlIcon name="sparkle" />;
   return (
     <span className="control-action-face">
       <ActionThumbnail src={custom?.image ?? resolveAsset(action.file)} frames={custom?.frames ?? action.frames ?? 1} label={action.label ?? action.id} />

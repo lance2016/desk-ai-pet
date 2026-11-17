@@ -3,11 +3,12 @@
  * told whether to fix a key or check the network. The phrases below match the
  * messages in `src-tauri/src/chat.rs` and `src-tauri/src/mimo.rs`.
  */
-export type ServiceError = "missing-key" | "bad-key" | "keychain" | "billing" | "rate" | "busy" | "rejected" | "running" | "network" | "other";
+export type ServiceError = "missing-key" | "bad-key" | "model" | "keychain" | "billing" | "rate" | "busy" | "rejected" | "running" | "network" | "other";
 
 const RULES: ReadonlyArray<[ServiceError, RegExp]> = [
   ["missing-key", /not configured|请先.*配置.*API Key/],
   ["bad-key", /Key 无效/],
+  ["model", /模型名/],
   ["keychain", /钥匙串/],
   ["billing", /余额不足/],
   ["rate", /过于频繁/],
@@ -26,6 +27,7 @@ export function serviceErrorMessage(service: "DeepSeek" | "MiMo", kind: ServiceE
   switch (kind) {
     case "missing-key": return `还没配置 ${service} API Key，去设置里填上就能用。`;
     case "bad-key": return `${service} API Key 无效，去设置里检查一下。`;
+    case "model": return `${service} 不认识这个模型名，检查一下拼写，或者换回内置的模型。`;
     case "keychain": return "没有钥匙串访问权限。再试一次，系统弹窗出来时点「允许」。";
     case "billing": return `${service} 账户余额不足，充值后再试。`;
     case "rate": return `${service} 请求太频繁了，稍等一会儿再试。`;
