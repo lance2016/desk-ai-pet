@@ -24,9 +24,17 @@ import { MAX_RECORD_SECONDS, useVoiceInput, type VoiceProblem } from "./useVoice
 import { canShortcut } from "../../preferences/ActionPreferences";
 import { loadVoiceLanguage } from "../../preferences/VoicePreferences";
 import { petWindow } from "../../platform/petWindow";
+import type { ChatPhase } from "../../types";
 import "./ChatPage.css";
 
 const MAX_INPUT = 4000;
+/** While typing, the pet is told at most this often; it listens on for longer than that after each report. */
+const TYPING_REPORT_MS = 2_000;
+
+/** Tells the pet where this window's conversation stands. The pet poses along, and nothing here depends on it. */
+function reportChatPhase(phase: ChatPhase): void {
+  petWindow.reportChatPhase(phase).catch((error: unknown) => console.warn("Could not tell the pet about the chat", error));
+}
 /** From this many characters on, the composer shows how many are left. */
 const SHOW_COUNT_FROM = MAX_INPUT - 500;
 /** The composer grows with its text up to this height, then scrolls. */
@@ -140,6 +148,18 @@ export function ChatPage({ packId }: { packId: string }) {
   });
   const recording = voice.phase === "recording";
   const transcribing = voice.phase === "transcribing";
+
+  // The pet listens while the user speaks or types, thinks until the reply starts, and talks along with it.
+  const chatPhase: ChatPhase = recording ? "listening" : transcribing || (pending && !reply) ? "thinking" : pending ? "talking" : "idle";
+  const typingReportedAt = useRef(0);
+  // `voice.seconds` ticks while recording, which keeps "listening" alive for a long recording.
+  useEffect(() => reportChatPhase(chatPhase), [chatPhase, voice.seconds]);
+  useEffect(() => {
+    if (!draft || chatPhase !== "idle" || Date.now() - typingReportedAt.current < TYPING_REPORT_MS) return;
+    typingReportedAt.current = Date.now();
+    reportChatPhase("listening");
+  }, [draft, chatPhase]);
+  useEffect(() => { if (failure) reportChatPhase("failed"); }, [failure]);
 
   useEffect(() => { document.documentElement.classList.add("chat-window"); document.body.classList.add("chat-window"); return () => { document.documentElement.classList.remove("chat-window"); document.body.classList.remove("chat-window"); }; }, []);
   useEffect(() => {
@@ -293,7 +313,6 @@ export function ChatPage({ packId }: { packId: string }) {
     try {
       await chatPlatform.start(id, contextMessages(next), requestPreferences(packId, personaRef.current), chatContext(Date.now(), actionIdsRef.current));
       if (cancelRequested.current && active.current === id) await chatPlatform.cancel(id);
-      else if (active.current === id) void petWindow.requestAction("think").catch(() => {});
     } catch (reason) {
       if (active.current !== id) return;
       active.current = null; setPending(false);

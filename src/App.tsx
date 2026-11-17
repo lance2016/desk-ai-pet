@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
 import { dueReminders, loadAgenda, markReminded, subscribeAgenda, updateAgenda, type AgendaItem } from "./agenda/AgendaStore";
+import { agendaChange, hasNewId } from "./agenda/changes";
 import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
+import { loadNotes, subscribeNotes } from "./notes/NoteStore";
 import type { ReminderSource } from "./behavior/BehaviorEngine";
 import { loadFocusLog, recordFocusRound } from "./greeting/FocusLog";
 import { collectFacts } from "./greeting/GreetingContent";
@@ -35,6 +37,7 @@ import { loadFocus, saveFocus } from "./storage/FocusStorage";
 import type { FocusSnapshot } from "./behavior/FocusTimer";
 import { updaterPlatform } from "./platform/updater";
 import { startUpdateChecks } from "./update/UpdateNotice";
+import { CHAT_PHASES } from "./types";
 
 const DEFAULT_SCALE = 1;
 /** Set once the pet has told a new user how to play with it. */
@@ -127,6 +130,8 @@ export default function App({ packId }: AppProps) {
   /** For display-change callbacks, which outlive a render. */
   const placement = useRef({ dragging, dockSide });
   placement.current = { dragging, dockSide };
+  /** Resolves to whether the saved position was restored for the character being loaded. */
+  const restoredPosition = useRef<Promise<boolean> | null>(null);
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences);
   const quickChat = useQuickChat(runtime, packId);
   const quickReplyShown = quickChat.reply !== null;
@@ -145,7 +150,7 @@ export default function App({ packId }: AppProps) {
     let cancelled = false;
     let created: PetRuntime | null = null;
     // Back where the user left it, before the pet is drawn, so the move is not seen.
-    const restored = petWindow.restorePosition().catch((error: unknown) => { console.warn("Could not restore the pet position", error); return false; });
+    restoredPosition.current = petWindow.restorePosition().catch((error: unknown) => { console.warn("Could not restore the pet position", error); return false; });
 
     loadCharacterPack(packId)
       .then((pack) => PetRuntime.create({ renderer, storage, pack, reminders: REMINDERS, isQuiet, holdsReminders, focusStore: FOCUS_STORE, userActions: () => loadUserActions(packId) }))
@@ -157,11 +162,6 @@ export default function App({ packId }: AppProps) {
         created = instance;
         setRuntime(instance);
         if (fallbackNotice) { instance.say(fallbackNotice); fallbackNotice = null; }
-        // Left against a screen edge last time: hide behind it again.
-        void restored
-          .then((moved) => (moved ? petWindow.dockSide() : null))
-          .then((side) => { if (side && !cancelled) instance.bus.emit("pet.drag_ended", { dockSide: side }); })
-          .catch((error: unknown) => console.warn("Could not restore the pet at the screen edge", error));
         // Lets you try `__pet.requestAction("happy")` from the dev console.
         if (import.meta.env.DEV) Object.assign(window, { __pet: instance });
       })
@@ -358,6 +358,39 @@ export default function App({ packId }: AppProps) {
   // The native side knows where the cursor is even while the mouse passes through.
   useEffect(() => petWindow.onHoverChanged(setHovered), []);
 
+  useEffect(() => { if (runtime && hovered) runtime.bus.emit("pet.hovered", {}); }, [runtime, hovered]);
+
+  // The chat window says where its conversation stands; the pet listens, thinks and talks along.
+  useEffect(() => {
+    if (!runtime) return;
+    return petWindow.onChatPhase((reported) => {
+      const phase = CHAT_PHASES.find((known) => known === reported);
+      if (phase) runtime.bus.emit("pet.chat_phase", { phase });
+    });
+  }, [runtime]);
+
+  // A reminder or a note written down, or a reminder ticked off, in any window: the pet reacts.
+  useEffect(() => {
+    if (!runtime) return;
+    let agenda = loadAgenda();
+    let notes = new Set(loadNotes().map((note) => note.id));
+    const stops = [
+      subscribeAgenda(() => {
+        const next = loadAgenda();
+        const change = agendaChange(agenda, next);
+        agenda = next;
+        if (change) runtime.bus.emit(change === "added" ? "pet.noted" : "pet.item_done", {});
+      }),
+      subscribeNotes(() => {
+        const next = loadNotes().map((note) => note.id);
+        const added = hasNewId(notes, next);
+        notes = new Set(next);
+        if (added) runtime.bus.emit("pet.noted", {});
+      }),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [runtime]);
+
   useEffect(() => {
     if (!runtime) return;
     const { width, height } = stageSize(petBox.width, petBox.height);
@@ -369,14 +402,22 @@ export default function App({ packId }: AppProps) {
 
   useEffect(() => {
     if (!runtime) return;
+    let cancelled = false;
     // When the pet hides behind a screen edge, the window goes flush against it.
-    return runtime.bus.on("pet.dock_changed", ({ side }) => {
+    const stop = runtime.bus.on("pet.dock_changed", ({ side }) => {
       setDockSide(side);
       if (!side) return;
       petWindow.snapToEdge(side)
         .then(() => { refreshInsets(); return petWindow.savePosition(); })
         .catch((error) => console.error("Failed to snap the window to the edge", error));
     });
+    // Left against a screen edge last time: hide behind it again. Only now that the listener
+    // above is in place; sent any earlier, the pet would hide while this window still thought it was out.
+    void (restoredPosition.current ?? Promise.resolve(false))
+      .then((moved) => (moved ? petWindow.dockSide() : null))
+      .then((side) => { if (side && !cancelled) runtime.bus.emit("pet.drag_ended", { dockSide: side }); })
+      .catch((error: unknown) => console.warn("Could not restore the pet at the screen edge", error));
+    return () => { cancelled = true; stop(); };
   }, [runtime, refreshInsets]);
 
   // A display unplugged, rearranged or rescaled: keep the pet on a screen, flush against its edge if it hid there.

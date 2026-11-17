@@ -4,7 +4,7 @@
 
 1. **宠物逻辑不依赖渲染库。** 只有 `PixiRenderer.ts` 引用 PixiJS。
 2. **宠物逻辑不依赖桌面框架。** 只有 `platform/petWindow.ts` 引用 Tauri。
-3. **动作是数据，不是代码。** 动作全部来自资源包的 `manifest.json`。
+3. **动作是数据，不是代码。** 动作全部来自两份数据：标准动作目录 `standardActions.json` 和资源包的 `manifest.json`。
 4. **同一时间只有一个主动作。** 所有播放请求都经过 `ActionController`。
 
 ## 目录
@@ -17,6 +17,8 @@ src/
 │   ├── PetState.ts          属性、活动状态、随时间衰减
 │   └── PetRuntime.ts        把各模块组装起来，对外提供 requestAction
 ├── actions/
+│   ├── standardActions.json 标准动作目录：每个角色都有的动作，怎么播、怎么画、没图时借谁的
+│   ├── StandardActions.ts   把目录并进资源包清单：补默认设置，给没图的标准动作借图
 │   ├── ActionRegistry.ts    动作的注册、查询、降级
 │   └── ActionController.ts  播放、优先级、打断、冷却
 ├── behavior/
@@ -31,7 +33,10 @@ src/
 │   └── PackCatalog.ts       内置角色和自建角色列表、默认角色、按 ID 加载角色包
 ├── storage/
 │   └── PetStorage.ts        存档接口，当前用 localStorage
+├── appearance/
+│   └── looks.ts             每个动作实际显示谁的图：自己的、资源包的，还是借来的
 ├── agenda/
+│   ├── changes.ts           两次读到的提醒相比，是新增了还是勾掉了（宠物据此做反应）
 │   ├── AgendaStore.ts       提醒（每条都有时间）：校验、增删改、到点判断、本机存储与跨窗口同步、旧待办迁移
 │   ├── Repeat.ts            重复提醒的规则：工作日、每天、每周几，算本轮和下一次
 │   ├── Workdays.ts          中国法定工作日：打包的节假日数据、缺年份时下载补上
@@ -128,7 +133,11 @@ public/pets/girl-default/    默认资源包
 |---|---|---|
 | `pet.clicked` | `{ region: "head" \| "body" }` | `PetStage` |
 | `pet.petted` | 无，摸摸头：长按宠物 0.5 秒不动，或右键菜单「摸摸头」 | `PetStage`、`App`（菜单） |
-| `pet.chat_requested` | 无，dock 的「聊聊天」打开快速聊天输入条 | `PetControls` |
+| `pet.chat_requested` | 无，dock 的「聊聊天」或全局快捷键打开快速聊天输入条；宠物先醒来、从边上出来 | `PetControls`、`useQuickChat` |
+| `pet.chat_phase` | `{ phase: "idle" \| "listening" \| "thinking" \| "talking" \| "failed" }`，对话进行到哪一步 | `useQuickChat`、`App`（转发聊天窗口的） |
+| `pet.noted` | 无，新增了一条提醒或备忘 | `App`（比较存储变化） |
+| `pet.item_done` | 无，勾掉了一条提醒 | `App`（比较存储变化） |
+| `pet.hovered` | 无，光标移到了宠物上 | `App` |
 | `pet.drag_started` | 无 | `PetStage` |
 | `pet.drag_ended` | `{ dockSide: "left" \| "right" \| null }`，松手时贴到的屏幕边缘 | `PetStage` |
 | `pet.dock_changed` | `{ side: "left" \| "right" \| null }`，开始或结束贴边 | `BehaviorEngine` |
@@ -180,8 +189,23 @@ public/pets/girl-default/    默认资源包
 `BehaviorEngine.tick()` 每秒被调用一次，只做几次比较：
 
 - 清醒且正在待机时，每隔 6～14 秒从 `idle` 类动作里随机播放一个。
-- 超过 5 分钟没有互动就睡着。属性不影响入睡：界面上看不到属性，用户无从知道为什么它睡得早。
+- 超过 5 分钟没有互动就睡着，入睡前 20 秒打一个哈欠。属性不影响入睡：界面上看不到属性，用户无从知道为什么它睡得早。
 - 睡着后一直睡到用户点击或按唤醒。
+- 光标移到空闲的宠物上，它看一眼（30 秒内最多一次）。悬停不算互动，不会推迟入睡。
+
+## 场景和姿势
+
+各个入口只报告发生了什么，播什么由 `BehaviorEngine` 决定，动作名都来自标准动作目录（见 [ACTIONS.md](./ACTIONS.md)）。
+
+**随对话保持的姿势。** `pet.chat_phase` 说明对话进行到哪一步：`listening`（输入条开着、打字、录音）摆 `listen`，`thinking`（识别语音、等回复）摆 `think`，`talking`（回复输出中）摆 `talk`，`idle` 放下，`failed` 放下并播一次 `confused`。快速聊天直接在总线上发；聊天窗口是另一个窗口，用 `petWindow.reportChatPhase()` 发原生事件 `pet://chat-phase`，`App` 校验后转到总线上。
+
+- 引擎同一时间只保持一个姿势（`heldPose`）：对话的排在专注的前面，聊完回到专注姿势。`settle()` 负责摆上和放下，事件到来、每秒 tick、任何动作播完时各调一次。
+- 只有待机、空闲小动作和引擎自己摆的姿势会让位。一次性反应先播完，再回到姿势；`think` 这种有时长的姿势播完立刻重播，中间不闪回待机。
+- 睡着或贴边时不摆姿势。`thinking` 和 `talking` 会叫醒宠物（消息已经发出去了），`listening` 不会。
+- 每个阶段有保质期（`chatHoldMs`）：`listening` 8 秒，每次按键续上；另外两个 2 分钟。窗口中途消失时姿势不会卡住。
+- 角色没有这些图时照常工作：动作借图播放；保持姿势期间不做小动作、不入睡。
+
+**一次性反应。** `pet.noted` 播 `write`，`pet.item_done` 播 `happy`（10 秒内最多一次）。这两个事件由 `App` 比较提醒和备忘的存储变化得出，所以哪个窗口改的、是用户还是 AI 改的都算。宠物睡着或贴边时不为它们醒来或出来。提醒到点播 `remind`，问候播 `wave`，这两个会把宠物叫出来（`callOut`）。
 
 ## 舞台
 
@@ -276,8 +300,10 @@ public/pets/girl-default/    默认资源包
 1. 按下后移动超过 4 像素，`PetStage` 发出 `pet.drag_started`，之后每帧最多移动一次窗口。
 2. `BehaviorEngine` 请求 `drag` 动作。睡着的宠物被拎起来会醒。
 3. 松手时 `PetStage` 检查角色是否碰到屏幕左右边缘，发出 `pet.drag_ended`。
-4. 碰到边缘且资源包里有 `peek` 动作时，`BehaviorEngine` 播放 `peek` 并发出 `pet.dock_changed`。
+4. 碰到边缘且角色有自己的 `peek` 图时，`BehaviorEngine` 播放 `peek` 并发出 `pet.dock_changed`。`peek` 不借图，没有这张图的角色不贴边。
 5. `App` 收到后移动窗口，让角色贴齐屏幕边缘。`PetRuntime` 收到后在右边缘时让渲染器镜像。
+
+启动时恢复上次的贴边状态，要等 `App` 订阅了 `pet.dock_changed` 之后再发 `pet.drag_ended`。事件总线不重放：发早了，引擎和渲染器已经贴边，`App` 却不知道，快捷按钮会按没贴边来排，气泡也不靠边。
 
 贴边期间宠物不会自己做小动作，也不会睡着。点击它或再次拖动就会出来。
 
@@ -312,7 +338,7 @@ public/pets/girl-default/    默认资源包
 - 这个入口不接触 `PetState`，所以改不了属性。
 - `system` 类动作（`sleep`、`wake_up`、`peek`、`drag`）和宠物状态绑定，外部请求会被拒绝。
 
-文字对话窗口通过平台封装调用原生 DeepSeek 请求；请求开始后可请求 `think` 动作，不直接修改宠物属性。模型通过 `play_action` 工具选的动作同样经过宠物窗口的检查和 `requestAction`。
+文字对话窗口通过平台封装调用原生 DeepSeek 请求；对话进行到哪一步用 `pet.chat_phase` 告诉宠物（见“场景和姿势”），不直接请求动作，也不修改宠物属性。模型通过 `play_action` 工具选的动作同样经过宠物窗口的检查和 `requestAction`。
 
 ### 文字对话与密钥
 
@@ -363,6 +389,7 @@ public/pets/girl-default/    默认资源包
 - 每个窗口启动时调用 `migrateLegacyCharacterData()`，把引入角色之前的全局 key 一次性移到 `girl-default` 名下；新 key 已有数据时不覆盖。
 - 角色包的清单 `id` 必须和目录名一致，`loadCharacterPack()` 会检查。宠物窗口也通过它加载角色，再把加载好的包交给 `PetRuntime.create({ pack })`。
 - 自建角色的 ID 以 `custom-` 开头，只存名字、性格和借用的内置角色 `base`。`loadCharacterPack()` 加载 `base` 的资源包，换上自己的 `id` 和 `persona`，所以按角色 ID 存的数据（包括 IndexedDB 里的动作外观）天然和原角色分开。删除时调用 `clearCharacterData()` 清掉该角色所有 `characterKey` 数据，并逐个重置动作外观。
+- 自建角色换了自己的待机图之后，只有用户上传过的图才算它的：没上传的动作借它自己的图（`looks.ts` 的 `planLooks`），不再显示 `base` 的形象。`PetRuntime` 启动时和每次换图后都重新算一遍每个动作显示谁的图（`showLooks`），出借的动作换了图，借它的动作跟着换。
 - 显示的名字统一用 `characterName()`：用户在「角色」页改过就用改过的，否则用 `persona.name`。聊天窗口监听 `storage` 事件，设置页改名后立即更新。
 - 聊天记录按段保存在 `chat-threads:v1`，最近的一段在最前，每段最多保存和显示 200 条（`CHAT_LIMITS.messages`），发给模型的只有最近 30 条（`CHAT_LIMITS.context`，`contextMessages()`）；每个角色最多 20 段。旧版的单份 `chat-history:v1` 第一次读取时转成一段对话后删除。
 - 标题先用用户的第一句话。全局开关 `ai-pet:chat-auto-titles:v1` 打开时（默认打开），一段聊天的第一轮回复结束后，聊天窗口调用原生命令 `deepseek_title`，把第一句话和回复各截到 500 字发给 DeepSeek，要一个不超过 12 字的标题；`cleanTitle()` 去掉引号和标点后用 `retitleThread()` 写回，不改变排序。失败就保留原标题，不重试。

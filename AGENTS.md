@@ -27,10 +27,10 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 
 1. **只有 `src/renderer/PixiRenderer.ts` 可以引用 `pixi.js`。** 其他模块通过 `PetRenderer` 接口使用渲染。
 2. **只有 `src/platform/` 可以引用 `@tauri-apps/api`。** 每个函数在纯浏览器里都要能安全地什么都不做，保证 `pnpm dev` 可用。
-3. **动作是数据。** 动作只来自资源包的 `manifest.json`，不要在组件或引擎里硬编码动作参数。
+3. **动作是数据。** 动作只来自两份数据：标准动作目录 `src/actions/standardActions.json`（每个角色都有的动作）和资源包的 `manifest.json`（这个角色画了哪些图）。不要在组件或引擎里硬编码动作参数。
 4. **所有播放请求都经过 `ActionController`。** 不要绕过它直接调用渲染器。
 5. **`BehaviorEngine` 只提请求、改属性。** 请求被拒绝时不改属性。
-6. **React 组件只发事件。** 不直接调用控制器，不直接改状态。
+6. **React 组件只发事件。** 不直接调用控制器，不直接改状态。聊天、提醒、备忘这些场景也一样：只报告发生了什么（`pet.chat_phase`、`pet.noted`、`pet.item_done`），播哪个动作由 `BehaviorEngine` 决定，不要在入口处自己 `requestAction`。
 7. **外部入口只有 `PetRuntime.requestAction()`。** 它不能改属性，也不能触发 `system` 类动作。以后的 AI、提醒都走这个入口。
 8. **状态不可变。** `PetState` 的快照每次更新都生成新对象。
 9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；聊聊天、提醒、备忘是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
@@ -144,6 +144,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。
+- 启动时恢复贴边，必须等 `App` 订阅了 `pet.dock_changed` 再发 `pet.drag_ended`。事件总线不重放，发早了引擎和渲染器已经贴边、`App` 不知道，表现为宠物在边上探头，快捷按钮却出现在离它很远的另一侧。
 - 显示宠物不能用 `window.show()`：它等于 `makeKeyAndOrderFront`，宠物面板会变成 key window，用户接着打的字会落进来。用 `floating_panel::show_without_focus`（`reveal_pet`）。
 - 安装包有 CSP（`tauri.conf.json`），不允许 `eval`。PixiJS 要先 `import "pixi.js/unsafe-eval"`（名字反直觉：引入它才不需要 eval）。新加外部资源或协议时要改 CSP，并打包回归图片加载。 另外 `connect-src` 不含 `data:`，`fetch(dataUrl)` 在安装包里会失败（开发模式没有 CSP，看不出来）；读图片用 `Image` 元素加载再画到 canvas。
 
@@ -187,7 +188,8 @@ pnpm exec tsc --noEmit && pnpm test
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
-- 新增动作：放图片，在 `manifest.json` 的 `animations` 里加一条。不需要改代码。
+- 新增动作：放图片，在 `manifest.json` 的 `animations` 里加一条。不需要改代码。每个角色都该有的动作加进标准动作目录，写好 `tier`、`pose` 和 `fallback`；没有这张图的角色会自动借图，所以引擎可以直接按名字请求，不用判断有没有图。
+- 不要假设角色画全了动作。自建角色可能只有一张待机图，其余都是借图（`src/appearance/looks.ts`）。只有 `requiresArt` 的动作（目前是 `peek`）会因为没图而不能播，用到它的地方要看请求结果里的 `actionId`。
 - 新增动效：改 `src/renderer/motions.ts` 和 `src/types.ts` 的 `MOTION_PRESETS`。
 - 行为引擎按名字使用的动作见 `ACTIONS.md` 的"内置动作名"。改名要同步改 `BehaviorEngine.ts`。
 

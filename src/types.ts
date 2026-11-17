@@ -8,9 +8,18 @@ export const MOTION_PRESETS = [
   "wiggle",
   "pop",
   "tilt",
+  "nod",
 ] as const;
 
 export type MotionPreset = (typeof MOTION_PRESETS)[number];
+
+/**
+ * How much a standard action matters, most needed first: a character with few
+ * pictures draws them in this order, and the rest borrow a picture.
+ */
+export const ACTION_TIERS = ["required", "core", "standard", "interactive", "fun"] as const;
+
+export type ActionTier = (typeof ACTION_TIERS)[number];
 
 /** Built-in quick-action icons exposed to the resource pack and settings UI. */
 export const CONTROL_ICON_PRESETS = [
@@ -85,12 +94,29 @@ export type HitRegion = "head" | "body";
 export type DockSide = "left" | "right";
 
 /** Every event on the bus, mapped to its payload. */
+/**
+ * Where a conversation with the pet stands, reported by the quick chat bar and
+ * the chat window: the user is typing or speaking, a reply is awaited, it is
+ * coming in, or it failed. "idle" ends it.
+ */
+export const CHAT_PHASES = ["idle", "listening", "thinking", "talking", "failed"] as const;
+
+export type ChatPhase = (typeof CHAT_PHASES)[number];
+
 export interface PetEvents {
   "pet.clicked": { region: HitRegion };
   /** A long press on the pet, or "摸摸头" in the pet menu. */
   "pet.petted": Record<string, never>;
   /** The dock's chat button: open the quick chat bar (a click on the pet opens it too). */
   "pet.chat_requested": Record<string, never>;
+  /** The conversation moved on; the pet listens, thinks or talks along. */
+  "pet.chat_phase": { phase: ChatPhase };
+  /** A reminder or a note was written down, by the user or by the AI. */
+  "pet.noted": Record<string, never>;
+  /** A reminder was ticked off. */
+  "pet.item_done": Record<string, never>;
+  /** The cursor came onto the pet. */
+  "pet.hovered": Record<string, never>;
   "pet.drag_started": Record<string, never>;
   /** `dockSide` is the screen edge the pet was dropped against, if any. */
   "pet.drag_ended": { dockSide: DockSide | null };

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CONTROL_ICON_PRESETS, MIMO_VOICES, MOTION_PRESETS, PERSONA_LIMITS } from "../types";
+import { ACTION_TIERS, CONTROL_ICON_PRESETS, MIMO_VOICES, MOTION_PRESETS, PERSONA_LIMITS } from "../types";
 
 /** Asset files must stay inside the pack: relative, no scheme, no parent segments. */
 const assetPathSchema = z
@@ -40,7 +40,7 @@ const layerSchema = z.object({
  * One entry describes both the animation (how it looks) and the action (how it
  * is scheduled). Only `id` and `file` are required.
  */
-const animationSchema = z.object({
+export const animationSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -61,8 +61,20 @@ const animationSchema = z.object({
   interruptible: z.boolean().default(true),
   duration: z.number().positive().optional(),
   cooldown: z.number().nonnegative().optional(),
+  /** The action whose picture this one wears while it has none of its own; the chain ends at idle. */
   fallback: z.string().min(1).optional(),
+  /** Set for standard actions: how early a character with few pictures should draw this one. */
+  tier: z.enum(ACTION_TIERS).optional(),
+  /** A pose no other picture can stand in for, such as hiding behind an edge: without its own picture the action is off. */
+  requiresArt: z.boolean().optional(),
+  /** Set when the pack has no picture for this standard action: the action whose picture `file` is. */
+  borrowedFrom: z.string().min(1).optional(),
 });
+
+/** A standard action as the catalog lists it: everything but the picture, which each character brings. */
+export const standardActionSchema = animationSchema
+  .omit({ file: true, frames: true, fps: true, layers: true, borrowedFrom: true })
+  .required({ tier: true, label: true, pose: true });
 
 const controlSchema = z.object({
   id: z.enum(["focus", "feed", "wooden_fish", "sleep_toggle"]),

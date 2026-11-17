@@ -1,7 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { availableMonitors, getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
-import type { DockSide } from "../types";
+import type { ChatPhase, DockSide } from "../types";
 import { z } from "zod";
 import { clampWindowX, clampWindowY, dockSideAt, monitorUnderPet, offscreenInsets, snappedWindowX, verticalInsets, type MonitorBounds, type OffscreenInsets } from "./stageGeometry";
 
@@ -21,6 +21,7 @@ const APPEARANCE_TIMEOUT_MS = 8000;
 interface AppearanceRequest { id: string; requestId: string }
 interface AppearanceResult { requestId: string; error?: string }
 const ACTION_EVENT = "pet://request-action";
+const CHAT_PHASE_EVENT = "pet://chat-phase";
 const ON_TOP_EVENT = "pet://on-top";
 /** Must match DND_EVENT and the commands in src-tauri/src/lib.rs. */
 const DND_EVENT = "pet://dnd";
@@ -183,6 +184,17 @@ export const petWindow = {
 
   onActionRequested(handler: (id: string) => void): () => void {
     return subscribe<string>(ACTION_EVENT, handler);
+  },
+
+  /** Tells the pet where a conversation in the calling window stands, so it can listen, think and talk along. */
+  async reportChatPhase(phase: ChatPhase): Promise<void> {
+    if (!isTauri()) return;
+    await emitTo("main", CHAT_PHASE_EVENT, phase);
+  },
+
+  /** For the pet window. The payload comes from another window, so it is not trusted to be a known phase. */
+  onChatPhase(handler: (phase: unknown) => void): () => void {
+    return subscribe<unknown>(CHAT_PHASE_EVENT, handler);
   },
 
   /**

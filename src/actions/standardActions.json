@@ -1,0 +1,241 @@
+{
+  "actions": [
+    {
+      "id": "idle",
+      "tier": "required",
+      "label": "安静陪伴",
+      "description": "默认待机状态",
+      "pose": "自然站立，正面朝前，双手放松垂在身体两侧，带着浅浅的微笑。这张是后面所有图的基准。",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 0
+    },
+    {
+      "id": "happy",
+      "tier": "core",
+      "label": "开心",
+      "description": "开心地回应你",
+      "pose": "站着，双手高高举起，张嘴大笑，非常开心。",
+      "motion": "bounce",
+      "duration": 1800,
+      "priority": 20,
+      "cooldown": 500
+    },
+    {
+      "id": "think",
+      "tier": "core",
+      "label": "思考",
+      "description": "等回复时若有所思的样子",
+      "pose": "站着，一根手指抵着下巴，头微微歪，眼睛看向上方，若有所思。",
+      "motion": "tilt",
+      "duration": 2400,
+      "priority": 10
+    },
+    {
+      "id": "sleep",
+      "tier": "core",
+      "label": "睡觉",
+      "description": "睡着时一直保持",
+      "pose": "趴着或侧躺着睡着，闭着眼，可以枕着枕头。用横版画布（3:2），身体横着躺在画布底部。",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 50
+    },
+    {
+      "id": "drag",
+      "tier": "core",
+      "label": "被拎起",
+      "description": "拖动宠物时播放",
+      "pose": "被一只从画面上方伸进来的手拎起来，双脚离地悬空，表情有点慌张。",
+      "loop": true,
+      "motion": "sway",
+      "category": "system",
+      "priority": 70
+    },
+    {
+      "id": "blink",
+      "tier": "standard",
+      "label": "眨眨眼",
+      "description": "空闲时自动播放",
+      "pose": "和「安静陪伴」完全一样的站姿，只是双眼闭上，像眨眼的一瞬间。",
+      "motion": "breathe",
+      "duration": 700,
+      "category": "idle",
+      "priority": 5
+    },
+    {
+      "id": "look_around",
+      "tier": "standard",
+      "label": "四处张望",
+      "description": "空闲时自动播放，鼠标移上来时也会看一眼",
+      "pose": "站着，头和视线转向一侧，好奇地张望。",
+      "motion": "sway",
+      "duration": 3200,
+      "category": "idle",
+      "priority": 5
+    },
+    {
+      "id": "pet_reaction",
+      "tier": "standard",
+      "label": "摸摸头",
+      "description": "长按宠物，或在右键菜单点「摸摸头」时播放",
+      "pose": "一只手从画面上方伸进来摸角色的头，角色闭眼微笑，脸颊微红，双手合在胸前。",
+      "motion": "sway",
+      "duration": 2000,
+      "priority": 20,
+      "cooldown": 500,
+      "fallback": "happy"
+    },
+    {
+      "id": "shy",
+      "tier": "standard",
+      "label": "害羞",
+      "description": "连着摸头几次后害羞的样子",
+      "pose": "站着，双手捂着脸颊，脸红，视线躲开，有点害羞。",
+      "motion": "wiggle",
+      "duration": 1600,
+      "priority": 25,
+      "fallback": "happy"
+    },
+    {
+      "id": "wake_up",
+      "tier": "standard",
+      "label": "醒来",
+      "description": "睡醒时播放",
+      "pose": "刚睡醒，坐在地上伸懒腰，双手举过头顶，闭眼打哈欠。",
+      "motion": "pop",
+      "duration": 1200,
+      "category": "system",
+      "priority": 60,
+      "interruptible": false
+    },
+    {
+      "id": "peek",
+      "tier": "standard",
+      "requiresArt": true,
+      "label": "探头",
+      "description": "躲到屏幕边上探头时播放",
+      "pose": "躲在画布左边缘后面探出半个身子，朝右看。身体左边被画布左边缘直接切掉，像藏在屏幕边上。不要画出墙。",
+      "loop": true,
+      "motion": "breathe",
+      "align": "left",
+      "category": "system",
+      "priority": 55
+    },
+    {
+      "id": "focus",
+      "tier": "standard",
+      "label": "陪你专注",
+      "description": "专注模式中安静地陪你一起工作",
+      "pose": "盘腿坐着，双手放在腿上，眼睛闭上或半闭，安静专注的样子。",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 15
+    },
+    {
+      "id": "listen",
+      "tier": "interactive",
+      "label": "倾听",
+      "description": "你打字或说话时认真听",
+      "pose": "站着，身体微微前倾，头稍稍歪向一侧，一只手拢在耳边，眼睛睁大看着正前方，嘴巴轻轻闭着，认真在听。",
+      "loop": true,
+      "motion": "breathe",
+      "category": "system",
+      "priority": 12,
+      "fallback": "look_around"
+    },
+    {
+      "id": "talk",
+      "tier": "interactive",
+      "label": "说话",
+      "description": "回复你的时候",
+      "pose": "和「安静陪伴」一样的站姿，嘴巴张开正在说话，一只手抬到胸前、食指竖起像在讲解，眼神明亮。",
+      "loop": true,
+      "motion": "nod",
+      "category": "system",
+      "priority": 12
+    },
+    {
+      "id": "write",
+      "tier": "interactive",
+      "label": "记一笔",
+      "description": "记下提醒或备忘时播放",
+      "pose": "站着，一只手托着翻开的小本子，另一只手拿笔正在写，低头看着本子，神情认真，嘴角带一点笑。",
+      "motion": "tilt",
+      "duration": 2200,
+      "priority": 20,
+      "cooldown": 3000,
+      "fallback": "think"
+    },
+    {
+      "id": "remind",
+      "tier": "interactive",
+      "label": "提醒",
+      "description": "提醒到点时叫你",
+      "pose": "站着，一只手举过头顶摇着一个小铃铛，另一只手叉腰，嘴巴张开像在喊人，表情认真又有点着急。",
+      "motion": "bounce",
+      "duration": 2400,
+      "priority": 20,
+      "fallback": "happy"
+    },
+    {
+      "id": "wave",
+      "tier": "interactive",
+      "label": "打招呼",
+      "description": "早晚问候时播放",
+      "pose": "站着，一只手举到头边挥手，另一只手自然垂下，歪头微笑，看着正前方。",
+      "motion": "sway",
+      "duration": 2200,
+      "priority": 20,
+      "fallback": "happy"
+    },
+    {
+      "id": "yawn",
+      "tier": "interactive",
+      "label": "打哈欠",
+      "description": "快要睡着前播放",
+      "pose": "站着，一只手捂着嘴打哈欠，另一只手自然垂下，眼睛眯成一条缝，肩膀放松下垂。",
+      "motion": "pop",
+      "duration": 2000,
+      "priority": 8,
+      "fallback": "blink"
+    },
+    {
+      "id": "confused",
+      "tier": "interactive",
+      "label": "困惑",
+      "description": "回复或语音识别出错时播放",
+      "pose": "站着，歪着头，一只手挠后脑勺，另一只手在身侧摊开，眉毛皱起，嘴巴微张，一脸困惑。",
+      "motion": "wiggle",
+      "duration": 1800,
+      "priority": 20,
+      "fallback": "think"
+    },
+    {
+      "id": "eat",
+      "tier": "fun",
+      "label": "吃东西",
+      "description": "吃东西的样子",
+      "pose": "坐在地上，双手捧着一碗食物或拿着点心正在吃，表情满足。",
+      "motion": "sway",
+      "duration": 2800,
+      "priority": 30,
+      "cooldown": 3000,
+      "fallback": "happy"
+    },
+    {
+      "id": "wooden_fish",
+      "tier": "fun",
+      "label": "敲木鱼",
+      "description": "敲木鱼的样子",
+      "pose": "跪坐在坐垫上，面前放着木鱼，一只手举起小木槌正要敲下，闭着眼，神情平静。",
+      "loop": true,
+      "duration": 2000,
+      "priority": 30,
+      "fallback": "focus"
+    }
+  ]
+}

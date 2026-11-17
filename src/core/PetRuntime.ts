@@ -1,4 +1,5 @@
-import { loadAppearance } from "../appearance/AppearanceStore";
+import { loadAppearance, type ActionAppearance } from "../appearance/AppearanceStore";
+import { borrowedAppearance, hasOwnLook, planLooks } from "../appearance/looks";
 import { ActionController } from "../actions/ActionController";
 import { ActionRegistry, IDLE_ACTION, toActionDefinition } from "../actions/ActionRegistry";
 import { withUserActions, type UserAction } from "../actions/UserActions";
@@ -21,6 +22,48 @@ const TICK_INTERVAL_MS = 1000;
 const SYSTEM_CATEGORY = "system";
 /** Shortest time between two lines the pet says on its own, so it never chatters. */
 const PROACTIVE_GAP_MS = 20 * 60_000;
+
+/**
+ * Shows every action's picture: the user's own, the pack's, or one borrowed
+ * from another action (see `planLooks`). `shown` remembers what each action
+ * shows, so only what changed is loaded again; `changed` names the action whose
+ * picture the user just replaced. Returns the actions that cannot play for want of a picture.
+ */
+async function showLooks(renderer: PetRenderer, manifest: PetManifest, loaded: ReadonlySet<string>, shown: Map<string, string>, changed?: string): Promise<Set<string>> {
+  const entries = manifest.animations.filter((entry) => loaded.has(entry.id));
+  const pictures = new Map<string, ActionAppearance>();
+  if (typeof indexedDB !== "undefined") {
+    await Promise.all(entries.map(async (entry) => {
+      try {
+        const picture = await loadAppearance(manifest.id, entry.id);
+        if (picture) pictures.set(entry.id, picture);
+      } catch (error) {
+        if (entry.id === changed) throw error;
+        console.warn(`Failed to read the picture of ${entry.id}`, error);
+      }
+    }));
+  }
+  const drawn = new Set(pictures.keys());
+  const looks = planLooks(entries, drawn, hasOwnLook(manifest.id, drawn));
+  const unplayable = new Set<string>();
+  await Promise.all(entries.map(async (entry) => {
+    const { source, playable } = looks.get(entry.id) ?? { source: entry.id, playable: true };
+    if (!playable) unplayable.add(entry.id);
+    const picture = pictures.get(source);
+    const look = `${source}:${picture ? "user" : "pack"}`;
+    // Fresh from the pack, an action shows its own picture or the one the pack borrowed for it.
+    const before = shown.get(entry.id) ?? `${entry.borrowedFrom ?? entry.id}:pack`;
+    if (look === before && entry.id !== changed && source !== changed) return;
+    try {
+      await renderer.setAppearance(entry.id, !picture ? null : source === entry.id ? picture : borrowedAppearance(entry, picture));
+      shown.set(entry.id, look);
+    } catch (error) {
+      if (entry.id === changed) throw error;
+      console.warn(`Failed to show the picture of ${entry.id}`, error);
+    }
+  }));
+  return unplayable;
+}
 
 interface RuntimeOptions {
   renderer: PetRenderer;
@@ -61,7 +104,11 @@ export class PetRuntime {
     manifest: PetManifest,
     readonly resolveAsset: (file: string) => string,
     private readonly renderer: PetRenderer,
-    availableAnimations: ReadonlySet<string>,
+    /** Animations the renderer has loaded; the user's own actions join and leave it. */
+    private readonly loaded: Set<string>,
+    unplayable: ReadonlySet<string>,
+    /** What each action shows, as `showLooks` left it. */
+    private readonly shown: Map<string, string>,
     storage: PetStorage,
     { reminders, isQuiet, holdsReminders, focusStore, userActions }: Pick<RuntimeOptions, "reminders" | "isQuiet" | "holdsReminders" | "focusStore" | "userActions">,
   ) {
@@ -69,7 +116,7 @@ export class PetRuntime {
     this.focus = new FocusTimer(restoreFocus(focusStore?.load() ?? null, Date.now()), focusStore?.save);
     this.isQuiet = isQuiet ?? (() => false);
     this.userActions = userActions ?? (() => []);
-    this.registry.registerManifest(manifest, availableAnimations);
+    this.registry.registerManifest(manifest, new Set([...loaded].filter((id) => !unplayable.has(id))));
     this.state = new PetState(createSnapshot(Date.now(), storage.loadPet() ?? undefined));
     this.controller = new ActionController({ registry: this.registry, renderer, bus: this.bus });
     this.behavior = new BehaviorEngine({
@@ -108,15 +155,10 @@ export class PetRuntime {
     if (!available.has(IDLE_ACTION)) {
       throw new Error(`Asset pack "${pack.manifest.id}" has no usable "${IDLE_ACTION}" animation`);
     }
-    if (typeof indexedDB !== "undefined") {
-      await Promise.all(manifest.animations.filter((entry) => available.has(entry.id)).map(async (entry) => {
-        try {
-          const appearance = await loadAppearance(pack.manifest.id, entry.id);
-          if (appearance) await renderer.setAppearance(entry.id, appearance);
-        } catch (error) { console.warn(`Failed to restore appearance for ${entry.id}`, error); }
-      }));
-    }
-    return new PetRuntime(pack.manifest, manifest, pack.resolve, renderer, available, storage, options);
+    const loaded = new Set(available);
+    const shown = new Map<string, string>();
+    const unplayable = await showLooks(renderer, manifest, loaded, shown);
+    return new PetRuntime(pack.manifest, manifest, pack.resolve, renderer, loaded, unplayable, shown, storage, options);
   }
 
   get manifest(): PetManifest {
@@ -184,8 +226,13 @@ export class PetRuntime {
     const removed = await this.syncUserActions();
     if (removed.includes(id)) return;
     if (!this.manifest.animations.some((action) => action.id === id)) throw new Error("Unknown action");
-    const appearance = await loadAppearance(this.manifest.id, id);
-    await this.renderer.setAppearance(id, appearance);
+    // One new picture can change others: actions borrowing it, or all of them once the character has its own idle.
+    const unplayable = await showLooks(this.renderer, this.manifest, this.loaded, this.shown, id);
+    for (const entry of this.manifest.animations) {
+      if (!this.loaded.has(entry.id)) continue;
+      if (unplayable.has(entry.id)) this.registry.unregister(entry.id);
+      else if (!this.registry.has(entry.id)) this.registry.register(toActionDefinition(entry));
+    }
     this.bus.emit("pet.appearance.changed", {});
   }
 
@@ -202,6 +249,7 @@ export class PetRuntime {
         failed.add(entry.id);
         continue;
       }
+      this.loaded.add(entry.id);
       // Registering again picks up a new name or length.
       this.registry.register(toActionDefinition(entry));
     }
@@ -209,6 +257,8 @@ export class PetRuntime {
       if (this.controller.current?.id === id) this.controller.stop();
       this.registry.unregister(id);
       this.renderer.removeAnimation(id);
+      this.loaded.delete(id);
+      this.shown.delete(id);
     }
     this.currentManifest = { ...next, animations: next.animations.filter((entry) => !failed.has(entry.id)) };
     this.bus.emit("pet.actions.changed", {});

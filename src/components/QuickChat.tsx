@@ -9,6 +9,7 @@ import { chatPlatform, type ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
 import { canShortcut } from "../preferences/ActionPreferences";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
+import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 
 /** Same limit as the chat window's composer. */
@@ -153,7 +154,16 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     return () => window.removeEventListener("blur", onBlur);
   }, [open]);
 
-  useEffect(() => petWindow.onQuickChatRequested(() => (openRef.current ? close(true) : show())), []);
+  // The shortcut asks the pet like the dock's chat button does, so it comes to the user first: awake and out from the edge.
+  useEffect(() => petWindow.onQuickChatRequested(() => {
+    if (openRef.current) close(true);
+    else if (runtimeRef.current) runtimeRef.current.bus.emit("pet.chat_requested", {});
+    else show();
+  }), []);
+
+  // The pet listens while the bar is open (each keystroke says so again), thinks until the reply starts, and talks along with it.
+  const phase: ChatPhase = pending ? (reply?.status === "streaming" ? "talking" : "thinking") : open ? "listening" : "idle";
+  useEffect(() => { runtime?.bus.emit("pet.chat_phase", { phase }); }, [runtime, phase, draft]);
   // A click on the pet means "I want to talk to you"; so does the dock's chat button.
   useEffect(() => {
     if (!runtime) return;
@@ -185,6 +195,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
           setDraft((draft) => draft || current.typed);
         }
         setReply(event.kind === "error" ? errorReply(event.text || "回复中断") : null);
+        if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
         return;
       }
       let saved: ReturnType<typeof applyToolCalls> = { lines: [], confirmation: "" };
@@ -234,7 +245,6 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     const actions = runtime.manifest.animations.filter(canShortcut).map((action) => action.id);
     try {
       await chatPlatform.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), chatContext(Date.now(), actions));
-      if (request.current?.id === id) runtime.requestAction("think");
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;
@@ -245,6 +255,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
       const failed = errorReply(String(reason));
       if (failed.fix === "settings") setKeyMissing(classifyServiceError(String(reason)) === "missing-key");
       setReply(failed);
+      runtime.bus.emit("pet.chat_phase", { phase: "failed" });
     }
   };
 

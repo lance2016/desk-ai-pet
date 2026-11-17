@@ -2,7 +2,7 @@ import type { ActionController } from "../actions/ActionController";
 import { IDLE_ACTION, type ActionRegistry } from "../actions/ActionRegistry";
 import type { EventBus } from "../core/EventBus";
 import type { PetState } from "../core/PetState";
-import type { DockSide, PetEvents, PetStats } from "../types";
+import type { ChatPhase, DockSide, PetEvents, PetStats } from "../types";
 import { FOCUS_CONFIG, focusBadge, type FocusTimer } from "./FocusTimer";
 
 /** Played while the user carries the pet around. */
@@ -13,10 +13,28 @@ const PEEK_ACTION = "peek";
 const FOCUS_ACTION = "focus";
 /** Played when the user pats the pet (long press or the menu). */
 const PET_ACTION = "pet_reaction";
+/** Played instead once the pats keep coming. */
+const SHY_ACTION = "shy";
 /** Played when a focus round is done. */
 const FOCUS_DONE_ACTION = "happy";
-/** Played to catch the user's eye for a reminder or a greeting. */
-const CALL_OUT_ACTION = "happy";
+/** Played to catch the user's eye for a reminder. */
+const REMIND_ACTION = "remind";
+/** Played with a morning or evening greeting. */
+const GREET_ACTION = "wave";
+/** Played when a reminder or a note is written down. */
+const NOTE_ACTION = "write";
+/** Played when a reminder is ticked off. */
+const DONE_ACTION = "happy";
+/** Played when a reply or a voice transcription failed. */
+const CONFUSED_ACTION = "confused";
+/** Played shortly before the pet dozes off. */
+const YAWN_ACTION = "yawn";
+/** Played when the cursor comes onto the idle pet. */
+const GLANCE_ACTION = "look_around";
+/** The pose held through each part of a conversation. */
+const CHAT_POSES = { listening: "listen", thinking: "think", talking: "talk" } as const;
+/** Poses nothing but this engine puts up, so one that is playing is its own to take down. */
+const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION, CHAT_POSES.listening, CHAT_POSES.talking]);
 
 /** What the pet says around a focus round. Shown in the speech bubble. */
 const FOCUS_LINES = {
@@ -58,6 +76,21 @@ export const BEHAVIOR_CONFIG = {
   backToEdgeAfterGreetingMs: 10_000,
   /** After the reminder line is dismissed, the same, a moment later. */
   backToEdgeAfterAlertMs: 1_500,
+  /**
+   * A chat pose is dropped this long after the last report of its phase, so a
+   * window that went away mid-chat cannot leave the pet stuck in it. Typing
+   * renews "listening" with every keystroke.
+   */
+  chatHoldMs: { listening: 8_000, thinking: 120_000, talking: 120_000 },
+  /** The pet yawns this long before it falls asleep. */
+  yawnBeforeSleepMs: 20_000,
+  /** Pats this close together are one streak; from this pat of a streak on, the pet turns shy. */
+  patStreakMs: 20_000,
+  shyFromPat: 3,
+  /** Shortest time between two cheers for ticked-off reminders. */
+  cheerGapMs: 10_000,
+  /** Shortest time between two glances at the cursor. */
+  glanceGapMs: 30_000,
 };
 
 /** A reminder whose time has come. */
@@ -112,6 +145,15 @@ export class BehaviorEngine {
   private pendingAction: { id: string; onAccepted?: () => void } | null = null;
   /** When the focus button was last pressed during a round, to ask before stopping. */
   private stopAskedAt: number | null = null;
+  /** The part of a conversation the pet is posing for, and when to stop waiting for news of it. */
+  private chat: { phase: keyof typeof CHAT_POSES; until: number } | null = null;
+  /** A pose this engine put up that others may play too (think); tells its own from theirs. */
+  private posed: string | null = null;
+  private patStreak = { count: 0, at: 0 };
+  /** The idle stretch the pet has already yawned in, by the interaction that began it. */
+  private yawnedFor: number | null = null;
+  private lastCheerAt = -Infinity;
+  private lastGlanceAt = -Infinity;
 
   constructor(private readonly deps: BehaviorDeps) {
     this.random = deps.random ?? Math.random;
@@ -132,9 +174,17 @@ export class BehaviorEngine {
       bus.on("pet.focus_toggled", () => this.onFocusToggled()),
       bus.on("pet.focus_stopped", () => this.onFocusStopped()),
       bus.on("pet.alert_dismissed", () => this.dismissAlert()),
+      // Asked to chat from the dock or the shortcut: come to the user as for a click.
+      bus.on("pet.chat_requested", () => { this.rouse(); }),
+      bus.on("pet.chat_phase", ({ phase }) => this.onChatPhase(phase)),
+      bus.on("pet.noted", () => this.react(NOTE_ACTION)),
+      bus.on("pet.item_done", () => this.onItemDone()),
+      bus.on("pet.hovered", () => this.onHovered()),
+      // A pose that ran out, or a reaction that played over it: back into the pose without a blink of idle.
+      bus.on("pet.action.completed", () => this.settle(Date.now())),
       bus.on("pet.greeting", ({ text }) => {
         const now = Date.now();
-        this.callOut(now);
+        this.callOut(now, GREET_ACTION);
         this.say(text);
         if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs };
       }),
@@ -149,23 +199,22 @@ export class BehaviorEngine {
 
   /** Runs the autonomous checks. Cheap enough to call about once a second. */
   tick(now: number): void {
-    const { state, controller, focus } = this.deps;
+    const { state, controller } = this.deps;
     this.advanceFocus(now);
     this.advanceReminders(now);
     this.showBadge(now);
-    const snapshot = state.get();
-    if (snapshot.activity !== "awake" || controller.current?.id !== IDLE_ACTION) return;
-    if (this.pendingAction) {
+    const idling = () => state.get().activity === "awake" && controller.current?.id === IDLE_ACTION;
+    if (idling() && this.pendingAction) {
       const { id, onAccepted } = this.pendingAction;
       this.pendingAction = null;
       if (controller.request(id).accepted) onAccepted?.();
       return;
     }
-    // While focusing the pet keeps the user company: no wandering off, no dozing.
-    if (focus.get().phase === "focusing") {
-      controller.request(FOCUS_ACTION);
-      return;
-    }
+    this.settle(now);
+    if (!idling()) return;
+    const snapshot = state.get();
+    // With a pose to hold (even one this character cannot show) the pet keeps the user company: no wandering off, no dozing.
+    if (this.heldPose(now) !== null) return;
     if (this.returnTo?.at != null && now >= this.returnTo.at && this.alerted.length === 0 && this.focusNotice === null) {
       const side = this.returnTo.side;
       this.returnTo = null;
@@ -174,8 +223,14 @@ export class BehaviorEngine {
       return;
     }
 
-    if (now - snapshot.lastInteractionAt >= BEHAVIOR_CONFIG.sleepAfterIdleMs) {
+    const idleFor = now - snapshot.lastInteractionAt;
+    if (idleFor >= BEHAVIOR_CONFIG.sleepAfterIdleMs) {
       this.fallAsleep();
+      return;
+    }
+    if (idleFor >= BEHAVIOR_CONFIG.sleepAfterIdleMs - BEHAVIOR_CONFIG.yawnBeforeSleepMs && this.yawnedFor !== snapshot.lastInteractionAt) {
+      this.yawnedFor = snapshot.lastInteractionAt;
+      controller.request(YAWN_ACTION);
       return;
     }
 
@@ -190,10 +245,86 @@ export class BehaviorEngine {
     this.rouse();
   }
 
-  /** A pat: the pet reacts once it is awake and out in the open. */
+  /** A pat: the pet reacts once it is awake and out in the open, and turns shy when the pats keep coming. */
   private onPetted(): void {
     const { state, controller } = this.deps;
-    if (!this.rouse() && controller.request(PET_ACTION).accepted) state.changeStats(BEHAVIOR_CONFIG.effects.pet);
+    if (this.rouse()) return;
+    const now = Date.now();
+    const count = now - this.patStreak.at <= BEHAVIOR_CONFIG.patStreakMs ? this.patStreak.count + 1 : 1;
+    if (!controller.request(count >= BEHAVIOR_CONFIG.shyFromPat ? SHY_ACTION : PET_ACTION).accepted) return;
+    this.patStreak = { count, at: now };
+    state.changeStats(BEHAVIOR_CONFIG.effects.pet);
+  }
+
+  /** The pose the pet should be holding now: the conversation's, else the focus round's. */
+  private heldPose(now: number): string | null {
+    if (this.chat && now >= this.chat.until) this.chat = null;
+    if (this.chat) return CHAT_POSES[this.chat.phase];
+    return this.deps.focus.get().phase === "focusing" ? FOCUS_ACTION : null;
+  }
+
+  /**
+   * Puts the pet into the pose it should hold, or out of one it should not.
+   * Only idling (fidgets included) and the engine's own poses give way: a
+   * reaction plays out first, and a sleeping or hiding pet is left as it is.
+   */
+  private settle(now: number): void {
+    const { state, controller, registry } = this.deps;
+    const pose = this.heldPose(now);
+    const current = controller.current?.id;
+    const posing = current !== undefined && (ENGINE_POSES.has(current) || current === this.posed);
+    if (!posing) this.posed = null;
+    if (posing && current === pose) return;
+    if (state.get().activity !== "awake" || this.dockSide) return;
+    const idling = current === undefined || current === IDLE_ACTION || registry.get(current)?.category === BEHAVIOR_CONFIG.idleCategory;
+    if (!idling && !posing) return;
+    if (posing) controller.stop();
+    if (pose === null) return;
+    const result = controller.request(pose);
+    if (result.accepted && result.actionId === pose) this.posed = pose;
+  }
+
+  private onChatPhase(phase: ChatPhase): void {
+    const now = Date.now();
+    const { state } = this.deps;
+    if (phase === "idle" || phase === "failed") {
+      this.chat = null;
+      this.settle(now);
+      if (phase === "failed") this.react(CONFUSED_ACTION);
+      return;
+    }
+    state.markInteraction(now);
+    // A message on its way is worth waking up for; typing alone lets the pet sleep on.
+    if (phase !== "listening" && state.get().activity === "sleeping") this.wakeUp();
+    this.chat = { phase, until: now + BEHAVIOR_CONFIG.chatHoldMs[phase] };
+    this.settle(now);
+  }
+
+  /**
+   * A passing reaction to something the user did in another window. The pet
+   * shows it if it is up and about; it is not woken or fetched from the edge for it.
+   */
+  private react(id: string): void {
+    const { state, controller } = this.deps;
+    state.markInteraction(Date.now());
+    if (state.get().activity === "awake" && !this.dockSide) controller.request(id);
+  }
+
+  private onItemDone(): void {
+    const now = Date.now();
+    if (now - this.lastCheerAt < BEHAVIOR_CONFIG.cheerGapMs) return;
+    this.lastCheerAt = now;
+    this.react(DONE_ACTION);
+  }
+
+  /** The cursor is not an interaction: the idle pet glances at it now and then, and still dozes off under it. */
+  private onHovered(): void {
+    const now = Date.now();
+    const { state, controller } = this.deps;
+    if (now - this.lastGlanceAt < BEHAVIOR_CONFIG.glanceGapMs) return;
+    if (state.get().activity !== "awake" || this.dockSide || controller.current?.id !== IDLE_ACTION) return;
+    this.lastGlanceAt = now;
+    controller.request(GLANCE_ACTION);
   }
 
   /** Wakes the pet or coaxes it out from behind the edge. Returns whether it had to. */
@@ -360,7 +491,7 @@ export class BehaviorEngine {
     const held = fresh.length > 0 && (holdsReminders?.(now) ?? false);
     this.waitingReminders = held ? fresh.length : 0;
     if (fresh.length > 0 && !held) {
-      this.callOut(now);
+      this.callOut(now, REMIND_ACTION);
       this.alerted = [...kept, ...fresh];
       this.showAlert(now);
     } else if (kept.length !== this.alerted.length) {
@@ -404,9 +535,9 @@ export class BehaviorEngine {
 
   /**
    * Gets the pet's attention onto the user: wakes it, brings it out from the
-   * edge and cheers. It remembers the edge, to go back once the user has seen it.
+   * edge and plays `action`. It remembers the edge, to go back once the user has seen it.
    */
-  private callOut(now: number): void {
+  private callOut(now: number, action: string): void {
     const { state, controller } = this.deps;
     state.markInteraction(now);
     if (state.get().activity === "sleeping") this.wakeUp();
@@ -415,7 +546,7 @@ export class BehaviorEngine {
       this.setDock(null);
       controller.stop();
     }
-    controller.request(CALL_OUT_ACTION);
+    controller.request(action);
   }
 
   /** Stops a running round or rest and leaves the focus pose. */

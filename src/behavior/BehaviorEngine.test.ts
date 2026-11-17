@@ -50,11 +50,216 @@ function setup({ stats = {}, extraAnimations = [], missing = [], random = () => 
   return { bus, state, controller, renderer, engine, pass, passSteps, docks, focus, said, badges };
 }
 
+/** The actions for conversations and passing reactions, as a full character has them. */
+const SCENE_ACTIONS = [
+  { id: "listen", file: "a/idle.png", loop: true, category: "system", priority: 12 },
+  { id: "think", file: "a/idle.png", duration: 2400, priority: 10 },
+  { id: "talk", file: "a/idle.png", loop: true, category: "system", priority: 12 },
+  { id: "write", file: "a/idle.png", duration: 2200, priority: 20, cooldown: 3000 },
+  { id: "remind", file: "a/happy.png", duration: 2400, priority: 20 },
+  { id: "wave", file: "a/happy.png", duration: 2200, priority: 20 },
+  { id: "yawn", file: "a/idle.png", duration: 2000, priority: 8 },
+  { id: "confused", file: "a/idle.png", duration: 1800, priority: 20 },
+  { id: "look_around", file: "a/idle.png", duration: 3200, category: "idle", priority: 5 },
+];
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(1_000_000);
 });
 afterEach(() => vi.useRealTimers());
+
+describe("conversations", () => {
+  const chatting = () => setup({ extraAnimations: SCENE_ACTIONS });
+
+  it("listens, thinks and talks along, then goes back to idle", () => {
+    const { bus, controller } = chatting();
+    bus.emit("pet.chat_phase", { phase: "listening" });
+    expect(controller.current?.id).toBe("listen");
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    expect(controller.current?.id).toBe("think");
+    bus.emit("pet.chat_phase", { phase: "talking" });
+    expect(controller.current?.id).toBe("talk");
+    bus.emit("pet.chat_phase", { phase: "idle" });
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("keeps thinking for as long as the reply takes, without a blink of idle", () => {
+    const { bus, controller, renderer, pass } = chatting();
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    const from = renderer.played.length;
+    pass(2_400);
+    pass(2_400);
+    pass(1_000);
+    expect(controller.current?.id).toBe("think");
+    expect(renderer.played.slice(from)).toEqual(["think", "think"]);
+  });
+
+  it("stops listening when nothing more is typed", () => {
+    const { bus, controller, pass } = chatting();
+    bus.emit("pet.chat_phase", { phase: "listening" });
+    pass(BEHAVIOR_CONFIG.chatHoldMs.listening - 1_000);
+    bus.emit("pet.chat_phase", { phase: "listening" });
+    pass(BEHAVIOR_CONFIG.chatHoldMs.listening - 1_000);
+    expect(controller.current?.id).toBe("listen");
+    pass(1_000);
+    // Free again: it is back to idling, which may be a fidget straight away.
+    expect(controller.current?.id).not.toBe("listen");
+  });
+
+  it("lets a reaction play over the pose and returns to the pose", () => {
+    const { bus, controller, pass } = chatting();
+    bus.emit("pet.chat_phase", { phase: "talking" });
+    bus.emit("pet.noted", {});
+    expect(controller.current?.id).toBe("write");
+    pass(2_200);
+    expect(controller.current?.id).toBe("talk");
+  });
+
+  it("breaks off a fidget to pose", () => {
+    const { bus, controller } = chatting();
+    bus.emit("pet.hovered", {});
+    expect(controller.current?.id).toBe("look_around");
+    bus.emit("pet.chat_phase", { phase: "listening" });
+    expect(controller.current?.id).toBe("listen");
+  });
+
+  it("leaves a thinking action someone else started alone", () => {
+    const { bus, controller, pass } = chatting();
+    bus.emit("pet.action_requested", { id: "think" });
+    pass(1_000);
+    expect(controller.current?.id).toBe("think");
+  });
+
+  it("poses for the conversation during a focus round and returns to the focus pose", () => {
+    const { bus, controller } = chatting();
+    bus.emit("pet.focus_toggled", {});
+    expect(controller.current?.id).toBe("focus");
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    expect(controller.current?.id).toBe("think");
+    bus.emit("pet.chat_phase", { phase: "idle" });
+    expect(controller.current?.id).toBe("focus");
+  });
+
+  it("wakes up for a message on its way, not for typing", () => {
+    const { bus, state, controller, pass } = chatting();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.chat_phase", { phase: "listening" });
+    expect(state.get().activity).toBe("sleeping");
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    expect(state.get().activity).toBe("awake");
+    expect(controller.current?.id).toBe("wake_up");
+    pass(900);
+    expect(controller.current?.id).toBe("think");
+  });
+
+  it("stays behind the edge through a conversation in another window", () => {
+    const { bus, controller, docks } = chatting();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    bus.emit("pet.chat_phase", { phase: "talking" });
+    expect(controller.current?.id).toBe("peek");
+    expect(docks).toEqual(["left"]);
+  });
+
+  it("comes out from the edge when asked to chat", () => {
+    const { bus, controller, docks } = chatting();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.chat_requested", {});
+    expect(docks).toEqual(["left", null]);
+    expect(controller.current?.id).toBe("happy");
+  });
+
+  it("looks confused when the reply fails", () => {
+    const { bus, controller, pass } = chatting();
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    bus.emit("pet.chat_phase", { phase: "failed" });
+    expect(controller.current?.id).toBe("confused");
+    pass(1_800);
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("neither wanders off nor dozes while a character without these pictures is in a conversation", () => {
+    const { bus, state, controller, pass, passSteps } = setup();
+    bus.emit("pet.chat_phase", { phase: "talking" });
+    expect(controller.current?.id).toBe("idle");
+    passSteps(60_000);
+    expect(controller.current?.id).toBe("idle");
+    bus.emit("pet.chat_phase", { phase: "idle" });
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs);
+    expect(state.get().activity).toBe("sleeping");
+  });
+});
+
+describe("passing reactions", () => {
+  const reacting = () => setup({ extraAnimations: SCENE_ACTIONS });
+
+  it("writes down a reminder or a note with the user", () => {
+    const { bus, controller } = reacting();
+    bus.emit("pet.noted", {});
+    expect(controller.current?.id).toBe("write");
+  });
+
+  it("is not woken or fetched from the edge for one", () => {
+    const { bus, state, controller } = reacting();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.noted", {});
+    expect(state.get().activity).toBe("sleeping");
+    expect(controller.current?.id).toBe("sleep");
+  });
+
+  it("cheers for a ticked-off reminder, but not for every one of a batch", () => {
+    const { bus, renderer, pass } = reacting();
+    bus.emit("pet.item_done", {});
+    pass(2_000);
+    bus.emit("pet.item_done", {});
+    pass(BEHAVIOR_CONFIG.cheerGapMs);
+    bus.emit("pet.item_done", {});
+    expect(renderer.played.filter((id) => id === "happy")).toHaveLength(2);
+  });
+
+  it("turns shy when the pats keep coming", () => {
+    const { bus, controller, pass } = reacting();
+    for (let pat = 1; pat < BEHAVIOR_CONFIG.shyFromPat; pat += 1) {
+      bus.emit("pet.petted", {});
+      expect(controller.current?.id).toBe("pet_reaction");
+      pass(2_000);
+    }
+    bus.emit("pet.petted", {});
+    expect(controller.current?.id).toBe("shy");
+    pass(BEHAVIOR_CONFIG.patStreakMs + 1_600);
+    bus.emit("pet.petted", {});
+    expect(controller.current?.id).toBe("pet_reaction");
+  });
+
+  it("yawns once shortly before it falls asleep", () => {
+    const { state, renderer, passSteps } = reacting();
+    passSteps(BEHAVIOR_CONFIG.sleepAfterIdleMs - BEHAVIOR_CONFIG.yawnBeforeSleepMs - 1_000);
+    expect(renderer.played).not.toContain("yawn");
+    passSteps(BEHAVIOR_CONFIG.yawnBeforeSleepMs + 1_000);
+    expect(renderer.played.filter((id) => id === "yawn")).toHaveLength(1);
+    expect(state.get().activity).toBe("sleeping");
+  });
+
+  it("glances at the cursor now and then, and still dozes off under it", () => {
+    const { bus, state, renderer, pass } = reacting();
+    bus.emit("pet.hovered", {});
+    expect(renderer.last).toBe("look_around");
+    pass(3_200);
+    bus.emit("pet.hovered", {});
+    expect(renderer.played.filter((id) => id === "look_around")).toHaveLength(1);
+    pass(BEHAVIOR_CONFIG.sleepAfterIdleMs);
+    expect(state.get().activity).toBe("sleeping");
+  });
+
+  it("waves with a greeting", () => {
+    const { bus, controller } = reacting();
+    bus.emit("pet.greeting", { text: "早上好！" });
+    expect(controller.current?.id).toBe("wave");
+  });
+});
 
 describe("user interaction", () => {
   it("answers a pat with the petting reaction", () => {
@@ -544,13 +749,13 @@ describe("reminders", () => {
 
   it("keeps a due reminder up until the user clicks it away", () => {
     const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() + 5_000 }]);
-    const { bus, renderer, pass } = setup({ reminders });
+    const { bus, renderer, pass } = setup({ reminders, extraAnimations: SCENE_ACTIONS });
     const shown = alerts(bus);
     pass(4_000);
     expect(shown).toEqual([]);
     pass(1_000);
     expect(shown).toEqual(["到点啦：开会"]);
-    expect(renderer.last).toBe("happy");
+    expect(renderer.last).toBe("remind");
     pass(60 * 60_000);
     expect(shown).toEqual(["到点啦：开会"]);
     expect(reminders.reminded).toEqual([]);

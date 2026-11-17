@@ -49,6 +49,11 @@ const MOTIONS: Record<MotionPreset, Motion> = {
   },
   // Leans to one side, holds, and comes back.
   tilt: (_seconds, progress) => ({ rotation: 0.06 * arc(progress) }),
+  // Small quick nods, as when talking.
+  nod: (seconds) => {
+    const beat = Math.sin(TAU * seconds * 1.5);
+    return { y: -3 * Math.max(0, beat), rotation: 0.014 * beat };
+  },
 };
 
 export function sampleMotion(preset: MotionPreset, seconds: number, progress: number): MotionTransform {

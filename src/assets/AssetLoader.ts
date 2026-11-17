@@ -1,4 +1,5 @@
-import { parseManifest, type PetManifest } from "./Manifest";
+import { parsePackManifest } from "../actions/StandardActions";
+import type { PetManifest } from "./Manifest";
 
 export interface AssetPack {
   manifest: PetManifest;
@@ -15,6 +16,6 @@ export async function loadAssetPack(packUrl: string): Promise<AssetPack> {
   if (!response.ok) {
     throw new Error(`Failed to load pet manifest from ${base} (HTTP ${response.status})`);
   }
-  const manifest = parseManifest(await response.json());
+  const manifest = parsePackManifest(await response.json());
   return { manifest, resolve: (file) => `${base}${file}` };
 }

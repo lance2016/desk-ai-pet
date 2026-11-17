@@ -3,7 +3,7 @@ import { appearanceLayerSchema, type AppearanceLayer } from "../../appearance/Ap
 import { MOTION_PRESETS, type MotionPreset } from "../../types";
 
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
-const LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头" };
+const LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
 interface Props {
   layers: AppearanceLayer[];
   frames: number;

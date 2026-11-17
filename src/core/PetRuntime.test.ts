@@ -150,7 +150,7 @@ describe("PetRuntime", () => {
 
   it("degrades an unknown outside request to idle", async () => {
     const { runtime, renderer } = await start();
-    expect(runtime.requestAction("wave")).toEqual({ accepted: true, actionId: "idle" });
+    expect(runtime.requestAction("moonwalk")).toEqual({ accepted: true, actionId: "idle" });
     expect(renderer.played).toEqual(["idle"]);
     runtime.destroy();
   });
