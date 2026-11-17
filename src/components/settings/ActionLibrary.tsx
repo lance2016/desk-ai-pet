@@ -2,15 +2,16 @@ import { useEffect, useState } from "react";
 import { loadAppearance, type ActionAppearance } from "../../appearance/AppearanceStore";
 import { ActionThumbnail } from "./ActionThumbnail";
 import { ActionEditor } from "./ActionEditor";
+import { CopyButton } from "./CopyButton";
+import { PromptField } from "./PromptField";
 import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
-import { buildArtPrompt } from "../../assets/ArtPrompt";
+import { BASE_ACTION } from "../../appearance/looks";
+import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
 import type { AnimationEntry, PetControl } from "../../assets/Manifest";
 import { petWindow } from "../../platform/petWindow";
 import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
+import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
 import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../preferences/DockPreferences";
-
-/** How long the copy button says it copied. */
-const COPIED_HINT_MS = 1_600;
 
 interface Props {
   actions: AnimationEntry[];
@@ -38,7 +39,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   const [inDock, setInDock] = useState(loadShown);
   const [disabledIdle, setDisabledIdle] = useState(() => loadDisabledIdleActions(packId));
   const [message, setMessage] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [prompts, setPrompts] = useState(() => loadArtPrompts(packId));
   useEffect(() => subscribeDock(packId, () => setInDock(loadDock(packId, dockControls(controls), actions).filter((item) => item.kind === "action" && item.enabled).map((item) => item.id))), [packId, controls, actions]);
 
   useEffect(() => {
@@ -73,17 +74,21 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     }
   };
 
-  const copyPrompt = async () => {
+  const changePrompt = (which: keyof ArtPrompts, text: string) => {
+    const next = { ...prompts, [which]: text };
+    setPrompts(next);
     try {
-      await navigator.clipboard.writeText(buildArtPrompt(actions));
-      setCopied(true);
+      saveArtPrompts(packId, next);
       setMessage("");
-      window.setTimeout(() => setCopied(false), COPIED_HINT_MS);
     } catch (error) {
-      console.error("Failed to copy the art prompt", error);
-      setMessage("没能复制到剪贴板，请再试一次。");
+      console.error("Could not save the art prompt", error);
+      setMessage("提示词没能保存，请再试一次。");
     }
   };
+
+  const usablePrompts = usableArtPrompts(prompts);
+  /** A custom character's first picture is drawn from a reference; every other picture is drawn from that one. */
+  const promptFor = (action: AnimationEntry) => fillArtPrompt(isCustomPack && action.id === BASE_ACTION ? usablePrompts.first : usablePrompts.action, action);
 
   const preview = async (action: AnimationEntry) => {
     try {
@@ -102,15 +107,17 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     if (created) requestAnimationFrame(() => document.querySelector(".settings-content")?.scrollTo({ top: 0 }));
   };
 
-  if (editing) return <ActionEditor key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
+  if (editing) return <ActionEditor key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} prompt={isUserAction(editing) ? usablePrompts.action : promptFor(editing)} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
 
   const userActions = actions.filter(isUserAction);
   const draft = draftUserAction(actions);
   const canCreate = draft !== null && userActions.length < USER_ACTION_LIMITS.count;
-  /** In the order and numbering of the art prompt. */
+  /** Most needed first: the catalog's order. */
   const toDraw = actions.filter((action) => !isUserAction(action));
   const drawn = toDraw.filter((action) => appearances?.[action.id]).length;
   const drawing = isCustomPack && drawn < toDraw.length;
+  const base = toDraw.find((action) => action.id === BASE_ACTION);
+  const baseDrawn = Boolean(appearances?.[BASE_ACTION]);
 
   /** A picture still to draw: only its number, name and what to draw, never the borrowed picture. */
   /** The next picture to draw gets the one coloured button. */
@@ -123,6 +130,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       <p title={action.pose}>{action.pose ?? action.description}</p>
     </div>
     <div className="action-row__tools">
+      <CopyButton className="settings-button settings-button--small" text={promptFor(action)} onMessage={setMessage}>复制提示词</CopyButton>
       <button type="button" className={action === next ? "settings-button settings-button--small settings-button--primary" : "settings-button settings-button--small"} onClick={() => setEditing(action)}>上传图片</button>
     </div>
   </li>;
@@ -183,25 +191,26 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       <div className="draw-guide__head">
         <div>
           <h3>给{characterName}画一套自己的样子</h3>
-          <p>{characterName}现在借用着别的角色的图片。把下面 {toDraw.length} 个动作换成自己的图，桌面上的宠物就是{characterName}的样子了。没换的动作暂时还用借来的图。</p>
+          <p>{baseDrawn ? `${characterName}已经有自己的样子了。` : `${characterName}现在借用着别的角色的图片，画好第 1 张就换成自己的样子。`}其余的动作不用一次画完，没画的先用画好的图顶着。</p>
         </div>
         <p className="draw-guide__count"><span><strong>{drawn}</strong> / {toDraw.length}</span><small>已换好</small></p>
       </div>
       <div className="draw-guide__meter" role="progressbar" aria-label="已换好的动作" aria-valuemin={0} aria-valuemax={toDraw.length} aria-valuenow={drawn}><span style={{ width: `${(drawn / toDraw.length) * 100}%` }} /></div>
       <ol className="draw-guide__steps">
-        <li><strong>准备一张参考图</strong><span>{characterName}的全身图，自己画的、AI 画的都可以。</span></li>
-        <li>
-          <strong>让 ChatGPT 照着画</strong><span>复制提示词，和参考图一起发给 ChatGPT，它会按下面的编号一张一张画。</span>
-          <div className="draw-guide__prompt">
-            <button type="button" className="settings-button settings-button--small settings-button--primary" onClick={() => void copyPrompt()}>{copied ? "已复制" : "复制提示词"}</button>
-            <details><summary>看看提示词写了什么</summary><pre>{buildArtPrompt(actions)}</pre></details>
-          </div>
+        <li className={baseDrawn ? "is-done" : undefined}>
+          <strong>先画第 1 张，定下样子</strong>
+          <span>把参考图和这段提示词一起发给 ChatGPT，让它画出一张正面站立图。参考图用照片、别人的画、AI 图都行，它只用来照着画，不会直接用到宠物身上。满意后上传到下面第 1 行。</span>
+          <PromptField copyLabel="复制提示词" copyText={base ? promptFor(base) : usablePrompts.first} summary="查看和修改" value={prompts.first} fallback={DEFAULT_ART_PROMPTS.first} note="想换画风（像素风、水彩、厚涂……），改【画风】那一行。" primary={!baseDrawn} onChange={(text) => changePrompt("first", text)} onMessage={setMessage} />
         </li>
-        <li><strong>画好一张，上传一张</strong><span>在下面对应编号那一行点「上传图片」。透明背景的图效果最好，四周的空白会自动裁掉。</span></li>
+        <li>
+          <strong>照着第 1 张画其他动作</strong>
+          <span>下面每个动作后面都有填好的「复制提示词」。把它和第 1 张图一起发给 ChatGPT，画好后点同一行的「上传图片」。想画清单外的新动作，复制模板，把里面的 {ACTION_SLOT} 换成想要的姿势。</span>
+          <PromptField copyLabel="复制模板" copyText={usablePrompts.action} summary="查看和修改模板" value={prompts.action} fallback={DEFAULT_ART_PROMPTS.action} note={`每个动作的提示词都按这个模板生成，${ACTION_SLOT} 的位置会换成动作说明。改了模板，所有动作的提示词跟着变。`} onChange={(text) => changePrompt("action", text)} onMessage={setMessage} />
+        </li>
       </ol>
     </section>
     <section className="action-group">
-      <header><h3>要画的动作</h3><span>编号和提示词里的一致。先画第 1 张，后面的都以它为准。</span></header>
+      <header><h3>要画的动作</h3><span>先画第 1 张，后面的都照着它画。不用按顺序，也不用画全。</span></header>
       <ul className="action-list">{toDraw.map((action, index) => row(action, index + 1))}</ul>
     </section>
     {myActions}
@@ -210,12 +219,9 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   return <div className="settings-section action-library">
     {message && <p className="settings-error" role="status">{message}</p>}
     <section className="art-prompt">
-      <div className="art-prompt__text">
-        <strong>用 AI 画一套新形象</strong>
-        <p>复制提示词，在 ChatGPT 里连同角色参考图一起发送，它会按下面的动作逐张画图。画好后在对应动作的「编辑」里选「单张图片」上传，四周的透明空白会自动裁掉。</p>
-        <details><summary>查看提示词</summary><pre>{buildArtPrompt(actions)}</pre></details>
-      </div>
-      <button type="button" className="settings-button" onClick={() => void copyPrompt()}>{copied ? "已复制" : "复制提示词"}</button>
+      <strong>用 AI 画动作图</strong>
+      <p>重画某个动作：点它的「编辑」，复制里面填好的提示词，和角色的图一起发给 ChatGPT，画好后在同一页上传。画清单外的新动作：复制模板，把里面的 {ACTION_SLOT} 换成想要的姿势，画好后在「我的动作」里新建。</p>
+      <PromptField copyLabel="复制模板" copyText={usablePrompts.action} summary="查看和修改模板" value={prompts.action} fallback={DEFAULT_ART_PROMPTS.action} note={`每个动作的提示词都按这个模板生成，${ACTION_SLOT} 的位置会换成动作说明。改了模板，所有动作的提示词跟着变。`} onChange={(text) => changePrompt("action", text)} onMessage={setMessage} />
     </section>
     {myActions}
     {groups.map((group) => <section className="action-group" key={group.title}>

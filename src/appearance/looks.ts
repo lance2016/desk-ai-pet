@@ -4,7 +4,7 @@ import type { AnimationEntry } from "../assets/Manifest";
 import type { ActionAppearance } from "./AppearanceStore";
 
 /** The picture that stands for a character; changing it makes the character the user's own. */
-const BASE_ACTION = "idle";
+export const BASE_ACTION = "idle";
 
 /** What one action shows. */
 export interface Look {

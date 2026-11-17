@@ -223,15 +223,24 @@ button.dock-row__body { cursor: pointer; }
 .dock-add__choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px 6px; }
 
 /* ---------- Action library ---------- */
-.art-prompt { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
-.art-prompt__text { flex: 1; min-width: 0; }
+.art-prompt { margin-bottom: 18px; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .art-prompt strong { font-size: 13px; font-weight: 600; }
 .art-prompt p { margin: 4px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.45; }
-.art-prompt summary { margin-top: 6px; color: var(--accent-strong); font-size: 12px; cursor: pointer; }
 /* "复制提示词" swaps to the shorter "已复制"; a fixed minimum keeps the button from shrinking, which shifted its neighbours and left stale paint behind in WKWebView. */
-.art-prompt > .settings-button, .draw-guide__prompt .settings-button { box-sizing: content-box; min-width: 5em; }
-.art-prompt pre { max-height: 220px; margin: 6px 0 0; padding: 8px 10px; overflow: auto; color: var(--label); background: var(--fill); border-radius: var(--radius-row); font-family: inherit; font-size: 11px; line-height: 1.5; white-space: pre-wrap; user-select: text; }
-/* A custom character's drawing guide: three steps, then numbered empty slots that fill as pictures arrive. */
+.copy-button { box-sizing: content-box; min-width: 5em; }
+/* A prompt for an image model: the copy button, then a link that opens the text for rewording. */
+.prompt-field { display: flow-root; margin-top: 8px; }
+.prompt-field > .copy-button { float: left; margin-right: 10px; }
+.prompt-field summary { display: inline-block; color: var(--accent-strong); font-size: 12px; line-height: 22px; border-radius: 3px; cursor: pointer; }
+@media (prefers-color-scheme: dark) { .prompt-field summary { color: var(--accent); } }
+.prompt-field summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.prompt-field textarea { display: block; clear: both; box-sizing: border-box; width: 100%; height: 200px; margin-top: 8px; padding: 8px 10px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-size: 12px; line-height: 1.55; resize: vertical; }
+.prompt-field__foot { display: flex; align-items: baseline; gap: 12px; margin: 5px 0 0; }
+.prompt-field__foot span { flex: 1; min-width: 0; color: var(--label-2); font-size: 11px; line-height: 1.45; }
+/* Named twice over: `.settings-page button` resets colour and size with more weight than `.settings-link` alone. */
+.prompt-field__foot .settings-link, .action-editor .action-editor__prompt { flex: none; color: var(--accent-strong); font-size: 12px; border-radius: 3px; }
+@media (prefers-color-scheme: dark) { .prompt-field__foot .settings-link, .action-editor .action-editor__prompt { color: var(--accent); } }
+/* A custom character's drawing guide: two steps, then numbered empty slots that fill as pictures arrive. */
 .draw-guide { margin-bottom: 18px; padding: 14px 16px 6px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .draw-guide__head { display: flex; align-items: flex-start; gap: 16px; }
 .draw-guide__head > div { flex: 1; min-width: 0; }
@@ -246,14 +255,9 @@ button.dock-row__body { cursor: pointer; }
 .draw-guide__steps li { position: relative; padding: 10px 0 10px 32px; counter-increment: step; }
 .draw-guide__steps li + li { border-top: 1px solid var(--separator); }
 .draw-guide__steps li::before { content: counter(step); position: absolute; top: 10px; left: 0; width: 20px; height: 20px; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 11px; font-weight: 600; }
-.draw-guide__steps strong { display: block; font-weight: 500; }
-.draw-guide__steps span { display: block; margin-top: 1px; color: var(--label-2); font-size: 12px; line-height: 1.45; }
-.draw-guide__prompt { margin-top: 8px; }
-.draw-guide__prompt summary { display: inline-block; margin-left: 10px; color: var(--accent-strong); font-size: 12px; cursor: pointer; }
-.draw-guide__prompt details { display: inline; }
-.draw-guide__prompt details[open] { display: block; margin-top: 6px; }
-.draw-guide__prompt details[open] summary { margin-left: 0; }
-.draw-guide__prompt pre { max-height: 220px; margin: 6px 0 0; padding: 8px 10px; overflow: auto; color: var(--label); background: var(--fill); border-radius: var(--radius-row); font-family: inherit; font-size: 11px; line-height: 1.5; white-space: pre-wrap; user-select: text; }
+.draw-guide__steps li.is-done::before { content: "✓"; color: #fff; background: var(--green); }
+.draw-guide__steps li > strong { display: block; font-weight: 500; }
+.draw-guide__steps li > span { display: block; margin-top: 1px; color: var(--label-2); font-size: 12px; line-height: 1.45; }
 .action-row__step { flex: none; width: 18px; margin-left: 4px; color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
 .action-row__step.is-done { height: 18px; display: grid; place-items: center; color: #fff; background: var(--green); border-radius: 50%; }
 .action-row__step svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -304,6 +308,7 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__types button.is-selected { color: #fff; background: var(--accent-strong); box-shadow: none; }
 .action-editor__upload { position: relative; display: inline-flex; align-items: center; height: 24px; padding: 0 12px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
 .action-editor__upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.action-editor__prompt { margin-left: 12px; text-align: left; }
 .action-editor__files { overflow-wrap: anywhere; }
 .action-editor__field { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; }
 .action-editor__field input[type=number] { width: 60px; height: 24px; padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }

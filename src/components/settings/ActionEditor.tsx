@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { isLayerVisible, layerElapsedSeconds, layerMotionProgress } from "../../appearance/layerTiming";
+import { ACTION_SLOT } from "../../assets/ArtPrompt";
 import type { AnimationEntry } from "../../assets/Manifest";
 import { appearanceLayerSchema, loadAppearance, resetAppearance, saveAppearance, type ActionAppearance, type AppearanceLayer } from "../../appearance/AppearanceStore";
 import { petWindow } from "../../platform/petWindow";
@@ -8,6 +9,7 @@ import { ConfirmButton } from "../ConfirmButton";
 import { NumberField } from "./NumberField";
 import { setUnsavedChanges } from "./unsavedChanges";
 import { LayerEditor } from "./LayerEditor";
+import { CopyButton } from "./CopyButton";
 import { trimTransparentEdges } from "./trimImage";
 import { deleteUserAction, isUserAction, newUserActionId, saveUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
 import { MOTION_PRESETS, type MotionPreset } from "../../types";
@@ -16,7 +18,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_SHEET_WIDTH = 8192;
 const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
 type Mode = "single" | "frames" | "sheet";
-interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
+interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
 
 function decode(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("图片无法读取，请换一张图片")); image.src = src; });
@@ -96,7 +98,7 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
   return <canvas ref={ref} width={240} height={210} aria-label="动作动画预览" />;
 }
 
-export function ActionEditor({ action, packId, blank = false, canvas, resolveAsset, onClose, onSaved }: Props) {
+export function ActionEditor({ action, packId, blank = false, prompt, canvas, resolveAsset, onClose, onSaved }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState(canvas);
   const [mode, setMode] = useState<Mode>(action.frames > 1 && !blank ? "sheet" : "single");
@@ -272,6 +274,7 @@ export function ActionEditor({ action, packId, blank = false, canvas, resolveAss
       {mode === "sheet" && <label className="action-editor__field">帧数<NumberField min={1} max={16} value={frames} onChange={(count) => { setFrames(count); if (count === 1) setLayers((current) => current.map((layer) => ({ ...layer, startFrame: undefined, endFrame: undefined }))); }} /></label>}
       <p>建议使用透明背景的 PNG，单张图片不超过 4 MB；图片会按原动作尺寸等比适配。</p>
       <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" multiple={mode === "frames"} onChange={(e) => void selectFiles(e)} />选择{mode === "frames" ? "逐帧图片" : "图片"}</label>
+      <CopyButton className="settings-link action-editor__prompt" text={prompt} title={own ? `粘贴到 ChatGPT 后，把 ${ACTION_SLOT} 换成想要的姿势` : "和角色的图一起发给 ChatGPT，画出这一张"} onMessage={setError}>{own ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton>
       {mode !== "single" && image && frames > 1 && Number.isInteger(frames) && frames <= 16 && <div className="action-editor__frames" aria-label="帧顺序">{Array.from({ length: frames }, (_, index) => <div key={index}><span title={sourceNames[index] ?? `第 ${index + 1} 帧`}>{sourceNames[index] ?? `第 ${index + 1} 帧`}</span><button type="button" disabled={busy || index === 0} aria-label={`第 ${index + 1} 帧前移`} onClick={() => void editFrameOrder(index, -1)}>↑</button><button type="button" disabled={busy || index === frames - 1} aria-label={`第 ${index + 1} 帧后移`} onClick={() => void editFrameOrder(index, 1)}>↓</button><button type="button" disabled={busy} aria-label={`删除第 ${index + 1} 帧`} onClick={() => void editFrameOrder(index, 0)}>×</button></div>)}</div>}
     </fieldset>
     <fieldset className="action-editor__group" disabled={busy}><legend>播放效果</legend>

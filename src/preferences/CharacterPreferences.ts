@@ -21,6 +21,8 @@ export const CHARACTER_DATA = {
   dock: "dock:v1",
   /** Actions the user made in the action library; their pictures are in AppearanceStore. */
   userActions: "user-actions:v1",
+  /** The art prompts the user reworded for this character; the style differs from one character to the next. */
+  artPrompts: "art-prompts:v1",
 } as const;
 
 const LEGACY_PREFIX = "ai-pet:";
