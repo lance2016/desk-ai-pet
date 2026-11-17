@@ -1,5 +1,4 @@
 import { useState, type ChangeEvent } from "react";
-import type { AnimationEntry } from "../../assets/Manifest";
 import { coverCrop, headCrop, topCrop, type PictureCrop } from "../../appearance/pictureCrop";
 import { DEFAULT_CHAT_APPEARANCE, FRAME_ASPECT, MAX_DATA_URL_CHARS, loadChatAppearance, pictureFor, saveChatAppearance, type ChatAppearance, type ChatPicture } from "../../preferences/ChatAppearance";
 import { CharacterAvatar } from "../CharacterAvatar";
@@ -39,19 +38,19 @@ function startingCrop(slot: Slot, fromAction: boolean, ratio: number): PictureCr
 
 interface Props {
   packId: string;
-  actions: AnimationEntry[];
   actionImages: Record<string, string>;
   /** Called after a change, so lists showing the avatar can refresh. */
   onChange: () => void;
 }
 
-/** Pictures used for the current character in the chat window: an action image, an upload, or none. */
-export function ChatLookSettings({ packId, actions, actionImages, onChange }: Props) {
+/**
+ * Pictures used for the current character in the chat window: the character's
+ * default picture, or one the user uploads and crops. The chat figure can also be hidden.
+ */
+export function ChatLookSettings({ packId, actionImages, onChange }: Props) {
   const [appearance, setAppearance] = useState(() => loadChatAppearance(packId));
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<Editing | null>(null);
-  // One choice per distinct image; several actions can share a file.
-  const choices = actions.filter((action, index) => actionImages[action.id] && actions.findIndex((other) => actionImages[other.id] === actionImages[action.id]) === index);
 
   const update = (next: ChatAppearance) => {
     try { saveChatAppearance(packId, next); setAppearance(next); setStatus(""); onChange(); }
@@ -84,13 +83,11 @@ export function ChatLookSettings({ packId, actions, actionImages, onChange }: Pr
       setEditing({ slot, picture: { dataUrl }, src: dataUrl, crop: fallback, fallback });
     } catch (reason) { setStatus(reason instanceof Error ? reason.message : "图片处理失败，请换一张试试。"); }
   };
-  const isPicked = (slot: Slot, actionId: string) => { const value = appearance[slot]; return value !== "hidden" && "action" in value && value.action === actionId; };
 
   return <article className="settings-card ai-settings look-settings">
     {ROWS.map(({ slot, title, hint }) => {
       const value = appearance[slot];
       const shown = pictureFor(value, actionImages);
-      const uploaded = shown && !shown.fromAction ? shown : null;
       return <div className="look-row" key={slot}>
         <div className="look-row__head">
           {slot === "peek"
@@ -100,11 +97,7 @@ export function ChatLookSettings({ packId, actions, actionImages, onChange }: Pr
           {value !== "hidden" && <button type="button" className="look-row__reset" onClick={() => void edit(slot, value)}>调整</button>}
           <button type="button" className="look-row__reset" onClick={() => set(slot, DEFAULT_CHAT_APPEARANCE[slot])}>恢复默认</button>
         </div>
-        <div className="look-choices" role="group" aria-label={`选择${title}`}>
-          {choices.map((action) => <button key={action.id} type="button" title={action.label ?? action.id} aria-label={`使用「${action.label ?? action.id}」`} aria-pressed={isPicked(slot, action.id)} className={isPicked(slot, action.id) ? "look-choice is-selected" : "look-choice"} onClick={() => set(slot, { action: action.id })}>
-            <CharacterAvatar picture={{ src: actionImages[action.id], fromAction: true }} />
-          </button>)}
-          {uploaded && <button type="button" title="上传的图片" aria-pressed="true" className="look-choice is-selected"><CharacterAvatar picture={slot === "avatar" ? uploaded : { src: uploaded.src, fromAction: false }} /></button>}
+        <div className="look-choices" role="group" aria-label={`更换${title}`}>
           <label className="look-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void upload(event, slot)} /><span>上传图片</span></label>
           {slot === "peek" && <button type="button" aria-pressed={value === "hidden"} className={value === "hidden" ? "look-hide is-selected" : "look-hide"} onClick={() => set(slot, "hidden")}>不显示</button>}
         </div>

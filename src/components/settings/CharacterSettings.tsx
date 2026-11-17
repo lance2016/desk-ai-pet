@@ -130,7 +130,7 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
       {note("current")}
     </article>
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里的头像和小人。可以用角色自己的动作图，也可以上传图片。</p></div>
-    {current && <ChatLookSettings packId={packId} actions={actions} actionImages={current.actionImages} onChange={() => setLookVersion((version) => version + 1)} />}
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里的头像和小人。默认用角色自己的形象，也可以上传图片，再调整位置和大小。</p></div>
+    {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => setLookVersion((version) => version + 1)} />}
   </div>;
 }
