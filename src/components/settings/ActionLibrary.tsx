@@ -8,7 +8,7 @@ import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions
 import { BASE_ACTION } from "../../appearance/looks";
 import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
 import type { AnimationEntry, PetControl } from "../../assets/Manifest";
-import type { ActionTier } from "../../types";
+import type { ActionScene, ActionTier } from "../../types";
 import { petWindow } from "../../platform/petWindow";
 import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
 import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
@@ -25,6 +25,22 @@ const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined
   { title: "有空再画", note: "喂食、敲木鱼这些小玩法用。", tiers: ["fun"] },
   { title: "其他", note: "这个形象自带的动作。", tiers: [undefined] },
 ];
+
+/**
+ * The library's groups: when the pet does each action, so the user can tell
+ * what they are looking at. A pack's own extra actions have no scene and go last.
+ */
+const SCENE_GROUPS: { scene: ActionScene | undefined; title: string; note: string; icon: string }[] = [
+  { scene: "companion", title: "平时陪着你", note: "不用你做什么，它自己会这样。眨眼和张望可以单独关掉。", icon: "M19.5 14.2A7.6 7.6 0 1 1 9.8 4.5a6 6 0 0 0 9.7 9.7z" },
+  { scene: "touch", title: "你碰它的时候", note: "点它、摸它、拖它的时候。", icon: "M12 19.5s-7-4.3-7-9.6A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.3c0 5.3-7 9.6-7 9.6z" },
+  { scene: "chat", title: "聊天的时候", note: "跟着对话变，聊完回到原来的样子。", icon: "M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5z" },
+  { scene: "tasks", title: "帮你做事的时候", note: "提醒、备忘和专注计时。", icon: "M6.5 16v-4.8a5.5 5.5 0 0 1 11 0V16l1.5 2H5zM10 20.2a2.1 2.1 0 0 0 4 0" },
+  { scene: "play", title: "小玩法", note: "只在你让它做的时候出现。", icon: "M12 4l2.3 4.8 5.2.7-3.8 3.6.9 5.2L12 15.8l-4.6 2.5.9-5.2-3.8-3.6 5.2-.7z" },
+  { scene: undefined, title: "其他", note: "这个形象自带的动作。", icon: "M6 6h12v12H6zM12 9.5v5M9.5 12h5" },
+];
+
+/** A plus on a picture frame: actions the user made from their own pictures. */
+const MINE_ICON = "M5 6.5h14v11H5zM12 9.5v5M9.5 12h5";
 
 interface Props {
   actions: AnimationEntry[];
@@ -116,8 +132,8 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   const closeEditor = () => {
     const created = editing?.id === "";
     setEditing(null);
-    // A new action sits in the first group; show it.
-    if (created) requestAnimationFrame(() => document.querySelector(".settings-content")?.scrollTo({ top: 0 }));
+    // Show the new action in its group.
+    if (created) requestAnimationFrame(() => document.querySelector(".action-group--mine")?.scrollIntoView({ block: "start" }));
   };
 
   const idle = actions.find((action) => action.id === BASE_ACTION);
@@ -146,7 +162,8 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     <div className="action-row__art action-row__art--empty" aria-hidden="true" />
     <div className="action-row__detail">
       <strong>{action.label ?? action.id}</strong>
-      <p title={action.pose}>{action.pose ?? action.description}</p>
+      {action.description && <p>{action.description}</p>}
+      {action.pose && <p className="action-row__pose" title={action.pose}>要画：{action.pose}</p>}
     </div>
     <div className="action-row__tools">
       <CopyButton className="settings-button settings-button--small" text={promptFor(action)} onMessage={setMessage}>复制提示词</CopyButton>
@@ -182,15 +199,12 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     </li>;
   };
 
-  const groups = [
-    { title: "可以手动播放", note: "点亮「快捷按钮」的动作会出现在宠物旁边，在「快捷按钮」页可以排序。", items: actions.filter((action) => canShortcut(action) && action.category !== "idle" && !isUserAction(action)) },
-    { title: "空闲小动作", note: "宠物闲着时随机播放，可以单独关掉。", items: actions.filter((action) => action.category === "idle") },
-    { title: "状态动作", note: "睡觉、贴边、被拎起等，由宠物状态自动触发，只能换素材。", items: actions.filter((action) => !canShortcut(action) && action.category !== "idle") },
-  ].filter((group) => group.items.length > 0);
+  const groups = SCENE_GROUPS.map((group) => ({ ...group, items: actions.filter((action) => !isUserAction(action) && action.scene === group.scene) })).filter((group) => group.items.length > 0);
 
-  const myActions = <section className="action-group">
+  const myActions = <section className="action-group action-group--scene action-group--mine">
     <header>
-      <h3>我的动作</h3><span>用自己的图片做的动作，可以播放、放进快捷按钮。</span>
+      <span className="action-group__icon action-group__icon--mine" aria-hidden="true"><svg viewBox="0 0 24 24"><path d={MINE_ICON} /></svg></span>
+      <div><h3>我的动作</h3><p>用自己的图片做的动作，只在你点「播放」或快捷按钮时出现。</p></div>
       {canCreate && <button type="button" className="settings-button settings-button--small action-group__add" onClick={() => setEditing(draft)}>新建动作…</button>}
     </header>
     {userActions.length > 0
@@ -237,15 +251,19 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
 
   return <div className="settings-section action-library">
     {message && <p className="settings-error" role="status">{message}</p>}
+    <p className="action-library__lead">每个动作下面写着宠物什么时候做它。带「播放」的动作可以放进快捷按钮，聊天时 AI 也会挑来用。</p>
+    {groups.map((group) => <section className="action-group action-group--scene" key={group.title}>
+      <header>
+        <span className={`action-group__icon action-group__icon--${group.scene ?? "other"}`} aria-hidden="true"><svg viewBox="0 0 24 24"><path d={group.icon} /></svg></span>
+        <div><h3>{group.title}</h3><p>{group.note}</p></div>
+      </header>
+      <ul className="action-list">{group.items.map((action) => row(action))}</ul>
+    </section>)}
+    {myActions}
     <section className="art-prompt">
       <strong>用 AI 画动作图</strong>
       <p>重画某个动作：点它的「编辑」，复制里面填好的提示词，和角色的图一起发给 ChatGPT，画好后在同一页上传。画清单外的新动作：复制模板，把里面的 {ACTION_SLOT} 换成想要的姿势，画好后在「我的动作」里新建。</p>
       <PromptField copyLabel="复制模板" copyText={usablePrompts.action} summary="查看和修改模板" value={prompts.action} fallback={DEFAULT_ART_PROMPTS.action} note={`每个动作的提示词都按这个模板生成，${ACTION_SLOT} 的位置会换成动作说明。改了模板，所有动作的提示词跟着变。`} onChange={(text) => changePrompt("action", text)} onMessage={setMessage} />
     </section>
-    {myActions}
-    {groups.map((group) => <section className="action-group" key={group.title}>
-      <header><h3>{group.title}</h3><span>{group.note}</span></header>
-      <ul className="action-list">{group.items.map((action) => row(action))}</ul>
-    </section>)}
   </div>;
 }

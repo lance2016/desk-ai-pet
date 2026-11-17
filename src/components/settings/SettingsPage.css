@@ -223,7 +223,7 @@ button.dock-row__body { cursor: pointer; }
 .dock-add__choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px 6px; }
 
 /* ---------- Action library ---------- */
-.art-prompt { margin-bottom: 18px; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
+.art-prompt { margin-top: 22px; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .art-prompt strong { font-size: 13px; font-weight: 600; }
 .art-prompt p { margin: 4px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.45; }
 /* "复制提示词" swaps to the shorter "已复制"; a fixed minimum keeps the button from shrinking, which shifted its neighbours and left stale paint behind in WKWebView. */
@@ -269,6 +269,20 @@ button.dock-row__body { cursor: pointer; }
 .action-group header span { color: var(--label-2); font-size: 11px; }
 .action-group header .action-group__add { align-self: center; margin-left: auto; }
 .action-group__note { margin: 6px 4px 0; color: var(--label-2); font-size: 11px; }
+/* The normal library groups actions by when the pet does them; each group wears a tile like the sidebar's. */
+.action-library__lead { margin: -2px 4px 14px; color: var(--label-2); font-size: 12px; line-height: 1.5; }
+.action-group--scene header { flex-wrap: nowrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+.action-group--scene header p { margin: 1px 0 0; color: var(--label-2); font-size: 11px; }
+.action-group__icon { flex: none; display: grid; place-items: center; width: 26px; height: 26px; color: #fff; border-radius: 7px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
+.action-group__icon svg { width: 16px; height: 16px; fill: currentColor; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; }
+.action-group__icon--tasks svg, .action-group__icon--other svg, .action-group__icon--mine svg { fill: none; stroke-width: 2; stroke-linecap: round; }
+.action-group__icon--companion { background: linear-gradient(#8e8bff, #5856d6); }
+.action-group__icon--touch { background: linear-gradient(#ff7d98, #f2365c); }
+.action-group__icon--chat { background: linear-gradient(#5ccbf5, #1fa3d9); }
+.action-group__icon--tasks { background: linear-gradient(#5fd37a, #2fae4e); }
+.action-group__icon--play { background: linear-gradient(#ffb340, #f58f0a); }
+.action-group__icon--other { background: linear-gradient(#a1a1a7, #84848a); }
+.action-group__icon--mine { background: linear-gradient(#9b86f0, #6f58c9); }
 .action-list.action-empty { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
 .action-empty p { flex: 1; margin: 0; color: var(--label-2); font-size: 12px; line-height: 1.45; }
 .action-list { margin: 0; padding: 0; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); overflow: hidden; }
@@ -278,7 +292,8 @@ button.dock-row__body { cursor: pointer; }
 .action-row__art canvas { display: block; width: 100%; height: 100%; }
 .action-row__detail { flex: 1; min-width: 0; }
 .action-row__detail strong { display: flex; align-items: center; gap: 6px; font-weight: 400; }
-.action-row__detail p { margin: 1px 0 0; overflow: hidden; color: var(--label-2); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.action-row__detail p { margin: 1px 0 0; color: var(--label-2); font-size: 11px; line-height: 1.4; }
+.action-row__detail .action-row__pose { display: -webkit-box; margin-top: 2px; overflow: hidden; color: var(--label-3); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .action-row__custom { padding: 0 6px; color: var(--accent-strong); background: var(--accent-wash); border-radius: 4px; font-size: 10px; font-weight: 500; }
 .action-row__tools { flex: none; display: flex; align-items: center; gap: 6px; }
 /* "Dock" is a check button: tinted with a tick while the action is in the dock. */

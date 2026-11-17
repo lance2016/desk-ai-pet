@@ -21,6 +21,15 @@ export const ACTION_TIERS = ["required", "core", "standard", "interactive", "fun
 
 export type ActionTier = (typeof ACTION_TIERS)[number];
 
+/**
+ * When the pet does a standard action, as the action library groups them:
+ * on its own, when touched, in a chat, while helping with reminders, notes
+ * and focus, or as a little game the user starts.
+ */
+export const ACTION_SCENES = ["companion", "touch", "chat", "tasks", "play"] as const;
+
+export type ActionScene = (typeof ACTION_SCENES)[number];
+
 /** Built-in quick-action icons exposed to the resource pack and settings UI. */
 export const CONTROL_ICON_PRESETS = [
   "feed",

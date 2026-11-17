@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACTION_TIERS, CONTROL_ICON_PRESETS, MIMO_VOICES, MOTION_PRESETS, PERSONA_LIMITS } from "../types";
+import { ACTION_SCENES, ACTION_TIERS, CONTROL_ICON_PRESETS, MIMO_VOICES, MOTION_PRESETS, PERSONA_LIMITS } from "../types";
 
 /** Asset files must stay inside the pack: relative, no scheme, no parent segments. */
 const assetPathSchema = z
@@ -65,6 +65,8 @@ export const animationSchema = z.object({
   fallback: z.string().min(1).optional(),
   /** Set for standard actions: how early a character with few pictures should draw this one. */
   tier: z.enum(ACTION_TIERS).optional(),
+  /** Set for standard actions: the situation the pet does this in, which groups the action library. */
+  scene: z.enum(ACTION_SCENES).optional(),
   /** A pose no other picture can stand in for, such as hiding behind an edge: without its own picture the action is off. */
   requiresArt: z.boolean().optional(),
   /** Set when the pack has no picture for this standard action: the action whose picture `file` is. */
@@ -74,7 +76,7 @@ export const animationSchema = z.object({
 /** A standard action as the catalog lists it: everything but the picture, which each character brings. */
 export const standardActionSchema = animationSchema
   .omit({ file: true, frames: true, fps: true, layers: true, borrowedFrom: true })
-  .required({ tier: true, label: true, pose: true });
+  .required({ tier: true, scene: true, label: true, description: true, pose: true });
 
 const controlSchema = z.object({
   id: z.enum(["focus", "feed", "wooden_fish", "sleep_toggle"]),
