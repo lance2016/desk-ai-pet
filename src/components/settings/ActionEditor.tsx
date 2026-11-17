@@ -16,7 +16,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_SHEET_WIDTH = 8192;
 const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
 type Mode = "single" | "frames" | "sheet";
-interface Props { action: AnimationEntry; packId: string; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
+interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
 
 function decode(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("图片无法读取，请换一张图片")); image.src = src; });
@@ -96,11 +96,11 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
   return <canvas ref={ref} width={240} height={210} aria-label="动作动画预览" />;
 }
 
-export function ActionEditor({ action, packId, canvas, resolveAsset, onClose, onSaved }: Props) {
+export function ActionEditor({ action, packId, blank = false, canvas, resolveAsset, onClose, onSaved }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState(canvas);
-  const [mode, setMode] = useState<Mode>(action.frames > 1 ? "sheet" : "single");
-  const [image, setImage] = useState(resolveAsset(action.file));
+  const [mode, setMode] = useState<Mode>(action.frames > 1 && !blank ? "sheet" : "single");
+  const [image, setImage] = useState(blank ? "" : resolveAsset(action.file));
   const [frames, setFrames] = useState(action.frames);
   const [fps, setFps] = useState(action.fps);
   const [motion, setMotion] = useState<MotionPreset>(action.motion);
@@ -119,9 +119,9 @@ export function ActionEditor({ action, packId, canvas, resolveAsset, onClose, on
   const [label, setLabel] = useState(action.label ?? "");
   const [seconds, setSeconds] = useState((action.duration ?? 0) / 1000);
   const duration = own ? Math.round(seconds * 1000) : action.duration;
-  const title = isNew ? "新建动作" : `编辑「${(own ? label.trim() : "") || action.label || action.id}」`;
+  const title = isNew ? "新建动作" : `${blank && !custom ? "上传" : "编辑"}「${(own ? label.trim() : "") || action.label || action.id}」`;
   /** Frame strips, frame rates and extra layers are for people who draw their own frames. */
-  const [advanced, setAdvanced] = useState(action.frames > 1 || action.layers.length > 0);
+  const [advanced, setAdvanced] = useState(!blank && (action.frames > 1 || action.layers.length > 0));
   /** What the editor held once loaded, to tell whether leaving would throw changes away. */
   const [baseline, setBaseline] = useState<string | null>(null);
   const snapshot = JSON.stringify({ mode, image, frames, fps, motion, loop, motionSpeed, motionStrength, layers, label, seconds });
@@ -262,7 +262,7 @@ export function ActionEditor({ action, packId, canvas, resolveAsset, onClose, on
   return <div ref={editorRef} className="action-editor" aria-label={title}>
     <div className="action-editor__header"><div>{dirty
       ? <ConfirmButton className="action-editor__back" disabled={busy} confirmLabel="再点一次，放弃改动" onConfirm={onClose}>‹ 返回动作库</ConfirmButton>
-      : <button type="button" className="action-editor__back" disabled={busy} onClick={onClose}>‹ 返回动作库</button>}<h2>{title}</h2><p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : "替换外观，宠物原来的触发方式会保留。"}</p></div></div>
+      : <button type="button" className="action-editor__back" disabled={busy} onClick={onClose}>‹ 返回动作库</button>}<h2>{title}</h2><p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p></div></div>
     <div className="action-editor__preview">{image ? <><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} resolveAsset={resolveAsset} /><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新预览</button></> : <span>选择图片后预览</span>}</div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
       <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>

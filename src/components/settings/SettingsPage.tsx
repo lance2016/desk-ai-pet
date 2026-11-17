@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { appendUserActions, loadUserActions } from "../../actions/UserActions";
-import { loadCharacterPack, loadPackCatalog, type CatalogEntry } from "../../assets/PackCatalog";
+import { isCustomCharacter, loadCharacterPack, loadPackCatalog, type CatalogEntry } from "../../assets/PackCatalog";
 import type { AnimationEntry, PetControl, PetPersona } from "../../assets/Manifest";
 import { chatPlatform } from "../../platform/chat";
 import { petWindow } from "../../platform/petWindow";
@@ -226,7 +226,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
 
-        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} />}
+        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
         {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} />}
