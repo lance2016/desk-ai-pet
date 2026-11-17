@@ -21,7 +21,7 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_SHEET_WIDTH = 8192;
 const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头" };
 type Mode = "single" | "frames" | "sheet";
-interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by; `ghost` also shows it faintly while placing. */ reference?: { image: string; frames: number; ghost: boolean }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
+interface Props { action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by. */ reference?: { image: string; frames: number }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
 
 function decode(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("图片无法读取，请换一张图片")); image.src = src; });
@@ -36,9 +36,12 @@ function readFile(file: File): Promise<string> {
 /** Picked pictures in the cropper, or placed already and open to adjust again. */
 interface Picked extends PickedFrames { names: string[]; first: FirstFrame; crop: PictureCrop; fallback: PictureCrop }
 /** The idle picture, read once, for the cropper's guides. */
-interface Guide { image: string; frames: number; ghost: boolean; frame: Size; visible: Rect }
+interface Guide { frame: Size; visible: Rect }
 
 const percent = (value: number, total: number) => `${(value / total) * 100}%`;
+
+/** The action preview's size on the page, in CSS pixels; the canvas has a pixel per device pixel. */
+const PREVIEW_SIZE = { width: 240, height: 210 };
 
 /** The picture as a PNG data URL, which is how pictures are stored. */
 function asPng(image: HTMLImageElement, src: string): string {
@@ -51,6 +54,7 @@ function asPng(image: HTMLImageElement, src: string): string {
 
 function VisualPreview({ image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset }: { image: string; frames: number; fps: number; motion: MotionPreset; loop: boolean; speed: number; strength: number; duration?: number; layers: AppearanceLayer[]; stage: { width: number; height: number }; align: "left" | "center"; resolveAsset: (file: string) => string }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const pixelRatio = Math.max(1, Math.round(window.devicePixelRatio || 1));
   useEffect(() => {
     let cancelled = false; let frame = 0; let start = 0;
     const sources = layers.map((layer) => "image" in layer.source ? layer.source.image : resolveAsset(layer.source.file));
@@ -68,8 +72,10 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
         const progress = duration ? Math.min(1, elapsed * 1000 / duration) : (elapsed % 2) / 2;
         const effect = sampleAdjustedMotion(motion, elapsed, progress, speed, strength);
         const center = align === "left" ? frameWidth / 2 : stage.width / 2;
+        // On the desktop a left-aligned action's stage edge is the screen edge; the preview box's left side stands in for it.
+        const stageLeft = align === "left" ? 0 : (canvas.width - stage.width * fit) / 2;
         ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save();
-        ctx.translate((canvas.width - stage.width * fit) / 2, canvas.height * .95 - stage.height * fit); ctx.scale(fit, fit);
+        ctx.translate(stageLeft, canvas.height * .95 - stage.height * fit); ctx.scale(fit, fit);
         const drawLayer = (layer: AppearanceLayer, layerImage: HTMLImageElement) => {
           if (!isLayerVisible(layer, index, count)) return;
           const layerCount = Number.isInteger(layer.frames) && layer.frames > 0 ? layer.frames : 1;
@@ -94,8 +100,8 @@ function VisualPreview({ image, frames, fps, motion, loop, speed, strength, dura
       frame = requestAnimationFrame(draw);
     }).catch((error) => console.warn("Failed to load action preview", error));
     return () => { cancelled = true; cancelAnimationFrame(frame); };
-  }, [image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset]);
-  return <canvas ref={ref} width={240} height={210} aria-label="动作动画预览" />;
+  }, [image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset, pixelRatio]);
+  return <canvas ref={ref} width={PREVIEW_SIZE.width * pixelRatio} height={PREVIEW_SIZE.height * pixelRatio} style={PREVIEW_SIZE} aria-label="动作动画预览" />;
 }
 
 export function ActionEditor({ action, packId, blank = false, prompt, reference, canvas, resolveAsset, onClose, onSaved }: Props) {
@@ -165,15 +171,14 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
     let active = true;
     const read = async (): Promise<Guide | null> => {
       if (!reference) return null;
-      const { image: src, frames: count, ghost } = reference;
-      const first = await readFirstFrame({ images: [src], count });
-      return first.visible ? { image: src, frames: count, ghost, frame: first.frame, visible: first.visible } : null;
+      const first = await readFirstFrame({ images: [reference.image], count: reference.frames });
+      return first.visible ? { frame: first.frame, visible: first.visible } : null;
     };
     const ready = read().catch((reason: unknown) => { console.warn("Could not read the idle picture for the guides", reason); return null; });
     guideReady.current = ready;
     void ready.then((value) => { if (active) setGuide(value); });
     return () => { active = false; };
-  }, [reference?.image, reference?.frames, reference?.ghost]);
+  }, [reference?.image, reference?.frames]);
 
   /** The size the pack's own picture of this action has: a picture of another shape is fitted to it. */
   const usualFrame = async (): Promise<Size> => {
@@ -332,7 +337,7 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
     <div className="action-editor__header"><div>{dirty
       ? <ConfirmButton className="action-editor__back" disabled={busy} confirmLabel="再点一次，放弃改动" onConfirm={onClose}>‹ 返回动作库</ConfirmButton>
       : <button type="button" className="action-editor__back" disabled={busy} onClick={onClose}>‹ 返回动作库</button>}<h2>{title}</h2><p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p></div></div>
-    <div className="action-editor__preview">{image ? <><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} resolveAsset={resolveAsset} /><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新预览</button></> : <span>选择图片后预览</span>}</div>
+    <div className={action.align === "left" ? "action-editor__preview is-left" : "action-editor__preview"}>{image ? <><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} resolveAsset={resolveAsset} /><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新预览</button></> : <span>选择图片后预览</span>}</div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
       <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>
@@ -359,7 +364,7 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
     {error && <p className="settings-error" role="alert">{error}</p>}
     {cropping && <PictureCropper title={`摆好「${(own ? label.trim() : "") || action.label || action.id}」`} src={cropping.first.display} crop={cropping.crop} fallback={cropping.fallback} frameAspect={canvas.width / canvas.height} round={false} large
       hint={`框就是宠物在桌面上的画面。拖动摆位置，滚动或拖动滑块缩放：脚踩「地面」线，站直时头顶到「待机身高」虚线。举手、跳起按身体对齐，手可以超出虚线。${align === "left" ? "身体左边贴住框的左边。" : ""}`}
-      guide={<StageGuide guide={guide} stage={canvas} align={align} />}
+      guide={<StageGuide guide={guide} stage={canvas} />}
       onCancel={() => setCropping(null)} onConfirm={(crop) => void placeCropped(cropping, crop)} />}
     <div className="action-editor__footer">
       {!own && <ConfirmButton disabled={!custom || busy} confirmLabel="再点一次，改回原来的图片" onConfirm={() => void restore()}>恢复默认</ConfirmButton>}
@@ -372,12 +377,9 @@ export function ActionEditor({ action, packId, blank = false, prompt, reference,
   </div>;
 }
 
-/** The cropper's guides, in the frame's terms: the ground, the idle picture's height and, faintly, the idle picture itself. */
-function StageGuide({ guide, stage, align }: { guide: Guide | null; stage: Size; align: "left" | "center" }) {
+/** The cropper's guides, in the frame's terms: the ground and the idle picture's height. */
+function StageGuide({ guide, stage }: { guide: Guide | null; stage: Size }) {
   return <span className="stage-guide" aria-hidden="true">
-    {guide?.ghost && align === "center" && <span className="stage-guide__ghost" style={{ left: percent((stage.width - guide.frame.width) / 2, stage.width), width: percent(guide.frame.width, stage.width), height: percent(guide.frame.height, stage.height) }}>
-      <img src={guide.image} alt="" draggable={false} style={{ width: `${guide.frames * 100}%` }} />
-    </span>}
     {guide && <span className="stage-guide__line is-head" style={{ top: percent(stage.height - guide.frame.height + guide.visible.y, stage.height) }}><em>待机身高</em></span>}
     <span className="stage-guide__line is-ground"><em>地面</em></span>
   </span>;
