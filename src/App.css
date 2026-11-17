@@ -251,7 +251,8 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  /* No background here: a gradient cannot fade into a colour, so the button would go see-through mid-fade. */
+  transition: color 140ms ease, box-shadow 140ms ease;
   pointer-events: auto;
 }
 .controls button:hover:not(:disabled) { color: #6a54cb; background: #fff; box-shadow: 0 6px 16px rgba(87, 67, 167, .24), inset 0 1px 0 #fff; }
@@ -260,8 +261,6 @@ body {
 /* A running focus round: the button stays lit, so it reads as "on". */
 .controls button.is-active { box-shadow: 0 0 0 2px #8874d8, 0 4px 12px rgba(87, 67, 167, .3); }
 .controls .control-icon { display: block; width: var(--dock-icon-size); height: var(--dock-icon-size); flex: 0 0 auto; object-fit: contain; }
-.controls__action--primary { color: #fff !important; background: linear-gradient(145deg, #9b87e9, #7661d1) !important; border-color: rgba(255, 255, 255, .78) !important; box-shadow: 0 5px 15px rgba(100, 77, 194, .34), inset 0 1px 0 rgba(255, 255, 255, .55) !important; }
-.controls__action--primary:hover { background: linear-gradient(145deg, #a998f1, #806de0) !important; }
 
 /* Quick chat: the answer above the pet. Wider than a passing line, cut to a few lines; a click opens the whole chat. */
 .speech-bubble--reply {

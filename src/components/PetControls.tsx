@@ -99,7 +99,7 @@ export function PetControls({ runtime, visible, offscreenInsets, ref }: PetContr
       <button
         key={item.id}
         style={style}
-        className={`controls__action${item.command === "chat_open" ? " controls__action--primary" : ""}${active ? " is-active" : ""}`}
+        className={`controls__action${active ? " is-active" : ""}`}
         type="button"
         aria-pressed={item.command === "focus_toggle" ? active : undefined}
         aria-label={label}
