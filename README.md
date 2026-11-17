@@ -64,6 +64,14 @@ pnpm dev
 
 系统要求：macOS 13 或更新版本。开机启动用到的系统接口从 macOS 13 才有。
 
+首次克隆项目后，以及拉取的更新改动了 `package.json` 或 `pnpm-lock.yaml` 时，先同步本机依赖：
+
+```bash
+pnpm install
+```
+
+`pnpm install:app` 不会自动安装依赖；依赖同步完成后再运行：
+
 ```bash
 pnpm install:app
 ```

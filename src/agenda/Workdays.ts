@@ -95,7 +95,8 @@ let cached: { raw: string | null; calendar: HolidayCalendar } | null = null;
 /** The calendar in use, rebuilt only when another window saved new years. */
 export function holidayCalendar(): HolidayCalendar {
   // Unit tests run without a browser; they get the bundled data.
-  const storage = typeof localStorage === "undefined" ? null : localStorage;
+  const candidate = typeof localStorage === "undefined" ? null : localStorage;
+  const storage = candidate && typeof candidate.getItem === "function" ? candidate : null;
   const raw = storage?.getItem(KEY) ?? null;
   if (cached?.raw !== raw) cached = { raw, calendar: buildCalendar(storage ? loadStored(storage).years : {}) };
   return cached.calendar;
