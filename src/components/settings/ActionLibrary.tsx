@@ -8,10 +8,23 @@ import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions
 import { BASE_ACTION } from "../../appearance/looks";
 import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
 import type { AnimationEntry, PetControl } from "../../assets/Manifest";
+import type { ActionTier } from "../../types";
 import { petWindow } from "../../platform/petWindow";
 import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
 import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
 import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../preferences/DockPreferences";
+
+/**
+ * The pictures still to draw, split by the catalog's tiers so the most needed
+ * come first. A pack's own extra actions have no tier and go last.
+ */
+const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined)[] }[] = [
+  { title: "先画这几张", note: "第 1 张定下样子，其余几张宠物最常用。探头没有图就不会贴边探头，别的动作没画会先借用画好的图。", tiers: ["required", "core"] },
+  { title: "日常", note: "闲着、被摸、睡醒、专注时用。", tiers: ["standard"] },
+  { title: "聊天和提醒", note: "听你说话、回话、记备忘、提醒你、打招呼时用。", tiers: ["interactive"] },
+  { title: "有空再画", note: "喂食、敲木鱼这些小玩法用。", tiers: ["fun"] },
+  { title: "其他", note: "这个形象自带的动作。", tiers: [undefined] },
+];
 
 interface Props {
   actions: AnimationEntry[];
@@ -112,8 +125,9 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   const userActions = actions.filter(isUserAction);
   const draft = draftUserAction(actions);
   const canCreate = draft !== null && userActions.length < USER_ACTION_LIMITS.count;
-  /** Most needed first: the catalog's order. */
-  const toDraw = actions.filter((action) => !isUserAction(action));
+  const drawGroups = DRAW_GROUPS.map((group) => ({ ...group, items: actions.filter((action) => !isUserAction(action) && group.tiers.includes(action.tier)) })).filter((group) => group.items.length > 0);
+  /** Most needed first: the groups' order, then the catalog's within each. */
+  const toDraw = drawGroups.flatMap((group) => group.items);
   const drawn = toDraw.filter((action) => appearances?.[action.id]).length;
   const drawing = isCustomPack && drawn < toDraw.length;
   const base = toDraw.find((action) => action.id === BASE_ACTION);
@@ -209,10 +223,10 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         </li>
       </ol>
     </section>
-    <section className="action-group">
-      <header><h3>要画的动作</h3><span>先画第 1 张，后面的都照着它画。不用按顺序，也不用画全。</span></header>
-      <ul className="action-list">{toDraw.map((action, index) => row(action, index + 1))}</ul>
-    </section>
+    {drawGroups.map((group) => <section className="action-group" key={group.title}>
+      <header><h3>{group.title}</h3><span>{group.note}</span></header>
+      <ul className="action-list">{group.items.map((action) => row(action, toDraw.indexOf(action) + 1))}</ul>
+    </section>)}
     {myActions}
   </div>;
 

@@ -14,12 +14,12 @@
 | 档位 `tier` | 动作 | 累计张数 |
 |---|---|---|
 | `required` 必需 | `idle` | 1 |
-| `core` 核心 | `happy`、`think`、`sleep`、`drag` | 5 |
-| `standard` 标准 | `blink`、`look_around`、`pet_reaction`、`shy`、`wake_up`、`peek`、`focus` | 12 |
+| `core` 核心 | `happy`、`think`、`sleep`、`drag`、`peek` | 6 |
+| `standard` 标准 | `blink`、`look_around`、`pet_reaction`、`shy`、`wake_up`、`focus` | 12 |
 | `interactive` 互动 | `listen`、`talk`、`write`、`remind`、`wave`、`yawn`、`confused` | 19 |
 | `fun` 趣味 | `eat`、`wooden_fish` | 21 |
 
-档位只决定先画哪些：清单里的动作按目录顺序排（最该先画的在前），待画清单的编号跟这个顺序。
+档位只决定先画哪些：清单里的动作按目录顺序排（最该先画的在前）。待画清单按档位分组（必需和核心合成「先画这几张」，资源包自带的动作放最后的「其他」），编号跨组连续。
 
 借图的规则（`src/appearance/looks.ts` 的 `planLooks`）：
 

@@ -55,6 +55,19 @@
       "priority": 70
     },
     {
+      "id": "peek",
+      "tier": "core",
+      "requiresArt": true,
+      "label": "探头",
+      "description": "躲到屏幕边上探头时播放",
+      "pose": "躲在画布左边缘后面探出半个身子，朝右看。身体左边被画布左边缘直接切掉，像藏在屏幕边上。不要画出墙。",
+      "loop": true,
+      "motion": "breathe",
+      "align": "left",
+      "category": "system",
+      "priority": 55
+    },
+    {
       "id": "blink",
       "tier": "standard",
       "label": "眨眨眼",
@@ -110,19 +123,6 @@
       "category": "system",
       "priority": 60,
       "interruptible": false
-    },
-    {
-      "id": "peek",
-      "tier": "standard",
-      "requiresArt": true,
-      "label": "探头",
-      "description": "躲到屏幕边上探头时播放",
-      "pose": "躲在画布左边缘后面探出半个身子，朝右看。身体左边被画布左边缘直接切掉，像藏在屏幕边上。不要画出墙。",
-      "loop": true,
-      "motion": "breathe",
-      "align": "left",
-      "category": "system",
-      "priority": 55
     },
     {
       "id": "focus",
