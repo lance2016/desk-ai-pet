@@ -1,7 +1,7 @@
 {
   "id": "girl-default",
-  "name": "Default Girl",
-  "version": "3.0.0",
+  "name": "小糕",
+  "version": "4.0.0",
   "canvas": {
     "width": 620,
     "height": 640
@@ -14,8 +14,8 @@
     "height": 0.55
   },
   "persona": {
-    "name": "小艾",
-    "personality": "温暖、自然，像朋友一样陪伴我",
+    "name": "小糕",
+    "personality": "小笨蛋",
     "voice": "茉莉",
     "voiceStyle": "温柔、自然、亲切的年轻女声，语速适中，像熟悉的朋友在轻声陪伴。"
   },
@@ -23,6 +23,26 @@
     {
       "id": "idle",
       "file": "animations/idle.png"
+    },
+    {
+      "id": "happy",
+      "file": "animations/happy.png"
+    },
+    {
+      "id": "think",
+      "file": "animations/think.png"
+    },
+    {
+      "id": "sleep",
+      "file": "animations/sleep.png"
+    },
+    {
+      "id": "drag",
+      "file": "animations/drag.png"
+    },
+    {
+      "id": "peek",
+      "file": "animations/peek.png"
     },
     {
       "id": "blink",
@@ -33,24 +53,6 @@
       "file": "animations/look_around.png"
     },
     {
-      "id": "wooden_fish",
-      "file": "animations/wooden_fish.png",
-      "frames": 4,
-      "fps": 8
-    },
-    {
-      "id": "focus",
-      "file": "animations/focus.png"
-    },
-    {
-      "id": "think",
-      "file": "animations/think.png"
-    },
-    {
-      "id": "happy",
-      "file": "animations/happy.png"
-    },
-    {
       "id": "pet_reaction",
       "file": "animations/pet_reaction.png"
     },
@@ -59,24 +61,42 @@
       "file": "animations/shy.png"
     },
     {
-      "id": "eat",
-      "file": "animations/eat.png"
-    },
-    {
-      "id": "sleep",
-      "file": "animations/sleep.png"
-    },
-    {
-      "id": "peek",
-      "file": "animations/peek.png"
-    },
-    {
       "id": "wake_up",
       "file": "animations/wake_up.png"
     },
     {
-      "id": "drag",
-      "file": "animations/drag.png"
+      "id": "focus",
+      "file": "animations/focus.png"
+    },
+    {
+      "id": "write",
+      "file": "animations/write.png"
+    },
+    {
+      "id": "remind",
+      "file": "animations/remind.png"
+    },
+    {
+      "id": "wave",
+      "file": "animations/wave.png"
+    },
+    {
+      "id": "yawn",
+      "file": "animations/yawn.png"
+    },
+    {
+      "id": "confused",
+      "file": "animations/confused.png"
+    },
+    {
+      "id": "eat",
+      "file": "animations/eat.png"
+    },
+    {
+      "id": "wooden_fish",
+      "file": "animations/wooden_fish.png",
+      "frames": 6,
+      "fps": 6
     }
   ],
   "controls": [

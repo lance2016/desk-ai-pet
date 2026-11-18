@@ -1,7 +1,7 @@
 {
   "id": "six-six",
-  "name": "六六",
-  "version": "1.0.0",
+  "name": "小祭司",
+  "version": "1.1.0",
   "canvas": {
     "width": 620,
     "height": 640
@@ -14,8 +14,8 @@
     "height": 0.55
   },
   "persona": {
-    "name": "六六",
-    "personality": "慵懒，傲娇，爱看红果短剧，有正义感",
+    "name": "小祭司",
+    "personality": "慵懒，脾气有时比较火爆，透露着和年龄不同的成熟，独立，傲娇，爱看红果短剧，有点中二",
     "voice": "茉莉",
     "voiceStyle": "温柔、自然、亲切的年轻女声，语速适中，像熟悉的朋友在轻声陪伴。"
   },
@@ -98,7 +98,8 @@
       "motion": "sway",
       "motionSpeed": 1,
       "motionStrength": 1,
-      "loop": false
+      "loop": false,
+      "randomFlip": false
     },
     {
       "id": "pet_reaction",
@@ -214,8 +215,8 @@
           "file": "layers/wooden_fish-1.png",
           "frames": 1,
           "fps": 12,
-          "x": 0,
-          "y": -446,
+          "x": 21,
+          "y": -440,
           "scaleX": 0.6,
           "scaleY": 0.6,
           "rotation": 0,

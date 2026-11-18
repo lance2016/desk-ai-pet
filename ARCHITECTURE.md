@@ -99,7 +99,7 @@ src-tauri/src/
 ├── mail_extract.rs          从一封邮件里认出验证码（纯规则，不用 AI）
 ├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
 └── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
-public/pets/girl-default/    默认资源包
+public/pets/                 内置角色：six-six（小祭司，默认）、girl-default（小糕）
 ```
 
 ## 模块职责

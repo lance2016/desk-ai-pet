@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import defaultPack from "../../public/pets/girl-default/manifest.json";
+import girlDefaultPack from "../../public/pets/girl-default/manifest.json";
+import sixSixPack from "../../public/pets/six-six/manifest.json";
 import { artSource, parsePackManifest, STANDARD_ACTIONS, withStandardActions } from "./StandardActions";
 
 const PACK = { id: "tiny", name: "Tiny", version: "1.0.0", canvas: { width: 100, height: 100 } };
@@ -88,16 +89,18 @@ describe("withStandardActions", () => {
   });
 });
 
-describe("the default character", () => {
-  const manifest = parsePackManifest(defaultPack);
+describe.each([
+  ["six-six", sixSixPack],
+  ["girl-default", girlDefaultPack],
+])("the built-in character %s", (_id, raw) => {
+  const manifest = parsePackManifest(raw);
   const actions = byId(manifest);
 
   it("has every standard action", () => {
     expect([...actions.keys()].sort()).toEqual(STANDARD_ACTIONS.map((action) => action.id).sort());
   });
 
-  it("borrows pictures only for the actions that are not drawn yet", () => {
-    const borrowed = Object.fromEntries(manifest.animations.filter((entry) => entry.borrowedFrom).map((entry) => [entry.id, entry.borrowedFrom]));
-    expect(borrowed).toEqual({ write: "think", remind: "happy", wave: "happy", yawn: "blink", confused: "think" });
+  it("draws every standard action itself", () => {
+    expect(manifest.animations.filter((entry) => entry.borrowedFrom).map((entry) => entry.id)).toEqual([]);
   });
 });

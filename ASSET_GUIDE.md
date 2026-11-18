@@ -2,32 +2,19 @@
 
 ## 当前素材的状态
 
-默认资源包 `girl-default` 画了下面 14 个动作；标准动作目录里另外 5 个互动动作（`write`、`remind`、`wave`、`yawn`、`confused`）还没有图，暂时借图播放。前 12 个各 1 帧，来自三张 2×2 的表情图。`wooden_fish` 是 4 帧逐帧动画，来自单独生成的一张 2×2 图。
+内置两个角色，都画齐了标准动作目录里的 19 个动作：
+
+| 资源包 | 角色 | 说明 |
+|---|---|---|
+| `six-six` | 小祭司 | 新安装时的默认角色。`wooden_fish` 是 6 帧，带一层上飘的文字图层 |
+| `girl-default` | 小糕 | 早期版本的默认角色，旧数据迁移到它名下。`wooden_fish` 是 6 帧 |
 
 应用图标源文件位于 `src-tauri/app-icon-source.png`，由 Tauri CLI 生成 macOS、Windows、iOS 和 Android 所需的尺寸。更新源图后执行 `pnpm icons:generate`，不要手工只替换某一个尺寸。
 
-| 动作 | 文件 | 尺寸（像素） | 动效 |
-|---|---|---|---|
-| `idle` | `idle.png` | 429 × 583 | `breathe` |
-| `blink` | `blink.png` | 426 × 584 | `breathe` |
-| `look_around` | `look_around.png` | 411 × 589 | `sway` |
-| `wooden_fish` | `wooden_fish.png` | 1736 × 496（4 帧，每帧 434 × 496） | 无 |
-| `think` | `think.png` | 415 × 595 | `tilt` |
-| `focus` | `focus.png` | 426 × 580 | `breathe` |
-| `happy` | `happy.png` | 467 × 586 | `bounce` |
-| `pet_reaction` | `pet_reaction.png` | 468 × 601 | `sway` |
-| `shy` | `shy.png` | 438 × 597 | `wiggle` |
-| `eat` | `eat.png` | 492 × 540 | `sway` |
-| `sleep` | `sleep.png` | 541 × 368 | `breathe` |
-| `wake_up` | `wake_up.png` | 491 × 504 | `pop` |
-| `peek` | `peek.png` | 225 × 583 | `breathe` |
-| `drag` | `drag.png` | 392 × 614 | `sway` |
-
 说明：
 
-- **装饰没有保留。** 原图里的星星、爱心、Zzz、思考气泡、地面阴影在抠图时去掉了。
 - **除 `wooden_fish` 外，每个动作只有一帧。** 动起来靠程序化动效。要做逐帧动画，把多帧横向拼成一张图并在清单里写 `frames` 即可。
-- **`peek` 缩小过。** 原图里探头的角色画得比其他姿势大，按站立身高缩到了一致。
+- **每张图都按 `idle` 对齐过。** 站姿的脚底中点、坐姿和躺姿的身体最低处落在 `idle` 脚底的同一条地面线上，左右对齐 `idle` 的落脚点；`peek` 只对齐地面。只做了裁边和补透明边，没有缩放，所以各张图里角色大小仍有几个百分点的出入。换图后要重新对齐，否则切换动作时角色会跳。
 - **`peek` 画的是躲在左边。** 贴右边缘时程序会自动镜像，不需要另画一张。
 
 ## 图片格式
