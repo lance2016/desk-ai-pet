@@ -31,11 +31,26 @@ export const ART_GROUND_GAP = 40;
 const CANVAS = `画布：正方形 ${ART_CANVAS.width}×${ART_CANVAS.height} 像素（1:1）。每一张都用这个尺寸，不要改成竖版或横版，也不要裁切或加白边。`;
 const FRAMING = "只画一个角色、一个姿势，全身都在画布里，左右居中";
 const CLEAN_EDGES = "轮廓清晰，头发和衣服的边缘干净，不要大片半透明或发光效果。";
+/**
+ * Image models default to quick, soft pictures; the pet is also shown well
+ * below full size on the desktop, so fine detail turns to mush. Both are
+ * spelled out for every picture.
+ */
+const QUALITY = [
+  "高清、精细的成品插画，不是草图或线稿。不要模糊、噪点、颗粒、涂抹痕迹、压缩痕迹和发灰的脏色。",
+  "描边清晰流畅、粗细统一。宠物在桌面上是缩小显示的，描边不要太细，也不要画一缩小就糊成一团的细碎花纹。",
+  "结构正确：五官端正，左右眼大小一致；手指数量和关节对，四肢比例自然，不要多出或缺少肢体。",
+];
+const QUALITY_MATCH = "画质、描边粗细、上色方式、光源方向和阴影层次都和定稿图一致。";
 
 const WOODEN_FISH_PROMPT = [
   "我上传的图片是桌面宠物角色定稿图。请以它为参考，绘制一张 2 行 × 3 列的六宫格逐帧动画素材，表现同一个角色敲一次木鱼。",
   "",
   "【动作】跪坐在坐垫上，面前放木鱼，闭眼微笑。按从左到右、从上到下排列：第 1 帧举起木槌；第 2 帧开始挥下；第 3 帧接近木鱼；第 4 帧敲中木鱼；第 5 帧木槌弹起；第 6 帧回到举槌位置，与第 1 帧自然衔接。",
+  "",
+  "【画质】",
+  ...QUALITY,
+  QUALITY_MATCH,
   "",
   "【要求】",
   ...numbered([
@@ -56,7 +71,10 @@ export const DEFAULT_ART_PROMPTS: ArtPrompts = {
   first: [
     "我上传的图片是角色参考图。请照着它设计一个桌面宠物形象，先画第一张：正面站立的全身图。后面的动作图都会以这一张为准。",
     "",
-    "【画风】Q 版，二到三头身，线条干净，配色明快。保留参考图里角色的脸、发型、服装和配色特征。",
+    "【画风】Q 版，二到三头身，线条干净，配色明快。赛璐璐上色：平涂底色加一层柔和阴影和少量高光，光从左上方来。保留参考图里角色的脸、发型、服装和配色特征。",
+    "",
+    "【画质】",
+    ...QUALITY,
     "",
     `【这一张】${ACTION_SLOT}`,
     "",
@@ -71,6 +89,10 @@ export const DEFAULT_ART_PROMPTS: ArtPrompts = {
   ].join("\n"),
   action: [
     "我上传的图片是这个桌面宠物角色的定稿图。请照着它，再画一张这个角色的动作图。",
+    "",
+    "【画质】",
+    QUALITY_MATCH,
+    ...QUALITY,
     "",
     `【这一张】${ACTION_SLOT}`,
     "",

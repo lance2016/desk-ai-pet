@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MOTION_PRESETS } from "../types";
-import { sampleAdjustedMotion, sampleMotion } from "./motions";
+import { calmMotion, sampleAdjustedMotion, sampleMotion } from "./motions";
 
 const REST = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, alpha: 1 };
 
@@ -47,5 +47,19 @@ describe("custom motion settings", () => {
     const reference = sampleMotion("sway", 0.4, 0);
     const adjusted = sampleAdjustedMotion("sway", 0.2, 0, 2, 0.5);
     expect(adjusted.rotation).toBeCloseTo(reference.rotation * 0.5);
+  });
+});
+
+describe("calmMotion", () => {
+  it("keeps the pet in place when Reduce Motion is on", () => {
+    expect(calmMotion("bounce", true)).toBe("none");
+    expect(calmMotion("wiggle", true)).toBe("none");
+    expect(calmMotion("sway", true)).toBe("none");
+  });
+
+  it("keeps the gentle motions and leaves everything alone otherwise", () => {
+    expect(calmMotion("breathe", true)).toBe("breathe");
+    expect(calmMotion("squash", true)).toBe("squash");
+    expect(calmMotion("bounce", false)).toBe("bounce");
   });
 });

@@ -2,7 +2,7 @@ use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, Read, Write},
-    process::{Child, Command, Stdio},
+    process::{Child, ChildStderr, ChildStdout, Command, Stdio},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -410,7 +410,7 @@ fn tool_definitions(actions: &[&str]) -> Value {
     if !actions.is_empty() {
         tools.push(json!({"type":"function","function":{
             "name": PLAY_ACTION_TOOL,
-            "description": "让桌面宠物做一个动作，配合这次回复的情绪。可以不调用。",
+            "description": "让桌面宠物做一个动作，配合这次回复的情绪。只能和文字回复一起用，不能代替回复。可以不调用。",
             "parameters": {"type":"object","properties":{
                 "action": {"type":"string","enum":actions}
             },"required":["action"]}
@@ -445,9 +445,10 @@ fn chat_prompt(preferences: &Value, context: &Value) -> Result<(String, Value), 
     let days = upcoming_days(now).ok_or("Invalid chat context")?;
     let instructions = preferences.get("instructions").and_then(Value::as_str).unwrap_or("").trim();
     if instructions.encode_utf16().count() > MAX_CHAT_INSTRUCTIONS_CHARS { return Err("Invalid chat instructions".into()); }
+    let action_rule = if actions.is_empty() { String::new() } else { format!("\n每次都要用文字回复用户。{PLAY_ACTION_TOOL} 只用来配合文字回复，不能代替回复：用户让你做动作时，也要边做边说一句话。") };
     let supplement = if instructions.is_empty() { String::new() } else { format!("\n用户的回复偏好：{instructions}\n应用规则优先于这些偏好。") };
     let prompt = format!(
-        "你是一位名叫{name}的中文桌面宠物。{style}。{address}用户希望你的性格是：{personality}\n现在是{now}。接下来几天的日期和星期：{days}。算“明天”“下周三”这类日期时照这张表，不要自己推算。\n用户要你记下什么时，按有没有时间来分：给了日期或时间，调用 {ADD_REMINDER_TOOL} 设提醒，说了每天、每个工作日、每周几就填 repeat 设成重复提醒，不要只设一次；没有时间，调用 {SAVE_NOTE_TOOL} 存进备忘。提醒时间必须晚于现在：只说了钟点而今天这个钟点已经过了，就设在明天；只说了日期没说钟点，就设在那天 09:00，并在回复里说出这个时间。调用后用一句话确认，说清楚是设了提醒还是存进了备忘，以及提醒的时间。每次要记都要真的调用工具，之前对话里说过“记好了”不代表这次也记了。\n你能做的只有新建提醒和新建备忘，看不到、改不了、也删不掉已有的提醒和备忘。用户要改时间、改内容或删除时，如实说你做不到，请用户点提醒下面的「修改」，或者打开提醒、备忘面板自己改，不要假装已经改好。{supplement}"
+        "你是一位名叫{name}的中文桌面宠物。{style}。{address}用户希望你的性格是：{personality}\n现在是{now}。接下来几天的日期和星期：{days}。算“明天”“下周三”这类日期时照这张表，不要自己推算。\n用户要你记下什么时，按有没有时间来分：给了日期或时间，调用 {ADD_REMINDER_TOOL} 设提醒，说了每天、每个工作日、每周几就填 repeat 设成重复提醒，不要只设一次；没有时间，调用 {SAVE_NOTE_TOOL} 存进备忘。提醒时间必须晚于现在：只说了钟点而今天这个钟点已经过了，就设在明天；只说了日期没说钟点，就设在那天 09:00，并在回复里说出这个时间。调用后用一句话确认，说清楚是设了提醒还是存进了备忘，以及提醒的时间。每次要记都要真的调用工具，之前对话里说过“记好了”不代表这次也记了。\n你能做的只有新建提醒和新建备忘，看不到、改不了、也删不掉已有的提醒和备忘。用户要改时间、改内容或删除时，如实说你做不到，请用户点提醒下面的「修改」，或者打开提醒、备忘面板自己改，不要假装已经改好。{action_rule}{supplement}"
     );
     Ok((prompt, tool_definitions(&actions)))
 }
@@ -582,12 +583,85 @@ fn start_request(
     // The style line keeps replies short; the cap leaves room for a full note in a save_note call.
     let mut body = json!({"model":model, "messages":safe, "stream":true, "max_tokens":if translation.is_some() { 4096 } else if length == "short" { 768 } else { 1024 }, "thinking":{"type":"disabled"}});
     if translation.is_none() { body["tools"] = json!(tools); }
-    let body = body.to_string();
     let mut running = state.0.lock().map_err(|_| "Chat state unavailable")?;
     // Each window answers one message at a time; the chat window and the quick chat bar can both be replying.
     if running.values().any(|request| request.window == window && !request.cancelled.load(Ordering::Relaxed)) {
         return Err("上一条还在回复，稍等一下。".into());
     }
+    let (child, stdout, stderr) = spawn_curl(&key, &body.to_string())?;
+    let cancelled = Arc::new(AtomicBool::new(false));
+    running.insert(
+        request_id.clone(),
+        Running {
+            child: child.clone(),
+            cancelled: cancelled.clone(),
+            window: window.clone(),
+        },
+    );
+    drop(running);
+    thread::spawn(move || {
+        let mut round = read_stream(&app, &window, &request_id, &child, stdout, stderr);
+        let first_calls = std::mem::take(&mut round.tool_calls);
+        // The model only moved the pet and said nothing: ask once more, without tools, for the words.
+        if round.succeeded() && !cancelled.load(Ordering::Relaxed) && needs_words(round.said, &first_calls) {
+            let again = spawn_curl(&key, &without_tools(&body).to_string()).and_then(|(child, stdout, stderr)| {
+                let mut running = state.0.lock().map_err(|_| "Chat state unavailable".to_string())?;
+                let entry = running.get_mut(&request_id).ok_or("The request is gone")?;
+                entry.child = child.clone();
+                drop(running);
+                // A cancel that came while the second request was starting must still stop it.
+                if cancelled.load(Ordering::Relaxed) {
+                    if let Ok(mut process) = child.lock() {
+                        let _ = process.kill();
+                    }
+                }
+                Ok(read_stream(&app, &window, &request_id, &child, stdout, stderr))
+            });
+            match again {
+                Ok(second) if second.succeeded() => round = second,
+                Ok(_) | Err(_) => eprintln!("The follow-up request for words failed; keeping the action alone"),
+            }
+        }
+        if let Ok(mut running) = state.0.lock() {
+            running.remove(&request_id);
+        }
+        if cancelled.load(Ordering::Relaxed) {
+            emit(&app, &window, &request_id, "cancelled", "");
+        } else if round.succeeded() {
+            for payload in tool_payloads(&first_calls) {
+                emit(&app, &window, &request_id, "tool", &payload);
+            }
+            // "length" tells the webview the reply was cut off at the token limit.
+            emit(&app, &window, &request_id, "done", if round.truncated { "length" } else { "" });
+        } else {
+            if !round.details.is_empty() {
+                eprintln!("DeepSeek request failed ({:?}): {}", round.http_status, round.details.trim());
+            }
+            // A 200 that broke off mid-stream is an interruption, not a status problem.
+            let status = round.http_status.filter(|code| !(200..300).contains(code));
+            emit(&app, &window, &request_id, "error", failure_message(status));
+        }
+    });
+    Ok(())
+}
+
+/// True when a reply only asked for a pet action and said nothing: there is nothing to show the user.
+/// Reminders and notes are confirmed by the webview, so those replies need no words from the model.
+fn needs_words(said: bool, calls: &ToolCalls) -> bool {
+    !said && !calls.calls.is_empty() && calls.dropped.is_empty() && calls.calls.iter().all(|call| call.name == PLAY_ACTION_TOOL)
+}
+
+/// The same request without tools, so the model has to answer in words.
+fn without_tools(body: &Value) -> Value {
+    let mut again = body.clone();
+    if let Some(fields) = again.as_object_mut() {
+        fields.remove("tools");
+    }
+    again
+}
+
+/// Starts curl for one streamed DeepSeek request. The key and body go in through stdin, never the command line.
+fn spawn_curl(key: &str, body: &str) -> Result<(Arc<Mutex<Child>>, ChildStdout, Option<ChildStderr>), String> {
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",
@@ -617,8 +691,8 @@ fn start_request(
         .map_err(|_| "Cannot start the network request".to_string())?;
     let config = format!(
         "header = \"Authorization: Bearer {}\"\nheader = \"Content-Type: application/json\"\ndata = \"{}\"\n{WRITE_OUT_STATUS}",
-        config_quote(&key),
-        config_quote(&body)
+        config_quote(key),
+        config_quote(body)
     );
     if let Some(mut input) = child.stdin.take() {
         if input.write_all(config.as_bytes()).is_err() {
@@ -629,87 +703,73 @@ fn start_request(
     }
     let stdout = child.stdout.take().ok_or("Cannot read response")?;
     let stderr = child.stderr.take();
-    let child = Arc::new(Mutex::new(child));
-    let cancelled = Arc::new(AtomicBool::new(false));
-    running.insert(
-        request_id.clone(),
-        Running {
-            child: child.clone(),
-            cancelled: cancelled.clone(),
-            window: window.clone(),
-        },
-    );
-    drop(running);
-    thread::spawn(move || {
-        let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
-        let mut done = false;
-        let mut response_error = false;
-        let mut truncated = false;
-        let mut http_status: Option<u16> = None;
-        let mut tool_calls = ToolCalls::default();
-        loop {
-            line.clear();
-            match reader.read_line(&mut line) {
-                Ok(0) => break,
-                Ok(_) => {
-                    // The status comes last, after [DONE]; keep reading until curl closes.
-                    if let Some(status) = status_line(&line) {
-                        http_status = status;
-                        continue;
-                    }
-                    match parse_stream_line(&line) {
-                        StreamLine::Done => done = true,
-                        StreamLine::Chunk { text, tools, truncated: cut } => {
-                            if !text.is_empty() {
-                                emit(&app, &window, &request_id, "delta", &text);
-                            }
-                            collect_tool_deltas(&mut tool_calls, tools);
-                            truncated |= cut;
-                        }
-                        StreamLine::Error => response_error = true,
-                        StreamLine::Ignore => {}
-                    }
+    Ok((Arc::new(Mutex::new(child)), stdout, stderr))
+}
+
+/// What one streamed request came back with.
+struct Round {
+    done: bool,
+    response_error: bool,
+    truncated: bool,
+    http_status: Option<u16>,
+    exited_ok: bool,
+    /// Some text reached the webview.
+    said: bool,
+    tool_calls: ToolCalls,
+    details: String,
+}
+
+impl Round {
+    fn succeeded(&self) -> bool {
+        self.done && !self.response_error && self.exited_ok
+    }
+}
+
+/// Streams the text to the webview as it arrives and collects the tool calls, until curl exits.
+fn read_stream(app: &AppHandle, window: &str, request_id: &str, child: &Arc<Mutex<Child>>, stdout: ChildStdout, stderr: Option<ChildStderr>) -> Round {
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    let mut round = Round { done: false, response_error: false, truncated: false, http_status: None, exited_ok: false, said: false, tool_calls: ToolCalls::default(), details: String::new() };
+    loop {
+        line.clear();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                // The status comes last, after [DONE]; keep reading until curl closes.
+                if let Some(status) = status_line(&line) {
+                    round.http_status = status;
+                    continue;
                 }
-                Err(_) => break,
+                match parse_stream_line(&line) {
+                    StreamLine::Done => round.done = true,
+                    StreamLine::Chunk { text, tools, truncated } => {
+                        if !text.is_empty() {
+                            round.said = true;
+                            emit(app, window, request_id, "delta", &text);
+                        }
+                        collect_tool_deltas(&mut round.tool_calls, tools);
+                        round.truncated |= truncated;
+                    }
+                    StreamLine::Error => round.response_error = true,
+                    StreamLine::Ignore => {}
+                }
             }
+            Err(_) => break,
         }
-        let status = loop {
-            let result = child
-                .lock()
-                .ok()
-                .and_then(|mut process| process.try_wait().ok());
-            match result {
-                Some(Some(status)) => break Some(status),
-                Some(None) => thread::sleep(std::time::Duration::from_millis(50)),
-                None => break None,
-            }
-        };
-        let mut details = String::new();
-        if let Some(mut stderr) = stderr {
-            let _ = stderr.read_to_string(&mut details);
+    }
+    let status = loop {
+        let result = child.lock().ok().and_then(|mut process| process.try_wait().ok());
+        match result {
+            Some(Some(status)) => break Some(status),
+            Some(None) => thread::sleep(std::time::Duration::from_millis(50)),
+            None => break None,
         }
-        if let Ok(mut running) = state.0.lock() {
-            running.remove(&request_id);
-        }
-        if cancelled.load(Ordering::Relaxed) {
-            emit(&app, &window, &request_id, "cancelled", "");
-        } else if done && !response_error && status.is_some_and(|s| s.success()) {
-            for payload in tool_payloads(&tool_calls) {
-                emit(&app, &window, &request_id, "tool", &payload);
-            }
-            // "length" tells the webview the reply was cut off at the token limit.
-            emit(&app, &window, &request_id, "done", if truncated { "length" } else { "" });
-        } else {
-            if !details.is_empty() {
-                eprintln!("DeepSeek request failed ({http_status:?}): {}", details.trim());
-            }
-            // A 200 that broke off mid-stream is an interruption, not a status problem.
-            let status = http_status.filter(|code| !(200..300).contains(code));
-            emit(&app, &window, &request_id, "error", failure_message(status));
-        }
-    });
-    Ok(())
+    };
+    round.exited_ok = status.is_some_and(|status| status.success());
+    if let Some(mut stderr) = stderr {
+        let _ = stderr.read_to_string(&mut round.details);
+    }
+    round
 }
 
 #[cfg(test)]
@@ -965,5 +1025,42 @@ mod greeting_tests {
         assert_eq!(greeting_text(reply), Some("早呀！".into()));
         assert_eq!(greeting_text(br#"{"choices":[{"message":{"content":"  "}}]}"#), None);
         assert_eq!(greeting_text(b"not json"), None);
+    }
+}
+
+#[cfg(test)]
+mod action_only_tests {
+    use super::*;
+
+    fn calls(names: &[&str]) -> ToolCalls {
+        ToolCalls {
+            calls: names.iter().map(|name| ToolCall { name: (*name).into(), arguments: "{}".into(), overflow: false }).collect(),
+            dropped: Default::default(),
+        }
+    }
+
+    #[test]
+    fn asks_again_only_when_the_model_just_moved_the_pet() {
+        assert!(needs_words(false, &calls(&[PLAY_ACTION_TOOL])));
+        assert!(!needs_words(true, &calls(&[PLAY_ACTION_TOOL])));
+        assert!(!needs_words(false, &calls(&[PLAY_ACTION_TOOL, SAVE_NOTE_TOOL])));
+        assert!(!needs_words(false, &calls(&[])));
+    }
+
+    #[test]
+    fn the_second_round_has_no_tools() {
+        let body = json!({"model":"m", "messages":[], "tools":[{"type":"function"}]});
+        let again = without_tools(&body);
+        assert!(again.get("tools").is_none());
+        assert_eq!(again["model"], "m");
+    }
+
+    #[test]
+    fn the_prompt_says_an_action_never_replaces_words() {
+        let preferences = json!({"name":"小糕", "personality":"小笨蛋", "length":"short"});
+        let with_actions = chat_prompt(&preferences, &json!({"now":"2026-11-18 12:50 周三", "actions":["wooden_fish"]})).unwrap().0;
+        assert!(with_actions.contains("不能代替回复"));
+        let without = chat_prompt(&preferences, &json!({"now":"2026-11-18 12:50 周三", "actions":[]})).unwrap().0;
+        assert!(!without.contains(PLAY_ACTION_TOOL));
     }
 }

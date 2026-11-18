@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
-import { dockControls, loadDock, subscribeDock, type DockItem } from "../preferences/DockPreferences";
+import { dockControls, loadDock, subscribeDock, type DockCommand, type DockItem } from "../preferences/DockPreferences";
 import { STAGE_MARGIN, type OffscreenInsets } from "../platform/stageGeometry";
 import { petWindow } from "../platform/petWindow";
 import { DockButtonFace } from "./DockButtonFace";
@@ -10,6 +10,8 @@ const DOCK_BUTTON_SIZE_PX = 36;
 const MIN_DOCK_BUTTON_SIZE_PX = 30;
 const DOCK_ICON_SIZE_RATIO = 0.5;
 const CONTROL_CLICK_GUARD_MS = 500;
+/** The character's own buttons go into the pet menu too; chat, reminders, notes and focus have menu items already. */
+const MENU_COMMANDS: ReadonlySet<DockCommand> = new Set(["feed", "wooden_fish", "sleep_toggle"]);
 
 interface PetControlsProps {
   runtime: PetRuntime;
@@ -58,6 +60,26 @@ export function PetControls({ runtime, visible, offscreenInsets, ref }: PetContr
   };
 
   const enabledItems = items.filter((item) => item.enabled);
+  // The same buttons under "动作" in the pet menu, for when the mouse cannot reach the sides.
+  const menuItems = enabledItems.flatMap((item): Array<[string, string]> => {
+    if (item.kind === "action") {
+      const action = runtime.manifest.animations.find((entry) => entry.id === item.id);
+      return action && runtime.registry.has(action.id) ? [[`action:${action.id}`, action.label ?? action.id]] : [];
+    }
+    return MENU_COMMANDS.has(item.command) ? [[`control:${item.id}`, labelOf(item)]] : [];
+  });
+  const menuKey = JSON.stringify(menuItems);
+  useEffect(() => {
+    void petWindow.syncDockMenu(menuItems).catch((error: unknown) => console.warn("Could not update the pet menu's actions", error));
+  }, [menuKey]); // The key stands for the items: a new array every render must not resend them.
+  const pressFromMenu = (key: string) => {
+    const item = enabledItems.find((entry) => `${entry.kind}:${entry.id}` === key);
+    if (item?.kind === "action") runtime.bus.emit("pet.action_requested", { id: item.id });
+    else if (item) emitControl(item);
+  };
+  const pressFromMenuRef = useRef(pressFromMenu);
+  pressFromMenuRef.current = pressFromMenu;
+  useEffect(() => petWindow.onDockMenu((key) => pressFromMenuRef.current(key)), []);
   const leftGutter = Math.max(0, STAGE_MARGIN.side - offscreenInsets.left);
   const rightGutter = Math.max(0, STAGE_MARGIN.side - offscreenInsets.right);
   const canUseBothRails = leftGutter >= MIN_DOCK_BUTTON_SIZE_PX && rightGutter >= MIN_DOCK_BUTTON_SIZE_PX;

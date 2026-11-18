@@ -42,6 +42,9 @@ const REVEALED_EVENT = "pet://revealed";
 const FOCUS_EVENT = "pet://focus";
 const SHOW_PET_COMMAND = "show_pet";
 const SYNC_FOCUS_MENU_COMMAND = "sync_focus_menu";
+/** The character's buttons under "动作" in the pet menu. Must match `src-tauri/src/lib.rs`. */
+const SYNC_DOCK_MENU_COMMAND = "sync_dock_menu";
+const DOCK_MENU_EVENT = "pet://dock-item";
 /** Asks the today panel to open one item for editing; sent between webviews only. */
 const TODAY_ITEM_EVENT = "pet://today-item";
 /** Asks the notes panel to point out one note; sent between webviews only. */
@@ -388,6 +391,17 @@ export const petWindow = {
   async syncFocusMenu(phase: "off" | "focusing" | "resting"): Promise<void> {
     if (!isTauri()) return;
     await invoke(SYNC_FOCUS_MENU_COMMAND, { phase });
+  },
+
+  /** Lists the character's buttons under "动作" in the pet menu, as pairs of key and label. */
+  async syncDockMenu(items: Array<[key: string, label: string]>): Promise<void> {
+    if (!isTauri()) return;
+    await invoke(SYNC_DOCK_MENU_COMMAND, { items });
+  },
+
+  /** Calls `handler` with the key of the button picked under "动作" in the pet menu. */
+  onDockMenu(handler: (key: string) => void): () => void {
+    return subscribe<string>(DOCK_MENU_EVENT, handler);
   },
 
   /** Calls `handler` with true to start a round, false to stop the round or the rest, when the menu item is picked. */

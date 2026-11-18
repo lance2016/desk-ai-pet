@@ -1,3 +1,4 @@
+mod alert;
 mod chat;
 mod click_through;
 #[cfg(target_os = "macos")]
@@ -43,6 +44,16 @@ const TRANSLATE_ID: &str = "translate";
 const CHAT_ID: &str = "chat";
 const TODAY_ID: &str = "today";
 const FOCUS_ID: &str = "focus";
+/// The character's own buttons (feed, sleep, drawn actions) in the pet menu: an id with this prefix carries the button's key.
+const DOCK_ID_PREFIX: &str = "dock:";
+/// One of those buttons was picked; the payload is its key. Must match `src/platform/petWindow.ts`.
+const DOCK_MENU_EVENT: &str = "pet://dock-item";
+/// At most this many buttons go into the menu; the dock never shows more.
+const MAX_DOCK_MENU_ITEMS: usize = 24;
+/// "新聊天" in the app menu (⌘N); only enabled while the chat window is the key window.
+const NEW_CHAT_ID: &str = "new_chat";
+/// Starts a new chat from the app menu. Must match `src/platform/chat.ts`.
+const NEW_CHAT_EVENT: &str = "pet://chat-new";
 /// The focus item's label for each phase; must match `FocusPhase` in `src/behavior/FocusTimer.ts`.
 const FOCUS_LABELS: [(&str, &str); 3] = [("off", "开始专注"), ("focusing", "停止专注"), ("resting", "结束休息")];
 /// Pet sizes in the menu: the value after `SCALE_ID_PREFIX`, and the label used by the settings page too.
@@ -64,6 +75,8 @@ struct PetMenu {
     on_top: CheckMenuItem<Wry>,
     dnd: CheckMenuItem<Wry>,
     sizes: Vec<(f64, CheckMenuItem<Wry>)>,
+    /// "动作": the same buttons as on the pet's sides, for when the mouse cannot reach them.
+    dock: Submenu<Wry>,
 }
 
 impl PetMenu {
@@ -160,6 +173,8 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
         .collect::<tauri::Result<Vec<_>>>()?;
     let size_items: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = sizes.iter().map(|(_, item)| item as _).collect();
     let size = Submenu::with_items(app, "大小", true, &size_items)?;
+    // Filled by the pet window (`sync_dock_menu`) once it knows the character's buttons.
+    let dock = Submenu::with_items(app, "动作", false, &[])?;
     let on_top = CheckMenuItem::with_id(app, ON_TOP_ID, "总在最前面", true, true, None::<&str>)?;
     let dnd = CheckMenuItem::with_id(app, DND_ID, "勿扰", true, false, None::<&str>)?;
     let visibility = item(TOGGLE_ID, HIDE_PET_LABEL)?;
@@ -174,6 +189,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &translate,
             &PredefinedMenuItem::separator(app)?,
             &pat,
+            &dock,
             &focus,
             &PredefinedMenuItem::separator(app)?,
             &size,
@@ -185,7 +201,58 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &quit,
         ],
     )?;
-    Ok(PetMenu { menu, visibility, focus, focus_running: AtomicBool::new(false), on_top, dnd, sizes })
+    Ok(PetMenu { menu, visibility, focus, focus_running: AtomicBool::new(false), on_top, dnd, sizes, dock })
+}
+
+/// The app's menu bar. It shows only while the settings window keeps the app in the Dock,
+/// but its key equivalents (⌘, ⌘N ⌘W ⌘Q and editing) work in every window.
+/// Quit uses the pet menu's id, so ⌘Q stops running replies like the menu item does.
+fn build_app_menu(app: &App) -> tauri::Result<(Menu<Wry>, MenuItem<Wry>)> {
+    let settings = MenuItem::with_id(app, SETTINGS_ID, "设置…", true, Some("CmdOrCtrl+,"))?;
+    let quit = MenuItem::with_id(app, QUIT_ID, "退出 AI Pet", true, Some("CmdOrCtrl+Q"))?;
+    let new_chat = MenuItem::with_id(app, NEW_CHAT_ID, "新聊天", false, Some("CmdOrCtrl+N"))?;
+    let app_menu = Submenu::with_items(app, "AI Pet", true, &[&settings, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let file = Submenu::with_items(app, "文件", true, &[&new_chat, &PredefinedMenuItem::close_window(app, Some("关闭窗口"))?])?;
+    let edit = Submenu::with_items(
+        app,
+        "编辑",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, Some("撤销"))?,
+            &PredefinedMenuItem::redo(app, Some("重做"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, Some("剪切"))?,
+            &PredefinedMenuItem::copy(app, Some("拷贝"))?,
+            &PredefinedMenuItem::paste(app, Some("粘贴"))?,
+            &PredefinedMenuItem::select_all(app, Some("全选"))?,
+        ],
+    )?;
+    let window = Submenu::with_items(app, "窗口", true, &[&PredefinedMenuItem::minimize(app, Some("最小化"))?])?;
+    Ok((Menu::with_items(app, &[&app_menu, &file, &edit, &window])?, new_chat))
+}
+
+/// The "新聊天" item of the app menu, enabled while the chat window has focus.
+struct NewChatItem(MenuItem<Wry>);
+
+/// The settings window is an ordinary window. While it is open the app shows in the
+/// Dock and ⌘Tab, with its menu bar, so the window can be found again behind others.
+/// The rest of the time the app stays an accessory, as the floating pet was built for.
+fn show_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Regular)?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+    window.show()?;
+    window.set_focus()
+}
+
+fn hide_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
+    window.hide()?;
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+    Ok(())
 }
 
 fn handle_menu_event(app: &AppHandle, id: &str) {
@@ -246,9 +313,18 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         TRANSLATE_ID => translation::open_translation(app.clone()),
         SETTINGS_ID => {
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
-                report("show settings", settings.show());
-                report("focus settings", settings.set_focus());
+                report("show settings", show_settings_window(app, &settings));
             }
+        }
+        NEW_CHAT_ID => {
+            if let Some(chat) = app.get_webview_window(CHAT_WINDOW) {
+                if chat.is_focused().unwrap_or(false) {
+                    report("emit new chat event", chat.emit(NEW_CHAT_EVENT, ()));
+                }
+            }
+        }
+        _ if id.starts_with(DOCK_ID_PREFIX) => {
+            report("emit dock item event", app.emit_to(MAIN_WINDOW, DOCK_MENU_EVENT, &id[DOCK_ID_PREFIX.len()..]));
         }
         _ => {
             if let Some(scale) = id
@@ -270,6 +346,22 @@ fn set_on_top(window: &WebviewWindow, on_top: bool) -> tauri::Result<()> {
 #[cfg(not(target_os = "macos"))]
 fn set_on_top(window: &WebviewWindow, on_top: bool) -> tauri::Result<()> {
     window.set_always_on_top(on_top)
+}
+
+/// Lists the character's buttons under "动作", as pairs of key and label.
+#[tauri::command]
+fn sync_dock_menu(app: AppHandle, menu: State<'_, PetMenu>, items: Vec<(String, String)>) -> Result<(), String> {
+    let valid = |(key, label): &(String, String)| !key.is_empty() && key.len() <= 80 && !label.is_empty() && label.chars().count() <= 40;
+    if items.len() > MAX_DOCK_MENU_ITEMS || !items.iter().all(valid) {
+        return Err("Invalid dock menu items".into());
+    }
+    let error = |error: tauri::Error| error.to_string();
+    while menu.dock.remove_at(0).map_err(error)?.is_some() {}
+    for (key, label) in &items {
+        let item = MenuItem::with_id(&app, format!("{DOCK_ID_PREFIX}{key}"), label, true, None::<&str>).map_err(error)?;
+        menu.dock.append(&item).map_err(error)?;
+    }
+    menu.dock.set_enabled(!items.is_empty()).map_err(error)
 }
 
 /// Opens the pet menu at the cursor. Called from the webview on right-click.
@@ -414,8 +506,7 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     if label == TODAY_WINDOW || label == NOTES_WINDOW {
         return floating_panel::take_keyboard(&window).map_err(|e| e.to_string());
     }
-    window.show().map_err(|e| e.to_string())?;
-    window.set_focus().map_err(|e| e.to_string())
+    show_settings_window(&app, &window).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -506,6 +597,9 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let pet_menu = build_menu(app)?;
+            let (app_menu, new_chat) = build_app_menu(app)?;
+            app.set_menu(app_menu)?;
+            app.manage(NewChatItem(new_chat));
             app.on_menu_event(move |app, event| handle_menu_event(app, event.id().as_ref()));
 
             // A template image: black on transparent, so macOS tints it for light and dark menu bars.
@@ -530,10 +624,11 @@ pub fn run() {
             }
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
                 let settings_handle = settings.clone();
+                let app_handle = app.handle().clone();
                 settings.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        report("hide settings", settings_handle.hide());
+                        report("hide settings", hide_settings_window(&app_handle, &settings_handle));
                     }
                 });
             }
@@ -557,14 +652,15 @@ pub fn run() {
                 let handle = chat_window.clone();
                 let app_handle = app.handle().clone();
                 chat_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(focused) = event {
+                        if let Some(item) = app_handle.try_state::<NewChatItem>() {
+                            report("enable new chat item", item.0.set_enabled(*focused));
+                        }
+                    }
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        // Only its own replies: the pet window may be answering too.
-                        if let Some(state) =
-                            app_handle.try_state::<std::sync::Arc<chat::ChatState>>()
-                        {
-                            state.cancel_window(CHAT_WINDOW);
-                        }
+                        // A running reply keeps going: closing only puts the window away.
+                        // Recording and transcribing stop, since nobody is listening any more.
                         if let Some(state) =
                             app_handle.try_state::<std::sync::Arc<mimo::MimoSpeechState>>()
                         {
@@ -649,7 +745,9 @@ pub fn run() {
             system::save_character_package,
             system::restart_app,
             show_pet,
-            sync_focus_menu
+            sync_focus_menu,
+            sync_dock_menu,
+            alert::confirm_action
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

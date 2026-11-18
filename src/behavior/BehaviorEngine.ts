@@ -540,7 +540,8 @@ export class BehaviorEngine {
   private callOut(now: number, action: string): void {
     const { state, controller } = this.deps;
     state.markInteraction(now);
-    if (state.get().activity === "sleeping") this.wakeUp();
+    // The call-out itself wakes the pet: a wake-up animation would refuse it.
+    if (state.get().activity === "sleeping") this.wakeUp(false);
     if (this.dockSide) {
       this.returnTo = { side: this.dockSide, at: null };
       this.setDock(null);
@@ -584,12 +585,12 @@ export class BehaviorEngine {
     if (this.deps.controller.request("sleep").accepted) this.deps.state.setActivity("sleeping");
   }
 
-  private wakeUp(): void {
+  private wakeUp(animate = true): void {
     const { state, controller } = this.deps;
     state.setActivity("awake");
     // Leave the sleep loop first so waking works even without a wake-up animation.
     controller.stop();
-    controller.request("wake_up");
+    if (animate) controller.request("wake_up");
     this.scheduleIdleAction(Date.now());
   }
 

@@ -6,7 +6,7 @@ import type { ActionAppearance } from "../appearance/AppearanceStore";
 import type { AssetPack } from "../assets/AssetLoader";
 import type { AnimationEntry, AnimationLayer, PetManifest } from "../assets/Manifest";
 import type { HitRegion } from "../types";
-import { sampleAdjustedMotion, sampleMotion } from "./motions";
+import { calmMotion, sampleAdjustedMotion, sampleMotion } from "./motions";
 import type { OpaqueMask, PetRenderer } from "./PetRenderer";
 
 /** A mask cell counts as drawn above this alpha (0-255). */
@@ -94,6 +94,8 @@ export class PixiRenderer implements PetRenderer {
   }
 
   private stopWatchingRatio: (() => void) | null = null;
+  /** Follows the system's Reduce Motion setting. */
+  private readonly reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   async loadAssetPack(pack: AssetPack): Promise<ReadonlySet<string>> {
     const app = new Application();
@@ -403,7 +405,8 @@ export class PixiRenderer implements PetRenderer {
     this.sprite.texture = frames[frameIndex];
 
     const progress = entry.duration ? Math.min(1, elapsedMs / entry.duration) : (elapsedMs % 2000) / 2000;
-    const motion = sampleAdjustedMotion(entry.motion, elapsedMs / 1000, progress, animation.motionSpeed ?? 1, animation.motionStrength ?? 1);
+    const reduceMotion = this.reducedMotion.matches;
+    const motion = sampleAdjustedMotion(calmMotion(entry.motion, reduceMotion), elapsedMs / 1000, progress, animation.motionSpeed ?? 1, animation.motionStrength ?? 1);
     const facing = this.facesLeft() ? -1 : 1;
     const centerX = this.restingCenterX(entry, frames[frameIndex].width);
     this.sprite.position.set(centerX + motion.x * facing, this.manifest.canvas.height + motion.y);
@@ -419,7 +422,7 @@ export class PixiRenderer implements PetRenderer {
         : Math.min(layerFrameNumber, layer.frames.length - 1);
       layer.sprite.texture = layer.frames[layerFrameIndex];
       const layerProgress = layerMotionProgress(layer.definition, layerTime, frames.length, entry.fps, progress);
-      const layerMotion = sampleMotion(layer.definition.motion, layerTime, layerProgress);
+      const layerMotion = sampleMotion(calmMotion(layer.definition.motion, reduceMotion), layerTime, layerProgress);
       layer.sprite.position.set(
         centerX + (motion.x + layer.definition.x + layerMotion.x) * facing,
         this.manifest.canvas.height + motion.y + layer.definition.y + layerMotion.y,

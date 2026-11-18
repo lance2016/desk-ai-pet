@@ -159,7 +159,6 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-button--primary:hover:not(:disabled) { background: var(--accent-strong); filter: brightness(1.08); }
 .settings-button.is-disabled { opacity: .45; pointer-events: none; }
 /* ConfirmButton waiting for its second click. */
-.settings-page button.is-confirming, .settings-page button.is-confirming:hover:not(:disabled) { color: #fff; background: var(--red); box-shadow: none; }
 .backup-confirm { align-items: flex-start; padding: 10px 0; }
 .backup-confirm .settings-row__body span { line-height: 1.45; }
 .settings-button-row { flex: none; display: flex; gap: 6px; }

@@ -26,6 +26,8 @@ export const chatPlatform = {
   async title(user: string, reply: string, model: string): Promise<string> { requireNative(); return invoke<string>("deepseek_title", { user, reply, model }); },
   async cancel(requestId: string): Promise<void> { requireNative(); await invoke("deepseek_cancel", { requestId }); },
   async onHidden(handler: () => void): Promise<() => void> { requireNative(); return listen("pet://chat-hide", handler); },
+  /** "新聊天" (⌘N) in the app menu. Must match `NEW_CHAT_EVENT` in `src-tauri/src/lib.rs`. */
+  async onNewChat(handler: () => void): Promise<() => void> { return isTauri() ? listen("pet://chat-new", handler) : () => {}; },
   async subscribe(handler: (event: ChatEvent) => void): Promise<() => void> {
     requireNative();
     return listen("pet://chat-stream", (event) => { const parsed = eventSchema.safeParse(event.payload); if (parsed.success) handler(parsed.data); });

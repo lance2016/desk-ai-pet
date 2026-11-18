@@ -407,7 +407,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
   };
   return <div ref={editorRef} className="action-editor" aria-label={title}>
     <div className="action-editor__header"><div>{dirty
-      ? <ConfirmButton className="action-editor__back" disabled={busy} confirmLabel="再点一次，放弃改动" onConfirm={onClose}>‹ 返回动作库</ConfirmButton>
+      ? <ConfirmButton className="action-editor__back" disabled={busy} confirm={{ message: "放弃对这个动作的改动？", detail: "还没保存的名称、图片和动效会丢掉。", action: "放弃改动" }} onConfirm={onClose}>‹ 返回动作库</ConfirmButton>
       : <button type="button" className="action-editor__back" disabled={busy} onClick={onClose}>‹ 返回动作库</button>}<h2>{title}</h2><p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p></div></div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
       <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
@@ -452,10 +452,10 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
       guide={<StageGuide guide={guide} stage={canvas} />}
       onCancel={() => setCropping(null)} onConfirm={(crop) => void placeCropped(cropping, crop)} />}
     <div className="action-editor__footer">
-      {!own && <ConfirmButton disabled={!custom || busy} confirmLabel="再点一次，改回原来的图片" onConfirm={() => void restore()}>恢复默认</ConfirmButton>}
-      {own && !isNew && <ConfirmButton className="is-danger" disabled={busy} confirmLabel="再点一次删除" onConfirm={() => void remove()}>删除动作</ConfirmButton>}
+      {!own && <ConfirmButton disabled={!custom || busy} confirm={{ message: "改回原来的图片？", detail: "换上的图片会删掉，宠物重新用角色自带的样子。", action: "恢复默认" }} onConfirm={() => void restore()}>恢复默认</ConfirmButton>}
+      {own && !isNew && <ConfirmButton className="is-danger" disabled={busy} confirm={{ message: `删除动作「${label || action.id}」？`, detail: "图片一起删掉，快捷按钮里的这个动作也会去掉。删除后不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除动作</ConfirmButton>}
       {dirty
-        ? <ConfirmButton disabled={busy} confirmLabel="再点一次，放弃改动" onConfirm={onClose}>取消</ConfirmButton>
+        ? <ConfirmButton disabled={busy} confirm={{ message: "放弃对这个动作的改动？", detail: "还没保存的名称、图片和动效会丢掉。", action: "放弃改动" }} onConfirm={onClose}>取消</ConfirmButton>
         : <button type="button" disabled={busy} onClick={onClose}>取消</button>}
       <button type="button" className="save-button" disabled={busy} onClick={() => void save()}>{busy ? "处理中…" : isNew ? "创建动作" : "保存并应用"}</button>
     </div>

@@ -195,7 +195,7 @@
       "pose": "站着，一只手举过头顶摇着一个小铃铛，另一只手叉腰，嘴巴张开像在喊人，表情认真又有点着急。",
       "motion": "bounce",
       "duration": 2400,
-      "priority": 20,
+      "priority": 40,
       "fallback": "happy"
     },
     {

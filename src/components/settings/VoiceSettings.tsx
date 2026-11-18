@@ -54,7 +54,7 @@ export function VoiceSettings({ packId }: { packId: string }) {
       {expanded && <><form onSubmit={(event) => void saveKey(event)}><label htmlFor="mimo-key">API Key</label><div className="ai-settings__key"><input id="mimo-key" type="password" autoComplete="off" value={key} onChange={(event) => setKey(event.currentTarget.value)} placeholder={configured ? "输入新的 API Key 以替换" : "粘贴 MiMo API Key"} /><button type="submit" disabled={busy || !key.trim()}>保存</button></div></form>
       <p>API Key 存在钥匙串里。录音会发给小米 MiMo 识别，可能产生费用；录音只用于这次识别，不会存进聊天记录。</p>
       <div className="ai-settings__actions">
-        {configured && <ConfirmButton disabled={busy} confirmLabel="再点一次移除" onConfirm={() => void clearKey()}>移除 API Key</ConfirmButton>}
+        {configured && <ConfirmButton disabled={busy} confirm={{ message: "移除 MiMo API Key？", detail: "API Key 会从钥匙串里删掉，之后要重新填写才能用语音。", action: "移除" }} onConfirm={() => void clearKey()}>移除 API Key</ConfirmButton>}
         <button type="button" className="ai-settings__link" onClick={openConsole}>获取 API Key ↗</button>
       </div></>}
       {status && <p className="ai-settings__status" role="status">{status}</p>}

@@ -188,8 +188,8 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
       <label className="ai-preference">名字<input value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => update({ ...preferences, name: preferences.name.trim() || defaults.name })} /></label>
       <label className="ai-preference">性格<textarea value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
       <div className="ai-settings__actions">
-        <ConfirmButton confirmLabel="再点一次，改回默认的名字和性格" onConfirm={restoreDefaults}>恢复默认</ConfirmButton>
-        {isCustomCharacter(packId) && <ConfirmButton className="is-danger" confirmLabel="再点一次删除，聊天记录和动作图片一起删掉" onConfirm={() => void remove()}>删除这个角色</ConfirmButton>}
+        <ConfirmButton confirm={{ message: "改回默认的名字和性格？", detail: "你改过的名字和性格会换回默认，回复长度不变。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认</ConfirmButton>
+        {isCustomCharacter(packId) && <ConfirmButton className="is-danger" confirm={{ message: "删除这个角色？", detail: "它的聊天记录、快捷按钮和动作图片会一起删掉，不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除这个角色</ConfirmButton>}
       </div>
       {note("current")}
     </article>

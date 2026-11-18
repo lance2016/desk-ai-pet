@@ -59,6 +59,17 @@ const MOTIONS: Record<MotionPreset, Motion> = {
   },
 };
 
+/**
+ * Motions that move the whole pet around the stage. With the system's Reduce Motion
+ * on they are left out; the picture still shows the action. `float` stays: it only
+ * lifts a small label.
+ */
+const TRAVELLING: ReadonlySet<MotionPreset> = new Set(["bounce", "sway", "wiggle"]);
+
+export function calmMotion(preset: MotionPreset, reduceMotion: boolean): MotionPreset {
+  return reduceMotion && TRAVELLING.has(preset) ? "none" : preset;
+}
+
 export function sampleMotion(preset: MotionPreset, seconds: number, progress: number): MotionTransform {
   return { ...REST, ...MOTIONS[preset](seconds, progress) };
 }

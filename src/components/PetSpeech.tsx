@@ -6,7 +6,7 @@ import { petWindow } from "../platform/petWindow";
 interface PetSpeechProps {
   runtime: PetRuntime;
   /** The standing bubble while it is up, measured for the clickable area. */
-  alertRef?: Ref<HTMLParagraphElement>;
+  alertRef?: Ref<HTMLButtonElement>;
   /** The badge at the pet's feet, measured for the clickable area. */
   badgeRef?: Ref<HTMLButtonElement>;
   /** Called when the standing bubble or the badge comes or goes, so the clickable area is measured again. */
@@ -68,10 +68,10 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
       <div className="speech-area" aria-live="polite">
         {line && <p key={line} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{line}</p>}
         {standing && (
-          <p key={standing.text} ref={alertRef} className="speech-bubble speech-bubble--alert" role="button" title={standing.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
+          <button type="button" key={standing.text} ref={alertRef} className="speech-bubble speech-bubble--alert" title={standing.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
             <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" /></svg>
             <span><span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}</small></span>
-          </p>
+          </button>
         )}
       </div>
       {badgeButton}

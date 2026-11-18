@@ -268,7 +268,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
       <p className="settings-footnote">拖动左侧把手排序，点按钮名称可以改名和换图标。聊聊天、提醒、备忘每个角色都有；其他按钮来自当前角色。</p>
 
       <div className="settings-actions">
-        <ConfirmButton className="settings-button" confirmLabel="再点一次，改回默认按钮" onConfirm={restoreDefaults}>恢复默认快捷按钮</ConfirmButton>
+        <ConfirmButton className="settings-button" confirm={{ message: "恢复默认快捷按钮？", detail: "调整过的按钮、顺序、名字和图标都会改回这个角色原来的样子。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认快捷按钮</ConfirmButton>
       </div>
     </div>
   );

@@ -162,7 +162,6 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-notice { color: var(--label-2); background: var(--fill); }
 .chat-error button, .chat-notice button { margin-left: 8px; padding: 0 2px; border: 0; border-radius: 4px; color: var(--accent-strong); background: none; font-weight: 600; cursor: pointer; }
 .chat-notice button:only-child { margin-left: 0; }
-.chat-error button.is-confirming { color: var(--red); text-decoration: underline; }
 
 /* What the last reply saved, each with a way to correct it. */
 .chat-saved { align-self: stretch; display: grid; gap: 4px; margin: -2px 0 2px 36px; }

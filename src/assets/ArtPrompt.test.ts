@@ -49,6 +49,17 @@ describe("art prompts", () => {
     }
   });
 
+  it("asks every picture for finished, clean quality that holds to the first one", () => {
+    const woodenFish = fillArtPrompt(DEFAULT_ART_PROMPTS.action, { id: "wooden_fish", label: "敲木鱼" });
+    for (const prompt of [DEFAULT_ART_PROMPTS.first, DEFAULT_ART_PROMPTS.action, woodenFish]) {
+      expect(prompt).toContain("【画质】");
+      expect(prompt).toContain("高清");
+      expect(prompt).toContain("手指数量");
+    }
+    expect(DEFAULT_ART_PROMPTS.first).toContain("光从左上方来");
+    for (const prompt of [DEFAULT_ART_PROMPTS.action, woodenFish]) expect(prompt).toContain("光源方向");
+  });
+
   it("requests a transparent PNG for both single-image templates", () => {
     for (const prompt of [DEFAULT_ART_PROMPTS.first, DEFAULT_ART_PROMPTS.action]) {
       expect(prompt).toContain("透明背景的 PNG");

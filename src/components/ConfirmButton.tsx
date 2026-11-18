@@ -1,40 +1,31 @@
-import { useEffect, useState, type ReactNode } from "react";
-
-/** How long the button waits for the second click before it goes back. */
-const CONFIRM_MS = 4_000;
+import { useState, type ReactNode } from "react";
+import { dialogPlatform, type Confirmation } from "../platform/dialog";
 
 interface Props {
   children: ReactNode;
-  /** What the button says while waiting for the second click, e.g. "再点一次删除". */
-  confirmLabel: string;
+  /** The native alert shown before the step runs. */
+  confirm: Confirmation;
   onConfirm: () => void;
   className?: string;
   disabled?: boolean;
 }
 
 /**
- * The app's one way to confirm a step that cannot be undone: the first click
- * asks, a second click within a few seconds does it. `window.confirm` cannot be
- * used, because the dialog plugin turns it into an async function.
+ * The app's one way to confirm a step that cannot be undone: a native alert asks
+ * first, as Mac apps do. Only for ordinary windows (settings, chat): an alert
+ * activates the app, which the popover panels must not do.
  */
-export function ConfirmButton({ children, confirmLabel, onConfirm, className, disabled }: Props) {
+export function ConfirmButton({ children, confirm, onConfirm, className, disabled }: Props) {
   const [asking, setAsking] = useState(false);
-  useEffect(() => {
-    if (!asking) return;
-    const timer = setTimeout(() => setAsking(false), CONFIRM_MS);
-    return () => clearTimeout(timer);
-  }, [asking]);
-  useEffect(() => { if (disabled) setAsking(false); }, [disabled]);
-  const classes = [className, asking ? "is-confirming" : ""].filter(Boolean).join(" ");
-  return <button
-    type="button"
-    className={classes || undefined}
-    disabled={disabled}
-    onBlur={() => setAsking(false)}
-    onClick={() => {
-      if (!asking) { setAsking(true); return; }
+  const ask = async () => {
+    setAsking(true);
+    try {
+      if (await dialogPlatform.confirm(confirm)) onConfirm();
+    } catch (reason) {
+      console.error("Could not ask for confirmation", reason);
+    } finally {
       setAsking(false);
-      onConfirm();
-    }}
-  >{asking ? confirmLabel : children}</button>;
+    }
+  };
+  return <button type="button" className={className} disabled={disabled || asking} onClick={() => void ask()}>{children}</button>;
 }

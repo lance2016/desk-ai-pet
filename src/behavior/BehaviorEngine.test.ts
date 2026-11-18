@@ -56,7 +56,7 @@ const SCENE_ACTIONS = [
   { id: "think", file: "a/idle.png", duration: 2400, priority: 10 },
   { id: "talk", file: "a/idle.png", loop: true, category: "system", priority: 12 },
   { id: "write", file: "a/idle.png", duration: 2200, priority: 20, cooldown: 3000 },
-  { id: "remind", file: "a/happy.png", duration: 2400, priority: 20 },
+  { id: "remind", file: "a/happy.png", duration: 2400, priority: 40 },
   { id: "wave", file: "a/happy.png", duration: 2200, priority: 20 },
   { id: "yawn", file: "a/idle.png", duration: 2000, priority: 8 },
   { id: "confused", file: "a/idle.png", duration: 1800, priority: 20 },
@@ -778,6 +778,18 @@ describe("reminders", () => {
     docked.bus.emit("pet.drag_ended", { dockSide: "left" });
     docked.pass(1_000);
     expect(docked.docks).toEqual(["left", null]);
+  });
+
+  it("rings the bell even when the pet was asleep or busy eating", () => {
+    const sleeping = setup({ reminders: fakeReminders([{ id: "r1", text: "喝水", remindAt: Date.now() + 1_000 }]), extraAnimations: SCENE_ACTIONS });
+    sleeping.bus.emit("pet.sleep", {});
+    sleeping.pass(1_000);
+    expect(sleeping.renderer.last).toBe("remind");
+
+    const eating = setup({ reminders: fakeReminders([{ id: "r2", text: "喝水", remindAt: Date.now() + 1_000 }]), extraAnimations: SCENE_ACTIONS });
+    eating.controller.request("eat");
+    eating.pass(1_000);
+    expect(eating.renderer.last).toBe("remind");
   });
 
   it("gathers reminders on one line and words late ones differently", () => {

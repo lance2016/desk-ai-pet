@@ -243,12 +243,9 @@ export function ChatPage({ packId }: { packId: string }) {
   useEffect(() => {
     let stop: (() => void) | undefined;
     let disposed = false;
-    chatPlatform.onHidden(() => {
-      voice.cancel();
-      if (!active.current) return;
-      cancelRequested.current = true;
-      void chatPlatform.cancel(active.current).catch((reason: unknown) => console.warn("Could not stop the reply", reason));
-    }).then((unsubscribe) => { if (disposed) unsubscribe(); else stop = unsubscribe; }).catch(() => {});
+    // Closing the window only puts it away: a reply keeps coming and is there when it opens again.
+    // The microphone stops, though: nobody is listening any more.
+    chatPlatform.onHidden(() => voice.cancel()).then((unsubscribe) => { if (disposed) unsubscribe(); else stop = unsubscribe; }).catch(() => {});
     return () => { disposed = true; stop?.(); };
   }, []);
   // Check for a saved key now and whenever the window comes back, e.g. after setting one up in settings.
@@ -363,7 +360,17 @@ export function ChatPage({ packId }: { packId: string }) {
     setThreadId(id); setMessages(shown); setError(""); setNotice(""); setReply(""); setSavedLines([]); setNotedMessages({}); setHistoryOpen(false);
     input.current?.focus();
   };
-  const newChat = () => { if (!pending) showThread(newId(), []); };
+  const newChat = () => { if (!pending && messages.length > 0) showThread(newId(), []); };
+  const newChatRef = useRef(newChat);
+  newChatRef.current = newChat;
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let disposed = false;
+    chatPlatform.onNewChat(() => newChatRef.current())
+      .then((unsubscribe) => { if (disposed) unsubscribe(); else stop = unsubscribe; })
+      .catch((reason: unknown) => console.warn("Could not listen for the new chat command", reason));
+    return () => { disposed = true; stop?.(); };
+  }, []);
   const deleteThread = (id: string) => {
     if (pending) return;
     const next = removeThread(threads, id);
@@ -466,7 +473,7 @@ export function ChatPage({ packId }: { packId: string }) {
       {error && <div className="chat-error" role="alert">{error}
         {errorFix && <button type="button" onClick={fixError}>{errorFix === "microphone" ? "打开系统设置" : "去设置"}</button>}
         {voice.retryAudio && <button type="button" onClick={voice.retry}>再识别一次</button>}
-        {!historyValid && <ConfirmButton confirmLabel="再点一次清空" onConfirm={resetHistory}>清空聊天记录</ConfirmButton>}
+        {!historyValid && <ConfirmButton confirm={{ message: "清空聊天记录？", detail: "这个角色的聊天记录读不出来了，清空后才能接着聊。原来的记录不能恢复。", action: "清空" }} onConfirm={resetHistory}>清空聊天记录</ConfirmButton>}
         {canRetry && <button type="button" onClick={() => void startReply(messages)}>重新回复</button>}
       </div>}
       {!error && canRetry && <div className="chat-notice"><button type="button" onClick={() => void startReply(messages)}>重新回复</button></div>}
