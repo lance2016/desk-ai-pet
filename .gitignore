@@ -30,3 +30,10 @@ coverage
 *.tgz
 generated_images/exec-c3fd7412-81ba-4b06-ad71-454aa4d1da98.png
 generated_images/exec-adc9023f-4bea-47dc-b557-4b761dc63ae5.png
+
+# Local agent tooling
+.claude/worktrees/
+.claude/skills/
+.agents/
+.impeccable/
+skills-lock.json
