@@ -147,28 +147,29 @@ body {
 .speech-bubble--alert.speech-bubble--ask::after { border-color: #d9d0f5; }
 .speech-bubble--ask .speech-bubble__bell { stroke: #7a6cc9; }
 .speech-bubble__choices { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+/* Mac-style push buttons: a quiet tinted one, and the filled one on the right for the usual answer. */
 .speech-bubble__choices button {
   min-width: 64px;
-  padding: 3px 10px;
+  height: 24px;
+  padding: 0 12px;
   color: #4c437e;
-  background: #f5f2fd;
-  border: 1px solid #ddd5f5;
-  border-radius: 6px;
+  background: #f1eef9;
+  border: 0;
+  border-radius: 7px;
   font: inherit;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
 }
-.speech-bubble__choices button:hover { background: #ece7fb; }
-.speech-bubble__choices button:active { background: #e1daf8; }
-.speech-bubble__choices button:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
-.speech-bubble__choices button.is-destructive { color: #b42318; border-color: #f0c4be; background: #fff5f3; }
-.speech-bubble__choices button.is-destructive:hover { background: #fde9e5; }
-.speech-bubble__choices button.is-destructive:active { background: #fbd9d3; }
-/* Buttons on a reminder take the bubble's warm colors, and hold still under the cursor. */
-.speech-bubble--remind:hover { animation-play-state: paused; }
-.speech-bubble--remind .speech-bubble__choices button { color: #6b3a12; background: #fff1cf; border-color: #f0c77a; }
-.speech-bubble--remind .speech-bubble__choices button:hover { background: #ffe8b3; }
-.speech-bubble--remind .speech-bubble__choices button:active { background: #ffdd99; }
+.speech-bubble__choices button:hover { background: #e7e2f6; }
+.speech-bubble__choices button:active { background: #dcd5f2; }
+.speech-bubble__choices button:focus-visible { outline: none; box-shadow: 0 0 0 3px #8874d873; }
+.speech-bubble__choices button.is-primary { color: #fff; background: #6b5fc0; }
+.speech-bubble__choices button.is-primary:hover { background: #5f53b4; }
+.speech-bubble__choices button.is-primary:active { background: #5247a3; }
+.speech-bubble__choices button.is-destructive { color: #b42318; background: #fdeeeb; }
+.speech-bubble__choices button.is-destructive:hover { background: #fbe1dc; }
+.speech-bubble__choices button.is-destructive:active { background: #f8d2cb; }
 .speech-bubble--alert::after { border-color: #f3b44a; border-width: 0 1.5px 1.5px 0; border-style: solid; }
 .speech-bubble--alert small { display: block; margin-top: 2px; color: #8a5a1c; font-size: 11px; }
 /* The room above the pet is short: a long line is cut rather than pushed off the top of the window. */
@@ -176,6 +177,57 @@ body {
 .speech-bubble__bell {
   width: 15px; height: 15px; margin-top: 1px; flex: 0 0 auto;
   fill: none; stroke: #e08a12; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/*
+ * Due reminders read like a notification the pet holds up: the same white bubble as its other
+ * lines, an amber bell tile as the one loud thing, the reminder's own words as the title, and
+ * "到点啦" small beside the buttons. Only the bell moves, now and then. With two lines of title
+ * the bubble is about 92px tall, just inside the room above the pet (--stage-top + 18px).
+ */
+.speech-bubble--remind {
+  gap: 10px;
+  padding: 10px;
+  color: var(--ink);
+  /* Opaque, so the tail hides the border where it overlaps the bubble. */
+  background: #fff;
+  border: 1px solid #e3ddf5;
+  box-shadow: 0 6px 18px #40366b2e, 0 1px 3px #40366b1f;
+  animation: speech-in 180ms ease-out;
+}
+.speech-bubble--remind::after { border-color: #e3ddf5; border-width: 0 1px 1px 0; }
+.speech-bubble--remind .speech-bubble__press { gap: 10px; margin: -10px; padding: 10px; }
+.speech-bubble--remind .speech-bubble__body { gap: 1px; }
+.speech-bubble--remind .speech-bubble__alert-text { -webkit-line-clamp: 2; padding-top: 1px; font-size: 14px; font-weight: 600; line-height: 1.35; }
+.speech-bubble--remind .speech-bubble__choices { margin-top: 8px; }
+.speech-bubble--remind small { margin-top: 3px; color: #6f6890; }
+.speech-bubble__heading { color: #6f6890; font-size: 11px; font-weight: 500; line-height: 1.4; }
+.speech-bubble__choices .speech-bubble__heading { align-self: center; margin-right: auto; padding-right: 8px; }
+.speech-bubble__tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: #f5a524;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 1px 2px #c4791a59;
+}
+.speech-bubble__tile .speech-bubble__bell {
+  width: 17px; height: 17px; margin: 0;
+  stroke: #fff;
+  transform-origin: 50% 12%;
+  animation: bell-ring 6s ease-in-out 600ms infinite;
+}
+.speech-bubble--remind:hover .speech-bubble__bell { animation-play-state: paused; }
+
+/* Two quick swings at the start of each round, then a long rest. */
+@keyframes bell-ring {
+  0%, 14%, 100% { transform: none; }
+  2% { transform: rotate(14deg); }
+  5% { transform: rotate(-12deg); }
+  8% { transform: rotate(8deg); }
+  11% { transform: rotate(-4deg); }
 }
 
 /* A short wiggle every few seconds draws the eye without being restless. */
@@ -429,6 +481,7 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
   }
   .speech-bubble,
   .speech-bubble--alert,
+  .speech-bubble__tile .speech-bubble__bell,
   .quick-chat {
     animation: none;
   }

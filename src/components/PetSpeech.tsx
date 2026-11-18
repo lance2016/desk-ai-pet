@@ -109,9 +109,14 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
       </>
     );
   }
-  const icon = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
-  // Reminders (the bell) keep their loud look with buttons; a question about something else looks calm.
-  const look = !standing?.choices ? "" : standing.icon ? " speech-bubble--ask" : " speech-bubble--remind";
+  // Reminders (the bell) sit on a colored tile, like a notification; other lines keep a plain icon.
+  const reminder = standing !== null && !standing.icon;
+  const glyph = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
+  const icon = reminder ? <span className="speech-bubble__tile">{glyph}</span> : glyph;
+  const heading = standing?.heading && <span className="speech-bubble__heading">{standing.heading}</span>;
+  // A question about something other than reminders looks calm and holds still.
+  const look = reminder ? " speech-bubble--remind" : standing?.choices ? " speech-bubble--ask" : "";
+  const lastChoice = (standing?.choices?.length ?? 0) - 1;
   return (
     <>
       <div className="speech-area" aria-live="polite">
@@ -123,9 +128,12 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
                 {icon}
                 <span className="speech-bubble__body">
                   <span className="speech-bubble__alert-text">{standing.text}</span>
+                  {/* The heading shares the button row: the room above the pet has no line to spare. */}
                   <span className="speech-bubble__choices">
-                    {standing.choices.map((choice) => (
-                      <button key={choice.label} type="button" className={choice.destructive ? "is-destructive" : undefined} onClick={() => runtime.bus.emit(choice.event, {})}>{choice.label}</button>
+                    {heading}
+                    {standing.choices.map((choice, index) => (
+                      // As in a Mac alert, the answer most people pick is on the right and filled in.
+                      <button key={choice.label} type="button" className={choice.destructive ? "is-destructive" : index === lastChoice ? "is-primary" : undefined} onClick={() => runtime.bus.emit(choice.event, {})}>{choice.label}</button>
                     ))}
                   </span>
                 </span>
@@ -133,7 +141,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
             ) : (
               <button type="button" className="speech-bubble__press" title={standing.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
                 {icon}
-                <span><span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}</small></span>
+                <span className="speech-bubble__body">{heading}<span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}</small></span>
               </button>
             )}
           </div>

@@ -677,7 +677,7 @@ describe("focus companion", () => {
   it("celebrates a finished round with a line that stays up, rewards it, then rests before stopping", () => {
     const { bus, state, controller, passSteps, said, badges, focus } = setup();
     const shown: Array<string | null> = [];
-    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.on("pet.alert", ({ heading, text }) => shown.push(heading && text ? `${heading}：${text}` : text));
     bus.emit("pet.focus_toggled", {});
     passSteps(FOCUS_CONFIG.focusMs);
     expect(controller.current?.id).toBe("happy");
@@ -725,7 +725,7 @@ describe("focus companion", () => {
   it("drops an unanswered question about stopping after a while", () => {
     const { bus, focus, pass } = setup();
     const shown: Array<string | null> = [];
-    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.on("pet.alert", ({ heading, text }) => shown.push(heading && text ? `${heading}：${text}` : text));
     bus.emit("pet.focus_toggled", {});
     bus.emit("pet.focus_toggled", {});
     expect(shown).toEqual(["刚开始专注，要停下吗？"]);
@@ -816,7 +816,7 @@ function fakeReminders(items: DueReminder[]): ReminderSource & { reminded: strin
 describe("reminders", () => {
   function alerts(bus: EventBus<PetEvents>) {
     const shown: Array<string | null> = [];
-    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.on("pet.alert", ({ heading, text }) => shown.push(heading && text ? `${heading}：${text}` : text));
     return shown;
   }
 
@@ -915,7 +915,7 @@ describe("reminders", () => {
     const shown: Array<{ text: string | null; more?: boolean }> = [];
     bus.on("pet.alert", (alert) => shown.push(alert));
     pass(0);
-    expect(shown).toEqual([{ text: "别忘了：开会、喝水 等 3 件", more: true }]);
+    expect(shown).toEqual([{ heading: "别忘了", text: "开会、喝水 等 3 件", more: true }]);
   });
 
   it("offers to tick off or put off the reminders it names", () => {
@@ -1071,7 +1071,7 @@ describe("mail codes", () => {
     bus.emit("pet.mail_code", { kind: "found", code: "57743", sender: "Telegram", copied: true });
     expect(last(shown)?.text).toBe("验证码 57743，已复制（Telegram）");
     bus.emit("pet.alert_dismissed", {});
-    expect(last(shown)?.text).toBe("到点啦：开会");
+    expect(last(shown)).toMatchObject({ heading: "到点啦", text: "开会" });
   });
 
   it("takes down the last answer when a new wait starts", () => {

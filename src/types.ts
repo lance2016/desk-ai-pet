@@ -196,7 +196,8 @@ export interface PetEvents {
    * `icon`: what the line is about; a bell when left out.
    * `choices`: the line asks something and only these buttons answer it; a click elsewhere on it does nothing.
    */
-  "pet.alert": { text: string | null; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[] };
+  /** `heading`: a short word over the text, such as "到点啦" over a reminder's own words. */
+  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[] };
   /** The user clicked the standing line away. */
   "pet.alert_dismissed": Record<string, never>;
   /** "完成" on the reminder line: tick off the reminders it names. */

@@ -67,9 +67,11 @@ const FOCUS_CHOICES = {
 /** A line names this many reminders at most; more are counted, and a click opens the panel. */
 const MAX_NAMED_REMINDERS = 2;
 const REMINDER_LINES = {
-  onTime: (texts: string[]) => `到点啦：${texts.join("、")}`,
-  late: (texts: string[]) => `别忘了：${texts.join("、")}`,
-  many: (texts: string[], count: number) => `别忘了：${texts.join("、")} 等 ${count} 件`,
+  /** Headings over the reminders' own words, which the bubble shows larger. */
+  onTime: "到点啦",
+  late: "别忘了",
+  named: (texts: string[]) => texts.join("、"),
+  many: (texts: string[], count: number) => `${texts.join("、")} 等 ${count} 件`,
   badge: (count: number) => `提醒 ${count}`,
   doNotDisturb: "勿扰",
   snoozed: (minutes: number) => `好，${minutes} 分钟后再叫你`,
@@ -661,10 +663,10 @@ export class BehaviorEngine {
     const late = shown.some((reminder) => reminder.remindAt !== null && now - reminder.remindAt > BEHAVIOR_CONFIG.reminderLateMs);
     const texts = shown.map((reminder) => reminder.text);
     if (texts.length > MAX_NAMED_REMINDERS) {
-      this.deps.bus.emit("pet.alert", { text: REMINDER_LINES.many(texts.slice(0, MAX_NAMED_REMINDERS), texts.length), more: true });
+      this.deps.bus.emit("pet.alert", { heading: REMINDER_LINES.late, text: REMINDER_LINES.many(texts.slice(0, MAX_NAMED_REMINDERS), texts.length), more: true });
       return;
     }
-    this.deps.bus.emit("pet.alert", { text: late ? REMINDER_LINES.late(texts) : REMINDER_LINES.onTime(texts), choices: reminderChoices(texts.length) });
+    this.deps.bus.emit("pet.alert", { heading: late ? REMINDER_LINES.late : REMINDER_LINES.onTime, text: REMINDER_LINES.named(texts), choices: reminderChoices(texts.length) });
   }
 
   /**
