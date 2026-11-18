@@ -31,7 +31,8 @@ const HOST: &str = "imap.163.com";
 const PORT: u16 = 993;
 const DOMAIN: &str = "@163.com";
 const WAIT_FOR: Duration = Duration::from_secs(120);
-const CHECK_EVERY: Duration = Duration::from_secs(5);
+/// Re-opening the inbox is cheap, unlike logging in again, so a short gap keeps the wait close to the mail's arrival.
+const CHECK_EVERY: Duration = Duration::from_secs(2);
 /// How often a wait looks at the cancel flag between two checks.
 const CANCEL_POLL: Duration = Duration::from_millis(250);
 /// Only mail this recent counts; an older code has most likely expired.
@@ -48,6 +49,8 @@ const CLIENT_ID: &str = r#"ID ("name" "AI Pet" "version" "1.0" "vendor" "AI Pet"
 const CONCEALED_TYPE: &str = "org.nspasteboard.ConcealedType";
 const MAX_ADDRESS_CHARS: usize = 254;
 const MAX_PASSWORD_CHARS: usize = 64;
+/// The longest text "试试能不能认出" takes. Must match `TRY_TEXT_LIMIT` in `src/components/settings/MailCodeTester.tsx`.
+const MAX_TRY_CHARS: usize = 50_000;
 
 const NOT_163: &str = "目前只支持 163 邮箱，地址要以 @163.com 结尾。";
 const BAD_PASSWORD: &str = "授权码格式不对，请重新复制再粘贴。";
@@ -55,6 +58,7 @@ const LOGIN_REFUSED: &str = "163 邮箱登录失败：授权码不对，或者�
 const NETWORK_ERROR: &str = "连不上 163 邮箱，检查一下网络。";
 const MAIL_ERROR: &str = "163 邮箱出了点问题，请稍后再试。";
 const BROKEN_ACCOUNT: &str = "邮箱设置坏了，请在设置里重新添加。";
+const TRY_TOO_LONG: &str = "内容太长了，只粘贴邮件的标题和正文就行。";
 
 type Session = imap::Session<TlsStream<TcpStream>>;
 
@@ -133,6 +137,24 @@ pub async fn mail_save_account(app: AppHandle, address: String, password: String
     })?
 }
 
+/// Runs the code rules on pasted text, for "试试能不能认出" in the settings. Reads no mail.
+#[tauri::command]
+pub fn mail_code_try(subject: String, body: String) -> Result<Value, String> {
+    try_text(&subject, &body)
+}
+
+fn try_text(subject: &str, body: &str) -> Result<Value, String> {
+    if subject.chars().count() > MAX_TRY_CHARS || body.chars().count() > MAX_TRY_CHARS {
+        return Err(TRY_TOO_LONG.into());
+    }
+    let word = mail_extract::code_word(subject, body);
+    Ok(match mail_extract::find_code(subject, body) {
+        Verdict::Code(code) => json!({ "kind": "found", "code": code, "word": word }),
+        Verdict::Unrecognized => json!({ "kind": "unrecognized", "word": word }),
+        Verdict::NotCode => json!({ "kind": "not_code" }),
+    })
+}
+
 #[tauri::command]
 pub fn mail_remove_account(app: AppHandle) -> Result<(), String> {
     crate::secrets::clear(&service(&app))?;
@@ -193,15 +215,29 @@ fn emit(app: &AppHandle, payload: Value) {
     }
 }
 
+/// Asks a wait to stop and says so at once; the wait thread notices the flag on its own time.
+fn stop_wait(app: &AppHandle, cancel: &AtomicBool) {
+    cancel.store(true, Ordering::Relaxed);
+    crate::sync_mail_code_menu(app, false);
+    emit(app, json!({ "kind": "cancelled" }));
+}
+
+/// Stops the running wait, if any. Called from the "等验证码" badge next to the pet.
+#[tauri::command]
+pub fn mail_code_cancel(app: AppHandle) {
+    let taken = lock(&app.state::<MailCodeState>().running).take();
+    if let Some(cancel) = taken {
+        stop_wait(&app, &cancel);
+    }
+}
+
 /// Starts waiting for a code, or stops the wait that is running. Called from the pet menu.
 pub fn toggle(app: &AppHandle) {
     let state = app.state::<MailCodeState>();
     let mut running = lock(&state.running);
     if let Some(cancel) = running.take() {
-        cancel.store(true, Ordering::Relaxed);
         drop(running);
-        crate::sync_mail_code_menu(app, false);
-        emit(app, json!({ "kind": "cancelled" }));
+        stop_wait(app, &cancel);
         return;
     }
     let cancel = Arc::new(AtomicBool::new(false));
@@ -303,21 +339,24 @@ fn check_inbox(app: &AppHandle, session: &mut Session, looked_at: &mut HashSet<u
         .map(|(at, uid, _)| (at, uid))
         .collect();
     fresh.sort_unstable_by(|a, b| b.cmp(a));
+    looked_at.extend(fresh.iter().map(|(_, uid)| *uid));
     let state = app.state::<MailCodeState>();
-    for (_, uid) in fresh {
-        looked_at.insert(uid);
-        if lock(&state.delivered).contains(&uid) {
-            continue;
-        }
-        let messages = session
-            .uid_fetch(uid.to_string(), "BODY.PEEK[]")
-            .map_err(|error| failure("read a message", error))?;
-        let Some(reading) = messages.iter().next().and_then(|message| message.body()).and_then(mail_extract::read_message) else {
+    fresh.retain(|(_, uid)| !lock(&state.delivered).contains(uid));
+    if fresh.is_empty() {
+        return Ok(None);
+    }
+    // One request for all of them: on the first check there can be several, and each round trip adds up.
+    let set = fresh.iter().map(|(_, uid)| uid.to_string()).collect::<Vec<_>>().join(",");
+    let messages = session.uid_fetch(set, "BODY.PEEK[]").map_err(|error| failure("read messages", error))?;
+    for (at, uid) in fresh {
+        let body = messages.iter().find(|message| message.uid == Some(uid)).and_then(|message| message.body());
+        let Some(reading) = body.and_then(mail_extract::read_message) else {
             continue;
         };
         let payload = match reading.verdict {
             Verdict::NotCode => continue,
             Verdict::Code(code) => {
+                eprintln!("Mail: found a code {}s after the mailbox got it", unix_now() - at);
                 let copied = copy(&code);
                 json!({ "kind": "found", "code": code, "sender": reading.sender, "copied": copied })
             }
@@ -348,7 +387,8 @@ fn copy(_: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{BAD_PASSWORD, NOT_163, log_in, validate};
+    use super::{BAD_PASSWORD, MAX_TRY_CHARS, NOT_163, TRY_TOO_LONG, log_in, try_text, validate};
+    use serde_json::json;
     use std::io::{Cursor, Read, Write};
 
     /// A server that answers with a fixed script and swallows whatever is sent.
@@ -378,6 +418,14 @@ a1 OK LOGIN completed\r\n\
 a2 OK ID completed\r\n";
         let server = ScriptedServer(Cursor::new(script.as_bytes().to_vec()));
         assert!(log_in(server, "someone@163.com", "ABCDEFGHIJKLMNOP").is_ok());
+    }
+
+    #[test]
+    fn says_what_the_rules_make_of_pasted_text() {
+        assert_eq!(try_text("", "Your code is: 57743."), Ok(json!({ "kind": "found", "code": "57743", "word": "your code" })));
+        assert_eq!(try_text("Your verification code", "Code: AB7KQZ"), Ok(json!({ "kind": "unrecognized", "word": "verification code" })));
+        assert_eq!(try_text("周末特惠", "满 300 减 50"), Ok(json!({ "kind": "not_code" })));
+        assert_eq!(try_text("", &"码".repeat(MAX_TRY_CHARS + 1)), Err(TRY_TOO_LONG.into()));
     }
 
     #[test]

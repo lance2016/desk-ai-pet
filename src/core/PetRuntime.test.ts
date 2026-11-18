@@ -70,19 +70,14 @@ describe("PetRuntime", () => {
     runtime.destroy();
   });
 
-  it("passes speech and badges to the view without touching stats", async () => {
+  it("passes speech to the view without touching stats", async () => {
     const { runtime } = await start();
     const said: string[] = [];
-    const badges: Array<string | null> = [];
     runtime.bus.on("pet.say", ({ text }) => said.push(text));
-    runtime.bus.on("pet.badge", ({ text }) => badges.push(text));
     const stats = runtime.state.get().stats;
     runtime.say("  早上好  ");
     runtime.say("   ");
-    runtime.setBadge("专注 25:00");
-    runtime.setBadge(" ");
     expect(said).toEqual(["早上好"]);
-    expect(badges).toEqual(["专注 25:00", null]);
     expect(runtime.state.get().stats).toBe(stats);
     runtime.destroy();
   });

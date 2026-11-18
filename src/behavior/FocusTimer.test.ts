@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FOCUS_CONFIG, FocusTimer, focusBadge, restoreFocus } from "./FocusTimer";
+import { FOCUS_CONFIG, FocusTimer, focusBadge, focusProgress, restoreFocus } from "./FocusTimer";
 
 describe("FocusTimer", () => {
   it("runs a focus round, then a rest, then stops", () => {
@@ -32,6 +32,13 @@ describe("FocusTimer", () => {
     expect(focusBadge({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs }, 1000)).toBe("专注 24:59");
     expect(focusBadge({ phase: "resting", endsAt: 5_000 }, 0)).toBe("休息 00:05");
     expect(focusBadge({ phase: "resting", endsAt: 5_000 }, 9_000)).toBe("休息 00:00");
+  });
+
+  it("measures how much of the round or the rest has passed", () => {
+    expect(focusProgress({ phase: "off", endsAt: null }, 0)).toBeNull();
+    expect(focusProgress({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs }, 0)).toBe(0);
+    expect(focusProgress({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs }, FOCUS_CONFIG.focusMs / 2)).toBe(0.5);
+    expect(focusProgress({ phase: "resting", endsAt: FOCUS_CONFIG.restMs }, FOCUS_CONFIG.restMs * 2)).toBe(1);
   });
 });
 

@@ -124,12 +124,46 @@ body {
   border: 1.5px solid #f3b44a;
   box-shadow: 0 4px 14px #c47b1a40;
   pointer-events: auto;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
   animation: speech-in 180ms ease-out, alert-nudge 4s ease-in-out 1s infinite;
 }
-.speech-bubble--alert:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+/* The whole line is one button that clicks it away; it fills the bubble so every pixel of it answers. */
+.speech-bubble__press {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: -8px -12px;
+  padding: 8px 12px;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.speech-bubble__press:focus-visible { outline: 2px solid #8874d8; outline-offset: 3px; }
+/* A question: only its buttons answer it, so it does not wiggle for attention like a reminder. */
+.speech-bubble--ask { color: var(--ink); background: #fff; border-color: #d9d0f5; box-shadow: 0 4px 14px #40366b33; animation: speech-in 180ms ease-out; }
+.speech-bubble--alert.speech-bubble--ask::after { border-color: #d9d0f5; }
+.speech-bubble--ask .speech-bubble__bell { stroke: #7a6cc9; }
+.speech-bubble__choices { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+.speech-bubble__choices button {
+  min-width: 64px;
+  padding: 3px 10px;
+  color: #4c437e;
+  background: #f5f2fd;
+  border: 1px solid #ddd5f5;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.speech-bubble__choices button:hover { background: #ece7fb; }
+.speech-bubble__choices button:active { background: #e1daf8; }
+.speech-bubble__choices button:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+.speech-bubble__choices button.is-destructive { color: #b42318; border-color: #f0c4be; background: #fff5f3; }
+.speech-bubble__choices button.is-destructive:hover { background: #fde9e5; }
+.speech-bubble__choices button.is-destructive:active { background: #fbd9d3; }
 .speech-bubble--alert::after { border-color: #f3b44a; border-width: 0 1.5px 1.5px 0; border-style: solid; }
 .speech-bubble--alert small { display: block; margin-top: 2px; color: #8a5a1c; font-size: 11px; }
 /* The room above the pet is short: a long line is cut rather than pushed off the top of the window. */
@@ -152,7 +186,8 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.status-badge {
+/* The status row at the pet's feet: one small pill per thing going on, each doing its own thing when clicked. */
+.status-row {
   position: absolute;
   z-index: 2;
   left: max(var(--visible-left), var(--stage-side));
@@ -161,7 +196,20 @@ body {
   width: max-content;
   max-width: calc(100% - var(--visible-left) - var(--visible-right) - 16px);
   margin-inline: auto;
-  padding: 3px 9px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+.app--docked-left .status-row { left: calc(var(--visible-left) + 8px); right: auto; margin: 0; justify-content: flex-start; }
+.app--docked-right .status-row { right: calc(var(--visible-right) + 8px); left: auto; margin: 0; justify-content: flex-end; }
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 9px;
   color: #4c437e;
   background: rgba(255, 255, 255, .95);
   border: 1px solid #ded8f0;
@@ -171,13 +219,32 @@ body {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  pointer-events: auto;
   cursor: pointer;
 }
-.status-badge:hover { border-color: #c9bdf0; }
-.status-badge:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
-.app--docked-left .status-badge { left: calc(var(--visible-left) + 8px); right: auto; margin: 0; }
-.app--docked-right .status-badge { right: calc(var(--visible-right) + 8px); left: auto; margin: 0; }
+button.status-chip:hover { border-color: #c9bdf0; background: #fff; }
+button.status-chip:active { background: #f3f0fc; }
+.status-chip:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+/* Only says how things are, so it does not look pressable. */
+.status-chip--label { cursor: default; color: #6c67a0; background: rgba(243, 240, 252, .92); border-color: transparent; box-shadow: none; }
+.status-chip--focus, .status-chip--rest { padding-left: 5px; }
+.status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
+.status-chip__ring circle { fill: none; stroke-width: 2.5; }
+.status-chip__ring-track { stroke: #ebe6fa; }
+.status-chip__ring-fill { stroke: #8874d8; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
+.status-chip--rest .status-chip__ring-track { stroke: #dcf1e4; }
+.status-chip--rest .status-chip__ring-fill { stroke: #3f9e6a; }
+.status-chip--waiting { padding-left: 6px; padding-right: 5px; }
+.status-chip__spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid #ddd5f5;
+  border-top-color: #8874d8;
+  border-radius: 50%;
+  animation: chip-spin 900ms linear infinite;
+}
+.status-chip__close { width: 12px; height: 12px; margin-left: 1px; fill: none; stroke: #8f88b8; stroke-width: 1.6; stroke-linecap: round; }
+button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
+@keyframes chip-spin { to { transform: rotate(360deg); } }
 
 /* Behind the Dock or off the bottom of the screen, the bar moves up over the pet's feet. */
 .dock-area {
@@ -360,4 +427,7 @@ body {
   .quick-chat {
     animation: none;
   }
+  /* Still shows it is waiting, just without spinning. */
+  .status-chip__spinner { animation: none; border-color: #8874d8; }
+  .status-chip__ring-fill { transition: none; }
 }

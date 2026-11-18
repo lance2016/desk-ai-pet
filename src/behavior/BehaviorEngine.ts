@@ -2,8 +2,8 @@ import type { ActionController } from "../actions/ActionController";
 import { IDLE_ACTION, type ActionRegistry } from "../actions/ActionRegistry";
 import type { EventBus } from "../core/EventBus";
 import type { PetState } from "../core/PetState";
-import type { ChatPhase, DockSide, MailCodeUpdate, PetEvents, PetStats } from "../types";
-import { FOCUS_CONFIG, focusBadge, type FocusTimer } from "./FocusTimer";
+import type { AlertChoice, ChatPhase, DockSide, MailCodeUpdate, PetEvents, PetStats, StatusChip } from "../types";
+import { FOCUS_CONFIG, focusBadge, focusProgress, type FocusTimer } from "./FocusTimer";
 
 /** Played while the user carries the pet around. */
 const DRAG_ACTION = "drag";
@@ -44,12 +44,25 @@ const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION]);
 /** What the pet says around a focus round. Shown in the speech bubble. */
 const FOCUS_LINES = {
   started: `好，我陪你专注 ${FOCUS_CONFIG.focusMs / 60_000} 分钟！`,
-  confirmStop: "再点一次就停止专注",
+  askStop: (minutes: number) => minutes > 0 ? `已经专注 ${minutes} 分钟了，现在停下，这轮就不算了。` : "刚开始专注，要停下吗？",
+  askRest: (minutes: number) => `还能休息 ${minutes} 分钟，要提前开始下一轮吗？`,
   stopped: "好，先停一下，随时再开始。",
   finished: "专注完成！辛苦啦，起来活动一下吧～",
   interrupted: "电脑刚才睡着了，这轮专注先不算，随时再开始。",
   restOver: "休息好啦，要不要再来一轮？",
 };
+
+/** The answers on the standing line when the user asks to stop a round, or clicks the rest countdown. */
+const FOCUS_CHOICES = {
+  stop: [
+    { label: "继续专注", event: "pet.alert_dismissed" },
+    { label: "停止专注", event: "pet.focus_stopped", destructive: true },
+  ],
+  rest: [
+    { label: "继续休息", event: "pet.alert_dismissed" },
+    { label: "开始专注", event: "pet.focus_toggled" },
+  ],
+} satisfies Record<string, AlertChoice[]>;
 
 /** A line names this many reminders at most; more are counted, and a click opens the panel. */
 const MAX_NAMED_REMINDERS = 2;
@@ -63,7 +76,7 @@ const REMINDER_LINES = {
 
 /** What the pet says about "查收验证码". The native side has already copied a found code. */
 const MAIL_CODE_LINES = {
-  badge: "等验证码…",
+  badge: "等验证码",
   found: (code: string, sender: string) => `验证码 ${code}，已复制（${sender}）`,
   notCopied: (code: string, sender: string) => `验证码 ${code}（${sender}），没能复制，手动输一下吧`,
   unrecognized: (sender: string) => `收到一封验证码邮件（${sender}），但我没认出码，去邮箱看一眼吧`,
@@ -85,8 +98,8 @@ export const BEHAVIOR_CONFIG = {
   } satisfies Record<string, Partial<PetStats>>,
   /** A reminder announced this long after its time is worded as a late one. */
   reminderLateMs: 10 * 60_000,
-  /** A second press of the focus button within this time stops the round. */
-  confirmStopMs: 4_000,
+  /** A question about the focus round goes away unanswered after this long, as if "继续" was picked. */
+  focusPromptMs: 15_000,
   /** After a greeting the pet goes back behind the edge it came from, once this has passed. */
   backToEdgeAfterGreetingMs: 10_000,
   /** After the reminder line is dismissed, the same, a moment later. */
@@ -147,7 +160,8 @@ export class BehaviorEngine {
   private unsubscribers: Array<() => void> = [];
   private nextIdleActionAt = 0;
   private dockSide: DockSide | null = null;
-  private shownBadge: string | null = null;
+  /** The status row last sent, to send it only when it changed. */
+  private shownBadge = "[]";
   /** Due reminders held back while it is quiet. */
   private waitingReminders = 0;
   /** True while "查收验证码" waits for mail; shown on the badge. */
@@ -156,12 +170,14 @@ export class BehaviorEngine {
   private alerted: DueReminder[] = [];
   /** "Focus done" waits on the standing line too, after any reminders. */
   private focusNotice: string | null = null;
+  /** What came of a wait for a mail code: the user asked for it, so it stays up, ahead of reminders. */
+  private codeNotice: string | null = null;
+  /** A question about the focus round, ahead of everything else on the standing line: the user just asked. */
+  private focusPrompt: { text: string; choices: AlertChoice[]; until: number } | null = null;
   /** The edge the pet left to call the user, and when to go back behind it. */
   private returnTo: { side: DockSide; at: number | null } | null = null;
   /** An action asked for while the pet slept, played once it is awake and idle. */
   private pendingAction: { id: string; onAccepted?: () => void } | null = null;
-  /** When the focus button was last pressed during a round, to ask before stopping. */
-  private stopAskedAt: number | null = null;
   /** The part of a conversation going on, and when to stop waiting for news of it. */
   private chat: { phase: keyof typeof BEHAVIOR_CONFIG.chatHoldMs; until: number } | null = null;
   /** A pose this engine put up that others may play too (think); tells its own from theirs. */
@@ -190,6 +206,7 @@ export class BehaviorEngine {
       bus.on("pet.wake_up", () => this.onWakeRequested()),
       bus.on("pet.focus_toggled", () => this.onFocusToggled()),
       bus.on("pet.focus_stopped", () => this.onFocusStopped()),
+      bus.on("pet.focus_badge_clicked", () => this.onFocusBadgeClicked()),
       bus.on("pet.alert_dismissed", () => this.dismissAlert()),
       // Asked to chat from the dock or the shortcut: come to the user as for a click.
       bus.on("pet.chat_requested", () => { this.rouse(); }),
@@ -220,6 +237,7 @@ export class BehaviorEngine {
     const { state, controller } = this.deps;
     this.advanceFocus(now);
     this.advanceReminders(now);
+    if (this.focusPrompt && now >= this.focusPrompt.until) this.clearFocusPrompt();
     this.showBadge(now);
     const idling = () => state.get().activity === "awake" && controller.current?.id === IDLE_ACTION;
     if (idling() && this.pendingAction) {
@@ -233,7 +251,7 @@ export class BehaviorEngine {
     const snapshot = state.get();
     // In a conversation or a focus round the pet keeps the user company: no wandering off, no dozing.
     if (this.inConversation(now) || this.heldPose(now) !== null) return;
-    if (this.returnTo?.at != null && now >= this.returnTo.at && this.alerted.length === 0 && this.focusNotice === null) {
+    if (this.returnTo?.at != null && now >= this.returnTo.at && !this.hasStandingLine()) {
       const side = this.returnTo.side;
       this.returnTo = null;
       const result = controller.request(PEEK_ACTION);
@@ -350,27 +368,31 @@ export class BehaviorEngine {
     this.showBadge(now);
     switch (update.kind) {
       case "waiting":
+        // A new wait: the answer to the last one is stale.
+        this.showCodeNotice(null);
+        return;
       case "cancelled":
         return;
       case "found":
+        // It stays out until the line is clicked away, so the code is not missed.
         this.callOut(now, CODE_FOUND_ACTION);
-        if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs };
-        this.say(update.copied ? MAIL_CODE_LINES.found(update.code, update.sender) : MAIL_CODE_LINES.notCopied(update.code, update.sender));
+        this.showCodeNotice(update.copied ? MAIL_CODE_LINES.found(update.code, update.sender) : MAIL_CODE_LINES.notCopied(update.code, update.sender));
         return;
       case "unrecognized":
         this.react(CONFUSED_ACTION);
-        this.say(MAIL_CODE_LINES.unrecognized(update.sender));
+        this.showCodeNotice(MAIL_CODE_LINES.unrecognized(update.sender));
         return;
       case "timeout":
         this.react(CONFUSED_ACTION);
-        this.say(MAIL_CODE_LINES.timeout);
+        this.showCodeNotice(MAIL_CODE_LINES.timeout);
         return;
       case "unset":
+        // The settings window opens at the same time, so a passing line is enough.
         this.say(MAIL_CODE_LINES.unset);
         return;
       case "failed":
         this.react(CONFUSED_ACTION);
-        this.say(update.message);
+        this.showCodeNotice(update.message);
         return;
     }
   }
@@ -480,17 +502,11 @@ export class BehaviorEngine {
     // A sleeping pet wakes up and starts the round; the tick settles it into the focus pose.
     if (state.get().activity === "sleeping") this.wakeUp();
     if (focus.get().phase === "focusing") {
-      // Stopping throws the round away, so the first press only asks.
-      if (this.stopAskedAt === null || now - this.stopAskedAt > BEHAVIOR_CONFIG.confirmStopMs) {
-        this.stopAskedAt = now;
-        this.say(FOCUS_LINES.confirmStop);
-        return;
-      }
-      this.stopAskedAt = null;
-      this.endFocus();
-      this.say(FOCUS_LINES.stopped);
+      // Stopping throws the round away, so a press only asks, with buttons that do not run out.
+      this.askAboutFocus(now);
       return;
     }
+    this.clearFocusPrompt();
     this.clearFocusNotice();
     if (this.dockSide) {
       this.setDock(null);
@@ -507,14 +523,53 @@ export class BehaviorEngine {
     const { state, focus } = this.deps;
     state.markInteraction(Date.now());
     const wasFocusing = focus.get().phase === "focusing";
-    this.stopAskedAt = null;
+    this.clearFocusPrompt();
     this.endFocus();
     if (wasFocusing) this.say(FOCUS_LINES.stopped);
+  }
+
+  /** The countdown at the pet's feet: asks whether to stop the round, or to cut the rest short. */
+  private onFocusBadgeClicked(): void {
+    const now = Date.now();
+    this.deps.state.markInteraction(now);
+    this.askAboutFocus(now);
+  }
+
+  private askAboutFocus(now: number): void {
+    const { phase, endsAt } = this.deps.focus.get();
+    if (phase === "off" || endsAt === null) return;
+    const until = now + BEHAVIOR_CONFIG.focusPromptMs;
+    if (phase === "focusing") {
+      const minutes = Math.floor((FOCUS_CONFIG.focusMs - (endsAt - now)) / 60_000);
+      this.focusPrompt = { text: FOCUS_LINES.askStop(minutes), choices: FOCUS_CHOICES.stop, until };
+    } else {
+      const minutes = Math.max(1, Math.ceil((endsAt - now) / 60_000));
+      this.focusPrompt = { text: FOCUS_LINES.askRest(minutes), choices: FOCUS_CHOICES.rest, until };
+    }
+    this.showAlert(now);
+  }
+
+  private clearFocusPrompt(): void {
+    if (this.focusPrompt === null) return;
+    this.focusPrompt = null;
+    this.showAlert(Date.now());
+  }
+
+  private showCodeNotice(text: string | null): void {
+    if (text === this.codeNotice) return;
+    this.codeNotice = text;
+    this.showAlert(Date.now());
+  }
+
+  private hasStandingLine(): boolean {
+    return this.focusPrompt !== null || this.codeNotice !== null || this.alerted.length > 0 || this.focusNotice !== null;
   }
 
   private advanceFocus(now: number): void {
     const { state, controller, focus } = this.deps;
     const transition = focus.advance(now);
+    // A question about the phase that just ended no longer applies.
+    if (transition !== null) this.clearFocusPrompt();
     if (transition === "focus_finished") {
       // Finishing counts as being with the user, so the rest does not start with a nap.
       state.markInteraction(now);
@@ -558,11 +613,20 @@ export class BehaviorEngine {
     }
   }
 
-  /** Puts the reminders, or else the focus notice, on the standing line. */
+  /** Puts a question about the focus round, a mail code, the reminders, or else the focus notice on the standing line. */
   private showAlert(now: number): void {
+    const { bus } = this.deps;
+    if (this.focusPrompt) {
+      bus.emit("pet.alert", { text: this.focusPrompt.text, icon: "timer", choices: this.focusPrompt.choices });
+      return;
+    }
+    if (this.codeNotice) {
+      bus.emit("pet.alert", { text: this.codeNotice, icon: "mail" });
+      return;
+    }
     const shown = this.alerted;
     if (shown.length === 0) {
-      this.deps.bus.emit("pet.alert", { text: this.focusNotice });
+      bus.emit("pet.alert", this.focusNotice ? { text: this.focusNotice, icon: "timer" } : { text: null });
       return;
     }
     const late = shown.some((reminder) => reminder.remindAt !== null && now - reminder.remindAt > BEHAVIOR_CONFIG.reminderLateMs);
@@ -574,13 +638,22 @@ export class BehaviorEngine {
     this.deps.bus.emit("pet.alert", { text: late ? REMINDER_LINES.late(texts) : REMINDER_LINES.onTime(texts) });
   }
 
+  /** Takes down what the standing line shows; what was waiting behind it comes up next. */
   private dismissAlert(): void {
-    if (this.alerted.length === 0 && this.focusNotice === null) return;
     const now = Date.now();
-    if (this.alerted.length > 0) this.deps.reminders?.markReminded(this.alerted.map((reminder) => reminder.id), now);
+    if (this.focusPrompt) {
+      this.clearFocusPrompt();
+      return;
+    }
+    if (this.codeNotice) {
+      this.codeNotice = null;
+    } else {
+      if (this.alerted.length === 0 && this.focusNotice === null) return;
+      if (this.alerted.length > 0) this.deps.reminders?.markReminded(this.alerted.map((reminder) => reminder.id), now);
+      this.alerted = [];
+      this.focusNotice = null;
+    }
     this.deps.state.markInteraction(now);
-    this.alerted = [];
-    this.focusNotice = null;
     this.showAlert(now);
     if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterAlertMs };
   }
@@ -613,22 +686,24 @@ export class BehaviorEngine {
     const { controller, focus } = this.deps;
     if (focus.get().phase === "off") return;
     focus.stop();
+    this.clearFocusPrompt();
     this.showBadge(Date.now());
     if (controller.current?.id === FOCUS_ACTION) controller.stop();
   }
 
   private showBadge(now: number): void {
-    const doNotDisturb = this.deps.holdsReminders?.(now) ?? false;
-    const parts = [
-      focusBadge(this.deps.focus.get(), now),
-      this.waitingReminders > 0 ? REMINDER_LINES.badge(this.waitingReminders) : null,
-      doNotDisturb ? REMINDER_LINES.doNotDisturb : null,
-      this.waitingForCode ? MAIL_CODE_LINES.badge : null,
-    ];
-    const badge = parts.filter((part) => part !== null).join(" · ") || null;
-    if (badge === this.shownBadge) return;
-    this.shownBadge = badge;
-    this.deps.bus.emit("pet.badge", { text: badge });
+    const focus = this.deps.focus.get();
+    const countdown = focusBadge(focus, now);
+    const progress = focusProgress(focus, now);
+    const chips: StatusChip[] = [];
+    if (countdown !== null && progress !== null) chips.push({ id: focus.phase === "resting" ? "rest" : "focus", label: countdown, progress });
+    if (this.waitingReminders > 0) chips.push({ id: "reminders", label: REMINDER_LINES.badge(this.waitingReminders) });
+    if (this.deps.holdsReminders?.(now) ?? false) chips.push({ id: "dnd", label: REMINDER_LINES.doNotDisturb });
+    if (this.waitingForCode) chips.push({ id: "mail_code", label: MAIL_CODE_LINES.badge });
+    const key = JSON.stringify(chips);
+    if (key === this.shownBadge) return;
+    this.shownBadge = key;
+    this.deps.bus.emit("pet.badge", { chips });
   }
 
   private say(text: string): void {

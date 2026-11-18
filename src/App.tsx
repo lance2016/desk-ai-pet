@@ -117,8 +117,8 @@ export default function App({ packId }: AppProps) {
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
-  const alertRef = useRef<HTMLButtonElement>(null);
-  const badgeRef = useRef<HTMLButtonElement>(null);
+  const alertRef = useRef<HTMLDivElement>(null);
+  const badgeRef = useRef<HTMLDivElement>(null);
   /** Bumped when the standing bubble or the badge comes or goes; their boxes go into the clickable area. */
   const [speechLayout, setSpeechLayout] = useState(0);
   const onSpeechLayout = useCallback(() => setSpeechLayout((count) => count + 1), []);

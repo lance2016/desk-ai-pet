@@ -24,6 +24,8 @@
   --red-wash: rgba(224, 56, 62, .1);
   --green: #2f9e6b;
   --green-wash: rgba(47, 158, 107, .12);
+  --orange: #c86f00;
+  --orange-wash: rgba(232, 137, 12, .12);
   --scrim: rgba(28, 24, 40, .45);
   --control-shadow: 0 .5px 1.5px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .05);
   --radius-group: 10px;
@@ -62,6 +64,8 @@
     --red-wash: rgba(255, 105, 97, .14);
     --green: #4cc38a;
     --green-wash: rgba(76, 195, 138, .16);
+    --orange: #ffb340;
+    --orange-wash: rgba(255, 179, 64, .14);
     --scrim: rgba(0, 0, 0, .55);
     --control-shadow: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
     color-scheme: dark;
@@ -416,6 +420,23 @@ button.dock-row__body { cursor: pointer; }
 .ai-settings__actions a { margin-left: auto; color: var(--accent-strong); font-size: 12px; }
 .ai-settings__actions .ai-settings__link { margin-left: auto; padding: 0 4px; color: var(--accent-strong); background: none; box-shadow: none; font-size: 12px; }
 .mail-settings .ai-settings__key + label { margin-top: 10px; }
+.mail-tester label { display: block; margin: 0 0 6px; font-weight: 500; }
+.mail-tester label span { color: var(--label-2); font-weight: 400; }
+.mail-tester input, .mail-tester textarea { box-sizing: border-box; display: block; width: 100%; padding: 5px 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.mail-tester input { height: 26px; margin-bottom: 10px; }
+.mail-tester textarea { height: 120px; resize: vertical; font-size: 12px; line-height: 1.55; }
+.mail-tester__hint { margin: 10px 0 0; }
+/* The answer: a tinted row whose colour says how it went, the same row for every outcome. */
+.mail-tester__result { margin: 10px 0 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; color: var(--label-2); background: var(--fill); border-radius: var(--radius-row); font-size: 11px; line-height: 1.6; }
+.mail-tester__result strong { color: var(--label); font-size: 12px; font-weight: 600; }
+.mail-tester__result.is-found { background: var(--green-wash); }
+.mail-tester__result.is-found strong { color: var(--green); }
+.mail-tester__result.is-unrecognized { background: var(--orange-wash); }
+.mail-tester__result.is-unrecognized strong { color: var(--orange); }
+.mail-tester__result.is-error { color: var(--red); background: var(--red-wash); }
+.mail-tester__code { font-variant-numeric: tabular-nums; letter-spacing: .04em; user-select: text; -webkit-user-select: text; }
+.mail-tester__spot { margin-top: 4px; color: var(--label-2); quotes: none; overflow-wrap: anywhere; }
+.mail-tester__spot mark { padding: 0 2px; color: var(--label); background: var(--green-wash); border-radius: 3px; box-shadow: inset 0 -1.5px 0 var(--green); }
 .mail-steps { margin: 12px 0 0; padding-left: 18px; color: var(--label-2); font-size: 11px; line-height: 1.6; }
 .ai-settings__status { padding: 8px 10px; background: var(--fill); border-radius: var(--radius-row); color: var(--label) !important; }
 .ai-data-details { margin-top: 10px; padding: 0 12px; }

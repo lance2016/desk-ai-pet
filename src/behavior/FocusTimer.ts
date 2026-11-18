@@ -88,3 +88,10 @@ export function focusBadge(snapshot: FocusSnapshot, now: number): string | null 
   const minutes = String(Math.floor(seconds / 60)).padStart(2, "0");
   return `${PHASE_LABELS[snapshot.phase]} ${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
+
+/** How much of the running round or rest has passed, from 0 to 1, or null when off. */
+export function focusProgress(snapshot: FocusSnapshot, now: number): number | null {
+  if (snapshot.phase === "off" || snapshot.endsAt === null) return null;
+  const length = snapshot.phase === "focusing" ? FOCUS_CONFIG.focusMs : FOCUS_CONFIG.restMs;
+  return Math.min(1, Math.max(0, 1 - (snapshot.endsAt - now) / length));
+}

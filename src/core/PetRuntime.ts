@@ -213,11 +213,6 @@ export class PetRuntime {
     return true;
   }
 
-  /** Shows a small status next to the pet, or hides it with `null`. */
-  setBadge(text: string | null): void {
-    this.bus.emit("pet.badge", { text: text?.trim() || null });
-  }
-
   /**
    * Shows an action's new picture. The action may also be one the user just
    * made or deleted, so the user's actions are read again first.

@@ -128,6 +128,24 @@ export type MailCodeUpdate =
   | { kind: "unset" }
   | { kind: "failed"; message: string };
 
+/** One part of the status row at the pet's feet. Each part is its own button, or a plain label for "dnd". */
+export type StatusChipId = "focus" | "rest" | "reminders" | "dnd" | "mail_code";
+
+export interface StatusChip {
+  id: StatusChipId;
+  label: string;
+  /** How much of the focus round or the rest has passed, from 0 to 1. */
+  progress?: number;
+}
+
+/** A button on the standing line. Clicking it reports `event`; the engine decides what follows. */
+export interface AlertChoice {
+  label: string;
+  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled";
+  /** Throws something away, such as the running focus round. */
+  destructive?: boolean;
+}
+
 export interface PetEvents {
   "pet.clicked": { region: HitRegion };
   /** A long press on the pet, or "摸摸头" in the pet menu. */
@@ -155,8 +173,10 @@ export interface PetEvents {
   "pet.wake_up": Record<string, never>;
   /** An action from the dock or the action library. A sleeping pet wakes up first, then plays it. */
   "pet.action_requested": { id: string };
-  /** Starts a focus round, or stops the running one (asking once first). */
+  /** Starts a focus round, or asks on the standing line before stopping the running one. */
   "pet.focus_toggled": Record<string, never>;
+  /** The focus or rest countdown at the pet's feet was clicked. */
+  "pet.focus_badge_clicked": Record<string, never>;
   /** Stops the round or the rest right away, as the menu's "停止专注" / "结束休息" does. */
   "pet.focus_stopped": Record<string, never>;
   /** A focus round ran to its end. */
@@ -171,12 +191,14 @@ export interface PetEvents {
   /**
    * A line that stays up until the user dismisses it, such as due reminders; `null` takes it down.
    * `more`: the line names only some reminders, so a click should open the reminders panel.
+   * `icon`: what the line is about; a bell when left out.
+   * `choices`: the line asks something and only these buttons answer it; a click elsewhere on it does nothing.
    */
-  "pet.alert": { text: string | null; more?: boolean };
+  "pet.alert": { text: string | null; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[] };
   /** The user clicked the standing line away. */
   "pet.alert_dismissed": Record<string, never>;
-  /** A small status shown next to the pet, such as a focus countdown; `null` hides it. */
-  "pet.badge": { text: string | null };
+  /** The status row at the pet's feet, such as a focus countdown; empty hides it. */
+  "pet.badge": { chips: StatusChip[] };
   "pet.action.started": { actionId: string };
   "pet.action.completed": { actionId: string };
 }

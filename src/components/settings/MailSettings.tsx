@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { mailCodePlatform } from "../../platform/mailCode";
 import { systemPlatform } from "../../platform/system";
 import { ConfirmButton } from "../ConfirmButton";
+import { MailCodeTester } from "./MailCodeTester";
 
 /** Where IMAP is switched on and the authorization code is made: the 163 web mail. */
 const MAIL_163 = "https://mail.163.com/";
@@ -75,6 +76,8 @@ export function MailSettings() {
       </>}
       {status && <p className="ai-settings__status" role="status">{status}</p>}
     </article>
-    <p className="settings-footnote">还没收到就接着等，最多 2 分钟；等的时候菜单里那一项会变成「停止等验证码」。目前只支持 163 邮箱。</p>
+    <p className="settings-footnote">还没收到就接着等，最多 2 分钟；想停下就点宠物脚下的「等验证码」，或菜单里的「停止等验证码」。目前只支持 163 邮箱。</p>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>试试能不能认出</h2><p>某封邮件没被认出来时，把它贴在这里，看看是哪一步没过。不用连邮箱，内容不保存。</p></div>
+    <MailCodeTester />
   </div>;
 }

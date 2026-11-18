@@ -150,15 +150,16 @@ public/pets/girl-default/    默认资源包
 | `pet.wooden_fish` | 无 | `PetControls` |
 | `pet.sleep` | 无 | `PetControls` |
 | `pet.wake_up` | 无 | `PetControls` |
-| `pet.focus_toggled` | 无，开始一轮专注或停止当前专注 | `PetControls` |
+| `pet.focus_toggled` | 无，开始一轮专注；专注中则在常驻气泡里问要不要停 | `PetControls`、`PetSpeech`（气泡按钮） |
+| `pet.focus_badge_clicked` | 无，点了脚下的专注或休息倒计时 | `PetSpeech` |
 | `pet.action.started` | `{ actionId }` | `ActionController` |
 | `pet.action.completed` | `{ actionId }` | `ActionController` |
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
 | `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
 | `pet.greeting` | `{ text }`，宠物出来打招呼并说这句话 | `PetRuntime.greet()` |
-| `pet.alert` | `{ text \| null }`，常驻气泡（到点提醒），`null` 表示收起 | `BehaviorEngine` |
+| `pet.alert` | `{ text \| null, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件 | `BehaviorEngine` |
 | `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
-| `pet.badge` | `{ text \| null }`，角色旁的状态徽标，`null` 表示隐藏 | `PetRuntime.setBadge()`、`BehaviorEngine` |
+| `pet.badge` | `{ chips }`，角色脚下的一排状态小块（专注/休息倒计时带进度、提醒数、勿扰、等验证码），空数组表示隐藏 | `BehaviorEngine` |
 
 单击宠物的意思是“我要跟你说话”：`useQuickChat` 收到 `pet.clicked` 就打开输入条，`BehaviorEngine` 只负责叫醒和从边上出来，不播反应、不加属性。摸摸头不抢这个入口，改由 `pet.petted` 触发：`PetStage` 按下后计时 500 毫秒，期间没松手也没移动就发 `pet.petted`，之后松手不再算点击，移动仍然开始拖动。事件里仍带 `region`，但不再区分头部和身体。
 
@@ -220,7 +221,7 @@ public/pets/girl-default/    默认资源包
 - 限制在屏幕内、判断贴边、贴边对齐都按角色区域计算，窗口的留白可以伸出屏幕。几何计算是 `stageGeometry.ts` 里的纯函数。
 - 窗口伸出屏幕的宽度通过 `petWindow.offscreenInsets()` 读出，写进 `--visible-left`、`--visible-right`。气泡和浮动快捷图标只在屏幕可见的范围内布局，宠物贴边时快捷图标会移到仍可见的一侧。
 - 探头时气泡及状态徽标靠近对应屏幕边缘，气泡尾巴指向角色；贴边状态变化时重新计算提醒气泡的可点击区域。
-- 普通气泡和徽标只显示，不接收鼠标，不进入命中区域表。浮动快捷图标和提醒用的常驻气泡显示时加入命中区域表；快捷图标逐个加入，避免透明舞台上的整块区域挡住桌面点击。
+- 普通气泡只显示，不接收鼠标，不进入命中区域表。浮动快捷图标、常驻气泡和脚下的状态行显示时加入命中区域表；状态行里每一块各管各的：倒计时发 `pet.focus_badge_clicked`，「提醒 N」打开提醒面板，「等验证码」调 `mail_code_cancel` 取消，「勿扰」只是标签。快捷图标逐个加入，避免透明舞台上的整块区域挡住桌面点击。
 - `SpeechQueue` 一次只显示一句，按字数决定停留时间（2.5～8 秒），最多排队 3 句，超出时丢掉最早排队的。
 
 ## 专注陪伴
@@ -233,7 +234,8 @@ public/pets/girl-default/    默认资源包
 - 专注期间不播放随机小动作，也不会睡着。点击、喂食照常有反应，结束后回到 `focus` 姿势。
 - 专注结束：播放 `happy`，被接受时心情 +5、亲密 +2，然后进入休息并改为显示休息倒计时。
 - 休息结束：提醒可以再来一轮，徽标隐藏。
-- 专注中再按一次按钮会停止；按“休息”让宠物睡觉也会停止；睡着时专注按钮无效。
+- 专注中再按按钮或点倒计时，不直接停，而是在常驻气泡里问（`focusPrompt`），按钮是「继续专注」（`pet.alert_dismissed`）和「停止专注」（`pet.focus_stopped`）。没有连点、没有时限；`focusPromptMs`（15 秒）没回答就按继续收起。休息中点倒计时问「继续休息 / 开始专注」。阶段一变（结束、停止、开始）问题就作废。菜单的停止项直接停；按“休息”让宠物睡觉也会停止。
+- 常驻气泡同时只显示一件事，顺序是：专注提问 → 验证码结果 → 到点提醒 → 专注完成。点掉最上面的，下一件才出来。
 - 专注结束和休息结束都算一次互动，避免刚结束就因为“太久没互动”睡着。
 
 ## 提醒和备忘
@@ -330,11 +332,10 @@ public/pets/girl-default/    默认资源包
 
 ## 为 AI 预留的入口
 
-外部模块通过三个入口影响宠物，都不能修改属性：
+外部模块通过这几个入口影响宠物，都不能修改属性：
 
 - `requestAction(id)`：请求播放动作，规则见下。
 - `say(text)`：在气泡里说一句话。
-- `setBadge(text | null)`：显示或隐藏状态徽标。
 - `sayProactively(text)`：宠物主动说的话，安静时或距上一句不到 20 分钟时丢弃，返回是否显示。
 - `greet(text)`：和 `sayProactively` 规则相同，但宠物会醒来、从贴边处出来再说。
 
@@ -461,12 +462,12 @@ AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附�
 
 ## 查收验证码
 
-入口是右键菜单和托盘共用的「查收验证码」。等邮件的循环在原生层（`mail_code.rs`）：菜单点一下开始，再点一下（这时叫「停止等验证码」）取消。开始时立即发 `waiting`，之后用一次 IMAP 登录撑完整个等待，每 5 秒重新 `EXAMINE INBOX` 看一次，最多 2 分钟。每 5 秒重新登录可能触发 163 的风控，所以不这样做。
+入口是右键菜单和托盘共用的「查收验证码」。等邮件的循环在原生层（`mail_code.rs`）：菜单点一下开始，再点一下（这时叫「停止等验证码」）取消；宠物脚下的「等验证码」小块通过 `mail_code_cancel` 命令也能取消。开始时立即发 `waiting`，之后用一次 IMAP 登录撑完整个等待，每 2 秒重新 `EXAMINE INBOX` 看一次，最多 2 分钟。频繁重新登录可能触发 163 的风控，所以不这样做。
 
 - **只读。** 用 `EXAMINE` 打开收件箱，正文用 `BODY.PEEK[]` 取，邮件不会被标成已读。
 - **163 要先报名字。** 登录后必须先发 IMAP `ID` 命令（RFC 2971），否则打开收件箱时返回 `Unsafe Login`。curl 每次只能发一条 IMAP 命令，插不进 `ID`，所以这里用 `imap` crate 自己建连接，也因此不走系统代理（`proxy.rs` 只管 curl）。
-- **挑哪一封。** 只看收件箱最新 10 封里 10 分钟内收到、不到 512 KB 的邮件，从新到旧逐封下载解析。同一次等待里每封只下载一次；已经给过用户的邮件（`delivered`，只在内存里）不再给，所以「重新发送」后再查收会等新的那封。
-- **认码。** `mail_extract.rs` 先看标题、再看正文（HTML 由 `mail-parser` 转成纯文本，GBK 需要它的 `full_encoding`）。邮件必须含「验证码」「verification code」这类词才算；码是离「码」「code」最近的 4～8 位数字（`123 456`、`G-123456` 也认），日期、时间、金额、手机号排除在外。都找不到时，取单独占一行的数字。是验证码邮件但认不出码时报 `unrecognized`。
+- **挑哪一封。** 只看收件箱最新 10 封里 10 分钟内收到、不到 512 KB 的邮件，用一条 `UID FETCH` 一起下载，再从新到旧解析。同一次等待里每封只下载一次；已经给过用户的邮件（`delivered`，只在内存里）不再给，所以「重新发送」后再查收会等新的那封。
+- **认码。** `mail_extract.rs` 先看标题、再看正文（HTML 由 `mail-parser` 转成纯文本，GBK 需要它的 `full_encoding`）。邮件必须含「验证码」「verification code」「your code」这类词才算；码是离「码」「code」最近的 4～8 位数字（`123 456`、`G-123456` 也认），日期、时间、金额、手机号排除在外。都找不到时，取单独占一行的数字。是验证码邮件但认不出码时报 `unrecognized`。设置页的「试试能不能认出」（`MailCodeTester.tsx`）把粘贴的标题和正文交给 `mail_code_try` 命令，走同一套 `find_code`，另外用 `code_word` 说出是哪个词判断成验证码邮件；不读邮箱。前端只负责在原文里标出认出的码（`locateCode`）。
 - **复制。** 原生层写系统剪贴板，同时加 `org.nspasteboard.ConcealedType`，让剪贴板工具不记进历史。
-- **宠物的反应。** `App` 把原生事件转成总线上的 `pet.mail_code`，由 `BehaviorEngine` 处理：等待时徽标加一段「等验证码…」；查到时用 `callOut` 叫醒、从边上出来、开心一下并说出验证码，10 秒后回到边上；认不出、超时、失败时困惑一下并说原因。这是用户主动要的结果，用 `say()`，不受勿扰限制。宠物被隐藏时，原生层在发结果前先把它显示出来。没配邮箱时报 `unset`，`App` 打开「设置 → 邮箱」。
+- **宠物的反应。** `App` 把原生事件转成总线上的 `pet.mail_code`，由 `BehaviorEngine` 处理：等待时状态行加一块「等验证码」；查到时用 `callOut` 叫醒、从边上出来、开心一下，把验证码放进常驻气泡（`codeNotice`），点掉后才回到边上；认不出、超时、失败时困惑一下，原因也放进常驻气泡。新的一次等待开始时收起上一次的结果。这是用户主动要的结果，不受勿扰限制。宠物被隐藏时，原生层在发结果前先把它显示出来。没配邮箱时报 `unset`，`App` 打开「设置 → 邮箱」。
 - **账号。** 地址和授权码一起以 JSON 存在钥匙串（服务名 `<identifier>.mail.163`）。保存前先登录并打开一次收件箱，成功才保存。

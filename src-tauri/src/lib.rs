@@ -749,6 +749,8 @@ pub fn run() {
             mail_code::mail_account,
             mail_code::mail_save_account,
             mail_code::mail_remove_account,
+            mail_code::mail_code_cancel,
+            mail_code::mail_code_try,
             mimo::mimo_speech_cancel,
             mimo::mimo_key_status,
             mimo::mimo_save_key,

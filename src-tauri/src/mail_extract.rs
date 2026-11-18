@@ -5,7 +5,7 @@
 use mail_parser::MessageParser;
 
 /// An email counts only if its subject or body has one of these (lowercase).
-const CODE_WORDS: [&str; 13] = [
+const CODE_WORDS: [&str; 15] = [
     "验证码",
     "校验码",
     "动态码",
@@ -19,6 +19,9 @@ const CODE_WORDS: [&str; 13] = [
     "one-time code",
     "one-time password",
     "passcode",
+    // Telegram and others: "Your code is: 57743".
+    "your code",
+    "code is",
 ];
 /// The code sits next to one of these; every word in `CODE_WORDS` contains one.
 const NEAR_WORDS: [&str; 2] = ["code", "码"];
@@ -65,11 +68,19 @@ pub fn read_message(raw: &[u8]) -> Option<Reading> {
     Some(Reading { sender, verdict: find_code(subject, &body) })
 }
 
+/// The first word in `CODE_WORDS` the subject or body has, which makes it a verification email.
+pub fn code_word(subject: &str, body: &str) -> Option<&'static str> {
+    find_word(&normalize(subject), &normalize(body))
+}
+
+fn find_word(subject: &str, body: &str) -> Option<&'static str> {
+    CODE_WORDS.into_iter().find(|word| subject.contains(word) || body.contains(word))
+}
+
 pub fn find_code(subject: &str, body: &str) -> Verdict {
     let subject = normalize(subject);
     let body = normalize(body);
-    let is_code_mail = CODE_WORDS.iter().any(|word| subject.contains(word) || body.contains(word));
-    if !is_code_mail {
+    if find_word(&subject, &body).is_none() {
         return Verdict::NotCode;
     }
     let subject: Vec<char> = subject.chars().collect();
@@ -207,7 +218,7 @@ fn own_line(text: &[char]) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Verdict, find_code, read_message};
+    use super::{Verdict, code_word, find_code, read_message};
 
     fn code(subject: &str, body: &str) -> Verdict {
         find_code(subject, body)
@@ -248,6 +259,13 @@ mod tests {
     }
 
     #[test]
+    fn finds_a_code_named_only_as_your_code() {
+        let body = "Dear lance,\n\nYour code is: 57743. Use it to access your account.\n\nIf you didn't request this, simply ignore this message.\n\nYours,\nThe Telegram Team";
+        assert_eq!(code("", body), found("57743"));
+        assert_eq!(code("Your login code", "Here is your code 830117"), found("830117"));
+    }
+
+    #[test]
     fn takes_a_code_alone_on_its_line() {
         assert_eq!(code("你的登录验证码", "请在页面中输入：\n\n   739201  \n\n如非本人操作请忽略。这是一封很长很长很长很长很长很长很长很长很长很长的说明"), found("739201"));
     }
@@ -255,6 +273,14 @@ mod tests {
     #[test]
     fn says_so_when_a_verification_email_has_no_readable_code() {
         assert_eq!(code("Your verification code", "Your verification code is AB7KQZ."), Verdict::Unrecognized);
+    }
+
+    #[test]
+    fn names_the_word_that_marks_a_verification_email() {
+        assert_eq!(code_word("", "Your code is: 57743."), Some("your code"));
+        assert_eq!(code_word("网易邮箱验证码", ""), Some("验证码"));
+        assert_eq!(code_word("Verification Code", ""), Some("verification code"));
+        assert_eq!(code_word("Black Friday", "Save 50%"), None);
     }
 
     #[test]
