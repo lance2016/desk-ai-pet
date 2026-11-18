@@ -3,6 +3,7 @@ import { translationPlatform } from "../../platform/translation";
 import { quickChatShortcutLabel, recordShortcut } from "../../preferences/QuickChatPreferences";
 import { DEFAULT_TRANSLATION_SHORTCUT, loadTranslationShortcut, saveTranslationShortcut } from "../../preferences/TranslationShortcut";
 import { loadSelectionFloat, saveSelectionFloat } from "../../preferences/SelectionFloat";
+import { ShortcutField } from "./ShortcutField";
 
 export function TranslationShortcutSettings({ onError }: { onError: (message: string | null) => void }) {
   const [shortcut, setShortcut] = useState(loadTranslationShortcut);
@@ -39,5 +40,35 @@ export function TranslationShortcutSettings({ onError }: { onError: (message: st
     window.addEventListener("keydown", key, true); window.addEventListener("blur", blur);
     return () => { window.removeEventListener("keydown", key, true); window.removeEventListener("blur", blur); };
   }, [recording, shortcut]);
-  return <article className="settings-card"><div className="settings-row"><div className="settings-row__body"><strong>划词翻译快捷键</strong><span>{recording ? hint : "选中文字后按快捷键打开翻译；读取选区需要在 macOS 辅助功能中允许 AI Pet。未授权时可以粘贴。"}</span></div><kbd className={recording ? "shortcut-key is-recording" : "shortcut-key"}>{recording ? "请按键…" : shortcut ? quickChatShortcutLabel(shortcut) : "已关闭"}</kbd><div className="settings-button-row"><button type="button" className="settings-button settings-button--small" onClick={() => void translationPlatform.open().catch((error: unknown) => { console.error("Could not open translation", error); onError("没能打开翻译，请再试一次。"); })}>打开翻译</button><button type="button" className="settings-button settings-button--small" onClick={() => recording ? (setRecording(false), void apply(shortcut)) : void start()}>{recording ? "取消" : "录制…"}</button>{shortcut && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(null)} title="不再响应这个快捷键，可以随时重新录制">停用</button>}{shortcut !== DEFAULT_TRANSLATION_SHORTCUT && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(DEFAULT_TRANSLATION_SHORTCUT)}>恢复默认</button>}</div></div><div className="settings-row"><div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后在鼠标旁显示翻译按钮；仅在点击翻译后发送内容。{selectionFloat && trusted === false ? "请先允许辅助功能权限。" : ""}</span></div>{selectionFloat && trusted === false && <button type="button" className="settings-button settings-button--small" onClick={() => void translationPlatform.openAccessibilitySettings().catch((error: unknown) => { console.error("Could not open accessibility settings", error); onError("请在系统设置中打开辅助功能。"); })}>打开辅助功能</button>}<button type="button" role="switch" aria-checked={selectionFloat} aria-label="划词浮钮" className={selectionFloat ? "toggle is-on" : "toggle"} onClick={() => void toggleSelectionFloat()} /></div></article>;
+  const openTranslation = () => void translationPlatform.open().catch((error: unknown) => { console.error("Could not open translation", error); onError("没能打开翻译，请再试一次。"); });
+  const openAccessibility = () => void translationPlatform.openAccessibilitySettings().catch((error: unknown) => { console.error("Could not open accessibility settings", error); onError("请在系统设置中打开辅助功能。"); });
+  return (
+    <article className="settings-card">
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>快捷键</strong><span>{recording ? hint : "在任何应用里选中文字后按下，打开翻译窗口"}</span></div>
+        <ShortcutField
+          name="划词翻译快捷键"
+          label={shortcut ? quickChatShortcutLabel(shortcut) : null}
+          recording={recording}
+          onRecord={() => (recording ? (setRecording(false), void apply(shortcut)) : void start())}
+          onClear={() => void apply(null)}
+          onRestore={shortcut !== DEFAULT_TRANSLATION_SHORTCUT ? () => void apply(DEFAULT_TRANSLATION_SHORTCUT) : undefined}
+        />
+      </div>
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译按钮；点了才会发送</span></div>
+        <button type="button" role="switch" aria-checked={selectionFloat} aria-label="划词浮钮" className={selectionFloat ? "toggle is-on" : "toggle"} onClick={() => void toggleSelectionFloat()}><span /></button>
+      </div>
+      {trusted === false && (
+        <div className="settings-row">
+          <div className="settings-row__body"><strong>辅助功能权限</strong><span>没有授权时读不到选中的文字，只能在翻译窗口里粘贴</span></div>
+          <button type="button" className="settings-button settings-button--small" onClick={openAccessibility}>打开系统设置…</button>
+        </div>
+      )}
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>翻译窗口</strong><span>也可以先打开窗口，再粘贴原文</span></div>
+        <button type="button" className="settings-button settings-button--small" onClick={openTranslation}>打开翻译</button>
+      </div>
+    </article>
+  );
 }

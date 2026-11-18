@@ -58,11 +58,12 @@ export function MailSettings() {
         {address && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "更换"}</button>}
       </div>
       {expanded && <>
-        <form onSubmit={(event) => void save(event)}>
+        <form className="mail-form" onSubmit={(event) => void save(event)}>
           <label htmlFor="mail-address">邮箱地址</label>
-          <div className="ai-settings__key"><input id="mail-address" type="email" autoComplete="off" spellCheck={false} value={draftAddress} onChange={(event) => setDraftAddress(event.currentTarget.value)} placeholder="name@163.com" /></div>
+          <input id="mail-address" type="email" autoComplete="off" spellCheck={false} value={draftAddress} onChange={(event) => setDraftAddress(event.currentTarget.value)} placeholder="name@163.com" />
           <label htmlFor="mail-password">授权码</label>
-          <div className="ai-settings__key"><input id="mail-password" type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.currentTarget.value)} placeholder="粘贴 163 给的授权码，不是登录密码" /><button type="submit" className="is-primary" disabled={busy || !draftAddress.trim() || !password.trim()}>{busy ? "连接中…" : "连接并保存"}</button></div>
+          <input id="mail-password" type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.currentTarget.value)} placeholder="粘贴 163 给的授权码，不是登录密码" />
+          <button type="submit" className="is-primary" disabled={busy || !draftAddress.trim() || !password.trim()}>{busy ? "连接中…" : "连接并保存"}</button>
         </form>
         <ol className="mail-steps">
           <li>登录网页版 163 邮箱，打开「设置 → POP3/SMTP/IMAP」，开启「IMAP/SMTP 服务」。</li>
@@ -78,7 +79,9 @@ export function MailSettings() {
       {status && <p className="ai-settings__status" role="status">{status}</p>}
     </article>
     <p className="settings-footnote">还没收到就接着等，最多 2 分钟；想停下就点宠物脚下的「等验证码」，或菜单里的「停止等验证码」。目前只支持 163 邮箱。</p>
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>试试能不能认出</h2><p>某封邮件没被认出来时，把它贴在这里，看看是哪一步没过。不用连邮箱，内容不保存。</p></div>
-    <MailCodeTester />
+    <details className="ai-disclosure ai-disclosure--standalone mail-try">
+      <summary><span><strong>试试能不能认出</strong><small>某封邮件没被认出来时，把它贴进来，看看是哪一步没过。不用连邮箱，内容不保存。</small></span></summary>
+      <MailCodeTester />
+    </details>
   </>;
 }

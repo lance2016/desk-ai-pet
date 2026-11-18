@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { petWindow } from "../../platform/petWindow";
 import { DEFAULT_QUICK_CHAT_SHORTCUT, loadQuickChatShortcut, quickChatShortcutLabel, recordShortcut, saveQuickChatShortcut, type QuickChatShortcut } from "../../preferences/QuickChatPreferences";
+import { ShortcutField } from "./ShortcutField";
 
 const HINTS = {
   recording: "按下新的组合键，要包含 ⌃ 或 ⌘。按 Esc 取消。",
@@ -62,12 +63,14 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
           <strong>快捷键</strong>
           <span>{recording ? hint : "在任何应用里按一下，宠物脚下就会出现输入框；点一下宠物也可以"}</span>
         </div>
-        <kbd className={recording ? "shortcut-key is-recording" : "shortcut-key"}>{recording ? "请按键…" : shortcut ? quickChatShortcutLabel(shortcut) : "已关闭"}</kbd>
-        <div className="settings-button-row" role="group" aria-label="快速聊天快捷键">
-          <button type="button" className="settings-button settings-button--small" onClick={() => (recording ? stop(shortcut) : void startRecording())}>{recording ? "取消" : "录制…"}</button>
-          {shortcut && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(null)} title="不再响应这个快捷键，可以随时重新录制">停用</button>}
-          {shortcut !== DEFAULT_QUICK_CHAT_SHORTCUT && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(DEFAULT_QUICK_CHAT_SHORTCUT)}>恢复默认</button>}
-        </div>
+        <ShortcutField
+          name="快速聊天快捷键"
+          label={shortcut ? quickChatShortcutLabel(shortcut) : null}
+          recording={recording}
+          onRecord={() => (recording ? stop(shortcut) : void startRecording())}
+          onClear={() => void apply(null)}
+          onRestore={shortcut !== DEFAULT_QUICK_CHAT_SHORTCUT ? () => void apply(DEFAULT_QUICK_CHAT_SHORTCUT) : undefined}
+        />
       </div>
     </article>
   );
