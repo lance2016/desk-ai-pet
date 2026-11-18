@@ -31,6 +31,8 @@ const itemSchema = z.object({
   doneAt: z.number().nullable(),
   /** When the pet reminded the user, so a reminder fires once. */
   remindedAt: z.number().nullable(),
+  /** "稍后提醒" on the reminder line: the occurrence on show comes up again at this time. */
+  snoozedUntil: z.number().optional(),
 });
 const listSchema = z.array(itemSchema).max(AGENDA_LIMITS.items);
 /** Saved data may still hold plain to-dos without a time, from before every reminder needed one. */
@@ -150,7 +152,7 @@ export function editAgendaItem(items: readonly AgendaItem[], id: string, edit: A
     const remindAt = unchanged ? item.remindAt : startOf(edit.remindAt, repeat, now, calendar);
     // A finished one-off moved to a time still to come is a new task: it is open again.
     const reopened = !unchanged && repeat === null && remindAt > now;
-    const timing = unchanged ? { remindAt, remindedAt: item.remindedAt } : { remindAt, remindedAt: null, ...(reopened ? { doneAt: null } : {}) };
+    const timing = unchanged ? { remindAt, remindedAt: item.remindedAt } : { remindAt, remindedAt: null, snoozedUntil: undefined, ...(reopened ? { doneAt: null } : {}) };
     return itemSchema.parse({ ...item, text: edit.text, repeat, ...timing });
   });
 }
@@ -159,6 +161,12 @@ export function editAgendaItem(items: readonly AgendaItem[], id: string, edit: A
 export function restoreAgendaItem(items: readonly AgendaItem[], removed: AgendaItem): AgendaItem[] {
   if (items.some((item) => item.id === removed.id) || items.length >= AGENDA_LIMITS.items) return [...items];
   return [...items, removed];
+}
+
+/** The occurrence on show was put off, that time has come, and the user has not answered it since. */
+function snoozeOver(item: AgendaItem, occurrence: number, now: number): boolean {
+  const until = item.snoozedUntil;
+  return until !== undefined && until > occurrence && until <= now && (item.remindedAt ?? 0) < until;
 }
 
 /**
@@ -170,7 +178,7 @@ export function dueReminders(items: readonly AgendaItem[], now: number, calendar
     const occurrence = occurrenceAt(item, now, calendar);
     if (occurrence === null || occurrence > now || occurrenceDone(item, occurrence)) return [];
     const announced = item.repeat === null ? item.remindedAt !== null : item.remindedAt !== null && item.remindedAt >= occurrence;
-    return announced ? [] : [{ ...item, remindAt: occurrence }];
+    return announced && !snoozeOver(item, occurrence, now) ? [] : [{ ...item, remindAt: occurrence }];
   });
 }
 
@@ -188,6 +196,11 @@ export function shownAt(item: AgendaItem, now: number, calendar: HolidayCalendar
 
 export function markReminded(items: readonly AgendaItem[], ids: readonly string[], now: number): AgendaItem[] {
   return items.map((item) => (ids.includes(item.id) ? { ...item, remindedAt: now } : item));
+}
+
+/** Counts the reminders as seen now and has them come up again at `until`. */
+export function snoozeReminders(items: readonly AgendaItem[], ids: readonly string[], now: number, until: number): AgendaItem[] {
+  return items.map((item) => (ids.includes(item.id) ? { ...item, remindedAt: now, snoozedUntil: until } : item));
 }
 
 /** Open items by the time they show, then finished ones. */

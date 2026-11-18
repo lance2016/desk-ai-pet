@@ -164,6 +164,11 @@ body {
 .speech-bubble__choices button.is-destructive { color: #b42318; border-color: #f0c4be; background: #fff5f3; }
 .speech-bubble__choices button.is-destructive:hover { background: #fde9e5; }
 .speech-bubble__choices button.is-destructive:active { background: #fbd9d3; }
+/* Buttons on a reminder take the bubble's warm colors, and hold still under the cursor. */
+.speech-bubble--remind:hover { animation-play-state: paused; }
+.speech-bubble--remind .speech-bubble__choices button { color: #6b3a12; background: #fff1cf; border-color: #f0c77a; }
+.speech-bubble--remind .speech-bubble__choices button:hover { background: #ffe8b3; }
+.speech-bubble--remind .speech-bubble__choices button:active { background: #ffdd99; }
 .speech-bubble--alert::after { border-color: #f3b44a; border-width: 0 1.5px 1.5px 0; border-style: solid; }
 .speech-bubble--alert small { display: block; margin-top: 2px; color: #8a5a1c; font-size: 11px; }
 /* The room above the pet is short: a long line is cut rather than pushed off the top of the window. */

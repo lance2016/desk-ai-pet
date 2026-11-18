@@ -141,7 +141,7 @@ export interface StatusChip {
 /** A button on the standing line. Clicking it reports `event`; the engine decides what follows. */
 export interface AlertChoice {
   label: string;
-  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled";
+  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled" | "pet.reminders_done" | "pet.reminders_snoozed";
   /** Throws something away, such as the running focus round. */
   destructive?: boolean;
 }
@@ -162,6 +162,8 @@ export interface PetEvents {
   "pet.mail_code": MailCodeUpdate;
   /** The cursor came onto the pet. */
   "pet.hovered": Record<string, never>;
+  /** When the user last touched the keyboard or mouse anywhere, polled from the system now and then. */
+  "pet.user_active": { at: number };
   "pet.drag_started": Record<string, never>;
   /** `dockSide` is the screen edge the pet was dropped against, if any. */
   "pet.drag_ended": { dockSide: DockSide | null };
@@ -197,6 +199,10 @@ export interface PetEvents {
   "pet.alert": { text: string | null; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[] };
   /** The user clicked the standing line away. */
   "pet.alert_dismissed": Record<string, never>;
+  /** "完成" on the reminder line: tick off the reminders it names. */
+  "pet.reminders_done": Record<string, never>;
+  /** "稍后提醒" on the reminder line: bring its reminders up again a little later. */
+  "pet.reminders_snoozed": Record<string, never>;
   /** The status row at the pet's feet, such as a focus countdown; empty hides it. */
   "pet.badge": { chips: StatusChip[] };
   "pet.action.started": { actionId: string };

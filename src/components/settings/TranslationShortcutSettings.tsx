@@ -56,7 +56,7 @@ export function TranslationShortcutSettings({ onError }: { onError: (message: st
         />
       </div>
       <div className="settings-row">
-        <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译按钮</span></div>
+        <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译、解释、总结、润色按钮</span></div>
         <button type="button" role="switch" aria-checked={selectionFloat} aria-label="划词浮钮" className={selectionFloat ? "toggle is-on" : "toggle"} onClick={() => void toggleSelectionFloat()}><span /></button>
       </div>
       {trusted === false && (

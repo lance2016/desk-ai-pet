@@ -37,6 +37,8 @@ const TAKE_KEYBOARD_COMMAND = "take_pet_keyboard";
 const RELEASE_KEYBOARD_COMMAND = "release_pet_keyboard";
 /** "摸摸头" in the pet menu. Must match PAT_EVENT in src-tauri/src/lib.rs. */
 const PAT_EVENT = "pet://pat";
+/** "今日回顾" in the pet menu. Must match REVIEW_EVENT in src-tauri/src/lib.rs. */
+const REVIEW_EVENT = "pet://review";
 /** Must match REVEALED_EVENT, FOCUS_EVENT and the commands in src-tauri/src/lib.rs. */
 const REVEALED_EVENT = "pet://revealed";
 const FOCUS_EVENT = "pet://focus";
@@ -311,6 +313,11 @@ export const petWindow = {
   /** Calls `handler` when "摸摸头" is picked in the pet menu. */
   onPatRequested(handler: () => void): () => void {
     return subscribe<null>(PAT_EVENT, () => handler());
+  },
+
+  /** Calls `handler` when "今日回顾" is picked in the pet menu. */
+  onReviewRequested(handler: () => void): () => void {
+    return subscribe<null>(REVIEW_EVENT, () => handler());
   },
 
   /** Calls `handler` when the quick chat shortcut is pressed. */

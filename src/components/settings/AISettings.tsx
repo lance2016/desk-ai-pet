@@ -8,7 +8,7 @@ import { loadChatModel } from "../../preferences/ChatModel";
 import { ModelSettings } from "./ModelSettings";
 import { QuickChatSettings } from "./QuickChatSettings";
 import { ConfirmButton } from "../ConfirmButton";
-import { chatContext } from "../../agenda/chatTools";
+import { chatContext, NOTHING_SAVED } from "../../agenda/chatTools";
 import { requestPreferences } from "../../preferences/ChatPreferences";
 import { CHAT_INSTRUCTIONS_LIMIT, loadChatInstructions, saveChatInstructions } from "../../preferences/ChatInstructions";
 import type { ChatPreview } from "../../platform/chat";
@@ -55,7 +55,8 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   };
   const showPreview = async () => {
     setPreviewError("");
-    try { setPreview(await chatPlatform.preview(requestPreferences(packId, persona), chatContext(Date.now(), actions))); }
+    // Saved items reach the model only when it looks them up, so the preview leaves them out.
+    try { setPreview(await chatPlatform.preview(requestPreferences(packId, persona), chatContext(Date.now(), actions, NOTHING_SAVED))); }
     catch (reason) { console.error("Could not preview chat request", reason); setPreviewError("没能生成预览，请在桌面应用中重试。"); }
   };
   const test = async () => {
@@ -115,9 +116,10 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
           <div className="ai-capability-list">
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">◷</span><div><strong>创建提醒</strong><p>“每个工作日 11 点提醒我点外卖”</p><small>支持单次和重复提醒</small></div></div>
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">✎</span><div><strong>保存备忘</strong><p>“帮我记一下，下次买咖啡豆”</p><small>没有指定时间的内容会存进备忘</small></div></div>
+            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">⌕</span><div><strong>查提醒和备忘、写日报</strong><p>“我今天还有什么事”“帮我写今天的日报”</p><small>问到时才去看；右键宠物也有「今日回顾」</small></div></div>
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">✦</span><div><strong>做动作</strong><p>“挥挥手”</p><small>也可能根据聊天内容做出反应</small></div></div>
           </div>
-          <p className="settings-footnote">现在只能新建，还不能查看或修改已有的提醒和备忘</p>
+          <p className="settings-footnote">能新建和查看，还不能修改已有的提醒和备忘</p>
         </section>
 
         <section className="ai-section" aria-labelledby="ai-data-heading">

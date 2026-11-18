@@ -3,7 +3,7 @@ import { translationPlatform } from "./platform/translation";
 import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
-import { dueReminders, loadAgenda, markReminded, subscribeAgenda, updateAgenda, type AgendaItem } from "./agenda/AgendaStore";
+import { dueReminders, loadAgenda, markReminded, setAgendaItemDone, snoozeReminders, subscribeAgenda, updateAgenda, type AgendaItem } from "./agenda/AgendaStore";
 import { agendaChange, hasNewId } from "./agenda/changes";
 import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
@@ -16,6 +16,7 @@ import { Companion } from "./behavior/Companion";
 import { loadCompanionPreferences } from "./preferences/CompanionPreferences";
 import { loadGreetingRecord, saveGreetingRecord } from "./greeting/GreetingSchedule";
 import { chatPlatform } from "./platform/chat";
+import { loadThreads, recordThread, saveThreads } from "./chat/ChatThreads";
 import { holidayPlatform } from "./platform/holidays";
 import { requestPreferences } from "./preferences/ChatPreferences";
 import { isOnboarded, markOnboarded } from "./preferences/UserProfile";
@@ -49,6 +50,8 @@ const DEFAULT_SCALE = 1;
 /** Set once the pet has told a new user how to play with it. */
 const INTRO_KEY = "ai-pet:intro-tips:v1";
 const INTRO_LINES = ["点我一下就能聊天", "按住我是摸摸头，右键还有更多"];
+/** What "今日回顾" in the pet menu asks in a new chat; the model looks up today's record to answer it. */
+const REVIEW_REQUEST = "帮我回顾一下今天，写成能直接贴进日报的几条。";
 
 /** Set when a character could not be loaded and the default one stands in; the pet says so once it is up. */
 let fallbackNotice: string | null = null;
@@ -60,7 +63,8 @@ const HIT_MASK_DELAY_MS = 30;
 const DISPLAY_SETTLE_MS = 500;
 /** How often to see whether a morning or evening greeting is due. */
 const GREETING_CHECK_MS = 15_000;
-const COMPANION_CHECK_MS = 30_000;
+/** How often to read how long the keyboard and mouse have been idle: for the pet's naps and the companion's care. */
+const ACTIVITY_CHECK_MS = 10_000;
 /** How often to see whether a missing year of holiday data can be downloaded; it is looked up once a day. */
 const HOLIDAY_CHECK_MS = 60 * 60_000;
 
@@ -79,15 +83,19 @@ function cachedAgenda(): AgendaItem[] {
   return agendaCache;
 }
 
+function changeAgenda(change: (items: AgendaItem[]) => AgendaItem[], failure: string): void {
+  try {
+    agendaCache = updateAgenda(change);
+  } catch (error) {
+    console.error(failure, error);
+  }
+}
+
 const REMINDERS: ReminderSource = {
   due: (now) => dueReminders(cachedAgenda(), now),
-  markReminded: (ids, now) => {
-    try {
-      agendaCache = updateAgenda((items) => markReminded(items, ids, now));
-    } catch (error) {
-      console.error("Failed to save that a reminder was shown", error);
-    }
-  },
+  markReminded: (ids, now) => changeAgenda((items) => markReminded(items, ids, now), "Failed to save that a reminder was shown"),
+  complete: (ids, now) => changeAgenda((items) => ids.reduce((list, id) => setAgendaItemDone(list, id, true, now), items), "Failed to tick off reminders"),
+  snooze: (ids, until, now) => changeAgenda((items) => snoozeReminders(items, ids, now, until), "Failed to snooze reminders"),
 };
 const isQuiet = (now: number) => isQuietAt(loadQuietPreferences(), now);
 /** Reminders the user timed come even in quiet hours; only "勿扰" holds them back. */
@@ -297,12 +305,16 @@ export default function App({ packId }: AppProps) {
       pending = true;
       try {
         const idle = await systemPlatform.idleSeconds();
-        if (active && idle !== null) companion.check(Date.now(), idle, loadCompanionPreferences(), runtime.focus.get().phase === "focusing");
+        if (active && idle !== null) {
+          const now = Date.now();
+          runtime.bus.emit("pet.user_active", { at: now - idle * 1000 });
+          companion.check(now, idle, loadCompanionPreferences(), runtime.focus.get().phase === "focusing");
+        }
       } catch (error) { console.warn("Could not check system activity", error); }
       finally { pending = false; }
     };
     void check();
-    const timer = setInterval(() => void check(), COMPANION_CHECK_MS);
+    const timer = setInterval(() => void check(), ACTIVITY_CHECK_MS);
     return () => { active = false; clearInterval(timer); };
   }, [runtime]);
 
@@ -340,6 +352,20 @@ export default function App({ packId }: AppProps) {
   useEffect(() => petWindow.onRevealed(() => {
     petWindow.constrainToMonitor().then(refreshInsets).catch((error: unknown) => console.warn("Could not keep the pet on screen", error));
   }), [refreshInsets]);
+
+  // "今日回顾" in the pet menu: a new chat that asks for it, answered in the chat window.
+  useEffect(() => petWindow.onReviewRequested(() => {
+    try {
+      const loaded = loadThreads(packId);
+      // Unreadable history is not overwritten: the chat window opens and says so.
+      if (!loaded.valid) { void petWindow.openChat().catch((error: unknown) => console.error("Failed to open chat", error)); return; }
+      const id = crypto.randomUUID();
+      saveThreads(packId, recordThread(loaded.threads, id, [{ role: "user", content: REVIEW_REQUEST }], Date.now()));
+      void petWindow.openChat(id, true).catch((error: unknown) => console.error("Failed to open chat for the review", error));
+    } catch (error) {
+      console.error("Could not start today's review", error);
+    }
+  }), [packId]);
 
   // "摸摸头" in the pet menu pats the pet like a long press does.
   useEffect(() => {

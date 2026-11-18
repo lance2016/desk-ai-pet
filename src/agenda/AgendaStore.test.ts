@@ -19,6 +19,7 @@ import {
   dropTimelessAgenda,
   setAgendaItemDone,
   shownAt,
+  snoozeReminders,
   sortAgenda,
   toTimeInput,
   type AgendaItem,
@@ -106,6 +107,21 @@ describe("reminders", () => {
     expect(dueReminders(items, NOON).map((entry) => entry.id)).toEqual(["due"]);
     const reminded = markReminded(items, ["due"], NOON);
     expect(dueReminders(reminded, NOON)).toEqual([]);
+  });
+
+  it("come back once a snooze is over, until answered again", () => {
+    const snoozed = snoozeReminders([item({ remindAt: NOON - MINUTE })], ["a"], NOON, NOON + 10 * MINUTE);
+    expect(dueReminders(snoozed, NOON + 9 * MINUTE)).toEqual([]);
+    expect(dueReminders(snoozed, NOON + 10 * MINUTE).map((entry) => entry.remindAt)).toEqual([NOON - MINUTE]);
+    expect(dueReminders(markReminded(snoozed, ["a"], NOON + 11 * MINUTE), NOON + 12 * MINUTE)).toEqual([]);
+    expect(dueReminders(setAgendaItemDone(snoozed, "a", true, NOON + 11 * MINUTE), NOON + 12 * MINUTE)).toEqual([]);
+  });
+
+  it("forget a snooze when the time is changed", () => {
+    const snoozed = snoozeReminders([item({ remindAt: NOON - MINUTE })], ["a"], NOON, NOON + 10 * MINUTE);
+    const moved = editAgendaItem(snoozed, "a", { text: "开会", remindAt: NOON + 60 * MINUTE }, NOON + MINUTE);
+    expect(dueReminders(moved, NOON + 10 * MINUTE)).toEqual([]);
+    expect(dueReminders(moved, NOON + 60 * MINUTE).map((entry) => entry.remindAt)).toEqual([NOON + 60 * MINUTE]);
   });
 });
 
@@ -240,6 +256,14 @@ describe("repeating reminders", () => {
     const reminded = markReminded(items, ["t"], at(11, 16, 11, 31));
     expect(dueReminders(reminded, at(11, 16, 18))).toEqual([]);
     expect(dueReminders(reminded, at(11, 17, 11)).map((entry) => entry.remindAt)).toEqual([at(11, 17, 11)]);
+  });
+
+  it("let a snooze run out with its own day", () => {
+    const snoozed = snoozeReminders([takeout()], ["t"], at(11, 16, 11, 1), at(11, 16, 11, 11));
+    expect(dueReminders(snoozed, at(11, 16, 11, 11)).map((entry) => entry.remindAt)).toEqual([at(11, 16, 11)]);
+    const answered = markReminded(snoozed, ["t"], at(11, 16, 11, 12));
+    expect(dueReminders(answered, at(11, 17, 11)).map((entry) => entry.remindAt)).toEqual([at(11, 17, 11)]);
+    expect(dueReminders(answered, at(11, 17, 10))).toEqual([]);
   });
 
   it("skip holidays and ring on make-up working days", () => {

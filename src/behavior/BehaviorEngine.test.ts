@@ -250,6 +250,42 @@ describe("passing reactions", () => {
     expect(state.get().activity).toBe("sleeping");
   });
 
+  it("stays up while the user works at the computer, and dozes off once they leave", () => {
+    const { bus, state, renderer, passSteps } = reacting();
+    for (let report = 0; report < 60; report += 1) {
+      bus.emit("pet.user_active", { at: Date.now() - 2_000 });
+      passSteps(10_000);
+    }
+    expect(state.get().activity).toBe("awake");
+    bus.emit("pet.user_active", { at: Date.now() });
+    passSteps(BEHAVIOR_CONFIG.sleepAfterIdleMs - 1_000);
+    expect(state.get().activity).toBe("awake");
+    expect(renderer.played.filter((id) => id === "yawn")).toHaveLength(1);
+    passSteps(1_000);
+    expect(state.get().activity).toBe("sleeping");
+  });
+
+  it("wakes up when the user is back at the computer", () => {
+    const { bus, state, renderer, passSteps } = reacting();
+    bus.emit("pet.user_active", { at: Date.now() });
+    passSteps(BEHAVIOR_CONFIG.sleepAfterIdleMs);
+    expect(state.get().activity).toBe("sleeping");
+    // The first reading after it dozed off still dates from before.
+    bus.emit("pet.user_active", { at: Date.now() - BEHAVIOR_CONFIG.sleepAfterIdleMs });
+    expect(state.get().activity).toBe("sleeping");
+    passSteps(60_000);
+    bus.emit("pet.user_active", { at: Date.now() });
+    expect(state.get().activity).toBe("awake");
+    expect(renderer.last).toBe("wake_up");
+  });
+
+  it("sleeps on when the user told it to, even while they work", () => {
+    const { bus, state } = reacting();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.user_active", { at: Date.now() + 1_000 });
+    expect(state.get().activity).toBe("sleeping");
+  });
+
   it("waves with a greeting", () => {
     const { bus, controller } = reacting();
     bus.emit("pet.greeting", { text: "早上好！" });
@@ -761,12 +797,19 @@ describe("focus companion", () => {
 });
 
 /** Reminders kept in memory, announced once like the real agenda. */
-function fakeReminders(items: DueReminder[]): ReminderSource & { reminded: string[] } {
+function fakeReminders(items: DueReminder[]): ReminderSource & { reminded: string[]; done: string[]; snoozed: Map<string, number> } {
   const reminded: string[] = [];
+  const done: string[] = [];
+  const snoozed = new Map<string, number>();
+  const asleep = (id: string, now: number) => (snoozed.get(id) ?? -Infinity) > now;
   return {
     reminded,
-    due: (now) => items.filter((item) => item.remindAt !== null && item.remindAt <= now && !reminded.includes(item.id)),
+    done,
+    snoozed,
+    due: (now) => items.filter((item) => item.remindAt !== null && item.remindAt <= now && !reminded.includes(item.id) && !done.includes(item.id) && !asleep(item.id, now)),
     markReminded: (ids) => reminded.push(...ids),
+    complete: (ids) => done.push(...ids),
+    snooze: (ids, until) => ids.forEach((id) => snoozed.set(id, until)),
   };
 }
 
@@ -873,6 +916,55 @@ describe("reminders", () => {
     bus.on("pet.alert", (alert) => shown.push(alert));
     pass(0);
     expect(shown).toEqual([{ text: "别忘了：开会、喝水 等 3 件", more: true }]);
+  });
+
+  it("offers to tick off or put off the reminders it names", () => {
+    const one = setup({ reminders: fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]) });
+    const shown: Array<PetEvents["pet.alert"]> = [];
+    one.bus.on("pet.alert", (alert) => shown.push(alert));
+    one.pass(0);
+    expect(shown[0].choices?.map((choice) => [choice.label, choice.event])).toEqual([["10 分钟后", "pet.reminders_snoozed"], ["完成", "pet.reminders_done"]]);
+
+    const two = setup({ reminders: fakeReminders(["开会", "喝水"].map((text) => ({ id: text, text, remindAt: Date.now() }))) });
+    two.bus.on("pet.alert", (alert) => shown.push(alert));
+    two.pass(0);
+    expect(shown[1].choices?.[1].label).toBe("都完成");
+  });
+
+  it("ticks off the reminders on the line when asked", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
+    const { bus, pass } = setup({ reminders });
+    const shown = alerts(bus);
+    pass(0);
+    bus.emit("pet.reminders_done", {});
+    expect(reminders.done).toEqual(["r1"]);
+    expect(shown).toEqual(["到点啦：开会", null]);
+    pass(60 * 60_000);
+    expect(shown).toHaveLength(2);
+  });
+
+  it("puts the reminders off and brings them up again, worded as late", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
+    const { bus, said, pass } = setup({ reminders });
+    const shown = alerts(bus);
+    pass(0);
+    pass(1_000);
+    bus.emit("pet.reminders_snoozed", {});
+    expect(reminders.snoozed.get("r1")).toBe(Date.now() + BEHAVIOR_CONFIG.snoozeMs);
+    expect(said).toEqual(["好，10 分钟后再叫你"]);
+    expect(shown).toEqual(["到点啦：开会", null]);
+    pass(BEHAVIOR_CONFIG.snoozeMs);
+    expect(shown).toEqual(["到点啦：开会", null, "别忘了：开会"]);
+  });
+
+  it("leaves the reminders alone while another line covers them", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() + 1_000 }]);
+    const { bus, pass } = setup({ reminders });
+    bus.emit("pet.focus_toggled", {});
+    pass(1_000);
+    bus.emit("pet.focus_badge_clicked", {});
+    bus.emit("pet.reminders_done", {});
+    expect(reminders.done).toEqual([]);
   });
 
   it("goes back behind the edge it came from once the line is dismissed", () => {

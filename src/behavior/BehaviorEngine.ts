@@ -72,7 +72,14 @@ const REMINDER_LINES = {
   many: (texts: string[], count: number) => `别忘了：${texts.join("、")} 等 ${count} 件`,
   badge: (count: number) => `提醒 ${count}`,
   doNotDisturb: "勿扰",
+  snoozed: (minutes: number) => `好，${minutes} 分钟后再叫你`,
 };
+
+/** The answers on a line naming one or two reminders. A longer line opens the panel instead: it does not show them all. */
+const reminderChoices = (count: number): AlertChoice[] => [
+  { label: `${BEHAVIOR_CONFIG.snoozeMs / 60_000} 分钟后`, event: "pet.reminders_snoozed" },
+  { label: count > 1 ? "都完成" : "完成", event: "pet.reminders_done" },
+];
 
 /** What the pet says about "查收验证码". The native side has already copied a found code. */
 const MAIL_CODE_LINES = {
@@ -89,7 +96,10 @@ export const BEHAVIOR_CONFIG = {
   idleCategory: "idle",
   /** Shortest and longest wait between two random idle actions. */
   idleActionIntervalMs: { min: 6_000, max: 14_000 },
-  /** The pet falls asleep after this long without interaction. */
+  /**
+   * The pet falls asleep after this long without the user: not touching the
+   * computer, where that is known (`pet.user_active`), else not touching the pet.
+   */
   sleepAfterIdleMs: 5 * 60_000,
   effects: {
     feed: { satiety: 25, mood: 5, affinity: 1 },
@@ -98,6 +108,8 @@ export const BEHAVIOR_CONFIG = {
   } satisfies Record<string, Partial<PetStats>>,
   /** A reminder announced this long after its time is worded as a late one. */
   reminderLateMs: 10 * 60_000,
+  /** "稍后提醒" brings the reminders up again after this long. */
+  snoozeMs: 10 * 60_000,
   /** A question about the focus round goes away unanswered after this long, as if "继续" was picked. */
   focusPromptMs: 15_000,
   /** After a greeting the pet goes back behind the edge it came from, once this has passed. */
@@ -128,10 +140,12 @@ export interface DueReminder {
   remindAt: number | null;
 }
 
-/** Where reminders come from. The pet only reads them and records that the user saw them. */
+/** Where reminders come from. The pet reads them and records how the user answered the line. */
 export interface ReminderSource {
   due(now: number): DueReminder[];
   markReminded(ids: string[], now: number): void;
+  complete(ids: string[], now: number): void;
+  snooze(ids: string[], until: number, now: number): void;
 }
 
 interface BehaviorDeps {
@@ -183,7 +197,11 @@ export class BehaviorEngine {
   /** A pose this engine put up that others may play too (think); tells its own from theirs. */
   private posed: string | null = null;
   private patStreak = { count: 0, at: 0 };
-  /** The idle stretch the pet has already yawned in, by the interaction that began it. */
+  /** When the user last touched the keyboard or mouse anywhere; unknown outside the desktop app. */
+  private userActiveAt = -Infinity;
+  /** When the pet dozed off for want of the user, so it wakes once they are back; null when it was told to sleep. */
+  private dozedAt: number | null = null;
+  /** The quiet stretch the pet has already yawned in, by the moment it began. */
   private yawnedFor: number | null = null;
   private lastCheerAt = -Infinity;
   private lastGlanceAt = -Infinity;
@@ -208,6 +226,8 @@ export class BehaviorEngine {
       bus.on("pet.focus_stopped", () => this.onFocusStopped()),
       bus.on("pet.focus_badge_clicked", () => this.onFocusBadgeClicked()),
       bus.on("pet.alert_dismissed", () => this.dismissAlert()),
+      bus.on("pet.reminders_done", () => this.answerReminders("done")),
+      bus.on("pet.reminders_snoozed", () => this.answerReminders("snoozed")),
       // Asked to chat from the dock or the shortcut: come to the user as for a click.
       bus.on("pet.chat_requested", () => { this.rouse(); }),
       bus.on("pet.chat_phase", ({ phase }) => this.onChatPhase(phase)),
@@ -215,6 +235,7 @@ export class BehaviorEngine {
       bus.on("pet.item_done", () => this.onItemDone()),
       bus.on("pet.mail_code", (update) => this.onMailCode(update)),
       bus.on("pet.hovered", () => this.onHovered()),
+      bus.on("pet.user_active", ({ at }) => this.onUserActive(at)),
       // A pose that ran out, or a reaction that played over it: back into the pose without a blink of idle.
       bus.on("pet.action.completed", () => this.settle(Date.now())),
       bus.on("pet.greeting", ({ text }) => {
@@ -259,13 +280,15 @@ export class BehaviorEngine {
       return;
     }
 
-    const idleFor = now - snapshot.lastInteractionAt;
+    // Working at the computer counts as being with the pet: it stays up while the user is around.
+    const quietSince = Math.max(snapshot.lastInteractionAt, this.userActiveAt);
+    const idleFor = now - quietSince;
     if (idleFor >= BEHAVIOR_CONFIG.sleepAfterIdleMs) {
-      this.fallAsleep();
+      if (this.fallAsleep()) this.dozedAt = now;
       return;
     }
-    if (idleFor >= BEHAVIOR_CONFIG.sleepAfterIdleMs - BEHAVIOR_CONFIG.yawnBeforeSleepMs && this.yawnedFor !== snapshot.lastInteractionAt) {
-      this.yawnedFor = snapshot.lastInteractionAt;
+    if (idleFor >= BEHAVIOR_CONFIG.sleepAfterIdleMs - BEHAVIOR_CONFIG.yawnBeforeSleepMs && this.yawnedFor !== quietSince) {
+      this.yawnedFor = quietSince;
       controller.request(YAWN_ACTION);
       return;
     }
@@ -405,6 +428,12 @@ export class BehaviorEngine {
     if (state.get().activity !== "awake" || this.dockSide || controller.current?.id !== IDLE_ACTION) return;
     this.lastGlanceAt = now;
     controller.request(GLANCE_ACTION);
+  }
+
+  /** The user is at the computer. A pet that dozed off while they were away wakes up; one told to sleep sleeps on. */
+  private onUserActive(at: number): void {
+    this.userActiveAt = Math.max(this.userActiveAt, at);
+    if (this.dozedAt !== null && at > this.dozedAt && this.deps.state.get().activity === "sleeping") this.wakeUp();
   }
 
   /** Wakes the pet or coaxes it out from behind the edge. Returns whether it had to. */
@@ -635,7 +664,29 @@ export class BehaviorEngine {
       this.deps.bus.emit("pet.alert", { text: REMINDER_LINES.many(texts.slice(0, MAX_NAMED_REMINDERS), texts.length), more: true });
       return;
     }
-    this.deps.bus.emit("pet.alert", { text: late ? REMINDER_LINES.late(texts) : REMINDER_LINES.onTime(texts) });
+    this.deps.bus.emit("pet.alert", { text: late ? REMINDER_LINES.late(texts) : REMINDER_LINES.onTime(texts), choices: reminderChoices(texts.length) });
+  }
+
+  /**
+   * "完成" or "稍后提醒" on the reminder line. Only the reminder line has these
+   * buttons, so nothing happens while another line covers it. Ticking off needs
+   * no cheer here: the saved change comes back as `pet.item_done`.
+   */
+  private answerReminders(answer: "done" | "snoozed"): void {
+    const { reminders, state } = this.deps;
+    if (!reminders || this.alerted.length === 0 || this.focusPrompt || this.codeNotice) return;
+    const now = Date.now();
+    const ids = this.alerted.map((reminder) => reminder.id);
+    if (answer === "done") {
+      reminders.complete(ids, now);
+    } else {
+      reminders.snooze(ids, now + BEHAVIOR_CONFIG.snoozeMs, now);
+      this.say(REMINDER_LINES.snoozed(BEHAVIOR_CONFIG.snoozeMs / 60_000));
+    }
+    this.alerted = [];
+    state.markInteraction(now);
+    this.showAlert(now);
+    if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterAlertMs };
   }
 
   /** Takes down what the standing line shows; what was waiting behind it comes up next. */
@@ -715,12 +766,16 @@ export class BehaviorEngine {
     if (this.deps.state.get().activity === "sleeping") this.wakeUp();
   }
 
-  private fallAsleep(): void {
-    if (this.deps.controller.request("sleep").accepted) this.deps.state.setActivity("sleeping");
+  private fallAsleep(): boolean {
+    if (!this.deps.controller.request("sleep").accepted) return false;
+    this.deps.state.setActivity("sleeping");
+    this.dozedAt = null;
+    return true;
   }
 
   private wakeUp(animate = true): void {
     const { state, controller } = this.deps;
+    this.dozedAt = null;
     state.setActivity("awake");
     // Leave the sleep loop first so waking works even without a wake-up animation.
     controller.stop();

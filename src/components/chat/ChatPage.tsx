@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
-import { chatContext } from "../../agenda/chatTools";
+import { chatContext, loadSavedItems } from "../../agenda/chatTools";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
 import type { PetPersona } from "../../assets/Manifest";
@@ -325,7 +325,7 @@ export function ChatPage({ packId }: { packId: string }) {
     stickToBottom.current = true;
     active.current = id; cancelRequested.current = false; replyRef.current = ""; toolCallsRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
-      await chatPlatform.start(id, contextMessages(next), requestPreferences(packId, personaRef.current), chatContext(Date.now(), actionIdsRef.current));
+      await chatPlatform.start(id, contextMessages(next), requestPreferences(packId, personaRef.current), chatContext(Date.now(), actionIdsRef.current, loadSavedItems()));
       if (cancelRequested.current && active.current === id) await chatPlatform.cancel(id);
     } catch (reason) {
       if (active.current !== id) return;

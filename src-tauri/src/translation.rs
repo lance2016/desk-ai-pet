@@ -13,7 +13,8 @@ pub struct SelectionFloat {
     text: Mutex<Option<String>>,
 }
 
-const FLOAT_WIDTH: f64 = 152.0;
+/// Must match the `selection-float` window width in `tauri.conf.json`.
+const FLOAT_WIDTH: f64 = 216.0;
 const FLOAT_HEIGHT: f64 = 38.0;
 const RESULT_WIDTH: f64 = 340.0;
 const RESULT_HEIGHT: f64 = 220.0;

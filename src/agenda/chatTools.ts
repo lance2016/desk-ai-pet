@@ -1,9 +1,12 @@
 import { z } from "zod";
-import { NOTE_LIMITS } from "../notes/NoteStore";
-import { AGENDA_LIMITS, clockLabel, formatReminderTime, type NewAgendaItem } from "./AgendaStore";
+import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
+import { FOCUS_CONFIG } from "../behavior/FocusTimer";
+import { focusRounds, loadFocusLog, type FocusLog } from "../greeting/FocusLog";
+import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, reminderLabel, shownAt, sortAgenda, type AgendaItem, type NewAgendaItem } from "./AgendaStore";
 import { parseRepeat, repeatLabel } from "./Repeat";
+import type { ChatContext } from "../platform/chat";
 
-/** Tool names; must match `src-tauri/src/chat.rs`. */
+/** Tool names; must match `src-tauri/src/chat.rs`. Its lookups (`list_reminders`, `list_notes`, `review_today`) are answered there and never come here. */
 const ADD_REMINDER_TOOL = "add_reminder";
 const PLAY_ACTION_TOOL = "play_action";
 const SAVE_NOTE_TOOL = "save_note";
@@ -11,6 +14,12 @@ const SAVE_NOTE_TOOL = "save_note";
 const ACTION_ID_PATTERN = /^[a-z0-9_]{1,40}$/;
 /** Must match `MAX_TOOL_CALLS` in `src-tauri/src/chat.rs`. */
 const MAX_CALLS_SHOWN = 8;
+/** Longest reminder line handed over for a lookup; must match `MAX_REMINDER_LINE_CHARS` in `src-tauri/src/chat.rs`. */
+const REMINDER_LINE_LIMIT = 120;
+/** Today's record for `review_today`: lines at most and characters per line; must match `MAX_TODAY_LINES` and `MAX_TODAY_LINE_CHARS` in `src-tauri/src/chat.rs`. */
+export const TODAY_LIMITS = { lines: 80, chars: 200 } as const;
+/** A note in today's record is cut to this, so a long one does not crowd out the rest. */
+const TODAY_NOTE_CHARS = 120;
 /** A reminder set further in the past than this is kept as a note instead of firing at once. */
 const PAST_TOLERANCE_MS = 60_000;
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -36,9 +45,66 @@ export function localTimeText(now: number): string {
   return `${day} ${pad(date.getHours())}:${pad(date.getMinutes())} 周${WEEKDAYS[date.getDay()]}`;
 }
 
-/** What the model needs to know besides the conversation: the local time and the actions it may pick. */
-export function chatContext(now: number, actions: readonly string[]): { now: string; actions: string[] } {
-  return { now: localTimeText(now), actions: actions.filter((id) => ACTION_ID_PATTERN.test(id)) };
+/** What the user keeps on this computer that the model may look up. */
+export interface SavedItems {
+  agenda: readonly AgendaItem[];
+  notes: readonly Note[];
+  focusLog: FocusLog;
+}
+
+/** For a request that never looks anything up, such as the prompt preview. */
+export const NOTHING_SAVED: SavedItems = { agenda: [], notes: [], focusLog: {} };
+
+export function loadSavedItems(): SavedItems {
+  return { agenda: loadAgenda(), notes: loadNotes(), focusLog: loadFocusLog() };
+}
+
+/**
+ * What the model needs to know besides the conversation: the local time, the
+ * actions it may pick, and what the user saved. The native side shows the
+ * model the saved lists only when it looks them up.
+ */
+export function chatContext(now: number, actions: readonly string[], saved: SavedItems): ChatContext {
+  return {
+    now: localTimeText(now),
+    actions: actions.filter((id) => ACTION_ID_PATTERN.test(id)),
+    reminders: reminderLines(saved.agenda, now),
+    notes: sortNotes(saved.notes).map((note) => note.text),
+    today: todayLines(saved, now),
+  };
+}
+
+/**
+ * Today's record for a daily review: reminders ticked off today, today's ones
+ * still open, focus rounds, and notes written or changed today. The focus line
+ * is always there, so the model does not guess at it.
+ */
+export function todayLines({ agenda, notes, focusLog }: SavedItems, now: number): string[] {
+  const start = new Date(now).setHours(0, 0, 0, 0);
+  const end = new Date(now).setHours(24, 0, 0, 0);
+  const done = agenda.filter((item) => item.doneAt !== null && item.doneAt >= start && item.doneAt < end);
+  const open = agenda.filter((item) => !isDone(item, now) && shownAt(item, now) < end);
+  const rounds = focusRounds(focusLog, now);
+  const lines = [
+    ...done.map((item) => `完成了提醒：${item.text}`),
+    ...open.map((item) => `还没处理的提醒：${reminderLabel(shownAt(item, now), now)} ${item.text}`),
+    `专注了 ${rounds} 轮，每轮 ${FOCUS_CONFIG.focusMs / 60_000} 分钟`,
+    ...sortNotes(notes).filter((note) => note.updatedAt >= start).map((note) => `今天记的备忘：${clip(note.text.replace(/\s+/g, " "), TODAY_NOTE_CHARS)}`),
+  ];
+  return lines.slice(0, TODAY_LIMITS.lines).map((line) => clip(line, TODAY_LIMITS.chars));
+}
+
+/**
+ * Reminders as the model reads them: open ones by the time they show, then
+ * finished one-offs. A repeating one shows its rule and its next time; one
+ * ticked off today is not marked, since that mark would sit next to tomorrow's time.
+ */
+export function reminderLines(items: readonly AgendaItem[], now: number): string[] {
+  return sortAgenda(items, now).map((item) => {
+    const rule = item.repeat ? `（${repeatLabel(item.repeat)}）` : "";
+    const done = item.repeat === null && item.doneAt !== null ? "（已完成）" : "";
+    return clip(`${reminderLabel(shownAt(item, now), now)}${rule} ${item.text}${done}`, REMINDER_LINE_LIMIT);
+  });
 }
 
 /** Local "YYYY-MM-DD HH:mm", also with seconds or a "T", to epoch milliseconds; null when it is not a real time. */

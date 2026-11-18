@@ -110,12 +110,14 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
     );
   }
   const icon = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
+  // Reminders (the bell) keep their loud look with buttons; a question about something else looks calm.
+  const look = !standing?.choices ? "" : standing.icon ? " speech-bubble--ask" : " speech-bubble--remind";
   return (
     <>
       <div className="speech-area" aria-live="polite">
         {line && <p key={line} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{line}</p>}
         {standing && (
-          <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${standing.choices ? " speech-bubble--ask" : ""}`}>
+          <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>
             {standing.choices ? (
               <>
                 {icon}

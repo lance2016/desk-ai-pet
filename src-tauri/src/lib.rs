@@ -28,6 +28,8 @@ const ON_TOP_EVENT: &str = "pet://on-top";
 const DND_EVENT: &str = "pet://dnd";
 /// "摸摸头" in the menu. Must match `src/platform/petWindow.ts`.
 const PAT_EVENT: &str = "pet://pat";
+/// "今日回顾" in the pet menu. Must match `REVIEW_EVENT` in `src/platform/petWindow.ts`.
+const REVIEW_EVENT: &str = "pet://review";
 /// Tells the settings window which section to show; must match `src/platform/petWindow.ts`.
 const SETTINGS_SECTION_EVENT: &str = "pet://settings-section";
 /// The pet was shown again (menu, Dock icon, a reminder); the webview keeps it on screen. Must match `src/platform/petWindow.ts`.
@@ -42,6 +44,7 @@ const DND_ID: &str = "dnd";
 const QUIT_ID: &str = "quit";
 const SETTINGS_ID: &str = "settings";
 const NOTES_ID: &str = "notes";
+const REVIEW_ID: &str = "review";
 const TRANSLATE_ID: &str = "translate";
 const MAIL_CODE_ID: &str = "mail_code";
 /// The mail code item names what a click will do: start waiting for a code, or stop.
@@ -180,6 +183,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let chat = item(CHAT_ID, "打开聊天窗口")?;
     let today = item(TODAY_ID, "提醒")?;
     let notes = item(NOTES_ID, "备忘")?;
+    let review = item(REVIEW_ID, "今日回顾")?;
     let translate = item(TRANSLATE_ID, "翻译…")?;
     let mail_code = item(MAIL_CODE_ID, MAIL_CODE_LABEL)?;
     let pat = item(PAT_ID, "摸摸头")?;
@@ -207,6 +211,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &chat,
             &today,
             &notes,
+            &review,
             &translate,
             &mail_code,
             &PredefinedMenuItem::separator(app)?,
@@ -304,6 +309,8 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             }
         }
         PAT_ID => report("emit pat event", app.emit_to(MAIN_WINDOW, PAT_EVENT, ())),
+        // The pet window starts the review in the chat window; see `petWindow.onReviewRequested`.
+        REVIEW_ID => report("emit review event", app.emit_to(MAIN_WINDOW, REVIEW_EVENT, ())),
         // true: start a round; false: stop the round or the rest.
         FOCUS_ID => report(
             "emit focus event",

@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { chatContext, confirmationFor, interpretToolCalls } from "./chatTools";
+import type { AgendaItem } from "./AgendaStore";
+import { chatContext, confirmationFor, interpretToolCalls, NOTHING_SAVED, reminderLines, todayLines } from "./chatTools";
 
 const NOW = new Date(2026, 10, 16, 14, 3).getTime();
+const HOUR = 60 * 60_000;
 const at = (day: number, hours: number, minutes = 0) => new Date(2026, 10, day, hours, minutes).getTime();
 const call = (name: string, args: unknown) => JSON.stringify({ name, arguments: JSON.stringify(args) });
 let ids = 0;
@@ -9,7 +11,38 @@ const makeId = () => `id${++ids}`;
 
 describe("chat context", () => {
   it("gives the local time with the weekday, and only action ids the native side accepts", () => {
-    expect(chatContext(NOW, ["happy", "pet_reaction", "Bad-Id"])).toEqual({ now: "2026-11-16 14:03 周一", actions: ["happy", "pet_reaction"] });
+    expect(chatContext(NOW, ["happy", "pet_reaction", "Bad-Id"], NOTHING_SAVED)).toEqual({ now: "2026-11-16 14:03 周一", actions: ["happy", "pet_reaction"], reminders: [], notes: [], today: ["专注了 0 轮，每轮 25 分钟"] });
+  });
+
+  it("hands over the notes pinned first, then the most recently changed", () => {
+    const note = (id: string, pinned: boolean, updatedAt: number) => ({ id, text: id, pinned, createdAt: 0, updatedAt });
+    expect(chatContext(NOW, [], { ...NOTHING_SAVED, notes: [note("old", false, 1), note("new", false, 2), note("pinned", true, 0)] }).notes).toEqual(["pinned", "new", "old"]);
+  });
+
+  it("lists open reminders by time with their rule, then finished one-offs", () => {
+    const reminder = (overrides: Partial<AgendaItem>): AgendaItem => ({ id: "a", text: "开会", remindAt: NOW + HOUR, repeat: null, createdAt: 0, doneAt: null, remindedAt: null, ...overrides });
+    const lines = reminderLines([
+      reminder({ id: "done", text: "交周报", remindAt: NOW - HOUR, doneAt: NOW - HOUR }),
+      reminder({ id: "pills", text: "吃药", remindAt: NOW - 2 * HOUR + 24 * HOUR, repeat: "workdays", createdAt: NOW - 48 * HOUR }),
+      reminder({ id: "meeting" }),
+    ], NOW);
+    expect(lines).toEqual(["今天 15:03 开会", "明天 12:03（工作日） 吃药", "今天 13:03 交周报（已完成）"]);
+  });
+
+  it("records today: done and open reminders, focus rounds and today's notes", () => {
+    const reminder = (overrides: Partial<AgendaItem>): AgendaItem => ({ id: "a", text: "开会", remindAt: NOW + HOUR, repeat: null, createdAt: 0, doneAt: null, remindedAt: null, ...overrides });
+    const note = (text: string, updatedAt: number) => ({ id: text, text, pinned: false, createdAt: 0, updatedAt });
+    const lines = todayLines({
+      agenda: [
+        reminder({ id: "report", text: "交周报", remindAt: NOW - HOUR, doneAt: NOW - HOUR }),
+        reminder({ id: "old", text: "昨天的事", remindAt: NOW - 24 * HOUR, doneAt: NOW - 24 * HOUR }),
+        reminder({ id: "meeting" }),
+        reminder({ id: "tomorrow", text: "体检", remindAt: NOW + 24 * HOUR }),
+      ],
+      notes: [note("买牛奶\n和鸡蛋", NOW - HOUR), note("旧备忘", NOW - 24 * HOUR)],
+      focusLog: { "2026-11-16": 3 },
+    }, NOW);
+    expect(lines).toEqual(["完成了提醒：交周报", "还没处理的提醒：今天 15:03 开会", "专注了 3 轮，每轮 25 分钟", "今天记的备忘：买牛奶 和鸡蛋"]);
   });
 });
 
