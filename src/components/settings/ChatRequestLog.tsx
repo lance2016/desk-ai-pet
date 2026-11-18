@@ -1,0 +1,69 @@
+import { useCallback, useEffect, useState } from "react";
+import { z } from "zod";
+import { chatPlatform, type ChatRequestLog as Log } from "../../platform/chat";
+import { ConfirmButton } from "../ConfirmButton";
+
+const bodySchema = z.object({
+  model: z.string(),
+  messages: z.array(z.object({ role: z.string(), content: z.string() })),
+  tools: z.array(z.object({ function: z.object({ name: z.string() }) })).optional(),
+});
+const ROLES: Record<string, string> = { system: "系统提示词", user: "用户", assistant: "宠物" };
+const WINDOWS: Record<string, string> = { chat: "聊天窗口", main: "快速聊天" };
+const COPIED_MS = 1_500;
+const time = (at: number) => new Date(at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+type Entry = Log[number];
+type Round = Entry["rounds"][number];
+
+/** One request as sent, and what came back for it. */
+function RoundView({ round, index }: { round: Round; index: number }) {
+  const body = bodySchema.safeParse(round.request);
+  const outcome = round.ok ? "成功" : round.status ? `失败（HTTP ${round.status}）` : "失败";
+  return <section className="ai-log-round">
+    <h4>第 {index + 1} 次请求<span>{body.success ? body.data.model : ""} {outcome}</span></h4>
+    {body.success ? <>
+      {body.data.messages.map((message, at) => <div key={at} className="ai-log-message"><span>{ROLES[message.role] ?? message.role}</span><pre>{message.content}</pre></div>)}
+      <p className="ai-log-tools">可用工具：{body.data.tools?.map((tool) => tool.function.name).join("、") || "无"}</p>
+    </> : <pre>{JSON.stringify(round.request, null, 2)}</pre>}
+    <div className="ai-log-message is-reply"><span>模型原样返回</span><pre>{round.reply || "（没有文字）"}</pre></div>
+    {round.toolCalls.length > 0 && <div className="ai-log-message is-reply"><span>工具调用</span><pre>{round.toolCalls.map((call) => `${call.name} ${call.arguments}`).join("\n")}</pre></div>}
+  </section>;
+}
+
+function EntryView({ entry }: { entry: Entry }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), COPIED_MS); return () => clearTimeout(timer); }, [copied]);
+  const first = bodySchema.safeParse(entry.rounds[0]?.request);
+  const asked = first.success ? first.data.messages.filter((message) => message.role === "user").pop()?.content : undefined;
+  const copy = () => void navigator.clipboard.writeText(JSON.stringify(entry, null, 2)).then(() => setCopied(true)).catch((reason: unknown) => console.error("Could not copy the request", reason));
+  return <details className="ai-disclosure">
+    <summary><span><strong>{time(entry.at)} {WINDOWS[entry.window] ?? entry.window}</strong><small>{asked ? `“${asked.slice(0, 40)}”，` : ""}请求了 {entry.rounds.length} 次</small></span></summary>
+    {entry.rounds.length === 0 ? <p className="ai-log-empty">还在回复，稍后刷新。</p> : entry.rounds.map((round, index) => <RoundView key={index} round={round} index={index} />)}
+    <div className="ai-log-copy"><button type="button" className="settings-button settings-button--small" onClick={copy}>{copied ? "已复制" : "复制 JSON"}</button></div>
+  </details>;
+}
+
+/** The chat requests developer mode kept since the app started, newest first. */
+export function ChatRequestLog() {
+  const [log, setLog] = useState<Log | null>(null);
+  const [problem, setProblem] = useState("");
+  const refresh = useCallback(() => {
+    setProblem("");
+    chatPlatform.requestLog().then(setLog).catch((reason: unknown) => { console.error("Could not read the request log", reason); setProblem("读不到请求记录，请在桌面应用中重试。"); });
+  }, []);
+  useEffect(refresh, [refresh]);
+  // Chats happen in other windows: look again when settings comes back to the front.
+  useEffect(() => { window.addEventListener("focus", refresh); return () => window.removeEventListener("focus", refresh); }, [refresh]);
+  const clear = () => void chatPlatform.clearRequestLog().then(refresh).catch((reason: unknown) => { console.error("Could not clear the request log", reason); setProblem("没能清空，请再试一次。"); });
+  return <div className="ai-log">
+    <div className="ai-preview__head">
+      <div><strong>最近发出的请求</strong><span>只记开发者模式打开以后的聊天，最多 20 条，退出应用就清掉</span></div>
+      <button type="button" className="settings-button settings-button--small" onClick={refresh}>刷新</button>
+      <ConfirmButton className="settings-button settings-button--small" disabled={!log?.length} confirm={{ message: "清空请求记录？", detail: "已记下的请求会全部删掉，不能撤销。", action: "清空" }} onConfirm={clear}>清空</ConfirmButton>
+    </div>
+    {problem && <p role="status">{problem}</p>}
+    {log && log.length === 0 && <p className="ai-log-empty">还没有记录。去和宠物聊一句，再回来刷新。</p>}
+    {log && log.length > 0 && <div className="ai-log-list">{log.map((entry) => <EntryView key={entry.id} entry={entry} />)}</div>}
+  </div>;
+}

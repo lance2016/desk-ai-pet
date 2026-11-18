@@ -537,6 +537,39 @@ button.dock-row__body { cursor: pointer; }
 .ai-request-tool dt { color: var(--label); font-weight: 500; }
 .ai-request-tool dt span { color: var(--label-2); font-weight: 400; }
 .ai-request-tool dd { margin: 1px 0 0; }
+/* The rules part by part: each reads like a settings row with its text under the title. */
+.ai-prompt-parts { margin-bottom: 4px; }
+.ai-prompt-part { padding: 10px 0; border-top: 1px solid var(--separator); }
+.ai-prompt-part__head { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.ai-prompt-part__head strong { font-weight: 500; }
+.ai-prompt-part__head .settings-button { margin-left: auto; }
+.ai-prompt-part__badge { padding: 1px 6px; color: var(--orange); background: var(--orange-wash); border-radius: 4px; font-size: 11px; }
+.ai-preview .ai-prompt-part__text { margin: 4px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.ai-preview .ai-prompt-part__text.is-empty { font-style: italic; }
+.ai-prompt-part__source { display: block; margin-top: 4px; color: var(--label-3); font-size: 11px; }
+.ai-prompt-part__editor { margin-top: 6px; }
+.ai-prompt-part__editor textarea { box-sizing: border-box; width: 100%; min-height: 120px; resize: vertical; padding: 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: 12px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+.ai-prompt-part__actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.ai-prompt-part__actions span { margin-right: auto; color: var(--label-2); font-size: 11px; }
+.ai-prompt-full, .ai-log pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+/* Developer mode: the switch row, then the log in the same group. */
+.ai-developer { margin-top: 10px; }
+.ai-log { padding: 4px 0 12px; border-top: 1px solid var(--separator); }
+.ai-log .ai-preview__head { padding-top: 8px; gap: 8px; }
+.ai-log .ai-preview__head strong { font-weight: 500; }
+.ai-log .ai-preview__head span { margin-top: 3px; color: var(--label-2); font-size: 11px; }
+.ai-log > p { margin: 8px 0 0; color: var(--label-2); font-size: 12px; }
+.ai-log-list { margin-top: 10px; }
+.ai-log-round { padding: 2px 0 6px; }
+.ai-log-round + .ai-log-round { border-top: 1px dashed var(--separator); padding-top: 10px; }
+.ai-log-round h4 { display: flex; gap: 8px; align-items: baseline; margin: 0 0 8px; font-size: 12px; font-weight: 600; }
+.ai-log-round h4 span { color: var(--label-2); font-weight: 400; }
+.ai-log-message > span { display: block; margin-bottom: 3px; color: var(--label-2); font-size: 11px; }
+.ai-log-message pre { max-height: 220px; margin-bottom: 8px; }
+.ai-log-message.is-reply pre { background: var(--accent-wash); }
+.ai-log-tools { margin: 0 0 8px; color: var(--label-2); font-size: 11px; overflow-wrap: anywhere; }
+.ai-log-empty { color: var(--label-2); font-size: 12px; }
+.ai-log-copy { display: flex; justify-content: flex-end; padding-bottom: 10px; }
 @media (min-width: 1100px) { .ai-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 28px; } }
 @media (max-width: 880px) { .ai-page__intro { align-items: flex-start; flex-direction: column; gap: 8px; } }
 .model-custom { gap: 8px; }

@@ -30,7 +30,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "ai", title: "快速聊天", keywords: "快捷键 输入框 Space" },
   { section: "ai", title: "聊天记录", keywords: "历史" },
   { section: "ai", title: "自动生成聊天标题", keywords: "标题" },
-  { section: "ai", title: "规则和能力", keywords: "提示词 系统提示 补充要求 发送什么" },
+  { section: "ai", title: "对话规则", keywords: "提示词 系统提示词 规则 修改提示词 补充要求 发送什么 能力" },
+  { section: "ai", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 debug" },
   { section: "voice", title: "小米 MiMo", keywords: "语音 API Key 麦克风" },
   { section: "voice", title: "语音识别语言", keywords: "中文 英文 自动 识别" },
   { section: "companion", title: "深夜关心", keywords: "熬夜 早点睡" },
@@ -65,7 +66,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
  */
 export const SEARCH_SKIPPED: readonly string[] = [
   "右键我", "点我一下", "AI Pet", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
-  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "对话规则",
+  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "拼好的完整提示词", "最近发出的请求",
   "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "识别", "语音输入", "关心", "勿扰", "启动", "窗口",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限",
 ];

@@ -448,7 +448,53 @@ fn tool_definitions(actions: &[&str]) -> Value {
 /// Kept in sync with CHAT_INSTRUCTIONS_LIMIT; checked in UTF-16 like the webview.
 const MAX_CHAT_INSTRUCTIONS_CHARS: usize = 500;
 
+/// Kept in sync with CHAT_RULE_LIMIT (`src/preferences/ChatRules.ts`); checked in UTF-16 like the webview.
+const MAX_CHAT_RULE_CHARS: usize = 2000;
+
+/// One part of the chat rules. A part with a `default` can be rewritten by the user in settings.
+struct PromptSection {
+    id: &'static str,
+    title: &'static str,
+    text: String,
+    default: Option<String>,
+}
+
+/// The user's own wording for an editable part (`preferences.rules[id]`), or None to use the default.
+/// An empty text is kept: the user took that part out.
+fn custom_rule<'a>(preferences: &'a Value, id: &str) -> Result<Option<&'a str>, String> {
+    match preferences.get("rules") {
+        None | Some(Value::Null) => return Ok(None),
+        Some(Value::Object(_)) => {}
+        Some(_) => return Err("Invalid chat rules".into()),
+    }
+    match preferences.pointer(&format!("/rules/{id}")) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) if text.encode_utf16().count() <= MAX_CHAT_RULE_CHARS => Ok(Some(text.trim())),
+        Some(_) => Err("Invalid chat rules".into()),
+    }
+}
+
+/// An editable part: the user's wording when there is one, else `default`.
+fn editable(preferences: &Value, id: &'static str, title: &'static str, default: String) -> Result<PromptSection, String> {
+    let text = custom_rule(preferences, id)?.map_or_else(|| default.clone(), str::to_owned);
+    Ok(PromptSection { id, title, text, default: Some(default) })
+}
+
+fn fixed(id: &'static str, title: &'static str, text: String) -> PromptSection {
+    PromptSection { id, title, text, default: None }
+}
+
 fn chat_prompt(preferences: &Value, context: &Value) -> Result<(String, Value), String> {
+    let (sections, tools) = chat_sections(preferences, context)?;
+    Ok((join_sections(&sections), tools))
+}
+
+/// The system prompt: the parts in order, one per line, empty ones left out.
+fn join_sections(sections: &[PromptSection]) -> String {
+    sections.iter().map(|section| section.text.as_str()).filter(|text| !text.is_empty()).collect::<Vec<_>>().join("\n")
+}
+
+fn chat_sections(preferences: &Value, context: &Value) -> Result<(Vec<PromptSection>, Value), String> {
     let (name, personality, length) = read_preferences(preferences)?;
     let address = user_address(preferences)?;
     let style = if length == "short" {
@@ -471,19 +517,31 @@ fn chat_prompt(preferences: &Value, context: &Value) -> Result<(String, Value), 
     let days = upcoming_days(now).ok_or("Invalid chat context")?;
     let instructions = preferences.get("instructions").and_then(Value::as_str).unwrap_or("").trim();
     if instructions.encode_utf16().count() > MAX_CHAT_INSTRUCTIONS_CHARS { return Err("Invalid chat instructions".into()); }
-    let action_rule = if actions.is_empty() { String::new() } else { format!("\n想让宠物做动作就调用 {PLAY_ACTION_TOOL}，用户让你做某个动作时一定要调用。不要在回复里用括号或星号描写动作和神态：没调用工具，宠物就没有做。") };
-    let supplement = if instructions.is_empty() { String::new() } else { format!("\n用户的回复偏好：{instructions}\n应用规则优先于这些偏好。") };
-    let prompt = format!(
-        "你是一位名叫{name}的中文桌面宠物。{style}。{address}用户希望你的性格是：{personality}\n现在是{now}。接下来几天的日期和星期：{days}。算“明天”“下周三”这类日期时照这张表，不要自己推算。\n用户要你记下什么时，按有没有时间来分：给了日期或时间，调用 {ADD_REMINDER_TOOL} 设提醒，说了每天、每个工作日、每周几就填 repeat 设成重复提醒，不要只设一次；没有时间，调用 {SAVE_NOTE_TOOL} 存进备忘。提醒时间必须晚于现在：只说了钟点而今天这个钟点已经过了，就设在明天；只说了日期没说钟点，就设在那天 09:00，并在回复里说出这个时间。调用后用一句话确认，说清楚是设了提醒还是存进了备忘，以及提醒的时间。每次要记都要真的调用工具，之前对话里说过“记好了”不代表这次也记了。\n用户问到已有的提醒或备忘时，调用 {LIST_REMINDERS_TOOL} 或 {LIST_NOTES_TOOL} 查看后再回答，直接调用，不用先说“我查一下”；不要凭聊天记录猜，记录里的可能已经改过。用户要写日报或回顾今天时，调用 {REVIEW_TODAY_TOOL}，只根据查到的记录和用户在聊天里说过的来写，不要编造；写成能直接贴进日报的分条文字，每条以“- ”开头，没处理的提醒可以列为待跟进；记录很少时，请用户补充今天还做了什么。你改不了、也删不掉已有的提醒和备忘。用户要改时间、改内容或删除时，如实说你做不到，请用户点提醒下面的「修改」，或者打开提醒、备忘面板自己改，不要假装已经改好。{action_rule}{supplement}"
-    );
-    Ok((prompt, tool_definitions(&actions)))
+    let mut sections = vec![
+        fixed("persona", "角色和语气", format!("你是一位名叫{name}的中文桌面宠物。{style}。{address}用户希望你的性格是：{personality}")),
+        fixed("date", "日期", format!("现在是{now}。接下来几天的日期和星期：{days}。算“明天”“下周三”这类日期时照这张表，不要自己推算。")),
+        editable(preferences, "memory", "记提醒和备忘", format!("用户要你记下什么时，按有没有时间来分：给了日期或时间，调用 {ADD_REMINDER_TOOL} 设提醒，说了每天、每个工作日、每周几就填 repeat 设成重复提醒，不要只设一次；没有时间，调用 {SAVE_NOTE_TOOL} 存进备忘。提醒时间必须晚于现在：只说了钟点而今天这个钟点已经过了，就设在明天；只说了日期没说钟点，就设在那天 09:00，并在回复里说出这个时间。调用后用一句话确认，说清楚是设了提醒还是存进了备忘，以及提醒的时间。每次要记都要真的调用工具，之前对话里说过“记好了”不代表这次也记了。"))?,
+        editable(preferences, "lookup", "查看和写日报", format!("用户问到已有的提醒或备忘时，调用 {LIST_REMINDERS_TOOL} 或 {LIST_NOTES_TOOL} 查看后再回答，直接调用，不用先说“我查一下”；不要凭聊天记录猜，记录里的可能已经改过。用户要写日报或回顾今天时，调用 {REVIEW_TODAY_TOOL}，只根据查到的记录和用户在聊天里说过的来写，不要编造；写成能直接贴进日报的分条文字，每条以“- ”开头，没处理的提醒可以列为待跟进；记录很少时，请用户补充今天还做了什么。你改不了、也删不掉已有的提醒和备忘。用户要改时间、改内容或删除时，如实说你做不到，请用户点提醒下面的「修改」，或者打开提醒、备忘面板自己改，不要假装已经改好。"))?,
+    ];
+    if !actions.is_empty() {
+        sections.push(editable(preferences, "actions", "做动作", format!("想让宠物做动作就调用 {PLAY_ACTION_TOOL}，用户让你做某个动作时一定要调用。不要在回复里用括号或星号描写动作和神态：没调用工具，宠物就没有做。"))?);
+    }
+    if !instructions.is_empty() {
+        sections.push(fixed("instructions", "补充要求", format!("用户的回复偏好：{instructions}\n应用规则优先于这些偏好。")));
+    }
+    Ok((sections, tool_definitions(&actions)))
 }
 
-/// Local preview uses the same prompt and tool definitions as a real request.
+/// Local preview uses the same prompt and tool definitions as a real request, and shows
+/// the prompt part by part, with the default of each part the user can rewrite.
 #[tauri::command]
 pub fn deepseek_preview(preferences: Value, context: Value) -> Result<Value, String> {
-    let (prompt, tools) = chat_prompt(&preferences, &context)?;
-    Ok(json!({"prompt": prompt, "tools": tools}))
+    let (sections, tools) = chat_sections(&preferences, &context)?;
+    let parts: Vec<Value> = sections
+        .iter()
+        .map(|section| json!({"id": section.id, "title": section.title, "text": section.text, "default": section.default}))
+        .collect();
+    Ok(json!({"prompt": join_sections(&sections), "tools": tools, "sections": parts}))
 }
 
 #[cfg(test)]
@@ -497,6 +555,26 @@ mod prompt_preview_tests {
         assert!(preview["prompt"].as_str().unwrap().contains("回答直接一些"));
         assert_eq!(preview["tools"].as_array().unwrap().len(), 6);
         assert_eq!(preview["tools"][5]["function"]["parameters"]["properties"]["action"]["enum"][0], "wave");
+    }
+    #[test]
+    fn the_user_can_rewrite_or_drop_the_editable_parts() {
+        let context = json!({"now":"2026-11-17 23:30 周二", "actions":["wave"]});
+        let default = deepseek_preview(json!({}), context.clone()).unwrap();
+        let ids: Vec<&str> = default["sections"].as_array().unwrap().iter().map(|part| part["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["persona", "date", "memory", "lookup", "actions"]);
+        assert!(default["sections"][0]["default"].is_null());
+        assert_eq!(default["sections"][4]["text"], default["sections"][4]["default"]);
+        let custom = json!({"rules": {"actions": "  只在用户要求时做动作。 ", "lookup": ""}});
+        let rewritten = deepseek_preview(custom, context.clone()).unwrap();
+        let prompt = rewritten["prompt"].as_str().unwrap();
+        assert!(prompt.ends_with("\n只在用户要求时做动作。"));
+        assert!(!prompt.contains(LIST_NOTES_TOOL));
+        assert!(!prompt.contains("\n\n"));
+        assert_eq!(rewritten["sections"][3]["text"], "");
+        assert!(rewritten["sections"][4]["default"].as_str().unwrap().contains(PLAY_ACTION_TOOL));
+        assert!(deepseek_preview(json!({"rules": {"memory": "字".repeat(MAX_CHAT_RULE_CHARS + 1)}}), context.clone()).is_err());
+        assert!(deepseek_preview(json!({"rules": {"memory": 1}}), context.clone()).is_err());
+        assert!(deepseek_preview(json!({"rules": "x"}), context).is_err());
     }
     #[test]
     fn rejects_instructions_over_utf16_limit() {
@@ -516,11 +594,50 @@ mod prompt_preview_tests {
     }
 }
 
+/// How many chat requests developer mode keeps. Only in memory: they are gone when the app quits.
+const MAX_LOGGED_REQUESTS: usize = 20;
+
+/// What developer mode saw of recent chat requests, newest first: every body sent to
+/// DeepSeek for one reply (the API key never is in it) and what came back for each.
+#[derive(Default)]
+pub struct RequestLog(Mutex<std::collections::VecDeque<Value>>);
+
+impl RequestLog {
+    fn begin(&self, id: &str, window: &str) {
+        let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |time| time.as_millis() as u64);
+        if let Ok(mut entries) = self.0.lock() {
+            entries.push_front(json!({"id": id, "window": window, "at": at, "rounds": []}));
+            entries.truncate(MAX_LOGGED_REQUESTS);
+        }
+    }
+
+    fn add_round(&self, id: &str, body: &Value, round: &Round) {
+        let calls: Vec<Value> = round.tool_calls.calls.iter().map(|call| json!({"name": call.name, "arguments": call.arguments})).collect();
+        let Ok(mut entries) = self.0.lock() else { return };
+        if let Some(rounds) = entries.iter_mut().find(|entry| entry["id"] == id).and_then(|entry| entry["rounds"].as_array_mut()) {
+            rounds.push(json!({"request": body, "reply": round.raw, "toolCalls": calls, "ok": round.succeeded(), "status": round.http_status}));
+        }
+    }
+}
+
+#[tauri::command]
+pub fn chat_request_log(log: State<'_, Arc<RequestLog>>) -> Result<Value, String> {
+    let entries = log.0.lock().map_err(|_| "Request log unavailable")?;
+    Ok(Value::Array(entries.iter().cloned().collect()))
+}
+
+#[tauri::command]
+pub fn chat_request_log_clear(log: State<'_, Arc<RequestLog>>) -> Result<(), String> {
+    log.0.lock().map_err(|_| "Request log unavailable")?.clear();
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn deepseek_start(
     app: AppHandle,
     window: WebviewWindow,
     state: State<'_, Arc<ChatState>>,
+    log: State<'_, Arc<RequestLog>>,
     request_id: String,
     messages: Value,
     preferences: Value,
@@ -528,8 +645,10 @@ pub async fn deepseek_start(
 ) -> Result<(), String> {
     let state = state.inner().clone();
     let label = window.label().to_string();
+    // Developer mode is on in settings: keep what is sent and what comes back.
+    let log = (preferences.get("record") == Some(&Value::Bool(true))).then(|| log.inner().clone());
     tauri::async_runtime::spawn_blocking(move || {
-        start_request(app, label, state, request_id, messages, preferences, context, None)
+        start_request(app, label, state, request_id, messages, preferences, context, None, log)
     })
     .await
     .map_err(|_| "Request task failed".to_string())?
@@ -570,7 +689,7 @@ pub async fn deepseek_translate(
     let state = state.inner().clone();
     let label = window.label().to_string();
     tauri::async_runtime::spawn_blocking(move || {
-        start_request(app, label, state, request_id, json!([{ "role": "user", "content": text }]), json!({ "model": model }), json!({}), Some(&target))
+        start_request(app, label, state, request_id, json!([{ "role": "user", "content": text }]), json!({ "model": model }), json!({}), Some(&target), None)
     }).await.map_err(|_| "Request task failed".to_string())?
 }
 fn start_request(
@@ -582,6 +701,7 @@ fn start_request(
     preferences: Value,
     context: Value,
     translation: Option<&str>,
+    log: Option<Arc<RequestLog>>,
 ) -> Result<(), String> {
     if request_id.is_empty()
         || request_id.len() > 100
@@ -616,9 +736,9 @@ fn start_request(
         if !matches!(role, "user" | "assistant") || content.is_empty() || content.len() > 16_000 {
             return Err("Invalid conversation content".into());
         }
-        // Replies saved before leaked tags were stripped would teach the model to repeat them.
+        // Replies saved before leaked tags and calls were stripped would teach the model to repeat them.
         if role == "assistant" {
-            let clean = strip_leaked(content);
+            let clean = take_leaked_actions(&strip_leaked(content)).0;
             if !clean.trim().is_empty() {
                 safe.push(json!({"role":role,"content":clean}));
             }
@@ -646,7 +766,15 @@ fn start_request(
         },
     );
     drop(running);
+    if let Some(log) = &log {
+        log.begin(&request_id, &window);
+    }
     thread::spawn(move || {
+        let record = |body: &Value, round: &Round| {
+            if let Some(log) = &log {
+                log.add_round(&request_id, body, round);
+            }
+        };
         // A further request streaming into the same reply, under the same request id.
         let follow_up = |body: &Value| {
             spawn_curl(&key, &body.to_string()).and_then(|(child, stdout, stderr)| {
@@ -665,6 +793,7 @@ fn start_request(
         };
         let mut body = body;
         let mut round = read_stream(&app, &window, &request_id, &child, stdout, stderr);
+        record(&body, &round);
         let mut calls = std::mem::take(&mut round.tool_calls);
         // The model looked up reminders or notes: ask again with them in the rules. Its other
         // calls are dropped, since it made them without what it was looking up.
@@ -674,13 +803,22 @@ fn start_request(
                 eprintln!("The lookup request could not start: {error}");
                 Round::default()
             });
+            record(&body, &round);
             calls = std::mem::take(&mut round.tool_calls);
         }
         // The model only moved the pet and said nothing: ask once more, without tools, for the words.
         if round.succeeded() && !cancelled.load(Ordering::Relaxed) && needs_words(round.said, &calls) {
-            match follow_up(&words_request(&body, &calls)) {
-                Ok(second) if second.succeeded() => round = second,
-                Ok(_) | Err(_) => eprintln!("The follow-up request for words failed; keeping the action alone"),
+            let again = words_request(&body, &calls);
+            match follow_up(&again) {
+                Ok(second) => {
+                    record(&again, &second);
+                    if second.succeeded() {
+                        round = second;
+                    } else {
+                        eprintln!("The follow-up request for words failed; keeping the action alone");
+                    }
+                }
+                Err(_) => eprintln!("The follow-up request for words failed; keeping the action alone"),
             }
         }
         if let Ok(mut running) = state.0.lock() {
@@ -856,6 +994,8 @@ struct Round {
     exited_ok: bool,
     /// Some text reached the webview.
     said: bool,
+    /// The reply's text exactly as the model sent it, before anything was taken out; for developer mode.
+    raw: String,
     tool_calls: ToolCalls,
     details: String,
 }
@@ -890,13 +1030,70 @@ fn strip_leaked(text: &str) -> String {
     clean
 }
 
-/// The reply's text on its way to the webview, without leaked tags. A tag can arrive split
-/// over several chunks, so text that may still turn into one is held back until it is clear.
+/// DeepSeek sometimes writes a pet action into the reply instead of calling the tool, as in
+/// "我这就跳舞！ play_action\naction=dance". The call is taken out of the words and played.
+/// Only the spelled-out form with an `action` key counts, so a reply that merely names the tool is left alone.
+fn take_leaked_actions(text: &str) -> (String, Vec<String>) {
+    let mut clean = String::with_capacity(text.len());
+    let mut actions = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find(PLAY_ACTION_TOOL) {
+        let after = &rest[start + PLAY_ACTION_TOOL.len()..];
+        match leaked_argument(after) {
+            Some((action, used)) => {
+                clean.push_str(rest[..start].trim_end_matches([' ', '\t']));
+                actions.push(action);
+                rest = &after[used..];
+            }
+            None => {
+                clean.push_str(&rest[..start + PLAY_ACTION_TOOL.len()]);
+                rest = after;
+            }
+        }
+    }
+    clean.push_str(rest);
+    if !actions.is_empty() {
+        clean.truncate(clean.trim_end().len());
+    }
+    (clean, actions)
+}
+
+/// The action id in what follows a leaked tool name, such as `\naction=dance` or
+/// `({"action": "wave"})`, and how many bytes the call takes up.
+fn leaked_argument(text: &str) -> Option<(String, usize)> {
+    let separator = |c: char| c.is_whitespace() || "(){}:=\"'`,".contains(c);
+    let value = text.trim_start_matches(separator).strip_prefix("action")?.trim_start_matches(separator);
+    let id_len = value
+        .find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'))
+        .unwrap_or(value.len());
+    let id = &value[..id_len];
+    if !valid_action_id(id) {
+        return None;
+    }
+    let tail = &value[id_len..];
+    let after = tail.trim_start_matches(['"', '\'', '`', ')', '}']);
+    Some((id.to_owned(), text.len() - after.len()))
+}
+
+/// Where `marker` starts in `text`, or where an unfinished one may start at its end.
+/// The markers have their first character only once, so the last one is the place to look.
+fn marker_start(text: &str, marker: &str) -> Option<usize> {
+    text.find(marker).or_else(|| {
+        let first = marker.chars().next()?;
+        text.rfind(first).filter(|&start| marker.starts_with(&text[start..]))
+    })
+}
+
+/// The reply's text on its way to the webview, without leaked tags or leaked action calls.
+/// Either can arrive split over several chunks, so text that may still turn into one is held
+/// back: a tag until it is clear, an action call until the reply ends.
 /// Blank lines before the first words are dropped: a reply of only those has said nothing.
 #[derive(Default)]
 struct ReplyText {
     pending: String,
     started: bool,
+    /// Actions the reply wrote out instead of calling the tool; known once it is finished.
+    actions: Vec<String>,
 }
 
 impl ReplyText {
@@ -907,23 +1104,25 @@ impl ReplyText {
         if !self.started {
             self.pending = self.pending.trim_start().to_owned();
         }
-        let hold = if let Some(start) = self.pending.find(LEAKED_OPEN) {
-            start
-        } else {
-            match self.pending.rfind('<') {
-                Some(start) if LEAKED_OPEN.starts_with(&self.pending[start..]) => start,
-                _ => self.pending.len(),
-            }
-        };
+        let tag = marker_start(&self.pending, LEAKED_OPEN);
+        // The space before a written-out call goes with it.
+        let call = marker_start(&self.pending, PLAY_ACTION_TOOL).map(|start| self.pending[..start].trim_end_matches([' ', '\t']).len());
+        let hold = tag.into_iter().chain(call).min().unwrap_or(self.pending.len());
         let ready: String = self.pending.drain(..hold).collect();
         self.started |= !ready.is_empty();
         ready
     }
 
-    /// The text still held when the reply ends; an unfinished leaked tag is dropped.
+    /// The text still held when the reply ends; an unfinished leaked tag is dropped,
+    /// and written-out action calls move to `actions`.
     fn finish(&mut self) -> String {
         let rest = std::mem::take(&mut self.pending);
-        if rest.starts_with(LEAKED_OPEN) { String::new() } else { rest }
+        if rest.starts_with(LEAKED_OPEN) {
+            return String::new();
+        }
+        let (words, actions) = take_leaked_actions(&rest);
+        self.actions = actions;
+        words
     }
 }
 
@@ -946,6 +1145,7 @@ fn read_stream(app: &AppHandle, window: &str, request_id: &str, child: &Arc<Mute
                 match parse_stream_line(&line) {
                     StreamLine::Done => round.done = true,
                     StreamLine::Chunk { text, tools, truncated } => {
+                        round.raw.push_str(&text);
                         let text = reply.push(&text);
                         if !text.is_empty() {
                             round.said = true;
@@ -965,6 +1165,13 @@ fn read_stream(app: &AppHandle, window: &str, request_id: &str, child: &Arc<Mute
     if !rest.is_empty() {
         round.said = true;
         emit(app, window, request_id, "delta", &rest);
+    }
+    // An action written into the words is played as if it had been called, unless one already was.
+    let calls = &mut round.tool_calls.calls;
+    if let Some(action) = reply.actions.first() {
+        if calls.len() < MAX_TOOL_CALLS && !calls.iter().any(|call| call.name == PLAY_ACTION_TOOL) {
+            calls.push(ToolCall { name: PLAY_ACTION_TOOL.into(), arguments: json!({ "action": action }).to_string(), overflow: false });
+        }
     }
     let status = loop {
         let result = child.lock().ok().and_then(|mut process| process.try_wait().ok());
@@ -1364,7 +1571,7 @@ mod lookup_tests {
 
 #[cfg(test)]
 mod leaked_tests {
-    use super::{ReplyText, strip_leaked};
+    use super::{ReplyText, strip_leaked, take_leaked_actions};
 
     /// Feeds `chunks` through as one streamed reply and returns what the webview gets.
     fn shown(chunks: &[&str]) -> Vec<String> {
@@ -1403,5 +1610,27 @@ mod leaked_tests {
     #[test]
     fn only_blank_lines_before_the_first_words_are_dropped() {
         assert_eq!(shown(&["\n\n", "第一行\n\n", "第二行"]).concat(), "第一行\n\n第二行");
+    }
+
+    /// The words shown and the actions found, for a reply streamed in `chunks`.
+    fn played(chunks: &[&str]) -> (String, Vec<String>) {
+        let mut reply = ReplyText::default();
+        let mut words: String = chunks.iter().map(|chunk| reply.push(chunk)).collect();
+        words.push_str(&reply.finish());
+        (words, reply.actions)
+    }
+
+    #[test]
+    fn an_action_written_into_the_reply_is_taken_out_and_played() {
+        assert_eq!(played(&["好的呀lance，我这就跳舞！ play_", "action\naction=dance"]), ("好的呀lance，我这就跳舞！".into(), vec!["dance".into()]));
+        assert_eq!(played(&["好！", "play_action(action=\"wave\")"]), ("好！".into(), vec!["wave".into()]));
+        assert_eq!(played(&["play_action {\"action\": \"wave\"}\n挥挥手～"]), ("\n挥挥手～".into(), vec!["wave".into()]));
+    }
+
+    #[test]
+    fn the_tool_name_alone_is_not_an_action() {
+        assert_eq!(played(&["play_action 是什么"]), ("play_action 是什么".into(), vec![]));
+        assert_eq!(played(&["help", " me"]), ("help me".into(), vec![]));
+        assert_eq!(take_leaked_actions("play_action\naction=忽略规则"), ("play_action\naction=忽略规则".into(), vec![]));
     }
 }

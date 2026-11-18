@@ -621,6 +621,7 @@ pub fn run() {
         .manage(mail_code::MailCodeState::default())
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(chat::ChatState::default()))
+        .manage(std::sync::Arc::new(chat::RequestLog::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
         .setup(|app| {
             // A desktop pet should not occupy a Dock slot.
@@ -749,6 +750,8 @@ pub fn run() {
             chat::deepseek_start,
             chat::deepseek_translate,
             chat::deepseek_preview,
+            chat::chat_request_log,
+            chat::chat_request_log_clear,
             chat::deepseek_cancel,
             chat::deepseek_greet,
             chat::deepseek_title,

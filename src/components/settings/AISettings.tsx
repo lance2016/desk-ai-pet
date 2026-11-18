@@ -13,6 +13,8 @@ import { requestPreferences } from "../../preferences/ChatPreferences";
 import { CHAT_INSTRUCTIONS_LIMIT, loadChatInstructions, saveChatInstructions } from "../../preferences/ChatInstructions";
 import type { ChatPreview } from "../../platform/chat";
 import { ChatRequestDetails } from "./ChatRequestDetails";
+import { ChatRequestLog } from "./ChatRequestLog";
+import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
 import { moveRadioChoice } from "./radioKeys";
 
 const LENGTHS: readonly [ChatPreferences["length"], string][] = [["short", "简短"], ["normal", "自然"]];
@@ -37,6 +39,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   const [preview, setPreview] = useState<ChatPreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [connectionExpanded, setConnectionExpanded] = useState(false);
+  const [developer, setDeveloper] = useState(loadDeveloperMode);
   const who = name ?? characterName(packId, persona?.name ?? "");
   const toggleAutoTitles = () => {
     try { saveAutoTitles(!autoTitles); setAutoTitles(!autoTitles); } catch (reason) { console.error("Could not save the title setting", reason); setStatus("设置没能保存，请再试一次。"); }
@@ -52,6 +55,9 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   const updateInstructions = (next: string) => {
     try { saveChatInstructions(packId, next); setInstructions(next); setPreview(null); setStatus(""); }
     catch (reason) { console.error("Could not save chat instructions", reason); setStatus("补充要求没能保存，请再试一次。"); }
+  };
+  const toggleDeveloper = () => {
+    try { saveDeveloperMode(!developer); setDeveloper(!developer); } catch (reason) { console.error("Could not save developer mode", reason); setStatus("设置没能保存，请再试一次。"); }
   };
   const showPreview = async () => {
     setPreviewError("");
@@ -129,6 +135,10 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
       </div>
     </div>
 
-    <section className="ai-section ai-advanced" aria-labelledby="ai-advanced-heading"><div className="ai-section__title"><h2 id="ai-advanced-heading">发给 AI 的设定</h2><p>发出去的全部内容见「隐私与数据」</p></div><div className="settings-card ai-preview"><div className="ai-preview__head"><div><strong>规则和能力</strong><span>按现在的设置生成，不含聊天记录</span></div><button type="button" className="settings-button settings-button--small" onClick={() => void showPreview()}>{preview ? "刷新" : "查看"}</button></div>{previewError && <p role="status">{previewError}</p>}{preview && <ChatRequestDetails preview={preview} />}</div></section>
+    <section className="ai-section ai-advanced" aria-labelledby="ai-advanced-heading">
+      <div className="ai-section__title"><h2 id="ai-advanced-heading">发给 AI 的设定</h2><p>发出去的全部内容见「隐私与数据」</p></div>
+      <div className="settings-card ai-preview"><div className="ai-preview__head"><div><strong>对话规则</strong><span>每次聊天都会带上，可以逐段修改，所有角色共用</span></div><button type="button" className="settings-button settings-button--small" onClick={() => void showPreview()}>{preview ? "刷新" : "查看和修改"}</button></div>{previewError && <p role="status">{previewError}</p>}{preview && <ChatRequestDetails preview={preview} onChanged={() => void showPreview()} onError={setPreviewError} />}</div>
+      <div className="settings-group ai-developer"><div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>记下每次聊天实际发给 AI 的内容和 AI 的原始回复</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={toggleDeveloper}><span /></button></div>{developer && <ChatRequestLog />}</div>
+    </section>
   </div>;
 }

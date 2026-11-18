@@ -78,6 +78,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 设置窗口路由 | `src-tauri/tauri.conf.json` 的 `settings` 窗口 URL | `src/main.tsx` 的 `window=settings` 路由 |
 | 性格长度上限 | `PERSONA_LIMITS.personality`（`src/types.ts`） | `MAX_PERSONALITY_CHARS`（`src-tauri/src/chat.rs`） |
 | 聊天补充要求长度上限（UTF-16） | `CHAT_INSTRUCTIONS_LIMIT`（`src/preferences/ChatInstructions.ts`） | `MAX_CHAT_INSTRUCTIONS_CHARS`（`src-tauri/src/chat.rs`） |
+| 可改写的对话规则：段名、长度上限（UTF-16） | `CHAT_RULE_IDS`、`CHAT_RULE_LIMIT`（`src/preferences/ChatRules.ts`） | `chat_sections` 里用 `editable` 的段、`MAX_CHAT_RULE_CHARS`（`chat.rs`） |
+| 开发者模式的请求记录命令和字段 | `src/platform/chat.ts` 的 `chat_request_log`、`chat_request_log_clear`、`logSchema` | `chat.rs` 的 `RequestLog`、`lib.rs` 的 `invoke_handler` 和 `.manage` |
 | 你的称呼长度上限 | `USER_PROFILE_LIMITS.nickname`（`src/preferences/UserProfile.ts`） | `MAX_USER_NAME_CHARS`（`src-tauri/src/chat.rs`） |
 | 聊天工具名、提醒和备忘长度上限、动作名格式 | `src/agenda/chatTools.ts`、`AGENDA_LIMITS.text`、`NOTE_LIMITS.text`（`src/notes/NoteStore.ts`） | `src-tauri/src/chat.rs` 的 `ADD_REMINDER_TOOL`、`SAVE_NOTE_TOOL`、`PLAY_ACTION_TOOL`、`MAX_ITEM_CHARS`、`MAX_NOTE_CHARS`、`valid_action_id` |
 | 聊天查看提醒、备忘和今天的记录时带的清单：条数上限、每行长度上限 | `AGENDA_LIMITS.items`、`NOTE_LIMITS.items`、`REMINDER_LINE_LIMIT`、`TODAY_LIMITS`（`chatTools.ts`，按 UTF-16） | `chat.rs` 的 `MAX_REMINDERS`、`MAX_NOTES`、`MAX_REMINDER_LINE_CHARS`、`MAX_TODAY_LINES`、`MAX_TODAY_LINE_CHARS`（按字符；前端的上限能保证不超）。查看工具 `LOOKUP_TOOLS` 只在原生端 |
@@ -157,6 +159,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
 - 只调用 `play_action` 的回复没有任何文字，前端只能显示「没有收到回复」。原生端遇到这种回复会去掉工具再请求一次（`needs_words`、`words_request`，在 `chat.rs`）。新加只做事、不产生文字的工具时，也要算进 `needs_words`。不要在提示词里写「动作不能代替回复」这类话：试过，模型会改成用括号描写动作（「（敲敲木鱼）」），不再调用工具，宠物就不动了。
 - DeepSeek 偶尔把自己提示格式里的东西漏进回复正文，见过的是只调了 `play_action` 时回「\n\n<budget:token_budget>200000</budget:token_budget>」。原生端在流式输出时去掉（`ReplyText`、`strip_leaked`，在 `chat.rs`），只剩这些的回复算「没说话」，照常走 `needs_words` 补一句；发历史前也会把旧回复里的清掉，免得模型照着学。再见到新的漏出格式，加进这里。
+- DeepSeek 有时不调用工具，而是把调用写进正文，见过的是「我这就跳舞！ play_action\naction=dance」。原生端在流式输出时从 `play_action` 起扣住文字直到回复结束，认出带 `action` 键的写法就从文字里去掉、补成一次真的 `play_action` 调用（`take_leaked_actions`、`ReplyText`），宠物照样做动作；只写了工具名、没有 `action` 的不动。发历史前也会清掉旧回复里的。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。

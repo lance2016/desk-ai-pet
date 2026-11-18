@@ -167,7 +167,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
 | `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
 | `pet.greeting` | `{ text }`，宠物出来打招呼并说这句话 | `PetRuntime.greet()` |
-| `pet.alert` | `{ text \| null, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件 | `BehaviorEngine` |
+| `pet.alert` | `{ text \| null, heading?, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；`heading` 是事项上方或按钮旁的小字（「到点啦」「别忘了」）；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件，最后一个（非危险操作时）画成主按钮 | `BehaviorEngine` |
 | `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
 | `pet.reminders_snoozed` | 无，提醒气泡上的「10 分钟后」：过一会儿再提醒 | `PetSpeech`（气泡按钮） |
@@ -288,9 +288,9 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 **到点提醒。** `BehaviorEngine.tick()` 每秒向 `ReminderSource` 要到点、且用户还没看过的事项：
 
 - 手动勿扰开着时（`holdsReminders`）新到点的不弹出，只把数量放进徽标，例如“专注 12:00 · 提醒 1 · 勿扰”。免打扰时段不拦提醒：时间是用户自己定的。
-- 否则叫醒宠物、从贴边处出来（记下原来贴的边）、请求 `happy`，并发 `pet.alert` 显示常驻气泡。同时到点的合成一句“到点啦：A、B”；其中有超过 10 分钟的改说“别忘了：…”；超过两件写“别忘了：A、B 等 N 件”并带 `more`，点击时同时打开提醒面板。之后又到点的事项会并进同一个气泡。宠物窗口被隐藏时，`App` 收到 `pet.alert` 会调 `show_pet` 不抢焦点地显示它。
+- 否则叫醒宠物、从贴边处出来（记下原来贴的边）、请求 `happy`，并发 `pet.alert` 显示常驻气泡。同时到点的事项合成 `text`「A、B」，`heading` 是「到点啦」；其中有超过 10 分钟的，`heading` 改成「别忘了」；超过两件写「A、B 等 N 件」并带 `more`，点击时同时打开提醒面板。之后又到点的事项会并进同一个气泡。宠物窗口被隐藏时，`App` 收到 `pet.alert` 会调 `show_pet` 不抢焦点地显示它。
 - 气泡点掉 1.5 秒后、问候说完 10 秒后，原来贴边的宠物回到探头状态；期间用户点它、拖它、按按钮都会取消。
-- 常驻气泡不自动消失。`PetSpeech` 把它画成醒目的样式，并通过 `alertRef` 交给 `App` 加进命中区域表，所以能点到。点名一两件事的气泡带两个按钮：「完成」发 `pet.reminders_done`，`BehaviorEngine` 通过 `ReminderSource.complete` 勾掉这些提醒（存储变化再回来变成 `pet.item_done`，宠物开心一下）；「10 分钟后」发 `pet.reminders_snoozed`，`snooze` 把 `remindedAt` 记成现在、`snoozedUntil` 记成 10 分钟后，宠物说一句「好，10 分钟后再叫你」。到时间 `dueReminders` 会再交出这一轮（`snoozedUntil` 晚于这一轮、已到、之后没再处理过），这时已经超过 10 分钟，气泡说「别忘了：…」。改时间会清掉 `snoozedUntil`。超过两件的气泡不带按钮，点一下发 `pet.alert_dismissed` 并打开提醒面板，这时才标记 `remindedAt`。没处理就退出的提醒，下次启动会再出现。
+- 常驻气泡不自动消失。`PetSpeech` 把提醒画成通知的样子（琥珀色铃铛方块、事项做标题、「完成」是主按钮），并通过 `alertRef` 交给 `App` 加进命中区域表，所以能点到。点名一两件事的气泡带两个按钮：「完成」发 `pet.reminders_done`，`BehaviorEngine` 通过 `ReminderSource.complete` 勾掉这些提醒（存储变化再回来变成 `pet.item_done`，宠物开心一下）；「10 分钟后」发 `pet.reminders_snoozed`，`snooze` 把 `remindedAt` 记成现在、`snoozedUntil` 记成 10 分钟后，宠物说一句「好，10 分钟后再叫你」。到时间 `dueReminders` 会再交出这一轮（`snoozedUntil` 晚于这一轮、已到、之后没再处理过），这时已经超过 10 分钟，气泡的小字变成「别忘了」。改时间会清掉 `snoozedUntil`。超过两件的气泡不带按钮，点一下发 `pet.alert_dismissed` 并打开提醒面板，这时才标记 `remindedAt`。没处理就退出的提醒，下次启动会再出现。
 - 气泡里的事项在“提醒”里被勾掉或删除后，下一秒就从气泡里拿掉；全部拿掉时气泡收起。
 - 普通的话照常短暂显示，期间暂时盖住常驻气泡，说完后常驻气泡回来。
 
@@ -474,6 +474,10 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 `Companion` 定期通过 `platform/system.ts` 读取 macOS 的系统空闲秒数，在本机判断深夜持续使用、连续使用与离开后返回。采样中断时不推断使用时长。场景通过 `PetRuntime.greet()` 共用主动说话间隔和问候动作；仅深夜关心允许用户选择绕过定时勿扰，手动勿扰始终生效。专注期间暂停场景触发，专注动作和完成提示由 `BehaviorEngine` 管理。
 
 AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带，原生端按 UTF-16 长度校验；问候和标题不使用。聊天预览通过 `deepseek_preview` 在本机调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
+
+系统提示词由 `chat_sections`（`chat.rs`）按段组装：`persona`、`date`、`memory`、`lookup`、`actions`（有可选动作时）、`instructions`（填了补充要求时），非空段用换行连起来。`memory`、`lookup`、`actions` 三段可被用户改写：`ChatRules`（`ai-pet:chat-rules:v1`，所有角色共用）随 `requestPreferences` 以 `rules` 发出，缺省用默认写法，空字符串表示去掉这一段。预览返回每段的 `text` 和 `default`，设置页据此显示「已修改」和「恢复默认」。
+
+开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，原生端把这次回复的每个请求体（首个请求、查询后的追加请求、补说话的请求）和模型原样返回的文字、工具调用记进 `RequestLog`，最多 20 条，只在内存；设置页通过 `chat_request_log`、`chat_request_log_clear` 读取和清空。
 
 动作图层的上飘淡出按主图指定的显示帧范围计算进度，预览与渲染器共用动效采样。文字图层先生成透明 PNG，再按普通图层保存。
 

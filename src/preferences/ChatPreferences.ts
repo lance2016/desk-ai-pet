@@ -5,6 +5,8 @@ import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
 import { loadChatModel } from "./ChatModel";
 import { loadUserProfile } from "./UserProfile";
 import { loadChatInstructions } from "./ChatInstructions";
+import { loadChatRules, type ChatRules } from "./ChatRules";
+import { loadDeveloperMode } from "./DeveloperMode";
 const schema = z.object({ name: z.string().trim().min(1).max(PERSONA_LIMITS.name), personality: z.string().trim().max(PERSONA_LIMITS.personality), length: z.enum(["short", "normal"]) });
 export type ChatPreferences = z.infer<typeof schema>;
 export { schema as chatPreferencesSchema };
@@ -23,10 +25,13 @@ export function characterName(packId: string, ownName: string, storage: Storage 
   try { const raw = storage.getItem(key(packId)); return raw ? schema.parse(JSON.parse(raw)).name : ownName; }
   catch { return ownName; }
 }
-/** What a chat or greeting request sends: the character's preferences, how to address the user and which model answers. */
-export type ChatRequestPreferences = ChatPreferences & { userName: string; model: string; instructions: string };
+/**
+ * What a chat or greeting request sends: the character's preferences, how to address the user, which model answers,
+ * the rule parts the user rewrote, and whether developer mode keeps the request.
+ */
+export type ChatRequestPreferences = ChatPreferences & { userName: string; model: string; instructions: string; rules: ChatRules; record: boolean };
 export function requestPreferences(packId: string, persona?: PetPersona, storage: Storage = window.localStorage): ChatRequestPreferences {
-  return { ...loadChatPreferences(packId, persona, storage), userName: loadUserProfile(storage).nickname, model: loadChatModel(storage), instructions: loadChatInstructions(packId, storage) };
+  return { ...loadChatPreferences(packId, persona, storage), userName: loadUserProfile(storage).nickname, model: loadChatModel(storage), instructions: loadChatInstructions(packId, storage), rules: loadChatRules(storage), record: loadDeveloperMode(storage) };
 }
 export function saveChatPreferences(packId: string, value: ChatPreferences, storage: Storage = window.localStorage): void { storage.setItem(key(packId), JSON.stringify(schema.parse(value))); }
 export function resetChatPreferences(packId: string, storage: Storage = window.localStorage): void { storage.removeItem(key(packId)); }
