@@ -65,7 +65,7 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
         <kbd className={recording ? "shortcut-key is-recording" : "shortcut-key"}>{recording ? "请按键…" : shortcut ? quickChatShortcutLabel(shortcut) : "已关闭"}</kbd>
         <div className="settings-button-row" role="group" aria-label="快速聊天快捷键">
           <button type="button" className="settings-button settings-button--small" onClick={() => (recording ? stop(shortcut) : void startRecording())}>{recording ? "取消" : "录制…"}</button>
-          {shortcut && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(null)}>关闭</button>}
+          {shortcut && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(null)} title="不再响应这个快捷键，可以随时重新录制">停用</button>}
           {shortcut !== DEFAULT_QUICK_CHAT_SHORTCUT && <button type="button" className="settings-button settings-button--small" disabled={recording} onClick={() => void apply(DEFAULT_QUICK_CHAT_SHORTCUT)}>恢复默认</button>}
         </div>
       </div>

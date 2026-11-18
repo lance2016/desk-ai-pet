@@ -213,6 +213,7 @@ button.dock-row__body { cursor: pointer; }
 .dock-editor__icons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .icon-choice { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--label); background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
 .icon-choice .control-icon { width: 16px; height: 16px; }
+.icon-choice .control-illustration { width: 24px; height: 24px; }
 .icon-choice.is-selected { color: var(--accent-strong); box-shadow: 0 0 0 2px var(--accent); }
 @media (prefers-color-scheme: dark) { .icon-choice.is-selected { color: var(--accent); } }
 .icon-upload { position: relative; overflow: hidden; }
@@ -394,7 +395,9 @@ button.dock-row__body { cursor: pointer; }
 .character-tile--new .character-tile__portrait { box-sizing: border-box; display: grid; place-items: center; color: var(--accent); background: var(--accent-wash); border: 1.5px dashed var(--accent-ring); border-radius: 50%; font-size: 26px; font-weight: 300; }
 
 .ai-settings { padding: 14px 12px; }
-.ai-settings__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ai-settings__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.ai-settings__head > .ai-badge { margin-left: auto; }
+.ai-settings__head:last-child { margin-bottom: 0; }
 .ai-settings__head strong, .ai-settings__head span { display: block; }
 .ai-settings__head strong { font-weight: 600; }
 .ai-settings__head div span { margin-top: 2px; color: var(--label-2); font-size: 11px; }
@@ -622,7 +625,7 @@ button.dock-row__body { cursor: pointer; }
 }
 
 .quiet-hours.is-off { opacity: .45; }
-.quiet-hours__note { margin: 0; padding: 0 14px 12px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.quiet-hours__note { margin: 0; padding: 0 0 12px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 
 .layer-editor__text { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
 .layer-editor__text label { display: flex; align-items: center; gap: 8px; }

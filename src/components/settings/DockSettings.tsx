@@ -5,7 +5,6 @@ import { characterPictures } from "../../appearance/characterPictures";
 import { PORTRAIT_ACTION } from "../../assets/PackCatalog";
 import { DOCK_LIMITS, dockControls, loadDock, resetDock, saveDock, setDockAction, subscribeDock, type DockCommand, type DockItem } from "../../preferences/DockPreferences";
 import type { ControlIconPreset } from "../../types";
-import { ControlIcon } from "../ControlIcon";
 import { ControlIconView } from "../ControlIconView";
 import { DockButtonFace } from "../DockButtonFace";
 import { ConfirmButton } from "../ConfirmButton";
@@ -168,7 +167,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
           <span>图标</span>
           <div className="dock-editor__icons" role="radiogroup" onKeyDown={moveRadioChoice} aria-label={`${item.label}的图标`}>
             {ICON_OPTIONS[item.command].map((icon) => (
-              <button key={icon} type="button" role="radio" aria-checked={item.icon === icon} aria-label={ICON_NAMES[icon]} className={item.icon === icon ? "icon-choice is-selected" : "icon-choice"} onClick={() => update(key, { icon })}><ControlIcon name={icon} /></button>
+              <button key={icon} type="button" role="radio" aria-checked={item.icon === icon} aria-label={ICON_NAMES[icon]} className={item.icon === icon ? "icon-choice is-selected" : "icon-choice"} onClick={() => update(key, { icon })}><DockButtonFace item={{ ...item, icon }} packId={packId} actions={actions} resolveAsset={resolveAsset} /></button>
             ))}
             {typeof item.icon !== "string" && <span className="icon-choice is-selected" aria-label="自定义图标"><ControlIconView icon={item.icon} resolveAsset={resolveAsset} /></span>}
             <label className="settings-button settings-button--small icon-upload">
