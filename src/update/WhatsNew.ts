@@ -1,15 +1,13 @@
 import { version } from "../../package.json";
 import notes from "./releaseNotes.json";
+import type { FeatureColor, FeatureIcon } from "../guide/featureIcons";
 
 /** The version this build is. */
 export const CURRENT_VERSION = version;
 
-export const FEATURE_ICONS = ["bell", "search", "list", "text", "moon"] as const;
-export const FEATURE_COLORS = ["orange", "blue", "pink", "purple", "indigo"] as const;
-
 export interface Feature {
-  icon: (typeof FEATURE_ICONS)[number];
-  color: (typeof FEATURE_COLORS)[number];
+  icon: FeatureIcon;
+  color: FeatureColor;
   title: string;
   detail: string;
 }

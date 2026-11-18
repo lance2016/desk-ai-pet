@@ -31,18 +31,23 @@ import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
+import { NAV_GROUPS, isSection, sectionLabel, type SettingsSection } from "./sections";
+import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
+import { SETTINGS_INDEX } from "./settingsSearch";
+import { FeatureGuide } from "./FeatureGuide";
+import { FEATURE_GUIDE } from "../../guide/featureGuide";
 
 const SCALES = [
   { value: 0.75, label: "小" },
   { value: 1, label: "标准" },
   { value: 1.3, label: "大" },
 ] as const;
+/** Looking for a search result's title on a page that is still loading: every 100 ms, for 1.5 s. */
+const FIND_INTERVAL_MS = 100;
+const FIND_TRIES = 15;
 const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
-const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "tools", "privacy", "about"] as const;
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["dock", "actions"];
-type SettingsSection = (typeof SECTIONS)[number];
-const isSection = (value: string | null): value is SettingsSection => SECTIONS.some((section) => section === value);
 
 function SettingsGlyph({ name }: { name: SettingsSection }) {
   const paths: Record<SettingsSection, ReactNode> = {
@@ -55,18 +60,12 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     voice: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
     tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
+    guide: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" /></>,
     about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-/** Sidebar entries in order, in groups: the character, what the pet does, the app. Each gets its own tile colour, as in System Settings. */
-const NAV_GROUPS: readonly (readonly { id: SettingsSection; label: string }[])[] = [
-  [{ id: "character", label: "角色" }, { id: "actions", label: "动作库" }, { id: "dock", label: "快捷按钮" }],
-  [{ id: "ai", label: "AI 对话" }, { id: "voice", label: "语音" }, { id: "companion", label: "陪伴与勿扰" }, { id: "tools", label: "小工具" }],
-  [{ id: "general", label: "通用" }, { id: "privacy", label: "隐私与数据" }, { id: "about", label: "关于" }],
-];
-const NAV = NAV_GROUPS.flat();
 
 /** "隐私与数据": what stays on this computer, and each time the app goes online: title, what, and when. */
 const STORED: readonly [string, string][] = [
@@ -210,37 +209,73 @@ export function SettingsPage({ packId }: { packId: string }) {
   };
 
   const name = current ? characterName(packId, current.name) : "";
-  const label = NAV.find((item) => item.id === section)?.label ?? "";
+  const label = sectionLabel(section);
   const title = PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
   /** The action editor has unsaved changes: the first click on another page only warns. */
   const [leaving, setLeaving] = useState<SettingsSection | null>(null);
-  const go = (id: SettingsSection) => {
+  /** Shows page `id`; returns false when unsaved changes hold the user on this one. */
+  const go = (id: SettingsSection): boolean => {
     if (id !== section && hasUnsavedChanges() && leaving !== id) {
       setLeaving(id);
       setError("动作还没保存。再点一次离开，改动会丢掉。");
-      return;
+      return false;
     }
     setUnsavedChanges(false);
     setLeaving(null);
     setSection(id);
     setError(null);
+    return true;
   };
+
+  // Search: the pages, the settings on them and the features in "功能一览".
+  const searchEntries = useMemo<SearchResult[]>(() => [
+    ...NAV_GROUPS.flat().map(({ id, label: page }) => ({ section: id, title: page, place: "" })),
+    ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
+    ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
+  ], []);
+  /** The title a search result points at; the page scrolls to it and flashes it. */
+  const [found, setFound] = useState<{ title: string; at: number } | null>(null);
+  const openResult = (entry: SearchResult) => {
+    if (!go(entry.section)) return;
+    setFound(entry.place ? { title: entry.title, at: Date.now() } : null);
+  };
+  useEffect(() => {
+    if (!found) return;
+    // Pages load their parts on their own time, so look for the title a few times before giving up.
+    let tries = 0;
+    let lit: Element | null = null;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      const label = [...(contentRef.current?.querySelectorAll("strong, h2, h3") ?? [])].find((element) => element.textContent?.trim() === found.title);
+      if (!label && tries < FIND_TRIES) return;
+      window.clearInterval(timer);
+      if (!label) return;
+      lit = label.closest(".settings-row, .guide-feature, .ai-settings__head, .settings-section__intro") ?? label;
+      lit.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      lit.classList.remove("is-search-hit");
+      void (lit as HTMLElement).offsetWidth;
+      lit.classList.add("is-search-hit");
+    }, FIND_INTERVAL_MS);
+    return () => { window.clearInterval(timer); };
+  }, [found]);
 
   return (
     <main className="settings-page">
       <aside className="settings-sidebar">
-        <nav aria-label="设置分类">
-          {NAV_GROUPS.map((group) => (
-            <div key={group[0].id} className="settings-nav-group">
-              {group.map(({ id, label }) => (
-                <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
-                  <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
+        <SettingsSearch entries={searchEntries} onPick={openResult} icon={(entry) => <span className={`settings-nav__icon settings-nav__icon--${entry.section}`}><SettingsGlyph name={entry.section} /></span>}>
+          <nav aria-label="设置分类">
+            {NAV_GROUPS.map((group) => (
+              <div key={group[0].id} className="settings-nav-group">
+                {group.map(({ id, label }) => (
+                  <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
+                    <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </SettingsSearch>
       </aside>
 
       <section className="settings-content" ref={contentRef}>
@@ -293,6 +328,8 @@ export function SettingsPage({ packId }: { packId: string }) {
             </div>
           </div>
         )}
+
+        {section === "guide" && <FeatureGuide onOpen={go} />}
 
         {section === "about" && (
           <div className="settings-section">

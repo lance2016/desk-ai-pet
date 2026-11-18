@@ -1,0 +1,41 @@
+[
+  {
+    "title": "和它互动",
+    "features": [
+      { "icon": "chat", "color": "blue", "title": "点一下就能聊天", "detail": "回复显示在它头顶，想看完整对话就打开聊天窗口。", "how": ["点一下宠物", "⇧⌘ Space"], "section": "ai" },
+      { "icon": "hand", "color": "pink", "title": "摸摸头", "detail": "按住不动半秒；连着摸三次它会害羞。", "how": ["按住宠物 0.5 秒", "右键宠物 › 摸摸头"] },
+      { "icon": "move", "color": "teal", "title": "拖走或躲到边上", "detail": "拖到屏幕左右边缘松手，它会躲在边上探头，点一下出来。", "how": ["按住拖动"] },
+      { "icon": "sparkle", "color": "purple", "title": "快捷按钮", "detail": "鼠标移到宠物上，两侧出现聊天、提醒、备忘、专注和你加的动作。", "how": ["鼠标移到宠物上"], "section": "dock" },
+      { "icon": "sleep", "color": "indigo", "title": "跟着你作息", "detail": "你在用电脑时它醒着，走开 5 分钟它会睡着，回来就醒。" }
+    ]
+  },
+  {
+    "title": "帮你做事",
+    "features": [
+      { "icon": "bell", "color": "orange", "title": "提醒", "detail": "到点它会摇铃叫你，可以点「完成」或「10 分钟后」；支持工作日、每天、每周几重复。", "how": ["聊天里说「三点提醒我开会」", "快捷按钮「提醒」"] },
+      { "icon": "note", "color": "yellow", "title": "备忘", "detail": "没有时间的事存进备忘，点一条就复制。", "how": ["聊天里说「记一下…」", "快捷按钮「备忘」"] },
+      { "icon": "search", "color": "blue", "title": "问它记下的事", "detail": "它会翻提醒和备忘来回答，只能看，不会改。", "how": ["问「今天还有什么事」", "问「WiFi 密码是多少」"] },
+      { "icon": "list", "color": "pink", "title": "今日回顾", "detail": "按今天的提醒、专注和备忘写成几条日报，复制就能贴。", "how": ["右键宠物 › 今日回顾", "说「帮我写今天的日报」"] },
+      { "icon": "timer", "color": "red", "title": "专注", "detail": "专注 25 分钟再休息 5 分钟，脚下显示倒计时，到点叫你起来活动。", "how": ["快捷按钮「专注」", "右键宠物 › 开始专注"] },
+      { "icon": "text", "color": "purple", "title": "划词翻译、解释、总结、润色", "detail": "在任何应用里选中文字，点浮钮里的按钮就出结果。", "how": ["选中文字", "⌃⌥⌘ T"], "section": "tools" },
+      { "icon": "mail", "color": "green", "title": "查收验证码", "detail": "从 163 邮箱找到最新的验证码，自动复制。", "how": ["右键宠物 › 查收验证码"], "section": "tools" },
+      { "icon": "mic", "color": "red", "title": "语音输入", "detail": "在聊天窗口按麦克风说话，识别好由你确认后再发送。", "how": ["聊天窗口 › 麦克风"], "section": "voice" }
+    ]
+  },
+  {
+    "title": "陪着你",
+    "features": [
+      { "icon": "sun", "color": "orange", "title": "早安和晚安", "detail": "每天第一次见面打招呼，睡前半小时道晚安，会提到今天的提醒和专注。" },
+      { "icon": "heart", "color": "green", "title": "关心你", "detail": "深夜还在用电脑、连续用太久、离开后回来，它会说一句。", "section": "companion" },
+      { "icon": "moon", "color": "indigo", "title": "勿扰", "detail": "勿扰时它不主动说话，到点的提醒收成脚下的小标签。", "how": ["右键宠物 › 勿扰"], "section": "companion" }
+    ]
+  },
+  {
+    "title": "变成你的样子",
+    "features": [
+      { "icon": "user", "color": "purple", "title": "换角色、建角色", "detail": "切换内置角色，或新建一个自己的，改名字和性格。", "section": "character" },
+      { "icon": "paw", "color": "orange", "title": "换动作图、做新动作", "detail": "换上自己画的动作图，或新建动作放进快捷按钮。", "section": "actions" },
+      { "icon": "archive", "color": "gray", "title": "备份", "detail": "提醒、备忘、聊天记录和设置导出成一个文件，换电脑时恢复。", "section": "privacy" }
+    ]
+  }
+]

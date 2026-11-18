@@ -106,7 +106,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 取消识别的标记 | `TRANSCRIBE_CANCELLED`（`src/components/chat/useVoiceInput.ts`） | `CANCELLED`（`mimo.rs`） |
 | 动作的触发说明 | `src/actions/standardActions.json` 每个动作的 `description`（动作库里显示的「什么时候做」） | `BehaviorEngine.ts` 里请求这个动作的规则 |
 | 内置角色列表 | `public/pets/index.json` 的 `packs` | `public/pets/<id>/` 目录名和清单 `id` |
-| 新功能介绍的图标和颜色 | `FEATURE_ICONS`、`FEATURE_COLORS`（`src/update/WhatsNew.ts`），`releaseNotes.json` 只能用这些 | `GLYPHS`（`WhatsNewSheet.tsx`）、`.whats-new__tile--*`（`SettingsPage.css`） |
+| 功能一览和新功能介绍的图标、颜色 | `FEATURE_ICONS`、`FEATURE_COLORS`（`src/guide/featureIcons.ts`），`featureGuide.json`、`releaseNotes.json` 只能用这些 | `GLYPHS`（`FeatureTile.tsx`）、`.feature-tile--*`（`SettingsPage.css`） |
 | 发布仓库 | `tauri.conf.json` 的 `plugins.updater.endpoints` | `scripts/release.sh` 的 `RELEASES_REPO` |
 | 更新签名 | `tauri.conf.json` 的 `plugins.updater.pubkey` | 本机私钥 `~/.tauri/ai-pet-updater.key`（换密钥要两处一起换，旧版本的用户会收不到更新） |
 
@@ -217,6 +217,9 @@ pnpm exec tsc --noEmit && pnpm test
 | 改了什么 | 更新哪份 |
 |---|---|
 | 用户能感知的行为、命令、限制 | `README.md` |
+| 用户能用的功能：新增、改名、去掉，或者换了用法 | `src/guide/featureGuide.json`（「设置 → 功能一览」，每条写清做什么、怎么用、在哪一页设置） |
+| 设置页新加或改名的行、分组标题 | `SETTINGS_INDEX`（`src/components/settings/settingsSearch.ts`，带上用户可能搜的词）；不该被搜到的放 `SEARCH_SKIPPED`。漏了测试会失败 |
+| 发新版本 | `src/update/releaseNotes.json` 加这一版的新功能（没有测试会失败） |
 | 模块、事件、调度规则、属性数值 | `ARCHITECTURE.md` |
 | 清单字段、内置动作、优先级 | `ACTIONS.md` |
 | 快捷按钮图标规格 | `ASSET_GUIDE.md` |

@@ -82,6 +82,11 @@ src/
 │       ├── actions/         动作库：素材墙、动作编辑、图层、把上传的图画到舞台上
 │       ├── UpdateRow.tsx    「关于」页的软件更新：检查、下载进度、重启
 │       ├── WhatsNewSheet.tsx 「新功能」介绍弹层
+│       ├── FeatureGuide.tsx 「功能一览」页，内容来自 src/guide/featureGuide.json
+│       ├── FeatureTile.tsx  功能图标（系统色圆角方块），功能一览和新功能介绍共用
+│       ├── sections.ts      设置窗口有哪些页、侧栏顺序和名字
+│       ├── settingsSearch.ts 设置搜索的索引和排序
+│       ├── SettingsSearchField.tsx 侧栏顶部的搜索框和结果列表
 │       └── SettingsPage.css 设置页样式
 └── App.tsx                  创建运行时，控制窗口大小和菜单显隐
 
@@ -448,6 +453,13 @@ public/pets/girl-default/    默认资源包
 ## 开机启动与备份
 
 `src-tauri/src/system.rs` 用 ServiceManagement 的 `SMAppService.mainAppService` 把 app 注册为登录项，状态有 `on`、`off`、`approval`（在系统设置里被关掉）三种；`preferences/LaunchAtLogin.ts` 让安装版第一次运行时打开一次，开发构建跳过。备份由 `storage/Backup.ts` 生成：所有 `ai-pet:` 开头的 localStorage 值加上 IndexedDB 里的外观覆盖，Zod 校验后才恢复。恢复先替换 localStorage（失败则写回原值），再在一个 IndexedDB 事务里替换外观（失败则把 localStorage 也写回），最后由原生端 `restart_app` 重启，让所有窗口重新读取。保存文件用 `tauri-plugin-dialog` 的原生保存面板，只从 Rust 调用，前端没有对应权限。
+
+## 设置搜索和功能一览
+
+- **功能一览。** `src/guide/featureGuide.json` 按组列出用户能用的功能：图标、颜色、标题、一句说明、怎么用（`how`，每条一个标签，含 ⌘⌃⌥⇧ 的显示成键帽）、对应的设置页（`section`）。`FeatureGuide.tsx` 只负责显示，加功能不用改代码。测试检查图标、颜色、页面都存在，标题不重复。
+- **搜索的范围。** 侧栏顶部的搜索框（`SettingsSearchField.tsx`）搜三样东西：各页本身（`NAV_GROUPS`）、设置项（`SETTINGS_INDEX`，每条是页面上显示的标题加别的说法）、功能一览的每条功能（说明和用法也算关键词）。排序：标题完全一样、标题开头、标题包含、只有关键词命中；同一档里标题短的在前。
+- **跳过去。** 选中结果后切到那一页，在页面里找文字等于标题的 `strong`、`h2`、`h3`，滚到中间并加 `is-search-hit` 闪一下。页面的部分内容是异步加载的，所以每 100 毫秒找一次，最多找 1.5 秒。动作编辑有没保存的改动时不跳。
+- **索引不会过期。** 测试读设置组件的源码：索引里的标题必须在源码里出现；源码里写死的行标题和分组标题（`<strong>`、`<h2>`、`<h3>`）必须在索引或 `SEARCH_SKIPPED` 里。新加一行设置忘了登记，测试会失败。
 
 ## 应用内更新
 

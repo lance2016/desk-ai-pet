@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ANNOUNCED_KEY, CURRENT_VERSION, FEATURE_COLORS, FEATURE_ICONS, SEEN_KEY, announceUpdate, markWhatsNewSeen, notesFor, shouldShowWhatsNew, skipWhatsNew, updatedLine } from "./WhatsNew";
+import { FEATURE_COLORS, FEATURE_ICONS } from "../guide/featureIcons";
+import { ANNOUNCED_KEY, CURRENT_VERSION, SEEN_KEY, announceUpdate, markWhatsNewSeen, notesFor, shouldShowWhatsNew, skipWhatsNew, updatedLine } from "./WhatsNew";
 import notes from "./releaseNotes.json";
 
 const memory = (): Pick<Storage, "getItem" | "setItem"> & { data: Map<string, string> } => {
