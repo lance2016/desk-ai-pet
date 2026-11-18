@@ -86,7 +86,8 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 
 /* ---------- Sidebar ---------- */
 .settings-sidebar { box-sizing: border-box; flex: 0 0 220px; padding: 24px 12px 16px; overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--separator); }
-.settings-sidebar nav { display: grid; gap: 1px; }
+.settings-sidebar nav { display: grid; gap: 14px; }
+.settings-nav-group { display: grid; gap: 1px; }
 .settings-nav { box-sizing: border-box; width: 100%; min-height: 34px; display: flex; align-items: center; gap: 9px; padding: 0 9px; text-align: left; background: none; border: 0; border-radius: 7px; cursor: default; }
 .settings-nav:hover:not(.is-active) { background: var(--fill-strong); }
 .settings-nav.is-active { color: #fff; background: var(--accent-strong); }
@@ -100,7 +101,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-nav__icon--actions { background: linear-gradient(#ffb340, #f58f0a); }
 .settings-nav__icon--ai { background: linear-gradient(#9b86f0, #6f58c9); }
 .settings-nav__icon--voice { background: linear-gradient(#ff6b85, #e93e5c); }
-.settings-nav__icon--mail { background: linear-gradient(#3ec8e8, #149fc7); }
+.settings-nav__icon--tools { background: linear-gradient(#3ec8e8, #149fc7); }
 .settings-nav__icon--privacy { background: linear-gradient(#4aa3ff, #1a7ef0); }
 .settings-nav__icon--about { background: linear-gradient(#8f9bb0, #6b778c); }
 

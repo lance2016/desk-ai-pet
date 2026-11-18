@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { QuietSettings } from "./QuietSettings";
 import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPreferences } from "../../preferences/CompanionPreferences";
 
 export function CompanionSettings({ name, onError }: { name: string; onError: (message: string | null) => void }) {
@@ -12,7 +13,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
     <button type="button" role="switch" aria-label={title} aria-checked={value[key]} className={value[key] ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, [key]: !value[key] })}><span /></button>
   </div>;
   return <div className="settings-section">
-    <div className="settings-section__intro"><p>{name}会在合适的时候关心你。所有关心都遵守勿扰和定时勿扰，只有下面一个开关能让深夜关心例外。</p></div>
+    <div className="settings-section__intro"><h2>关心</h2><p>{name}会在合适的时候关心你。所有关心都遵守下面的勿扰和定时勿扰，只有一个开关能让深夜关心例外。</p></div>
     <div className="settings-group">
       {toggle("night", "深夜关心", "到了设定时间后仍在使用电脑，每晚最多一次")}
       <div className="settings-row"><div className="settings-row__body"><strong>关心时间</strong><span>还需持续使用约 15 分钟才会出现</span></div><input type="time" aria-label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(event) => { if (event.currentTarget.value) update({ ...value, nightTime: event.currentTarget.value }); }} /></div>
@@ -22,5 +23,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       {toggle("welcomeBack", "回来打招呼", "离开电脑至少 30 分钟后回来，偶尔说一声欢迎回来")}
     </div>
     <p className="settings-footnote">这些关心使用本机的键鼠空闲时长，不读取输入内容，也不调用 AI。专注期间不主动打扰；专注开始和结束的陪伴仍照常。</p>
+    <h2 className="settings-group-title">勿扰</h2>
+    <QuietSettings onError={onError} />
   </div>;
 }

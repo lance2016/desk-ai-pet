@@ -352,7 +352,7 @@ export default function App({ packId }: AppProps) {
     if (!runtime) return;
     return mailCodePlatform.onUpdate((update) => {
       runtime.bus.emit("pet.mail_code", update);
-      if (update.kind === "unset") void petWindow.openSettings("mail").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
+      if (update.kind === "unset") void petWindow.openSettings("tools").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
     });
   }, [runtime]);
 

@@ -6,6 +6,7 @@ import { classifyServiceError, serviceErrorMessage } from "../../chat/serviceErr
 import { chatPlatform } from "../../platform/chat";
 import { loadChatModel } from "../../preferences/ChatModel";
 import { ModelSettings } from "./ModelSettings";
+import { QuickChatSettings } from "./QuickChatSettings";
 import { ConfirmButton } from "../ConfirmButton";
 import { chatContext } from "../../agenda/chatTools";
 import { requestPreferences } from "../../preferences/ChatPreferences";
@@ -25,7 +26,7 @@ export function deepSeekProblem(reason: unknown, doing: string): string {
   return kind === "other" ? `${doing}失败，请再试一次。` : serviceErrorMessage("DeepSeek", kind);
 }
 
-export function AISettings({ packId, persona, name, actions, onCharacter }: { packId: string; persona?: PetPersona; name?: string; actions: string[]; onCharacter: () => void }) {
+export function AISettings({ packId, persona, name, actions, onCharacter, onError }: { packId: string; persona?: PetPersona; name?: string; actions: string[]; onCharacter: () => void; onError: (message: string | null) => void }) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [key, setKey] = useState("");
   const [preferences, setPreferences] = useState(() => loadChatPreferences(packId, persona));
@@ -104,6 +105,11 @@ export function AISettings({ packId, persona, name, actions, onCharacter }: { pa
         </section>
 
         {!keyFirst && connection}
+
+        <section className="ai-section" aria-labelledby="ai-quick-chat-heading">
+          <div className="ai-section__title"><h2 id="ai-quick-chat-heading">快速聊天</h2><p>所有角色共用。</p></div>
+          <QuickChatSettings onError={onError} />
+        </section>
       </div>
 
       <div className="ai-layout__aside">

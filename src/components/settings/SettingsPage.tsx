@@ -18,10 +18,8 @@ import { VoiceSettings } from "./VoiceSettings";
 import { MailSettings } from "./MailSettings";
 import { ActionLibrary } from "./ActionLibrary";
 import { DockSettings } from "./DockSettings";
-import { QuietSettings } from "./QuietSettings";
 import { CompanionSettings } from "./CompanionSettings";
 import { HolidaySettings } from "./HolidaySettings";
-import { QuickChatSettings } from "./QuickChatSettings";
 import { WelcomeGuide } from "./WelcomeGuide";
 import { BackupSettings } from "./BackupSettings";
 import { UpdateRow } from "./UpdateRow";
@@ -37,7 +35,7 @@ const SCALES = [
   { value: 1.3, label: "大" },
 ] as const;
 const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
-const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "mail", "privacy", "about"] as const;
+const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "tools", "privacy", "about"] as const;
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["dock", "actions"];
 type SettingsSection = (typeof SECTIONS)[number];
@@ -52,26 +50,20 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     actions: <><path d="M12 20c-3 0-5-1.4-5-3.8 0-2 2.3-3.6 5-3.6s5 1.6 5 3.6c0 2.4-2 3.8-5 3.8Z" /><circle cx="5.5" cy="10" r="2" /><circle cx="10" cy="6" r="2" /><circle cx="15" cy="6" r="2" /><circle cx="19" cy="10" r="2" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
     voice: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
-    mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
+    tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
     about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-/** Sidebar entries in order. Each gets its own tile colour, as in System Settings. */
-const NAV: readonly { id: SettingsSection; label: string }[] = [
-  { id: "character", label: "角色" },
-  { id: "general", label: "通用" },
-  { id: "companion", label: "主动陪伴" },
-  { id: "dock", label: "快捷按钮" },
-  { id: "actions", label: "动作库" },
-  { id: "ai", label: "AI 对话" },
-  { id: "voice", label: "语音" },
-  { id: "mail", label: "邮箱" },
-  { id: "privacy", label: "隐私与数据" },
-  { id: "about", label: "关于" },
+/** Sidebar entries in order, in groups: the character, what the pet does, the app. Each gets its own tile colour, as in System Settings. */
+const NAV_GROUPS: readonly (readonly { id: SettingsSection; label: string }[])[] = [
+  [{ id: "character", label: "角色" }, { id: "actions", label: "动作库" }, { id: "dock", label: "快捷按钮" }],
+  [{ id: "ai", label: "AI 对话" }, { id: "voice", label: "语音" }, { id: "companion", label: "陪伴与勿扰" }, { id: "tools", label: "小工具" }],
+  [{ id: "general", label: "通用" }, { id: "privacy", label: "隐私与数据" }, { id: "about", label: "关于" }],
 ];
+const NAV = NAV_GROUPS.flat();
 
 export function SettingsPage({ packId }: { packId: string }) {
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
@@ -205,11 +197,15 @@ export function SettingsPage({ packId }: { packId: string }) {
     <main className="settings-page">
       <aside className="settings-sidebar">
         <nav aria-label="设置分类">
-          {NAV.map(({ id, label }) => (
-            <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
-              <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
-              <span>{label}</span>
-            </button>
+          {NAV_GROUPS.map((group) => (
+            <div key={group[0].id} className="settings-nav-group">
+              {group.map(({ id, label }) => (
+                <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
+                  <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>
@@ -228,14 +224,16 @@ export function SettingsPage({ packId }: { packId: string }) {
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
               <div className="settings-row"><div className="settings-row__body"><strong>鼠标离开后快捷按钮保留</strong><span>留一点时间，方便把鼠标移到按钮上</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮保留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
-            <h2 className="settings-group-title">快速聊天</h2>
-            <QuickChatSettings onError={setError} />
-            <h2 className="settings-group-title">翻译</h2>
+          </div>
+        )}
+
+        {section === "tools" && (
+          <div className="settings-section">
+            <h2 className="settings-group-title">划词翻译</h2>
             <TranslationShortcutSettings onError={setError} />
-            <h2 className="settings-group-title">勿扰</h2>
-            <QuietSettings onError={setError} />
             <h2 className="settings-group-title">提醒</h2>
             <HolidaySettings />
+            <MailSettings />
           </div>
         )}
 
@@ -246,9 +244,8 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
-        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onCharacter={() => go("character")} />}
+        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onCharacter={() => go("character")} onError={setError} />}
         {section === "voice" && packInfo && <VoiceSettings key={packId} packId={packId} />}
-        {section === "mail" && <MailSettings />}
         {section === "privacy" && (
           <div className="settings-section">
             <h2 className="settings-group-title">备份</h2>

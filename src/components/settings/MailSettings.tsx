@@ -48,7 +48,8 @@ export function MailSettings() {
   };
   const open163 = () => void systemPlatform.openLink(MAIL_163).catch((reason: unknown) => { console.error("Could not open 163 mail", reason); setStatus("没能打开网页，可以自己在浏览器里打开 mail.163.com。"); });
 
-  return <div className="settings-section">
+  // Rendered inside the "小工具" page, so it brings no section of its own.
+  return <>
     <div className="settings-section__intro"><h2>查收验证码</h2><p>网站把验证码发到邮箱后，右键点宠物，选「查收验证码」。宠物会找到最新的验证码，复制好告诉你。</p></div>
     <article className="settings-card ai-settings mail-settings">
       <div className="ai-settings__head">
@@ -79,5 +80,5 @@ export function MailSettings() {
     <p className="settings-footnote">还没收到就接着等，最多 2 分钟；想停下就点宠物脚下的「等验证码」，或菜单里的「停止等验证码」。目前只支持 163 邮箱。</p>
     <div className="settings-section__intro settings-section__intro--spaced"><h2>试试能不能认出</h2><p>某封邮件没被认出来时，把它贴在这里，看看是哪一步没过。不用连邮箱，内容不保存。</p></div>
     <MailCodeTester />
-  </div>;
+  </>;
 }
