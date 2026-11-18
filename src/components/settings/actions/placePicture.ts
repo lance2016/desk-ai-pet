@@ -1,5 +1,5 @@
-import type { PictureCrop } from "../../appearance/pictureCrop";
-import { keptRegion, placementFromCrop, unionRect, type Rect, type Size, type StageAlign } from "../../appearance/stagePlacement";
+import type { PictureCrop } from "../../../appearance/pictureCrop";
+import { keptRegion, placementFromCrop, unionRect, type Rect, type Size, type StageAlign } from "../../../appearance/stagePlacement";
 import { loadImage, visibleBounds } from "./trimImage";
 
 /** Pictures as the user picked them: one strip of `count` equal frames, or one picture per frame. */

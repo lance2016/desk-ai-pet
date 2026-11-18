@@ -1,5 +1,5 @@
-import { ART_PROMPT_MAX_CHARS } from "../../assets/ArtPrompt";
-import { ConfirmButton } from "../ConfirmButton";
+import { ART_PROMPT_MAX_CHARS } from "../../../assets/ArtPrompt";
+import { ConfirmButton } from "../../ConfirmButton";
 import { CopyButton } from "./CopyButton";
 
 interface Props {

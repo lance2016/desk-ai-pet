@@ -4,7 +4,7 @@ import type { AnimationEntry } from "../assets/Manifest";
 import { isCustomCharacter } from "../assets/PackCatalog";
 import { ControlIcon } from "./ControlIcon";
 import type { DockItem } from "../preferences/DockPreferences";
-import { ActionThumbnail } from "./settings/ActionThumbnail";
+import { ActionThumbnail } from "./settings/actions/ActionThumbnail";
 import { ControlIconView } from "./ControlIconView";
 import "./DockButtonFace.css";
 

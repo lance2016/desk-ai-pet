@@ -77,6 +77,7 @@ src/
 │       ├── SettingsPage.tsx 独立设置窗口页面
 │       ├── QuietSettings.tsx 勿扰和免打扰时段
 │       ├── QuickChatSettings.tsx 快速聊天快捷键
+│       ├── actions/         动作库：素材墙、动作编辑、图层、把上传的图画到舞台上
 │       ├── UpdateRow.tsx    「关于」页的软件更新：检查、下载进度、重启
 │       └── SettingsPage.css 设置页样式
 └── App.tsx                  创建运行时，控制窗口大小和菜单显隐
@@ -431,7 +432,7 @@ public/pets/girl-default/    默认资源包
 
 ### 动作外观覆盖
 
-`appearance/AppearanceStore.ts` 使用 IndexedDB 按资源包 ID 与动作 ID 保存经 Zod 校验的外观覆盖，保存完成才通知主窗口；设置窗口等待主窗口加载结果。上传的图片先在摆位框（`PictureCropper`）里摆到舞台上：舞台就是清单的 `canvas`，底边是地面。摆位计算在 `appearance/stagePlacement.ts`，画图在 `components/settings/placePicture.ts`：每帧按同一个摆位画到舞台上，保存舞台上有画面的那一块（向下到地面，左右按中线对称，`align: left` 从左边算），多帧拼成横向 PNG。渲染器按原像素贴底画帧，所以保存后位置和大小与摆位框一致。按提示词画的正方形图，默认缩放让「站直 760 像素」等于待机图的可见高度；其他图默认按原动作图的尺寸放进去。帧图可重新排序和删除，不再缩放。外观覆盖可包含独立图层及其位置、缩放、层级、动效和主图可见帧范围；旧数据未包含图层字段时保留资源包默认图层。`PetRuntime` 启动时恢复覆盖，更新交由渲染器原子切换；加载失败保留默认资源。切换外观后重算鼠标命中区域。动作调度、优先级和属性规则仍来自资源包及行为引擎。
+`appearance/AppearanceStore.ts` 使用 IndexedDB 按资源包 ID 与动作 ID 保存经 Zod 校验的外观覆盖，保存完成才通知主窗口；设置窗口等待主窗口加载结果。上传的图片先在摆位框（`PictureCropper`）里摆到舞台上：舞台就是清单的 `canvas`，底边是地面。摆位计算在 `appearance/stagePlacement.ts`，画图在 `components/settings/actions/placePicture.ts`：每帧按同一个摆位画到舞台上，保存舞台上有画面的那一块（向下到地面，左右按中线对称，`align: left` 从左边算），多帧拼成横向 PNG。渲染器按原像素贴底画帧，所以保存后位置和大小与摆位框一致。按提示词画的正方形图，默认缩放让「站直 760 像素」等于待机图的可见高度；其他图默认按原动作图的尺寸放进去。帧图可重新排序和删除，不再缩放。外观覆盖可包含独立图层及其位置、缩放、层级、动效和主图可见帧范围；旧数据未包含图层字段时保留资源包默认图层。`PetRuntime` 启动时恢复覆盖，更新交由渲染器原子切换；加载失败保留默认资源。切换外观后重算鼠标命中区域。动作调度、优先级和属性规则仍来自资源包及行为引擎。
 
 用户自己做的动作（`actions/UserActions.ts`）只保存名称和时长，存在角色 key `user-actions:v1`；图片就是同一个 ID 的外观覆盖。`withUserActions` 把它们追加到清单后面，条目的 `file` 借用待机图，类别为 `custom`，优先级 20。宠物窗口通过 `PetRuntime.create({ userActions })` 拿到它们；设置页新建、修改或删除后照常发外观变更通知，`refreshAppearance` 先重读列表，用 `PetRenderer.addAnimation`/`removeAnimation` 和 `ActionRegistry.register`/`unregister` 增删，再发出 `pet.actions.changed`，Dock 随之刷新。ID 形如 `my-xxxx`，含连字符，所以 `chatContext` 不会把它们交给 AI。
 

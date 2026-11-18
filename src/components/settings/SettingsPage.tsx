@@ -16,7 +16,7 @@ import { AISettings } from "./AISettings";
 import { CharacterSettings } from "./CharacterSettings";
 import { VoiceSettings } from "./VoiceSettings";
 import { MailSettings } from "./MailSettings";
-import { ActionLibrary } from "./ActionLibrary";
+import { ActionLibrary } from "./actions/ActionLibrary";
 import { DockSettings } from "./DockSettings";
 import { CompanionSettings } from "./CompanionSettings";
 import { HolidaySettings } from "./HolidaySettings";
