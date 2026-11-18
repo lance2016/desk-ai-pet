@@ -7,14 +7,18 @@ const NOW = Date.UTC(2026, 10, 16, 9, 0);
 const thread = (id: string, updatedAt: number, messages: ChatThread["messages"] = [{ role: "user", content: "hi" }]): ChatThread => ({ id, title: id, updatedAt, messages });
 
 describe("pickQuickThread", () => {
-  it("continues the latest thread while it is recent", () => {
-    const threads = [thread("a", NOW - 60_000), thread("b", NOW - 120_000)];
-    expect(pickQuickThread(threads, NOW)?.id).toBe("a");
+  it("starts a new thread for the first line after the bar opens, however recent the latest thread is", () => {
+    expect(pickQuickThread([thread("a", NOW - 1_000)], null)).toBeNull();
+    expect(pickQuickThread([], null)).toBeNull();
   });
 
-  it("starts fresh once the latest thread has gone quiet", () => {
-    expect(pickQuickThread([thread("a", NOW - QUICK_CHAT_CONFIG.continueWithinMs - 1)], NOW)).toBeNull();
-    expect(pickQuickThread([], NOW)).toBeNull();
+  it("continues the thread this opening of the bar already wrote to", () => {
+    const threads = [thread("a", NOW - 1_000), thread("b", NOW - 60_000)];
+    expect(pickQuickThread(threads, "b")?.id).toBe("b");
+  });
+
+  it("starts fresh when that thread was deleted meanwhile", () => {
+    expect(pickQuickThread([thread("a", NOW)], "gone")).toBeNull();
   });
 });
 

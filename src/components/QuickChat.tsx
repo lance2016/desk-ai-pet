@@ -119,12 +119,20 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   const toolCalls = useRef<string[]>([]);
   /** The thread the bar last wrote to, for "open in the chat window". */
   const lastThread = useRef<string | null>(null);
+  /** The thread written to since the bar last opened; each opening starts a new conversation. */
+  const sessionThread = useRef<string | null>(null);
 
   const runtimeRef = useRef(runtime);
   runtimeRef.current = runtime;
   /** Talking counts as being with the pet: it wakes up and does not doze off mid-chat. */
   const wakePet = () => runtimeRef.current?.bus.emit("pet.wake_up", {});
-  const show = () => { setOpen(true); setFocusRequest((count) => count + 1); wakePet(); };
+  const show = () => {
+    // Asked again while it is open (another click on the pet): the conversation goes on.
+    if (!openRef.current) sessionThread.current = null;
+    setOpen(true);
+    setFocusRequest((count) => count + 1);
+    wakePet();
+  };
   const close = (release: boolean) => {
     setOpen(false);
     if (release) petWindow.releaseKeyboard().catch(reportFocus);
@@ -229,12 +237,13 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     const now = Date.now();
     const loaded = loadThreads(packId);
     if (!loaded.valid) { setReply({ text: "聊天记录读不出来了，点这里到聊天窗口处理。", status: "error", fix: "chat" }); return; }
-    const thread = pickQuickThread(loaded.threads, now);
+    const thread = pickQuickThread(loaded.threads, sessionThread.current);
     const threadId = thread?.id ?? newId();
     const history = quickHistory(thread, text);
     try { saveThreads(packId, recordThread(loaded.threads, threadId, history, now)); }
     catch (error) { console.error("Could not save the quick chat line", error); setReply({ text: STORAGE_FULL, status: "error", fix: "chat" }); return; }
     lastThread.current = threadId;
+    sessionThread.current = threadId;
     const id = newId();
     const typed = draft;
     request.current = { id, threadId, history, typed, handedOver: false };

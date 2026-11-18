@@ -3,8 +3,6 @@ import { CHAT_LIMITS, type ChatThread } from "./ChatThreads";
 import { parseMarkdown, type Inline } from "./markdown";
 
 export const QUICK_CHAT_CONFIG = {
-  /** A quick line joins the latest thread if it was active this recently; otherwise it starts a new one. */
-  continueWithinMs: 30 * 60_000,
   /** After the bar closes, a finished reply stays up for a time that suits its length. */
   lingerBaseMs: 4_000,
   lingerPerCharMs: 120,
@@ -12,10 +10,13 @@ export const QUICK_CHAT_CONFIG = {
   lingerMaxMs: 20_000,
 };
 
-/** The thread a quick line continues, or null to start a new one. Threads are kept most recent first. */
-export function pickQuickThread(threads: readonly ChatThread[], now: number): ChatThread | null {
-  const latest = threads[0];
-  return latest && now - latest.updatedAt <= QUICK_CHAT_CONFIG.continueWithinMs ? latest : null;
+/**
+ * The thread a quick line continues, or null to start a new one. Each opening
+ * of the bar is a new conversation: only the thread this opening already wrote
+ * to (`sessionThreadId`) is continued.
+ */
+export function pickQuickThread(threads: readonly ChatThread[], sessionThreadId: string | null): ChatThread | null {
+  return threads.find((thread) => thread.id === sessionThreadId) ?? null;
 }
 
 /** The thread so far plus the new line, as it is kept; send `contextMessages()` of it. */
