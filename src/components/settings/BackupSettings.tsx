@@ -79,11 +79,11 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
   return (
     <div className="settings-group">
       <div className="settings-row">
-        <div className="settings-row__body"><strong>导出数据</strong><span>{exported ? "已导出。换电脑或重装后，用「从备份恢复」导回来。" : "提醒、备忘、聊天记录、设置和自己做的动作存成一个文件，不含 API Key"}</span></div>
+        <div className="settings-row__body"><strong>导出数据</strong><span>{exported ? "已导出。换电脑或重装后，用「从备份恢复」导回来。" : "提醒、备忘、聊天记录和设置存成一个文件，不含 API Key"}</span></div>
         <button type="button" className="settings-button settings-button--small" disabled={busy} onClick={() => void exportData()}>导出…</button>
       </div>
       <div className="settings-row">
-        <div className="settings-row__body"><strong>从备份恢复</strong><span>用备份替换这台电脑上的数据，完成后宠物会重新打开</span></div>
+        <div className="settings-row__body"><strong>从备份恢复</strong><span>替换这台电脑上的数据，宠物会重新打开</span></div>
         <label className={busy ? "settings-button settings-button--small icon-upload is-disabled" : "settings-button settings-button--small icon-upload"}>
           <input type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void pick(event)} />选择文件…
         </label>
@@ -92,7 +92,7 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
         <div className="settings-row backup-confirm" role="alertdialog" aria-label="确认恢复">
           <div className="settings-row__body">
             <strong>恢复 {dateText(summary.exportedAt)} 的备份？</strong>
-            <span>备份里有提醒 {summary.reminders} 条、备忘 {summary.notes} 条{summary.pictures > 0 ? `、动作图片 ${summary.pictures} 张` : ""}。现在的数据会被整个替换，无法撤销；不放心可以先导出一份。API Key 不在备份里，恢复后如果这台电脑上没有，要重新填。</span>
+            <span>备份里有提醒 {summary.reminders} 条、备忘 {summary.notes} 条{summary.pictures > 0 ? `、动作图片 ${summary.pictures} 张` : ""}。现在的数据会被替换，不能撤销。API Key 不在备份里，可能要重新填。</span>
           </div>
           <div className="settings-button-row">
             <button type="button" className="settings-button settings-button--small" disabled={busy} onClick={() => setPending(null)}>取消</button>

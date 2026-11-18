@@ -129,10 +129,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-row__icon { flex: none; display: grid; place-items: center; width: 26px; height: 26px; color: #fff; background: var(--accent-strong); border-radius: 6px; }
 .settings-row__icon svg { width: 15px; height: 15px; }
 .settings-divider { height: 1px; background: var(--separator); }
-.settings-prose { padding: 10px 12px; }
-.settings-prose p, .settings-info p { margin: 0; color: var(--label-2); line-height: 1.6; }
-.settings-prose__list { display: grid; gap: 8px; max-width: 75ch; margin: 0; padding: 0; list-style: none; color: var(--label-2); line-height: 1.6; }
-.settings-prose__list strong { display: block; color: var(--label); font-weight: 600; }
+.settings-info p { margin: 0; color: var(--label-2); line-height: 1.6; }
 .settings-info { padding: 12px; }
 .settings-footnote { margin: 6px 4px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 /* Sticks under the page title, so an error from a row far down the page is still seen. */
@@ -458,7 +455,7 @@ button.dock-row__body { cursor: pointer; }
 .ai-data-details__content p { margin: 6px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.55; }
 .ai-data-details__content strong { color: var(--label); font-weight: 500; }
 .ai-instructions { margin-top: 10px; padding: 12px; }
-.ai-instructions label { display: block; font-weight: 500; }
+.ai-instructions label { display: block; margin-bottom: 6px; font-weight: 500; }
 .ai-instructions p, .ai-preview p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 .ai-instructions textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; padding: 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .ai-instructions__foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; color: var(--label-2); font-size: 11px; }
@@ -475,10 +472,6 @@ button.dock-row__body { cursor: pointer; }
 /* AI settings: the companion's reply settings lead; details stay close to their purpose. */
 .ai-page__intro { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0 0 22px; }
 .ai-page__intro p { margin: 0; color: var(--label-2); line-height: 1.5; }
-.ai-connection-status { display: flex; align-items: center; gap: 7px; white-space: nowrap; color: var(--label-2); font-size: 11px; }
-.ai-status-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--label-3); }
-.ai-status-dot.is-ready { background: var(--green); }
-.settings-page .ai-connection-status button { padding: 2px 0 2px 4px; color: var(--accent-strong); background: none; border: 0; font-size: 11px; cursor: pointer; }
 .ai-layout { display: grid; gap: 24px; }
 .ai-layout__main, .ai-layout__aside { min-width: 0; display: grid; align-content: start; gap: 24px; }
 .ai-section { min-width: 0; }
@@ -512,8 +505,8 @@ button.dock-row__body { cursor: pointer; }
 .ai-disclosure summary strong { font-weight: 500; }
 .ai-disclosure summary small { margin-top: 2px; color: var(--label-2); font-size: 11px; }
 .ai-disclosure summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); border-radius: var(--radius-control); }
-.ai-data-copy, .ai-prompt-text, .ai-request-tools { padding: 0 0 12px; color: var(--label-2); font-size: 12px; line-height: 1.65; }
-.ai-data-copy p, .ai-prompt-text p, .ai-request-tool p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.ai-prompt-text, .ai-request-tools { padding: 0 0 12px; color: var(--label-2); font-size: 12px; line-height: 1.65; }
+.ai-prompt-text p, .ai-request-tool p { margin: 0 0 8px; overflow-wrap: anywhere; }
 .ai-prompt-text, .ai-request-tools { user-select: text; -webkit-user-select: text; }
 .ai-request-tool + .ai-request-tool { margin-top: 16px; }
 .ai-request-tool h4 { margin: 0 0 4px; color: var(--label); font-size: 12px; font-weight: 600; }
@@ -646,7 +639,7 @@ button.dock-row__body { cursor: pointer; }
 .settings-section { max-width: 1120px; }
 .settings-header h1 { max-width: 1048px; margin-left: auto; margin-right: auto; }
 .settings-content > .settings-error { box-sizing: border-box; width: calc(100% - 72px); max-width: 1048px; margin-left: auto; margin-right: auto; }
-.settings-prose p, .settings-info p, .settings-section__intro p { max-width: 75ch; }
+.settings-info p, .settings-section__intro p { max-width: 75ch; }
 .action-editor { box-sizing: border-box; max-width: 1120px; padding: 0 36px 36px; }
 .action-editor__header { position: static; margin: 0 0 18px; padding: 0 0 14px; }
 .settings-page .action-editor__back { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; color: var(--accent-strong); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-control); font-weight: 500; }

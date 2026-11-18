@@ -48,21 +48,21 @@ export function VoiceSettings({ packId }: { packId: string }) {
   };
   const openConsole = () => void systemPlatform.openLink(MIMO_CONSOLE).catch((reason: unknown) => { console.error("Could not open the MiMo console", reason); setStatus("没能打开网页，可以自己在浏览器里打开 platform.xiaomimimo.com。"); });
   return <div className="settings-section">
-    <div className="settings-section__intro"><h2>MiMo 语音输入</h2><p>小米 MiMo 把你说的话转成文字，先填进输入框，你确认后再发送。不填也能正常聊天，只是不能用麦克风。</p></div>
+    <div className="settings-section__intro"><h2>语音输入</h2><p>说话转成文字填进输入框，你看过再发。不填 API Key 也能打字聊天</p></div>
     <article className="settings-card ai-settings">
-      <div className="ai-settings__head"><div><strong>MiMo API Key</strong><span>用小米账号登录 MiMo 控制台，在 API Keys 页新建一个</span></div><span className={configured ? "ai-badge is-ready" : "ai-badge"}>{configured === null ? "检查中" : configured ? "已配置" : "未配置"}</span>{configured && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "管理 API Key"}</button>}</div>
+      <div className="ai-settings__head"><div><strong>小米 MiMo</strong><span>用小米账号在 MiMo 控制台新建 API Key</span></div><span className={configured ? "ai-badge is-ready" : "ai-badge"}>{configured === null ? "检查中" : configured ? "已配置" : "未配置"}</span>{configured && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "管理 API Key"}</button>}</div>
       {expanded && <><form onSubmit={(event) => void saveKey(event)}><label htmlFor="mimo-key">API Key</label><div className="ai-settings__key"><input id="mimo-key" type="password" autoComplete="off" value={key} onChange={(event) => setKey(event.currentTarget.value)} placeholder={configured ? "输入新的 API Key 以替换" : "粘贴 MiMo API Key"} /><button type="submit" disabled={busy || !key.trim()}>保存</button></div></form>
-      <p>API Key 存在钥匙串里。录音会发给小米 MiMo 识别，可能产生费用；录音只用于这次识别，不会存进聊天记录。</p>
+      <p>录音会发给小米识别，可能产生少量费用，识别完不保存。</p>
       <div className="ai-settings__actions">
         {configured && <ConfirmButton disabled={busy} confirm={{ message: "移除 MiMo API Key？", detail: "API Key 会从钥匙串里删掉，之后要重新填写才能用语音。", action: "移除" }} onConfirm={() => void clearKey()}>移除 API Key</ConfirmButton>}
         <button type="button" className="ai-settings__link" onClick={openConsole}>获取 API Key ↗</button>
       </div></>}
       {status && <p className="ai-settings__status" role="status">{status}</p>}
     </article>
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>识别设置</h2><p>对所有角色生效。</p></div>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>识别</h2><p>所有角色共用</p></div>
     <div className="settings-group">
-      <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说时选「自动」</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说就选「自动」</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
     </div>
-    <p className="settings-footnote">点聊天窗口的麦克风开始录音，再点一次停止；识别结果会填进输入框，你可以修改后发送。最长录 2 分钟。</p>
+    <p className="settings-footnote">点聊天窗口的麦克风开始录音，每次最长 2 分钟。</p>
   </div>;
 }

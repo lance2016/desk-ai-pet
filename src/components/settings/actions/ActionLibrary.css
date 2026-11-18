@@ -128,7 +128,6 @@
 .action-tile__status.is-changed { color: var(--accent-strong); background: var(--accent-wash); }
 .action-tile__status.is-borrowed { color: var(--label-2); background: var(--fill); }
 .action-tile__status.is-missing { color: #8a560a; background: rgba(210, 151, 48, .14); }
-.action-tile__status.is-native { color: var(--label-2); background: var(--fill); }
 @media (prefers-color-scheme: dark) { .action-tile__status.is-missing { color: #e5bd69; background: rgba(229, 189, 105, .16); } }
 .action-tile__body > p { display: -webkit-box; min-height: 30px; margin: 4px 0 6px; overflow: hidden; color: var(--label-2); font-size: 11px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .action-tile__tools { min-height: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }

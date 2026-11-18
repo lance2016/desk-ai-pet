@@ -56,17 +56,17 @@ export function TranslationShortcutSettings({ onError }: { onError: (message: st
         />
       </div>
       <div className="settings-row">
-        <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译按钮；点了才会发送</span></div>
+        <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译按钮</span></div>
         <button type="button" role="switch" aria-checked={selectionFloat} aria-label="划词浮钮" className={selectionFloat ? "toggle is-on" : "toggle"} onClick={() => void toggleSelectionFloat()}><span /></button>
       </div>
       {trusted === false && (
         <div className="settings-row">
-          <div className="settings-row__body"><strong>辅助功能权限</strong><span>没有授权时读不到选中的文字，只能在翻译窗口里粘贴</span></div>
+          <div className="settings-row__body"><strong>辅助功能权限</strong><span>不授权就读不到选中的文字</span></div>
           <button type="button" className="settings-button settings-button--small" onClick={openAccessibility}>打开系统设置…</button>
         </div>
       )}
       <div className="settings-row">
-        <div className="settings-row__body"><strong>翻译窗口</strong><span>也可以先打开窗口，再粘贴原文</span></div>
+        <div className="settings-row__body"><strong>翻译窗口</strong><span>打开窗口，自己粘贴原文</span></div>
         <button type="button" className="settings-button settings-button--small" onClick={openTranslation}>打开翻译</button>
       </div>
     </article>

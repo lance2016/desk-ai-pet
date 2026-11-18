@@ -9,13 +9,13 @@ const FIELD_NAMES: Record<string, string> = { text: "内容", remind_at: "提醒
 export function ChatRequestDetails({ preview }: { preview: ChatPreview }) {
   const tools = preview.tools.map((tool) => toolSchema.safeParse(tool));
   return <div className="ai-request-details">
-    <p className="ai-request-details__note">这是按当前角色和时间生成的预览，不包含聊天记录；实际聊天时的时间和可用动作可能不同。</p>
+    <p className="ai-request-details__note">按现在的角色和时间生成，实际聊天时会有些不同。</p>
     <details className="ai-disclosure">
-      <summary><span><strong>对话规则</strong><small>查看发送给 AI 的完整提示词</small></span></summary>
+      <summary><span><strong>对话规则</strong><small>AI 收到的完整说明</small></span></summary>
       <div className="ai-prompt-text">{preview.prompt.split("\n").filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
     </details>
     <details className="ai-disclosure">
-      <summary><span><strong>AI 可以使用的能力</strong><small>查看每项能力会用到哪些信息</small></span></summary>
+      <summary><span><strong>AI 可以使用的能力</strong><small>每项能力会用到哪些信息</small></span></summary>
       <div className="ai-request-tools">{tools.map((result, index) => {
         if (!result.success) return <p key={index}>这项能力暂时无法显示详情。</p>;
         const tool = result.data.function;

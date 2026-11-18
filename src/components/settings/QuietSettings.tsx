@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { petWindow } from "../../platform/petWindow";
 import { loadQuietPreferences, saveQuietPreferences, subscribeQuietPreferences, type QuietPreferences } from "../../preferences/QuietPreferences";
+import { eveningGreetingTime } from "../../greeting/GreetingSchedule";
 
 /** Do-not-disturb and daily quiet hours. Shared by every character. */
 export function QuietSettings({ onError }: { onError: (message: string | null) => void }) {
@@ -25,15 +26,15 @@ export function QuietSettings({ onError }: { onError: (message: string | null) =
 
   return (
     <article className="settings-card">
-      <div className="settings-row"><div className="settings-row__body"><strong>手动勿扰</strong><span>开着时宠物不主动说话，到点的提醒先显示在宠物旁边的徽标上，关掉后再弹出。右键菜单里也能开关</span></div><button type="button" role="switch" aria-checked={value.doNotDisturb} aria-label="手动勿扰" className={value.doNotDisturb ? "toggle is-on" : "toggle"} onClick={() => updateDoNotDisturb(!value.doNotDisturb)}><span /></button></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>手动勿扰</strong><span>宠物不主动说话，到点的提醒先攒在脚下，关掉后再弹出</span></div><button type="button" role="switch" aria-checked={value.doNotDisturb} aria-label="手动勿扰" className={value.doNotDisturb ? "toggle is-on" : "toggle"} onClick={() => updateDoNotDisturb(!value.doNotDisturb)}><span /></button></div>
       <div className="settings-divider" />
-      <div className="settings-row"><div className="settings-row__body"><strong>定时勿扰</strong><span>每天这段时间宠物不主动说话，你定了时间的提醒照常弹出。可以跨过午夜</span></div><button type="button" role="switch" aria-checked={hours.enabled} aria-label="定时勿扰" className={hours.enabled ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, quietHours: { ...hours, enabled: !hours.enabled } })}><span /></button></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>定时勿扰</strong><span>每天这段时间不主动说话，提醒照常弹出</span></div><button type="button" role="switch" aria-checked={hours.enabled} aria-label="定时勿扰" className={hours.enabled ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, quietHours: { ...hours, enabled: !hours.enabled } })}><span /></button></div>
       {/* Greyed out, not hidden, when off: the greetings still go by these times. */}
       <div className={hours.enabled ? "quiet-hours" : "quiet-hours is-off"}>
         <label>从<input type="time" disabled={!hours.enabled} value={hours.start} onChange={(event) => { const start = event.currentTarget.value; if (start) update({ ...value, quietHours: { ...hours, start } }); }} /></label>
         <label>到<input type="time" disabled={!hours.enabled} value={hours.end} onChange={(event) => { const end = event.currentTarget.value; if (end) update({ ...value, quietHours: { ...hours, end } }); }} /></label>
       </div>
-      <p className="quiet-hours__note">宠物在结束时间（{hours.end}）后道早安，开始时间前半小时道晚安。定时勿扰关着也按这两个时间问候。</p>
+      <p className="quiet-hours__note">{hours.end} 后道早安，{eveningGreetingTime(hours.start)} 道晚安。</p>
     </article>
   );
 }

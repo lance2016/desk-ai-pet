@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMemoryStorage } from "../testing/fixtures";
-import { greetingDay, greetingDue, loadGreetingRecord, saveGreetingRecord, type GreetingRecord } from "./GreetingSchedule";
+import { eveningGreetingTime, greetingDay, greetingDue, loadGreetingRecord, saveGreetingRecord, type GreetingRecord } from "./GreetingSchedule";
 
 const at = (day: number, hours: number, minutes = 0) => new Date(2026, 10, day, hours, minutes).getTime();
 const NIGHT = { enabled: true, start: "23:00", end: "08:00" };
@@ -37,6 +37,14 @@ describe("greeting schedule", () => {
 
   it("uses the configured times even when quiet hours are off", () => {
     expect(greetingDue(at(16, 22, 45), { ...NIGHT, enabled: false }, NONE)).toBe("evening");
+  });
+});
+
+describe("evening greeting time", () => {
+  it("is half an hour before quiet hours start, across midnight too", () => {
+    expect(eveningGreetingTime("23:00")).toBe("22:30");
+    expect(eveningGreetingTime("22:15")).toBe("21:45");
+    expect(eveningGreetingTime("00:10")).toBe("23:40");
   });
 });
 

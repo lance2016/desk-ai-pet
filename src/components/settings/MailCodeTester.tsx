@@ -67,7 +67,7 @@ function Result({ outcome, subject, body }: { outcome: Outcome; subject: string;
   }
 }
 
-/** "试试能不能认出": runs the same rules as "查收验证码" on pasted text, as the user types. */
+/** "认不出验证码？": runs the same rules as "查收验证码" on pasted text, as the user types. */
 export function MailCodeTester() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");

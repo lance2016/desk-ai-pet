@@ -23,13 +23,13 @@ const ICON_OPTIONS: Record<DockCommand, ControlIconPreset[]> = {
   sleep_toggle: ["rest", "bed", "sun"],
 };
 const DESCRIPTIONS: Record<DockCommand, string> = {
-  chat_open: "在宠物脚下打开输入条，和它说一句",
-  today_open: "打开提醒，每条都有时间，到点宠物会叫你",
-  notes_open: "打开备忘，点一条就能复制",
-  focus_toggle: "开始 25 分钟专注，结束后提醒休息",
+  chat_open: "在宠物脚下打开输入条",
+  today_open: "打开提醒列表",
+  notes_open: "打开备忘列表",
+  focus_toggle: "开始 25 分钟专注",
   feed: "给宠物喂点吃的",
   wooden_fish: "播放木鱼动作",
-  sleep_toggle: "切换宠物的休息状态",
+  sleep_toggle: "让宠物睡觉或醒来",
 };
 /** What each icon is called, for screen readers. */
 const ICON_NAMES: Record<ControlIconPreset, string> = {
@@ -206,7 +206,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
           </div>
         </div>
         {shown.length === 0 && <span className="dock-preview__empty">没有显示的快捷按钮</span>}
-        <p>鼠标移到宠物上时，图标会悬浮在宠物两侧；放大或缩小时会留出安全间距。</p>
+        <p>鼠标移到宠物上时出现</p>
       </div>
 
       <h2 className="settings-group-title">按钮</h2>
@@ -265,7 +265,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
           )}
         </li>
       </ul>
-      <p className="settings-footnote">拖动左侧把手排序，点按钮名称可以改名和换图标。聊聊天、提醒、备忘每个角色都有；其他按钮来自当前角色。</p>
+      <p className="settings-footnote">拖动排序，点名称可以改名、换图标</p>
 
       <div className="settings-actions">
         <ConfirmButton className="settings-button" confirm={{ message: "恢复默认快捷按钮？", detail: "调整过的按钮、顺序、名字和图标都会改回这个角色原来的样子。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认快捷按钮</ConfirmButton>

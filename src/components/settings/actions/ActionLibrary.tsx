@@ -294,8 +294,10 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       const lender = actions.find((item) => item.id === action.borrowedFrom);
       return { className: "is-borrowed", label: `沿用${lender?.label ?? "其他动作"}` };
     }
-    return { className: "is-native", label: "原图" };
+    // The character's own picture is the usual case and needs no label.
+    return null;
   };
+  const previewStatus = previewAction && statusOf(previewAction);
 
   const renderCard = (action: AnimationEntry) => {
     const art = artFor(action);
@@ -312,7 +314,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       <div className="action-tile__body">
         <div className="action-tile__title-row">
           <strong title={name}>{name}</strong>
-          <span className={`action-tile__status ${status.className}`} title={status.label}>{status.label}</span>
+          {status && <span className={`action-tile__status ${status.className}`} title={status.label}>{status.label}</span>}
         </div>
         <p title={action.description ?? action.pose ?? ""}>{action.description ?? action.pose ?? (isUserAction(action) ? "自定义动作" : "角色动作")}</p>
         <div className="action-tile__tools">
@@ -399,7 +401,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
                 : <button type="button" className="action-preview__missing" onClick={() => uploadDirect(previewAction)}><span aria-hidden="true">＋</span><strong>添加动作图片</strong><p>{previewAction.pose ?? previewAction.description ?? "选择图片后调整位置。"}</p></button>}
             </div>
             <aside className="action-preview__details">
-              <span className={`action-tile__status ${statusOf(previewAction).className}`}>{statusOf(previewAction).label}</span>
+              {previewStatus && <span className={`action-tile__status ${previewStatus.className}`}>{previewStatus.label}</span>}
               <p>{previewAction.description ?? previewAction.pose ?? "角色动作"}</p>
               {previewArt && previewArt.frames > 1 && <span className="action-preview__meta">{previewArt.frames} 帧 · {previewArt.fps} 帧 / 秒</span>}
               {previewAction.duration && <span className="action-preview__meta">播放时长 {`${(previewAction.duration / 1000).toFixed(1)} 秒`}</span>}

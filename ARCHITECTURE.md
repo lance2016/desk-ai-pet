@@ -468,7 +468,7 @@ AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附�
 - **只读。** 用 `EXAMINE` 打开收件箱，正文用 `BODY.PEEK[]` 取，邮件不会被标成已读。
 - **163 要先报名字。** 登录后必须先发 IMAP `ID` 命令（RFC 2971），否则打开收件箱时返回 `Unsafe Login`。curl 每次只能发一条 IMAP 命令，插不进 `ID`，所以这里用 `imap` crate 自己建连接，也因此不走系统代理（`proxy.rs` 只管 curl）。
 - **挑哪一封。** 只看收件箱最新 10 封里 10 分钟内收到、不到 512 KB 的邮件，用一条 `UID FETCH` 一起下载，再从新到旧解析。同一次等待里每封只下载一次；已经给过用户的邮件（`delivered`，只在内存里）不再给，所以「重新发送」后再查收会等新的那封。
-- **认码。** `mail_extract.rs` 先看标题、再看正文（HTML 由 `mail-parser` 转成纯文本，GBK 需要它的 `full_encoding`）。邮件必须含「验证码」「verification code」「your code」这类词才算；码是离「码」「code」最近的 4～8 位数字（`123 456`、`G-123456` 也认），日期、时间、金额、手机号排除在外。都找不到时，取单独占一行的数字。是验证码邮件但认不出码时报 `unrecognized`。设置页的「试试能不能认出」（`MailCodeTester.tsx`）把粘贴的标题和正文交给 `mail_code_try` 命令，走同一套 `find_code`，另外用 `code_word` 说出是哪个词判断成验证码邮件；不读邮箱。前端只负责在原文里标出认出的码（`locateCode`）。
+- **认码。** `mail_extract.rs` 先看标题、再看正文（HTML 由 `mail-parser` 转成纯文本，GBK 需要它的 `full_encoding`）。邮件必须含「验证码」「verification code」「your code」这类词才算；码是离「码」「code」最近的 4～8 位数字（`123 456`、`G-123456` 也认），日期、时间、金额、手机号排除在外。都找不到时，取单独占一行的数字。是验证码邮件但认不出码时报 `unrecognized`。设置页的「认不出验证码？」（`MailCodeTester.tsx`）把粘贴的标题和正文交给 `mail_code_try` 命令，走同一套 `find_code`，另外用 `code_word` 说出是哪个词判断成验证码邮件；不读邮箱。前端只负责在原文里标出认出的码（`locateCode`）。
 - **复制。** 原生层写系统剪贴板，同时加 `org.nspasteboard.ConcealedType`，让剪贴板工具不记进历史。
 - **宠物的反应。** `App` 把原生事件转成总线上的 `pet.mail_code`，由 `BehaviorEngine` 处理：等待时状态行加一块「等验证码」；查到时用 `callOut` 叫醒、从边上出来、开心一下，把验证码放进常驻气泡（`codeNotice`），点掉后才回到边上；认不出、超时、失败时困惑一下，原因也放进常驻气泡。新的一次等待开始时收起上一次的结果。这是用户主动要的结果，不受勿扰限制。宠物被隐藏时，原生层在发结果前先把它显示出来。没配邮箱时报 `unset`，`App` 打开「设置 → 小工具」。
 - **账号。** 地址和授权码一起以 JSON 存在钥匙串（服务名 `<identifier>.mail.163`）。保存前先登录并打开一次收件箱，成功才保存。

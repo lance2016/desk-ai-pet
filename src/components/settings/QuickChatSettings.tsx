@@ -5,9 +5,9 @@ import { ShortcutField } from "./ShortcutField";
 
 const HINTS = {
   recording: "按下新的组合键，要包含 ⌃ 或 ⌘。按 Esc 取消。",
-  "needs-modifier": "要包含 ⌃ 或 ⌘。macOS 15 起，只用 ⌥ 或 ⌥⇧ 的全局快捷键系统不再转发。",
+  "needs-modifier": "要包含 ⌃ 或 ⌘，只用 ⌥ 的组合在新版 macOS 上按了没反应。",
   "unsupported-key": "这个键不能做快捷键，换一个试试。",
-  reserved: "这个组合系统或其他应用在用（比如复制、粘贴、切换应用），换一个试试。",
+  reserved: "这个组合已经被系统占用，换一个试试。",
 } as const;
 
 /** Records the global shortcut that opens the quick chat bar under the pet. */
@@ -61,7 +61,7 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
       <div className="settings-row">
         <div className="settings-row__body">
           <strong>快捷键</strong>
-          <span>{recording ? hint : "在任何应用里按一下，宠物脚下就会出现输入框；点一下宠物也可以"}</span>
+          <span>{recording ? hint : "在任何应用里按下，叫出宠物脚下的输入条"}</span>
         </div>
         <ShortcutField
           name="快速聊天快捷键"

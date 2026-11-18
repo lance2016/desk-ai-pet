@@ -11,6 +11,7 @@ import { characterName } from "../../preferences/ChatPreferences";
 import { isOnboarded, markOnboarded } from "../../preferences/UserProfile";
 import { loadDisplayPreferences, saveDisplayPreferences, saveOnTop, type DisplayPreferences } from "../../preferences/DisplayPreferences";
 import { systemPlatform } from "../../platform/system";
+import { CHAT_LIMITS } from "../../chat/ChatThreads";
 import { createLocalPetStorage } from "../../storage/PetStorage";
 import { AISettings } from "./AISettings";
 import { CharacterSettings } from "./CharacterSettings";
@@ -64,6 +65,27 @@ const NAV_GROUPS: readonly (readonly { id: SettingsSection; label: string }[])[]
   [{ id: "general", label: "通用" }, { id: "privacy", label: "隐私与数据" }, { id: "about", label: "关于" }],
 ];
 const NAV = NAV_GROUPS.flat();
+
+/** "隐私与数据": what stays on this computer, and each time the app goes online: title, what, and when. */
+const STORED: readonly [string, string][] = [
+  ["按角色分开", "名字、性格、聊天记录、快捷按钮、自己做的动作"],
+  ["所有角色共用", "提醒、备忘、宠物大小、勿扰和其他设置"],
+  ["聊天记录", `每个角色最多留 ${CHAT_LIMITS.threads} 段，更早的自动删掉`],
+  ["API Key 和邮箱授权码", "存在钥匙串里"],
+];
+const ONLINE: readonly [string, string, string][] = [
+  ["DeepSeek · 聊天", `最近 ${CHAT_LIMITS.context} 条消息、你的称呼、角色设定和补充要求`, "聊天时"],
+  ["DeepSeek · 早安晚安", "今天的提醒内容和数量、专注了几轮", "每天两次"],
+  ["DeepSeek · 翻译", "只有要翻译的文字", "翻译时"],
+  ["小米 MiMo · 语音输入", "这段录音，识别完不保存", "说话时"],
+  ["163 邮箱", "只读最新几封邮件，不标已读", "查收时"],
+  ["节假日数据", "不带个人信息", "缺数据时"],
+  ["GitHub · 检查更新", "不带个人信息", "每天一次"],
+];
+
+function InfoRow({ title, detail, value }: { title: string; detail: string; value?: string }) {
+  return <div className="settings-row"><div className="settings-row__body"><strong>{title}</strong><span>{detail}</span></div>{value && <span className="settings-row__value">{value}</span>}</div>;
+}
 
 export function SettingsPage({ packId }: { packId: string }) {
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
@@ -220,9 +242,9 @@ export function SettingsPage({ packId }: { packId: string }) {
             <div className="settings-group"><LaunchAtLoginRow onError={setError} /></div>
             <h2 className="settings-group-title">窗口</h2>
             <div className="settings-group">
-              <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>宠物显示在其他窗口前面，包括全屏应用</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>鼠标离开后快捷按钮保留</strong><span>留一点时间，方便把鼠标移到按钮上</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮保留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后多久收起</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
           </div>
         )}
@@ -250,20 +272,13 @@ export function SettingsPage({ packId }: { packId: string }) {
           <div className="settings-section">
             <h2 className="settings-group-title">备份</h2>
             <BackupSettings onError={setError} />
-            <h2 className="settings-group-title">保存在这台电脑</h2>
-            <div className="settings-group settings-prose">
-              <p>所有数据都只存在这台电脑上。快捷按钮、自己做的动作、聊天记录、名字和性格按角色分开；提醒、备忘、宠物大小、勿扰和其他设置所有角色共用，换角色也还在。DeepSeek 和 MiMo 的 API Key 存在钥匙串里。</p>
+            <h2 className="settings-group-title">存在这台电脑上</h2>
+            <div className="settings-group">
+              {STORED.map(([title, detail]) => <InfoRow key={title} title={title} detail={detail} />)}
             </div>
-            <h2 className="settings-group-title">会发出去的内容</h2>
-            <div className="settings-group settings-prose">
-              <ul className="settings-prose__list">
-                <li><strong>DeepSeek · 聊天</strong>这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格、聊天补充要求，以及宠物会做的动作名称。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。</li>
-                <li><strong>DeepSeek · 早安晚安</strong>今天的提醒数量、专注轮数和提醒内容，用来写问候。</li>
-                <li><strong>DeepSeek · 翻译</strong>只在你点击翻译时发送原文，不附带聊天记录和角色设定。</li>
-                <li><strong>MiMo · 语音输入</strong>录音发去识别，不会保存。</li>
-                <li><strong>节假日数据源</strong>缺少今年或明年的法定节假日安排时，每天最多下载一次，请求里不带任何个人信息。</li>
-                <li><strong>GitHub</strong>每天查一次有没有新版本，同样不带个人信息。</li>
-              </ul>
+            <h2 className="settings-group-title">什么时候会连网</h2>
+            <div className="settings-group">
+              {ONLINE.map(([title, detail, when]) => <InfoRow key={title} title={title} detail={detail} value={when} />)}
             </div>
           </div>
         )}

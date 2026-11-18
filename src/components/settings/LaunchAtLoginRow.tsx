@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { systemPlatform, type LaunchAtLogin } from "../../platform/system";
 
 const DESCRIPTIONS: Record<LaunchAtLogin, string> = {
-  on: "登录 Mac 后宠物自动出现，到点的提醒不会漏掉",
-  off: "登录 Mac 后宠物自动出现，到点的提醒不会漏掉",
-  approval: "在系统设置的登录项里被关掉了，需要在那里打开",
+  on: "开机后宠物自动出现，提醒不会漏掉",
+  off: "开机后宠物自动出现，提醒不会漏掉",
+  approval: "被系统设置关掉了，要在「登录项」里打开",
   unavailable: "只在安装好的桌面应用里可用",
 };
 

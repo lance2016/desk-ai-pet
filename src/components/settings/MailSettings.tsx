@@ -50,10 +50,10 @@ export function MailSettings() {
 
   // Rendered inside the "小工具" page, so it brings no section of its own.
   return <>
-    <div className="settings-section__intro"><h2>查收验证码</h2><p>网站把验证码发到邮箱后，右键点宠物，选「查收验证码」。宠物会找到最新的验证码，复制好告诉你。</p></div>
+    <div className="settings-section__intro"><h2>查收验证码</h2><p>右键点宠物选「查收验证码」，它会找到验证码并复制好</p></div>
     <article className="settings-card ai-settings mail-settings">
       <div className="ai-settings__head">
-        <div><strong>163 邮箱</strong><span>{address ?? "填邮箱地址和授权码，连上后才会保存"}</span></div>
+        <div><strong>163 邮箱</strong><span>{address ?? "连上后才会保存"}</span></div>
         <span className={address ? "ai-badge is-ready" : "ai-badge"}>{address === undefined ? "检查中" : address ? "已连上" : "未配置"}</span>
         {address && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "更换"}</button>}
       </div>
@@ -70,7 +70,7 @@ export function MailSettings() {
           <li>按提示用手机验证，复制页面给出的授权码。</li>
           <li>回到这里粘贴，点「连接并保存」。</li>
         </ol>
-        <p>授权码存在钥匙串里。宠物只在你查收时读收件箱里最新的几封邮件，只读，不会标成已读；邮件内容不保存，也不发给 AI。</p>
+        <p>只在你查收时读最新几封邮件，不标已读，不保存，也不发给 AI。</p>
         <div className="ai-settings__actions">
           {address && <ConfirmButton disabled={busy} confirm={{ message: "移除 163 邮箱？", detail: "邮箱地址和授权码会从钥匙串里删掉，之后要重新填写才能查收验证码。", action: "移除" }} onConfirm={() => void remove()}>移除邮箱</ConfirmButton>}
           <button type="button" className="ai-settings__link" onClick={open163}>打开 163 邮箱 ↗</button>
@@ -78,9 +78,9 @@ export function MailSettings() {
       </>}
       {status && <p className="ai-settings__status" role="status">{status}</p>}
     </article>
-    <p className="settings-footnote">还没收到就接着等，最多 2 分钟；想停下就点宠物脚下的「等验证码」，或菜单里的「停止等验证码」。目前只支持 163 邮箱。</p>
+    <p className="settings-footnote">邮件没到会接着等，最多 2 分钟。目前只支持 163 邮箱。</p>
     <details className="ai-disclosure ai-disclosure--standalone mail-try">
-      <summary><span><strong>试试能不能认出</strong><small>某封邮件没被认出来时，把它贴进来，看看是哪一步没过。不用连邮箱，内容不保存。</small></span></summary>
+      <summary><span><strong>认不出验证码？</strong><small>把邮件贴进来，看看卡在哪一步</small></span></summary>
       <MailCodeTester />
     </details>
   </>;

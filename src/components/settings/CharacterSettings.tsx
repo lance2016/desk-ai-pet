@@ -155,10 +155,10 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
   };
 
   return <div className="settings-section">
-    <div className="settings-section__intro"><h2>关于你</h2><p>所有角色都会这样称呼你。</p></div>
-    <article className="settings-card ai-settings"><label className="ai-preference">你的称呼<input value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} placeholder="比如：阿龙。留空就不特别称呼" onChange={(event) => setNickname(event.currentTarget.value)} onBlur={saveNickname} /></label>{note("profile")}</article>
+    <div className="settings-section__intro"><h2>关于你</h2></div>
+    <article className="settings-card ai-settings"><label className="ai-preference">你的称呼<input value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} placeholder="所有角色都这样叫你，例如：阿龙" onChange={(event) => setNickname(event.currentTarget.value)} onBlur={saveNickname} /></label>{note("profile")}</article>
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>我的角色</h2><p>每个角色有自己的名字、性格、聊天记录和动作图片。点一下就能切换。</p></div>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>我的角色</h2><p>点一下切换，每个角色的设定和聊天记录分开保存</p></div>
     <div className="character-grid">
       {catalog.map((entry) => <button key={entry.id} type="button" className={entry.id === packId ? "character-tile is-current" : "character-tile"} aria-pressed={entry.id === packId} onClick={() => switchTo(entry.id)}>
         <CharacterAvatar picture={pictureFor(loadChatAppearance(entry.id).avatar, entry.actionImages)} className="character-tile__portrait" />
@@ -172,7 +172,7 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
     {note("list")}
 
     {creating && <>
-      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>先借用一个现有形象。创建后可以在「动作库」里把动作图一张张换成你自己的，那里也有用 AI 画图的说明。</p></div>
+      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>先借用一个现有形象，之后可以在「动作库」换成自己的图</p></div>
       <form className="settings-card ai-settings" onSubmit={create}>
         <label className="ai-preference">名字<input value={draft.name} maxLength={PERSONA_LIMITS.name} autoFocus placeholder="例如：阿橘" onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })} /></label>
         <label className="ai-preference">性格<textarea value={draft.personality} maxLength={PERSONA_LIMITS.personality} placeholder="例如：慵懒、爱撒娇的橘猫，说话常带“喵”" onChange={(event) => setDraft({ ...draft, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {draft.personality.length} / {PERSONA_LIMITS.personality}</small></label>
@@ -183,7 +183,7 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
     </>}
 
     {!creating && <>
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>当前角色</h2><p>名字会显示在聊天窗口里，名字和性格都会随对话发给 AI。</p></div>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>当前角色</h2><p>名字和性格会随聊天发给 AI</p></div>
     <article className="settings-card ai-settings">
       <label className="ai-preference">名字<input value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => update({ ...preferences, name: preferences.name.trim() || defaults.name })} /></label>
       <label className="ai-preference">性格<textarea value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
@@ -195,17 +195,17 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
     </article>
     </>}
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里的头像和小人。默认用角色自己的形象，也可以上传图片，再调整位置和大小。</p></div>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里显示的头像和小人</p></div>
     {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => setLookVersion((version) => version + 1)} />}
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>导入与导出</h2><p>把自建角色和动作图片带到另一台电脑。</p></div>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>导入与导出</h2><p>把自建角色带到另一台电脑</p></div>
     <article className="settings-card ai-settings">
       <div className="settings-row">
-        <div className="settings-row__body"><strong>导出当前角色</strong><span>{current?.custom ? "包含角色设定、动作库图片、帧数与图层配置、快捷按钮和语音偏好；不包含聊天记录、宠物状态或 API Key。" : "内置角色每台电脑上都有，不用导出。切换到自建角色后可以导出。"}</span></div>
+        <div className="settings-row__body"><strong>导出当前角色</strong><span>{current?.custom ? "包含设定、动作图片和快捷按钮，不含聊天记录" : "内置角色不用导出"}</span></div>
         <button type="button" className="settings-button settings-button--small" disabled={!current?.custom || transferBusy} onClick={() => void exportCharacter()}>{transferBusy ? "处理中…" : "导出角色包"}</button>
       </div>
       <div className="settings-row">
-        <div className="settings-row__body"><strong>导入角色包</strong><span>导入后会新增一个角色并切换过去，原有角色和数据不会被覆盖。</span></div>
+        <div className="settings-row__body"><strong>导入角色包</strong><span>会新增一个角色，不影响现有的</span></div>
         <label className={transferBusy ? "settings-button settings-button--small icon-upload is-disabled" : "settings-button settings-button--small icon-upload"}>
           <input type="file" accept="application/json,.json" disabled={transferBusy} onChange={(event) => void selectCharacterPackage(event)} />选择文件…
         </label>

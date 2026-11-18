@@ -19,6 +19,12 @@ const wrap = (minutes: number) => ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY
 /** True when `minute` is in [from, to), on a clock face that wraps at midnight. */
 const within = (minute: number, from: number, to: number) => (from <= to ? minute >= from && minute < to : minute >= from || minute < to);
 
+/** When good night is said for quiet hours starting at `start` ("HH:MM"), as "HH:MM". */
+export function eveningGreetingTime(start: string): string {
+  const minute = wrap(minutesOf(start) - EVENING_LEAD_MINUTES);
+  return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+}
+
 function minuteOfDay(now: number): number {
   const date = new Date(now);
   return date.getHours() * 60 + date.getMinutes();

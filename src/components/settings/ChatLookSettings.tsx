@@ -13,7 +13,7 @@ import { shrinkImage } from "./shrinkImage";
  */
 const UPLOAD_SIDES = [512, 384, 256] as const;
 const ROWS = [
-  { slot: "avatar", title: "头像", hint: "聊天窗口顶部、回复旁边和角色列表里" },
+  { slot: "avatar", title: "头像", hint: "显示在聊天窗口和角色列表里" },
   { slot: "peek", title: "聊天小人", hint: "趴在聊天输入框上方" },
 ] as const;
 type Slot = (typeof ROWS)[number]["slot"];

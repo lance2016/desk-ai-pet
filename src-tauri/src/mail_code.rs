@@ -49,7 +49,7 @@ const CLIENT_ID: &str = r#"ID ("name" "AI Pet" "version" "1.0" "vendor" "AI Pet"
 const CONCEALED_TYPE: &str = "org.nspasteboard.ConcealedType";
 const MAX_ADDRESS_CHARS: usize = 254;
 const MAX_PASSWORD_CHARS: usize = 64;
-/// The longest text "试试能不能认出" takes. Must match `TRY_TEXT_LIMIT` in `src/components/settings/MailCodeTester.tsx`.
+/// The longest text "认不出验证码？" takes. Must match `TRY_TEXT_LIMIT` in `src/components/settings/MailCodeTester.tsx`.
 const MAX_TRY_CHARS: usize = 50_000;
 
 const NOT_163: &str = "目前只支持 163 邮箱，地址要以 @163.com 结尾。";
@@ -137,7 +137,7 @@ pub async fn mail_save_account(app: AppHandle, address: String, password: String
     })?
 }
 
-/// Runs the code rules on pasted text, for "试试能不能认出" in the settings. Reads no mail.
+/// Runs the code rules on pasted text, for "认不出验证码？" in the settings. Reads no mail.
 #[tauri::command]
 pub fn mail_code_try(subject: String, body: String) -> Result<Value, String> {
     try_text(&subject, &body)
