@@ -19,6 +19,7 @@ describe("parseManifest", () => {
       motionSpeed: 1,
       motionStrength: 1,
       align: "center",
+      randomFlip: false,
       layers: [],
       category: "reaction",
       priority: 10,

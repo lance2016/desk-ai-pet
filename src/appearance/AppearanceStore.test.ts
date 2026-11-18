@@ -7,6 +7,10 @@ describe("action appearance validation", () => {
   it("accepts a supported local frame sheet", () => {
     expect(appearanceSchema.parse(valid)).toEqual(valid);
   });
+  it("keeps the facing choice when set and leaves older records without it", () => {
+    expect(appearanceSchema.parse({ ...valid, randomFlip: false }).randomFlip).toBe(false);
+    expect(appearanceSchema.parse(valid).randomFlip).toBeUndefined();
+  });
   it.each([
     { ...valid, image: "https://example.com/a.png" },
     { ...valid, frames: 0 },

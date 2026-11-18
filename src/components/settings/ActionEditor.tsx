@@ -42,6 +42,8 @@ const percent = (value: number, total: number) => `${(value / total) * 100}%`;
 
 /** The action preview's size on the page, in CSS pixels; the canvas has a pixel per device pixel. */
 const PREVIEW_SIZE = { width: 240, height: 210 };
+/** How long one play lasts in the preview when the action has no length of its own. */
+const PREVIEW_CYCLE_MS = 2000;
 
 /** The picture as a PNG data URL, which is how pictures are stored. */
 function asPng(image: HTMLImageElement, src: string): string {
@@ -52,7 +54,7 @@ function asPng(image: HTMLImageElement, src: string): string {
   return canvas.toDataURL("image/png");
 }
 
-export function VisualPreview({ image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset, size = PREVIEW_SIZE }: { image: string; frames: number; fps: number; motion: MotionPreset; loop: boolean; speed: number; strength: number; duration?: number; layers: AppearanceLayer[]; stage: { width: number; height: number }; align: "left" | "center"; resolveAsset: (file: string) => string; size?: { width: number; height: number } }) {
+export function VisualPreview({ image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, randomFlip = false, resolveAsset, size = PREVIEW_SIZE }: { image: string; frames: number; fps: number; motion: MotionPreset; loop: boolean; speed: number; strength: number; duration?: number; layers: AppearanceLayer[]; stage: { width: number; height: number }; align: "left" | "center"; /** Shows both facings in turn, one play each. */ randomFlip?: boolean; resolveAsset: (file: string) => string; size?: { width: number; height: number } }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const pixelRatio = Math.max(1, Math.round(window.devicePixelRatio || 1));
   useEffect(() => {
@@ -69,13 +71,15 @@ export function VisualPreview({ image, frames, fps, motion, loop, speed, strengt
         const index = loop ? Math.floor(elapsed * safeFps) % count : Math.min(count - 1, Math.floor(elapsed * safeFps));
         const frameWidth = asset.naturalWidth / count; const frameHeight = asset.naturalHeight;
         const fit = Math.min(canvas.width / stage.width, canvas.height / stage.height);
-        const progress = duration ? Math.min(1, elapsed * 1000 / duration) : (elapsed % 2) / 2;
+        const cycle = duration ?? PREVIEW_CYCLE_MS;
+        const progress = duration ? Math.min(1, elapsed * 1000 / duration) : (elapsed * 1000 % cycle) / cycle;
         const effect = sampleAdjustedMotion(motion, elapsed, progress, speed, strength);
         const center = align === "left" ? frameWidth / 2 : stage.width / 2;
         // On the desktop a left-aligned action's stage edge is the screen edge; the preview box's left side stands in for it.
         const stageLeft = align === "left" ? 0 : (canvas.width - stage.width * fit) / 2;
         ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save();
         ctx.translate(stageLeft, (canvas.height - stage.height * fit) / 2); ctx.scale(fit, fit);
+        if (randomFlip && Math.floor(elapsed * 1000 / cycle) % 2 === 1) { ctx.translate(center * 2, 0); ctx.scale(-1, 1); }
         const drawLayer = (layer: AppearanceLayer, layerImage: HTMLImageElement) => {
           if (!isLayerVisible(layer, index, count)) return;
           const layerCount = Number.isInteger(layer.frames) && layer.frames > 0 ? layer.frames : 1;
@@ -100,7 +104,7 @@ export function VisualPreview({ image, frames, fps, motion, loop, speed, strengt
       frame = requestAnimationFrame(draw);
     }).catch((error) => console.warn("Failed to load action preview", error));
     return () => { cancelled = true; cancelAnimationFrame(frame); };
-  }, [image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, resolveAsset, pixelRatio]);
+  }, [image, frames, fps, motion, loop, speed, strength, duration, layers, stage, align, randomFlip, resolveAsset, pixelRatio]);
   return <canvas ref={ref} width={size.width * pixelRatio} height={size.height * pixelRatio} style={size} aria-label="动作动画预览" />;
 }
 
@@ -138,6 +142,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
   const [loop, setLoop] = useState(action.loop);
   const [motionSpeed, setMotionSpeed] = useState(1);
   const [motionStrength, setMotionStrength] = useState(1);
+  const [randomFlip, setRandomFlip] = useState(action.randomFlip);
   const [sourceNames, setSourceNames] = useState<string[]>([]);
   const [previewVersion, setPreviewVersion] = useState(0);
   const [error, setError] = useState("");
@@ -161,7 +166,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
   const [advanced, setAdvanced] = useState(!blank && (action.frames > 1 || action.layers.length > 0));
   /** What the editor held once loaded, to tell whether leaving would throw changes away. */
   const [baseline, setBaseline] = useState<string | null>(null);
-  const snapshot = JSON.stringify({ mode, image, frames, fps, motion, loop, motionSpeed, motionStrength, layers, label, seconds });
+  const snapshot = JSON.stringify({ mode, image, frames, fps, motion, loop, motionSpeed, motionStrength, randomFlip, layers, label, seconds });
   const dirty = baseline !== null && snapshot !== baseline;
   useEffect(() => { setUnsavedChanges(dirty); }, [dirty]);
   useEffect(() => () => setUnsavedChanges(false), []);
@@ -181,7 +186,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
         setCustom(true); setError("换过的图片没能读出来，可以点「恢复默认」改回原来的。");
       } else if (stored.value) {
         const saved = stored.value;
-        setImage(saved.image); setFrames(saved.frames); setFps(saved.fps); setMotion(saved.motion); setMotionSpeed(saved.motionSpeed); setMotionStrength(saved.motionStrength); setLoop(saved.loop); setMode(saved.frames > 1 ? "sheet" : "single");
+        setImage(saved.image); setFrames(saved.frames); setFps(saved.fps); setMotion(saved.motion); setMotionSpeed(saved.motionSpeed); setMotionStrength(saved.motionStrength); setRandomFlip(saved.randomFlip ?? action.randomFlip); setLoop(saved.loop); setMode(saved.frames > 1 ? "sheet" : "single");
         if (saved.layers) setLayers(saved.layers);
         if (saved.frames > 1 || (saved.layers?.length ?? 0) > 0) setAdvanced(true);
         setCustom(true);
@@ -364,7 +369,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
       }
       const decoded = await decode(image);
       if (decoded.naturalWidth % mainFrames !== 0) throw new Error("帧图的宽度必须能被帧数整除。");
-      const value: ActionAppearance = { image: asPng(decoded, image), frames: mainFrames, fps, motion, motionSpeed, motionStrength, loop, layers };
+      const value: ActionAppearance = { image: asPng(decoded, image), frames: mainFrames, fps, motion, motionSpeed, motionStrength, loop, randomFlip, layers };
       await saveAppearance(packId, id, value);
       if (own) {
         try { saveUserAction(packId, { id, label: label.trim(), duration: Math.round(seconds * 1000) }); }
@@ -427,9 +432,11 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
         {duration && fps > 0 && (frames - 1) / fps * 1000 > duration && <p className="settings-error">这个动作会在 {(duration / 1000).toFixed(1)} 秒后结束，当前速度可能播放不到最后一帧。可以{own ? "加长播放时长、" : ""}提高帧速或减少帧数。</p>}
       </div>}
     </fieldset>
-    <div className="action-editor__preview"><span className="action-editor__preview-label">动作预览</span>{image ? <><div className="action-editor__stage" style={{ aspectRatio: `${canvas.width} / ${canvas.height}` }}><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} resolveAsset={resolveAsset} size={{ width: 240, height: Math.round(240 * canvas.height / canvas.width) }} /></div><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新播放</button></> : <span>选择图片后在这里预览</span>}</div>
+    <div className="action-editor__preview"><span className="action-editor__preview-label">动作预览</span>{image ? <><div className="action-editor__stage" style={{ aspectRatio: `${canvas.width} / ${canvas.height}` }}><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} randomFlip={randomFlip} resolveAsset={resolveAsset} size={{ width: 240, height: Math.round(240 * canvas.height / canvas.width) }} /></div><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新播放</button></> : <span>选择图片后在这里预览</span>}</div>
     <fieldset className="action-editor__group action-editor__motion" disabled={busy}><legend>动效</legend>
       <label className="action-editor__field">图片动效 <select value={motion} onChange={(e) => setMotion(e.currentTarget.value as MotionPreset)}>{MOTION_PRESETS.map((value) => <option key={value} value={value}>{MOTION_LABELS[value]}</option>)}</select></label>
+      {action.align !== "left" && <><label className="action-editor__field">随机朝左或朝右 <input type="checkbox" checked={randomFlip} onChange={(e) => setRandomFlip(e.currentTarget.checked)} /></label>
+      <p>每次播放随机左右镜像，一张图就能朝两边。发夹这类只戴在一侧的饰品，镜像时会换到另一边。</p></>}
       {!own && <p>触发时机和持续时间由宠物行为决定。</p>}
     </fieldset>
     <details className="action-editor__advanced" open={advanced} onToggle={(event) => setAdvanced(event.currentTarget.open)}>

@@ -58,6 +58,7 @@ interface PreviewArt {
   loop: boolean;
   speed: number;
   strength: number;
+  randomFlip: boolean;
   layers: AppearanceLayer[];
 }
 
@@ -127,6 +128,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         loop: saved.loop,
         speed: saved.motionSpeed,
         strength: saved.motionStrength,
+        randomFlip: saved.randomFlip ?? action.randomFlip,
         layers: saved.layers ?? [],
       };
     }
@@ -139,6 +141,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       loop: action.loop,
       speed: 1,
       strength: 1,
+      randomFlip: action.randomFlip,
       layers: action.layers.map(({ file, ...layer }) => ({ source: { file }, ...layer })),
     };
   };
@@ -391,7 +394,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
           <div className="action-preview__content">
             <div className="action-preview__stage" aria-label={`${previewName}的图片预览`}>
               {previewArt
-                ? <VisualPreview key={previewAction.id} image={previewArt.image} frames={previewArt.frames} fps={previewArt.fps} motion={previewArt.motion} loop={previewArt.loop} speed={previewArt.speed} strength={previewArt.strength} duration={previewAction.duration} layers={previewArt.layers} stage={canvas} align={previewAction.align} resolveAsset={resolveAsset} size={PREVIEW_SIZE} />
+                ? <VisualPreview key={previewAction.id} image={previewArt.image} frames={previewArt.frames} fps={previewArt.fps} motion={previewArt.motion} loop={previewArt.loop} speed={previewArt.speed} strength={previewArt.strength} duration={previewAction.duration} layers={previewArt.layers} stage={canvas} align={previewAction.align} randomFlip={previewArt.randomFlip} resolveAsset={resolveAsset} size={PREVIEW_SIZE} />
                 : <button type="button" className="action-preview__missing" onClick={() => uploadDirect(previewAction)}><span aria-hidden="true">＋</span><strong>添加动作图片</strong><p>{previewAction.pose ?? previewAction.description ?? "选择图片后调整位置。"}</p></button>}
             </div>
             <aside className="action-preview__details">
@@ -399,6 +402,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
               <p>{previewAction.description ?? previewAction.pose ?? "角色动作"}</p>
               {previewArt && previewArt.frames > 1 && <span className="action-preview__meta">{previewArt.frames} 帧 · {previewArt.fps} 帧 / 秒</span>}
               {previewAction.duration && <span className="action-preview__meta">播放时长 {`${(previewAction.duration / 1000).toFixed(1)} 秒`}</span>}
+              {previewArt?.randomFlip && <span className="action-preview__meta">每次随机朝左或朝右，一张图镜像出两个方向；可在编辑图片里关掉</span>}
               <CopyButton className="action-library__button action-library__button--quiet" text={copyPromptFor(previewAction)} onMessage={setMessage}>{isUserAction(previewAction) ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton>
               {message && <p className="action-preview__message" role="status">{message}</p>}
             </aside>

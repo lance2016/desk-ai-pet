@@ -16,6 +16,8 @@ const MAX_FPS = 30;
 /** The sleep loop barely moves; drawing it less often saves power while the pet naps. */
 const SLEEP_ACTION = "sleep";
 const SLEEP_MAX_FPS = 12;
+/** A `randomFlip` action faces either way equally often. */
+const FLIP_CHANCE = 0.5;
 
 interface LoadedAnimation {
   entry: AnimationEntry;
@@ -77,10 +79,13 @@ export class PixiRenderer implements PetRenderer {
   private manifest: PetManifest | null = null;
   private playback: Playback | null = null;
   private fit = 1;
+  /** Mirrored for the right screen edge. */
   private mirrored = false;
+  /** Mirrored by the playing action's own random facing. */
+  private flipped = false;
 
-  /** The renderer owns its canvas and mounts it inside `host`. */
-  constructor(private readonly host: HTMLElement) {
+  /** The renderer owns its canvas and mounts it inside `host`. `random` decides the facing of `randomFlip` actions. */
+  constructor(private readonly host: HTMLElement, private readonly random: () => number = Math.random) {
     this.sprite.anchor.set(0.5, 1);
     this.sprite.visible = false;
     this.scene.sortableChildren = true;
@@ -152,7 +157,7 @@ export class PixiRenderer implements PetRenderer {
         }
         updated = {
           ...original,
-          entry: { ...original.entry, frames: appearance.frames, fps: appearance.fps, motion: appearance.motion, loop: appearance.loop },
+          entry: { ...original.entry, frames: appearance.frames, fps: appearance.fps, motion: appearance.motion, loop: appearance.loop, randomFlip: appearance.randomFlip ?? original.entry.randomFlip },
           image, frames, layers,
           motionSpeed: appearance.motionSpeed,
           motionStrength: appearance.motionStrength,
@@ -207,6 +212,7 @@ export class PixiRenderer implements PetRenderer {
     this.scene.sortChildren();
     if (this.app) this.app.ticker.maxFPS = animationId === SLEEP_ACTION ? SLEEP_MAX_FPS : MAX_FPS;
     this.playback = { animation, elapsedMs: 0 };
+    this.flipped = animation.entry.randomFlip && this.random() < FLIP_CHANCE;
     this.sprite.visible = true;
     this.draw();
   }
@@ -242,7 +248,7 @@ export class PixiRenderer implements PetRenderer {
     // Position inside the frame as fractions, ignoring the current motion offset.
     const centerX = this.restingCenterX(this.playback.animation.entry, frame.width);
     const fromLeft = (stageX - (centerX - frame.width / 2)) / frame.width;
-    const u = this.mirrored ? 1 - fromLeft : fromLeft;
+    const u = this.facesLeft() ? 1 - fromLeft : fromLeft;
     const v = (stageY - (this.manifest.canvas.height - frame.height)) / frame.height;
     if (u < 0 || u > 1 || v < 0 || v > 1) return null;
     const head = this.manifest.headArea;
@@ -268,7 +274,7 @@ export class PixiRenderer implements PetRenderer {
     const centerX = this.stage.position.x + this.restingCenterX(entry, frame.width) * this.fit;
     const top = this.stage.position.y + (this.manifest.canvas.height - frame.height) * this.fit;
     context.scale(1 / cell, 1 / cell);
-    if (this.mirrored) {
+    if (this.facesLeft()) {
       context.translate(centerX * 2, 0);
       context.scale(-1, 1);
     }
@@ -369,6 +375,11 @@ export class PixiRenderer implements PetRenderer {
     return sheet;
   }
 
+  /** Whether the drawing shows flipped: the edge mirroring and the action's own facing cancel out when both apply. */
+  private facesLeft(): boolean {
+    return this.mirrored !== this.flipped;
+  }
+
   /** Horizontal center of the drawing on the stage, before any motion. */
   private restingCenterX(entry: AnimationEntry, frameWidth: number): number {
     const canvasWidth = this.manifest?.canvas.width ?? 0;
@@ -393,7 +404,7 @@ export class PixiRenderer implements PetRenderer {
 
     const progress = entry.duration ? Math.min(1, elapsedMs / entry.duration) : (elapsedMs % 2000) / 2000;
     const motion = sampleAdjustedMotion(entry.motion, elapsedMs / 1000, progress, animation.motionSpeed ?? 1, animation.motionStrength ?? 1);
-    const facing = this.mirrored ? -1 : 1;
+    const facing = this.facesLeft() ? -1 : 1;
     const centerX = this.restingCenterX(entry, frames[frameIndex].width);
     this.sprite.position.set(centerX + motion.x * facing, this.manifest.canvas.height + motion.y);
     this.sprite.scale.set(motion.scaleX * facing, motion.scaleY);

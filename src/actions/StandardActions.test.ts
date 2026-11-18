@@ -11,6 +11,17 @@ describe("STANDARD_ACTIONS", () => {
     const ids = new Set(STANDARD_ACTIONS.map((action) => action.id));
     for (const action of STANDARD_ACTIONS) if (action.fallback) expect(ids.has(action.fallback)).toBe(true);
   });
+
+  it("lets look_around face either way, and only it", () => {
+    expect(STANDARD_ACTIONS.filter((action) => action.randomFlip).map((action) => action.id)).toEqual(["look_around"]);
+  });
+
+  it("keeps the borrower's facing when it wears another action's picture", () => {
+    const actions = byId(pack([{ id: "idle", file: "idle.png" }, { id: "look_around", file: "look.png" }]));
+    expect(actions.get("look_around")?.randomFlip).toBe(true);
+    expect(actions.get("listen")?.borrowedFrom).toBe("look_around");
+    expect(actions.get("listen")?.randomFlip).toBe(false);
+  });
 });
 
 describe("artSource", () => {

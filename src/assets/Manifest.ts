@@ -56,6 +56,8 @@ export const animationSchema = z.object({
   motionStrength: z.number().min(0).max(2).default(1),
   /** "left" puts the drawing against the stage's left edge, for art cut off by a wall. */
   align: z.enum(["center", "left"]).default("center"),
+  /** Each play faces left or right at random, so one picture looks both ways. Asymmetric accessories swap sides when mirrored. */
+  randomFlip: z.boolean().default(false),
   /** Optional transparent overlays for composite actions and accessories. */
   layers: z.array(layerSchema).default([]),
   category: z.string().min(1).default("reaction"),

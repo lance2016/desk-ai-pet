@@ -78,6 +78,7 @@ export function userActionEntry(idle: AnimationEntry, action: Pick<UserAction, "
     motionSpeed: 1,
     motionStrength: 1,
     align: idle.align,
+    randomFlip: false,
     layers: [],
     category: USER_ACTION_CATEGORY,
     priority: USER_ACTION_PRIORITY,

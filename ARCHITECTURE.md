@@ -303,6 +303,8 @@ public/pets/girl-default/    默认资源包
 4. 碰到边缘且角色有自己的 `peek` 图时，`BehaviorEngine` 播放 `peek` 并发出 `pet.dock_changed`。`peek` 不借图，没有这张图的角色不贴边。
 5. `App` 收到后移动窗口，让角色贴齐屏幕边缘。`PetRuntime` 收到后在右边缘时让渲染器镜像。
 
+另一种镜像来自动作自己：`randomFlip` 的动作（目前是 `look_around`）每次 `playAction` 时由渲染器随机决定朝向（随机数由构造参数注入）。最终是否翻转等于「贴右边」异或「这次随机翻转」，画面、`hitTest` 和 `opaqueMask` 都按这个结果算；翻转发生在动作开始时，`pet.action.started` 本来就会让 `App` 重发可点击区域表。用户在编辑页改的开关存进外观覆盖（`ActionAppearance.randomFlip`），没存过的旧记录沿用清单的值。
+
 启动时恢复上次的贴边状态，要等 `App` 订阅了 `pet.dock_changed` 之后再发 `pet.drag_ended`。事件总线不重放：发早了，引擎和渲染器已经贴边，`App` 却不知道，快捷按钮会按没贴边来排，气泡也不靠边。
 
 贴边期间宠物不会自己做小动作，也不会睡着。点击它或再次拖动就会出来。

@@ -32,6 +32,8 @@ export const appearanceSchema = z.object({
   motionSpeed: z.number().min(0.25).max(3).default(1),
   motionStrength: z.number().min(0).max(2).default(1),
   loop: z.boolean(),
+  /** Overrides the action's own setting; older records leave it out. */
+  randomFlip: z.boolean().optional(),
   layers: z.array(appearanceLayerSchema).max(8).optional(),
 }).superRefine((appearance, ctx) => {
   appearance.layers?.forEach((layer, index) => {

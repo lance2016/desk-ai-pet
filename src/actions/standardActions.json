@@ -93,6 +93,7 @@
       "description": "闲着时随机张望，鼠标移到它身上也会看一眼",
       "pose": "站着，头和视线转向一侧，好奇地张望。",
       "motion": "sway",
+      "randomFlip": true,
       "duration": 3200,
       "category": "idle",
       "priority": 5
