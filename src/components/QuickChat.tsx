@@ -1,15 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type Ref, type RefObject } from "react";
 import { chatContext, loadSavedItems } from "../agenda/chatTools";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
-import { contextMessages, loadAutoTitles, loadThreads, recordThread, retitleThread, saveThreads } from "../chat/ChatThreads";
+import { contextMessages, loadThreads, recordThread, saveThreads } from "../chat/ChatThreads";
 import { pickQuickThread, plainReply, quickHistory, replyLingerMs } from "../chat/QuickChat";
-import { applyToolCalls, type SavedLine } from "../chat/toolEffects";
+import { applyToolCalls, dispatchChatAction, type SavedLine, type ToolEffects } from "../chat/toolEffects";
 import type { PetRuntime } from "../core/PetRuntime";
 import { chatPlatform, type ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
-import { canShortcut } from "../preferences/ActionPreferences";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
-import { loadChatModel } from "../preferences/ChatModel";
 import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 
@@ -47,8 +45,7 @@ interface Request {
   history: ChatMessage[];
   /** What the user typed, to put back if the reply fails. */
   typed: string;
-  /** Set when the chat window takes the line over; then nothing is put back. */
-  handedOver: boolean;
+  action?: Promise<ToolEffects>;
 }
 
 export interface QuickChat {
@@ -90,13 +87,7 @@ function saveReply(packId: string, request: Request, text: string): void {
   const thread = fresh.threads.find((item) => item.id === request.threadId);
   const messages = [...(thread?.messages ?? request.history), { role: "assistant" as const, content: text }];
   saveThreads(packId, recordThread(fresh.threads, request.threadId, messages, Date.now()));
-  if (request.history.some((message) => message.role === "assistant") || !loadAutoTitles()) return;
-  chatPlatform.title(request.history[0].content, text, loadChatModel())
-    .then((title) => {
-      const latest = loadThreads(packId);
-      if (latest.valid) saveThreads(packId, retitleThread(latest.threads, request.threadId, title));
-    })
-    .catch((error: unknown) => console.warn("Could not name the chat", error));
+
 }
 
 /**
@@ -190,16 +181,19 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   useEffect(() => {
     let stop: (() => void) | undefined;
     let disposed = false;
-    chatPlatform.subscribe((event) => {
+    chatPlatform.subscribe(async (event) => {
       const current = request.current;
       if (!current || event.id !== current.id) return;
       if (event.kind === "delta") { replyText.current += event.text; setReply({ text: replyText.current, status: "streaming" }); return; }
       if (event.kind === "tool") { toolCalls.current = [...toolCalls.current, event.text]; return; }
+      if (event.kind === "action") { current.action ??= dispatchChatAction(event.text, event.id); return; }
+      const action = event.kind === "done" && current.action ? await current.action : null;
+      if (disposed || request.current !== current) return;
       request.current = null;
       setPending(false);
       if (event.kind === "cancelled" || event.kind === "error") {
-        // Put the line back to send again, unless the chat window took it over.
-        if (!current.handedOver) {
+        // A dispatched action is a side effect; leave its request in history on interruption.
+        if (!current.action) {
           try { dropUnanswered(packId, current); } catch (error) { console.error("Could not take the unanswered line back", error); }
           setDraft((draft) => draft || current.typed);
         }
@@ -212,7 +206,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
         console.error("Failed to save the reminder or note", error);
         saved = { lines: [{ kind: "failed", text: "提醒或备忘没能保存，删掉几条旧的提醒或备忘再试" }], confirmation: "" };
       }
-      const said = replyText.current || saved.confirmation;
+      if (action) saved.lines.push(...action.lines);
+      const said = replyText.current.trim() || saved.confirmation || action?.confirmation;
       if (!said) { setReply({ text: "没有收到回复，再说一次试试。", status: "error", saved: saved.lines }); return; }
       const text = event.text === "length" ? `${said}\n\n${CUT_OFF_MARK}` : said;
       // The reply is shown even when it cannot be kept.
@@ -246,13 +241,13 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     sessionThread.current = threadId;
     const id = newId();
     const typed = draft;
-    request.current = { id, threadId, history, typed, handedOver: false };
+    request.current = { id, threadId, history, typed };
     replyText.current = "";
     toolCalls.current = [];
     setDraft("");
     setPending(true);
     setReply({ text: "", status: "thinking" });
-    const actions = runtime.manifest.animations.filter(canShortcut).map((action) => action.id);
+    const actions = runtime.chatActionIds();
     try {
       await chatPlatform.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), chatContext(Date.now(), actions, loadSavedItems()));
     } catch (reason) {
@@ -285,16 +280,11 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   const cancel = () => {
     if (request.current) void chatPlatform.cancel(request.current.id).catch((error: unknown) => console.warn("Could not stop the reply", error));
   };
-  /** Opens the conversation in the chat window. A reply still on its way is stopped here and answered there. */
+  /** Opens the same conversation while the quick chat request finishes in its original window. */
   const expand = () => {
     close(false);
     setReply(null);
-    const running = request.current;
-    if (running) {
-      running.handedOver = true;
-      void chatPlatform.cancel(running.id).catch((error: unknown) => console.warn("Could not stop the reply", error));
-    }
-    petWindow.openChat(lastThread.current ?? undefined, running !== null).catch((error: unknown) => console.error("Failed to open chat", error));
+    petWindow.openChat(lastThread.current ?? undefined).catch((error: unknown) => console.error("Failed to open chat", error));
   };
   const onPaste = (event: ClipboardEvent<HTMLInputElement>) => {
     const field = event.currentTarget;

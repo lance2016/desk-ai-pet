@@ -383,9 +383,9 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **打开。** 全局快捷键（`tauri-plugin-global-shortcut`，在 Rust 端注册，前端不需要插件权限）按下时，`quick_chat.rs` 在宠物被隐藏时先显示它，再发 `pet://quick-chat` 给宠物窗口；单击宠物发 `pet.clicked`，浮动快捷图标里的「聊聊天」发 `pet.chat_requested`。`useQuickChat` 收到任一个都打开输入条。
 - **键盘。** 宠物窗口是不激活应用的面板，`canBecomeKeyWindow` 返回 true，所以能接收键盘而不把用户正在用的应用切走（和 Spotlight 一样）。打开时调用 `take_pet_keyboard`，让面板成为 key window 并把焦点交给网页；Esc 或再按快捷键收起时调用 `release_pet_keyboard`，面板先移出再不抢焦点地放回，键盘回到原来的应用。点到别的应用时网页收到 `blur`，输入条直接收起。
 - **快捷键。** 默认 `⇧⌘ Space`，设置页可以录制任意组合，存成 `Shift+Super+Space` 这样的写法，按键名直接用 `KeyboardEvent.code`。组合必须含 ⌃ 或 ⌘：macOS 15 起，只用 ⌥ 或 ⌥⇧ 的 `RegisterEventHotKey` 能注册成功，但系统不再转发按键。前端 `recordShortcut` 和原生 `parse_shortcut` 各查一遍。录制时先注销旧快捷键，否则同样的按键会被它截走。设置页改了直接注册；宠物窗口启动时按保存的值注册一次，失败（被别的应用占用）时让宠物说一句提示。注册在主线程完成，命令写成 `async`，避免主线程等自己。
-- **对话。** 每次发送都从本机重新读聊天记录。输入条每次从收起变成打开，都开一段新对话；打开期间接着说的续在这一段（`sessionThread`，`pickQuickThread`）。输入条开着时再点宠物不算重新打开。先把用户这句存进去，回复完成后再存回复，第一轮回复后照常起标题。工具调用和聊天窗口共用 `applyToolCalls`。回复失败或被停止时，把这句从聊天记录里拿掉、放回输入框，重发时不会重复。
+- **对话。** 每次发送都从本机重新读聊天记录。输入条每次从收起变成打开，都开一段新对话；打开期间接着说的续在这一段（`sessionThread`，`pickQuickThread`）。输入条开着时再点宠物不算重新打开。先把用户这句存进去，回复完成后再存回复，第一轮回复后在本机整理标题。工具调用和聊天窗口共用 `applyToolCalls`。回复失败或被停止时，把这句从聊天记录里拿掉、放回输入框，重发时不会重复。
 - **回复气泡。** 回复显示在 `PetSpeech` 的位置，有回复时普通气泡和提醒气泡让开。Markdown 转成一行纯文本，最多四行，被截断时底部写「点开看完整回复」。存下的提醒和备忘只显示一条（有没记上的优先），其余写「还有 N 条」。输入条开着时一直显示；收起后按长度停留 6～20 秒。点击在聊天窗口打开这段对话（没有 Key 时打开设置）。输入条和回复气泡显示时都加进可点击区域表。
-- **和聊天窗口同步。** 原生端按窗口互斥：每个窗口同时只有一个请求，聊天窗口和宠物窗口可以各自在回复；同一个窗口再发会收到「上一条还在回复」，前端把这句放回输入框。原生端把聊天流只发给发起请求的窗口；关闭聊天窗口不取消回复，只停录音和识别；回复照常写进聊天记录，再打开就能看到。模型有时只调用 `play_action`、一个字也不说（比如用户说「敲木鱼」）。这时原生端用同一段对话、去掉工具再请求一次，并在规则末尾写明刚才做了哪个动作，让它补一句话；动作照常发给网页。提示词要求「做动作就调用工具，不要用括号描写动作」。聊天窗口只在当前角色的聊天记录 key 变化时重新读取，内容没变不刷新；`petWindow.openChat(threadId)` 先发 `pet://chat-thread` 让它切到这段对话再显示。快速聊天回复到一半时点「在聊天窗口打开」，宠物窗口停掉自己的请求，改发 `pet://chat-resume`，聊天窗口切到这段对话并重新回答最后一句。两边同时在同一段对话里生成回复时，后完成的一方会覆盖前一方，这种情况很少，暂不处理。
+- **和聊天窗口同步。** 原生端按窗口互斥：每个窗口同时只有一个请求，聊天窗口和宠物窗口可以各自在回复；同一个窗口再发会收到「上一条还在回复」，前端把这句放回输入框。原生端把聊天流只发给发起请求的窗口；关闭聊天窗口不取消回复，只停录音和识别；回复照常写进聊天记录，再打开就能看到。原生端分别累积文字和工具参数，文字边到边显示，`play_action` 的 JSON 完整且 ID 在枚举内时立即发动作事件。同轮最多发一个动作。宠物窗口把事件送入运行时，动作控制器返回调度结果，聊天用它提示失败，或在模型只发工具时用本地话术补一句。调度不等待动画结束。完整清单和基础日报在本机组织，只有定向查询或复杂归纳才追加一个只读的模型请求。聊天窗口只在当前角色的聊天记录 key 变化时重新读取，内容没变不刷新；`petWindow.openChat(threadId)` 先发 `pet://chat-thread` 让它切到这段对话再显示。快速聊天回复到一半时点「在聊天窗口打开」，请求在原窗口继续，完成后由聊天记录同步到聊天窗口。两边同时在同一段对话里生成回复时，后完成的一方会覆盖前一方，这种情况很少，暂不处理。
 
 ## 快捷按钮和设置窗口
 
@@ -420,8 +420,8 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 自建角色换了自己的待机图之后，只有用户上传过的图才算它的：没上传的动作借它自己的图（`looks.ts` 的 `planLooks`），不再显示 `base` 的形象。`PetRuntime` 启动时和每次换图后都重新算一遍每个动作显示谁的图（`showLooks`），出借的动作换了图，借它的动作跟着换。
 - 显示的名字统一用 `characterName()`：用户在「角色」页改过就用改过的，否则用 `persona.name`。聊天窗口监听 `storage` 事件，设置页改名后立即更新。
 - 聊天记录按段保存在 `chat-threads:v1`，最近的一段在最前，每段最多保存和显示 200 条（`CHAT_LIMITS.messages`），发给模型的只有最近 30 条（`CHAT_LIMITS.context`，`contextMessages()`）；每个角色最多 20 段。旧版的单份 `chat-history:v1` 第一次读取时转成一段对话后删除。
-- 模型是全局设置 `ai-pet:chat-model:v1`（`src/preferences/ChatModel.ts`），默认 `deepseek-flash`。`requestPreferences()` 把它带进聊天和问候请求，`deepseek_title`、`deepseek_test` 单独传 `model`。原生端用 `valid_model` 再校验一次格式；`deepseek_test` 收到 400、404、422 时报「模型名不可用」，设置页据此拒绝换成写错的自定义模型。
-- 标题先用用户的第一句话。全局开关 `ai-pet:chat-auto-titles:v1` 打开时（默认打开），一段聊天的第一轮回复结束后，聊天窗口调用原生命令 `deepseek_title`，把第一句话和回复各截到 500 字发给 DeepSeek，要一个不超过 12 字的标题；`cleanTitle()` 去掉引号和标点后用 `retitleThread()` 写回，不改变排序。失败就保留原标题，不重试。
+- 模型是全局设置 `ai-pet:chat-model:v1`（`src/preferences/ChatModel.ts`），默认 `deepseek-flash`。`requestPreferences()` 把它带进聊天和问候请求，`deepseek_test` 单独传 `model`。原生端用 `valid_model` 再校验一次格式；`deepseek_test` 收到 400、404、422 时报「模型名不可用」，设置页据此拒绝换成写错的自定义模型。
+- 标题先用用户的第一句话。全局开关 `ai-pet:chat-auto-titles:v1` 打开时（默认打开），`recordThread()` 在保存第一轮回复时用 `cleanTitle()` 在本机整理开场白。用户已改过的标题继续保留。
 - 聊天窗口的头像和小人按角色存在 `chat-appearance:v1`：每个位置是一个动作 ID 或一张上传图片（`data:` URL），可以带一个取景 `crop`；小人还可以是 `hidden`。`pictureFor()` 把它变成图片地址和取景。上传图保存的是缩到 512 像素以内的原图（不透明的存 JPEG，带透明的存 PNG），不是裁好的结果，所以可以反复调整。
 - 取景（`src/appearance/pictureCrop.ts`）记录画面中心点在图上的位置 `x`、`y`、取景框占图片宽度的比例 `zoom`，以及图片高宽比 `ratio`。`cropStyle()` 把它换算成 `<img>` 的 `width`、`left`、`top` 百分比；头像框是 1:1 的圆，小人框是 `FRAME_ASPECT.peek`（78:64）。裁剪弹窗 `PictureCropper` 和显示端用同一套换算，所见即所得。没有取景时沿用旧的默认取景：动作图头像裁到头部，小人露出顶部，上传图整张显示。动作已不存在时退回 `idle`，并丢掉原来的取景。
 - 聊天窗口通过 `petWindow.setTitle()` 把标题栏改成“和<角色名>聊天”，需要 `core:window:allow-set-title` 权限。
@@ -477,11 +477,11 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 `Companion` 定期通过 `platform/system.ts` 读取 macOS 的系统空闲秒数，在本机判断深夜持续使用、连续使用与离开后返回。采样中断时不推断使用时长。场景通过 `PetRuntime.greet()` 共用主动说话间隔和问候动作；仅深夜关心允许用户选择绕过定时勿扰，手动勿扰始终生效。专注期间暂停场景触发，专注动作和完成提示由 `BehaviorEngine` 管理。
 
-AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带，原生端按 UTF-16 长度校验；问候和标题不使用。聊天预览通过 `deepseek_preview` 在本机调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
+AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带，原生端按 UTF-16 长度校验；问候不使用。聊天预览通过 `deepseek_preview` 在本机调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
 
-系统提示词由 `chat_sections`（`chat.rs`）按段组装：`persona`、`date`、`memory`、`lookup`、`actions`（有可选动作时）、`instructions`（填了补充要求时），非空段用换行连起来。`memory`、`lookup`、`actions` 三段可被用户改写：`ChatRules`（`ai-pet:chat-rules:v1`，所有角色共用）随 `requestPreferences` 以 `rules` 发出，缺省用默认写法，空字符串表示去掉这一段。预览返回每段的 `text` 和 `default`，设置页据此显示「已修改」和「恢复默认」。
+当前时间、UTC 偏移、时区和未来日期由本地时钟动态提供。系统提示词由 `chat_sections`（`chat.rs`）按段组装：`persona`、`date`、`memory`、`lookup`、`actions`（有可选动作时）、`instructions`（填了补充要求时），非空段用换行连起来。`memory`、`lookup`、`actions` 三段可被用户改写：`ChatRules`（`ai-pet:chat-rules:v1`，所有角色共用）随 `requestPreferences` 以 `rules` 发出，缺省用默认写法，空字符串表示去掉这一段。预览返回每段的 `text` 和 `default`，设置页据此显示「已修改」和「恢复默认」。
 
-开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，原生端把这次回复的每个请求体（首个请求、查询后的追加请求、补说话的请求）和模型原样返回的文字、工具调用记进 `RequestLog`，最多 20 条，只在内存；设置页通过 `chat_request_log`、`chat_request_log_clear` 读取和清空。
+开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，原生端把这次回复的每个请求体（首个请求和可能的只读归纳请求）和模型原样返回的文字、工具调用记进 `RequestLog`，最多 20 条，只在内存；设置页通过 `chat_request_log`、`chat_request_log_clear` 读取和清空。
 
 动作图层的上飘淡出按主图指定的显示帧范围计算进度，预览与渲染器共用动效采样。文字图层先生成透明 PNG，再按普通图层保存。
 

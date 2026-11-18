@@ -7,7 +7,7 @@ import type { AssetPack } from "../assets/AssetLoader";
 import type { PetManifest } from "../assets/Manifest";
 import { BehaviorEngine, type ReminderSource } from "../behavior/BehaviorEngine";
 import { FocusTimer, restoreFocus, type FocusSnapshot } from "../behavior/FocusTimer";
-import { loadDisabledIdleActions } from "../preferences/ActionPreferences";
+import { canShortcut, loadDisabledIdleActions } from "../preferences/ActionPreferences";
 import type { OpaqueMask, PetRenderer } from "../renderer/PetRenderer";
 import type { PetStorage } from "../storage/PetStorage";
 import type { ActionResult, HitRegion, PetEvents } from "../types";
@@ -94,6 +94,7 @@ export class PetRuntime {
   private readonly tickTimer: ReturnType<typeof setInterval>;
   private readonly stopSaving: () => void;
   private readonly stopMirroring: () => void;
+  private readonly stopChatActions: () => void;
   private readonly stopTrackingActions: () => void;
   private readonly isQuiet: (now: number) => boolean;
   private readonly userActions: () => UserAction[];
@@ -149,6 +150,7 @@ export class PetRuntime {
     // Peek art is drawn hiding on the left; on the right edge it is shown mirrored.
     this.stopMirroring = this.bus.on("pet.dock_changed", ({ side }) => renderer.setMirrored(side === "right"));
 
+    this.stopChatActions = this.bus.on("pet.chat_action_requested", ({ id, report }) => report(this.requestAction(id, "chat")));
     this.controller.stop();
     this.behavior.start();
     this.tickTimer = setInterval(() => {
@@ -178,12 +180,24 @@ export class PetRuntime {
    * The single entry point for anything outside the pet (a future AI module,
    * for example) to trigger an action. It cannot change stats or skip scheduling.
    */
-  requestAction(id: string): ActionResult {
+  requestAction(id: string, source?: "chat"): ActionResult {
+    if (source === "chat") {
+      if (!this.chatActionIds().includes(id)) return { accepted: false, reason: "unavailable" };
+      if (!this.behavior.canPlayChatAction()) return { accepted: false, reason: "busy" };
+    }
     const action = this.registry.resolve(id);
     if (action && action.category === SYSTEM_CATEGORY && action.id !== IDLE_ACTION) {
       return { accepted: false, reason: "restricted" };
     }
     return this.controller.request(id);
+  }
+
+  /** Timed actions with their own artwork, so a request never plays borrowed art. */
+  chatActionIds(): string[] {
+    return this.manifest.animations.filter((entry) => {
+      const shown = this.shown.get(entry.id) ?? `${entry.borrowedFrom ?? entry.id}:pack`;
+      return canShortcut(entry) && this.registry.has(entry.id) && shown.startsWith(`${entry.id}:`);
+    }).map((entry) => entry.id);
   }
 
   /** Shows a short line in the speech bubble. Like `requestAction`, it cannot change stats. */
@@ -286,6 +300,7 @@ export class PetRuntime {
     this.stopSaving();
     this.stopMirroring();
     this.stopTrackingActions();
+    this.stopChatActions();
     this.behavior.stop();
     this.controller.dispose();
     this.renderer.destroy();

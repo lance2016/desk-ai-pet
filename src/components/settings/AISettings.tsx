@@ -130,7 +130,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
 
         <section className="ai-section" aria-labelledby="ai-data-heading">
           <div className="ai-section__title"><h2 id="ai-data-heading">聊天记录</h2></div>
-          <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>自动生成聊天标题</strong><span>关掉后用你的第一句话当标题</span></div><button type="button" role="switch" aria-label="自动生成聊天标题" aria-checked={autoTitles} className={autoTitles ? "toggle is-on" : "toggle"} onClick={toggleAutoTitles}><span /></button></div></div>
+          <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>自动生成聊天标题</strong><span>在本机整理开场白中的空格和标点</span></div><button type="button" role="switch" aria-label="自动生成聊天标题" aria-checked={autoTitles} className={autoTitles ? "toggle is-on" : "toggle"} onClick={toggleAutoTitles}><span /></button></div></div>
         </section>
       </div>
     </div>

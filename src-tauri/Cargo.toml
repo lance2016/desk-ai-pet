@@ -1,12 +1,6 @@
 [package]
 name = "ai-pet"
-<<<<<<< Updated upstream
 version = "1.5.0"
-||||||| Stash base
-version = "1.0.1"
-=======
-version = "1.0.2"
->>>>>>> Stashed changes
 description = "A desktop pet that lives on your screen"
 authors = ["you"]
 edition = "2024"

@@ -754,7 +754,6 @@ pub fn run() {
             chat::chat_request_log_clear,
             chat::deepseek_cancel,
             chat::deepseek_greet,
-            chat::deepseek_title,
             holidays::fetch_holiday_year,
             mail_code::mail_account,
             mail_code::mail_save_account,

@@ -10,7 +10,7 @@ import { CHARACTER_DATA, characterKey } from "../preferences/CharacterPreference
 export const CHAT_LIMITS = { messages: 200, context: 30, threads: 20, titleChars: 18 } as const;
 const MAX_MESSAGE_CHARS = 16000;
 const FALLBACK_TITLE = "新聊天";
-/** Global switch: let the model name each new thread after its first reply. */
+/** Global switch: normalize each new thread title locally. */
 const AUTO_TITLES_KEY = "ai-pet:chat-auto-titles:v1";
 
 const messagesSchema = z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(MAX_MESSAGE_CHARS) })).max(CHAT_LIMITS.messages);
@@ -41,7 +41,7 @@ export function threadTitle(messages: readonly ChatMessage[]): string {
   return first ? shorten(first) : FALLBACK_TITLE;
 }
 
-/** A model's title on one line, without a "标题：" label, quotes or end punctuation. Empty when nothing is left. */
+/** A title on one line, without a "标题：" label, quotes or end punctuation. Empty when nothing is left. */
 export function cleanTitle(text: string): string {
   const line = text.replace(/\s+/g, " ").trim()
     .replace(/^(标题|题目)\s*[:：]\s*/, "")
@@ -55,7 +55,14 @@ export function recordThread(threads: readonly ChatThread[], id: string, message
   const others = threads.filter((thread) => thread.id !== id);
   if (messages.length === 0) return others;
   const kept = messages.slice(-CHAT_LIMITS.messages);
-  const title = threads.find((thread) => thread.id === id)?.title ?? threadTitle(kept);
+  const previous = threads.find((thread) => thread.id === id);
+  const first = threadTitle(kept);
+  let title = previous?.title ?? first;
+  if (title === first && kept.some((message) => message.role === "assistant")
+    && !previous?.messages.some((message) => message.role === "assistant") && loadAutoTitles()) {
+    const opening = kept.find((message) => message.role === "user")?.content ?? "";
+    title = cleanTitle(opening) || first;
+  }
   return [{ id, title, updatedAt: now, messages: kept }, ...others].slice(0, CHAT_LIMITS.threads);
 }
 
@@ -113,8 +120,8 @@ export function clearThreads(packId: string, storage: Storage = window.localStor
   storage.removeItem(legacyKey(packId));
 }
 
-export function loadAutoTitles(storage: Storage = window.localStorage): boolean {
-  return storage.getItem(AUTO_TITLES_KEY) !== "false";
+export function loadAutoTitles(storage: Storage | undefined = globalThis.window?.localStorage): boolean {
+  return storage?.getItem(AUTO_TITLES_KEY) !== "false";
 }
 
 export function saveAutoTitles(enabled: boolean, storage: Storage = window.localStorage): void {

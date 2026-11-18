@@ -47,17 +47,16 @@ function noteLine(note: ToolNote, saved: SavedNote): SavedLine {
 }
 
 /**
- * Saves the reminders and notes and plays the action the model asked for.
+ * Saves the reminders and notes the model asked to keep.
  * Returns a line for everything the reply asked to keep, including what could
  * not be kept and why, and a reply for a reply-less answer.
  */
 export function applyToolCalls(payloads: string[]): ToolEffects {
   if (payloads.length === 0) return { lines: [], confirmation: "" };
   const now = Date.now();
-  const { items, notes, failures, action } = interpretToolCalls(payloads, now, newId);
+  const { items, notes, failures } = interpretToolCalls(payloads, now, newId);
   if (items.length > 0) updateAgenda((list) => items.reduce((next, item) => addAgendaItem(next, item, now), list));
   const saved = notes.map((note) => noteLine(note, saveNote(note.text)));
-  if (action) void petWindow.requestAction(action).catch(() => {});
   return {
     lines: [
       ...items.map((item) => reminderLine(item, now)),
@@ -66,4 +65,25 @@ export function applyToolCalls(payloads: string[]): ToolEffects {
     ],
     confirmation: confirmationFor(items, now, notes, failures),
   };
+}
+
+/** Dispatches immediately and resolves to a fallback reply or an actual scheduling failure. */
+export async function dispatchChatAction(id: string, requestId: string): Promise<ToolEffects> {
+  if (id) {
+    try {
+      const result = await petWindow.requestChatAction(id, requestId);
+      if (result.accepted && result.actionId === id) return { lines: [], confirmation: "好，来吧。" };
+      console.warn("The pet declined a chat action", id, result);
+      if (!result.accepted && (result.reason === "busy" || result.reason === "cooldown")) {
+        const reason = result.reason === "busy" ? "宠物现在正忙，暂时做不了这个动作。" : "这个动作刚做过，等一下再试。";
+        return { lines: [{ kind: "failed", text: reason }], confirmation: reason };
+      }
+    } catch (error) {
+      console.warn("Could not dispatch the chat action", id, error);
+    }
+  } else {
+    console.warn("The model returned incomplete or unavailable action arguments");
+  }
+  const reason = "这个动作现在播不了。";
+  return { lines: [{ kind: "failed", text: reason }], confirmation: reason };
 }

@@ -136,6 +136,22 @@ describe("PetRuntime", () => {
     runtime.destroy();
   });
 
+  it("starts the exact chat action and keeps protected states in charge", async () => {
+    const { runtime, renderer } = await start({ renderer: new FakeRenderer(["eat"]) });
+    const report = vi.fn();
+    runtime.bus.emit("pet.chat_phase", { phase: "thinking" });
+    runtime.bus.emit("pet.chat_action_requested", { id: "wooden_fish", report });
+    expect(report).toHaveBeenLastCalledWith({ accepted: true, actionId: "wooden_fish" });
+    expect(renderer.last).toBe("wooden_fish");
+    runtime.bus.emit("pet.chat_phase", { phase: "talking" });
+    expect(renderer.last).toBe("wooden_fish");
+    expect(runtime.requestAction("eat", "chat")).toEqual({ accepted: false, reason: "unavailable" });
+    expect(runtime.requestAction("sleep", "chat")).toEqual({ accepted: false, reason: "unavailable" });
+    runtime.focus.startFocus(Date.now());
+    expect(runtime.requestAction("happy", "chat")).toEqual({ accepted: false, reason: "busy" });
+    runtime.destroy();
+  });
+
   it("mirrors the pet while it hides on the right edge", async () => {
     const { runtime, renderer } = await start();
     runtime.bus.emit("pet.drag_started", {});

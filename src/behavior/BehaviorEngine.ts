@@ -192,26 +192,10 @@ export class BehaviorEngine {
   private focusPrompt: { text: string; choices: AlertChoice[]; until: number } | null = null;
   /** The edge the pet left to call the user, and when to go back behind it. */
   private returnTo: { side: DockSide; at: number | null } | null = null;
-<<<<<<< Updated upstream
-  /** An action asked for while the pet slept, played once it is awake and idle. */
-  private pendingAction: { id: string; onAccepted?: () => void } | null = null;
-  /** The part of a conversation going on, and when to stop waiting for news of it. */
-  private chat: { phase: keyof typeof BEHAVIOR_CONFIG.chatHoldMs; until: number } | null = null;
-||||||| Stash base
-  /** An action asked for while the pet slept, played once it is awake and idle. */
-  private pendingAction: { id: string; onAccepted?: () => void } | null = null;
-  /** When the focus button was last pressed during a round, to ask before stopping. */
-  private stopAskedAt: number | null = null;
-  /** The part of a conversation the pet is posing for, and when to stop waiting for news of it. */
-  private chat: { phase: keyof typeof CHAT_POSES; until: number } | null = null;
-=======
   /** Actions held briefly by a non-interruptible wake-up or higher-priority action. */
   private pendingActions: Array<{ id: string; onAccepted?: () => void }> = [];
-  /** When the focus button was last pressed during a round, to ask before stopping. */
-  private stopAskedAt: number | null = null;
-  /** The part of a conversation the pet is posing for, and when to stop waiting for news of it. */
-  private chat: { phase: keyof typeof CHAT_POSES; until: number } | null = null;
->>>>>>> Stashed changes
+  /** The part of a conversation going on, and when to stop waiting for news of it. */
+  private chat: { phase: keyof typeof BEHAVIOR_CONFIG.chatHoldMs; until: number } | null = null;
   /** A pose this engine put up that others may play too (think); tells its own from theirs. */
   private posed: string | null = null;
   private patStreak = { count: 0, at: 0 };
@@ -385,6 +369,13 @@ export class BehaviorEngine {
     if (pose === null) return;
     const result = controller.request(pose);
     if (result.accepted && result.actionId === pose) this.posed = pose;
+  }
+
+  /** Chat tool requests cannot replace a sustained pose or interrupt direct manipulation. */
+  canPlayChatAction(): boolean {
+    return this.deps.state.get().activity === "awake"
+      && this.deps.focus.get().phase === "off"
+      && this.dockSide === null;
   }
 
   private onChatPhase(phase: ChatPhase): void {
@@ -781,13 +772,6 @@ export class BehaviorEngine {
   private callOut(now: number, action: string): void {
     const { state, controller } = this.deps;
     state.markInteraction(now);
-<<<<<<< Updated upstream
-    // The call-out itself wakes the pet: a wake-up animation would refuse it.
-    if (state.get().activity === "sleeping") this.wakeUp(false);
-||||||| Stash base
-    if (state.get().activity === "sleeping") this.wakeUp();
-=======
->>>>>>> Stashed changes
     if (this.dockSide) {
       this.returnTo = { side: this.dockSide, at: null };
       this.setDock(null);

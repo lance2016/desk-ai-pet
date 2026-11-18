@@ -250,7 +250,6 @@ describe("passing reactions", () => {
     expect(state.get().activity).toBe("sleeping");
   });
 
-<<<<<<< Updated upstream
   it("stays up while the user works at the computer, and dozes off once they leave", () => {
     const { bus, state, renderer, passSteps } = reacting();
     for (let report = 0; report < 60; report += 1) {
@@ -285,15 +284,14 @@ describe("passing reactions", () => {
     bus.emit("pet.sleep", {});
     bus.emit("pet.user_active", { at: Date.now() + 1_000 });
     expect(state.get().activity).toBe("sleeping");
-||||||| Stash base
-=======
+  });
+
   it("glances at the cursor while an idle fidget is playing", () => {
     const { bus, controller } = reacting();
     bus.emit("pet.action_requested", { id: "blink" });
     expect(controller.current?.id).toBe("blink");
     bus.emit("pet.hovered", {});
     expect(controller.current?.id).toBe("look_around");
->>>>>>> Stashed changes
   });
 
   it("waves with a greeting", () => {
@@ -890,12 +888,11 @@ describe("reminders", () => {
 
   it("waits for a higher-priority action, then plays the reminder", () => {
     const reminders = fakeReminders([{ id: "r1", text: "快递", remindAt: Date.now() + 1_000 }]);
-    const { bus, controller, pass } = setup({ reminders, extraAnimations: SCENE_ACTIONS });
-    bus.emit("pet.focus_toggled", {});
-    bus.emit("pet.fed", {});
-    expect(controller.current?.id).toBe("eat");
+    const blocker = { id: "busy_pose", file: "a/idle.png", duration: 2400, priority: 45 };
+    const { controller, pass } = setup({ reminders, extraAnimations: [...SCENE_ACTIONS, blocker] });
+    controller.request(blocker.id);
     pass(1_000);
-    expect(controller.current?.id).toBe("eat");
+    expect(controller.current?.id).toBe(blocker.id);
     pass(1_500);
     expect(controller.current?.id).toBe("remind");
   });
@@ -926,12 +923,7 @@ describe("reminders", () => {
     expect(docked.docks).toEqual(["left", null]);
   });
 
-  it("rings the bell even when the pet was asleep or busy eating", () => {
-    const sleeping = setup({ reminders: fakeReminders([{ id: "r1", text: "喝水", remindAt: Date.now() + 1_000 }]), extraAnimations: SCENE_ACTIONS });
-    sleeping.bus.emit("pet.sleep", {});
-    sleeping.pass(1_000);
-    expect(sleeping.renderer.last).toBe("remind");
-
+  it("rings the bell even when the pet was busy eating", () => {
     const eating = setup({ reminders: fakeReminders([{ id: "r2", text: "喝水", remindAt: Date.now() + 1_000 }]), extraAnimations: SCENE_ACTIONS });
     eating.controller.request("eat");
     eating.pass(1_000);

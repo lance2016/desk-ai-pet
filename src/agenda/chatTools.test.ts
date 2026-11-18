@@ -11,7 +11,7 @@ const makeId = () => `id${++ids}`;
 
 describe("chat context", () => {
   it("gives the local time with the weekday, and only action ids the native side accepts", () => {
-    expect(chatContext(NOW, ["happy", "pet_reaction", "Bad-Id"], NOTHING_SAVED)).toEqual({ now: "2026-11-16 14:03 周一", actions: ["happy", "pet_reaction"], reminders: [], notes: [], today: ["专注了 0 轮，每轮 25 分钟"] });
+    expect(chatContext(NOW, ["happy", "pet_reaction", "Bad-Id"], NOTHING_SAVED)).toMatchObject({ now: "2026-11-16 14:03 周一", timestamp: expect.stringMatching(/^2026-11-16T14:03:00[+-]\d{2}:\d{2}$/), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, actions: ["happy", "pet_reaction"], reminders: [], notes: [], today: ["专注了 0 轮，每轮 25 分钟"] });
   });
 
   it("hands over the notes pinned first, then the most recently changed", () => {
@@ -118,7 +118,6 @@ describe("tool calls", () => {
     expect(result.items).toEqual([]);
     expect(result.notes).toEqual([]);
     expect(result.failures).toEqual(["没看懂要提醒什么", "没看懂这条记录请求", "没看懂这条记录请求", "没看懂要提醒什么", "内容太长", "一次最多记 8 条，后面 2 条没记上"]);
-    expect(result.action).toBeNull();
     warning.mockRestore();
   });
 
@@ -126,10 +125,6 @@ describe("tool calls", () => {
     const result = interpretToolCalls([call("save_note", { text: "  WiFi：abc123\n密码在背面  " }), call("save_note", { text: " " })], NOW, makeId);
     expect(result.notes).toEqual([{ text: "WiFi：abc123\n密码在背面", trimmed: false }]);
     expect(result.failures).toEqual(["没看懂要存什么"]);
-  });
-
-  it("picks the action the model chose", () => {
-    expect(interpretToolCalls([call("play_action", { action: "happy" })], NOW, makeId).action).toBe("happy");
   });
 });
 

@@ -6,9 +6,8 @@ import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, remi
 import { parseRepeat, repeatLabel } from "./Repeat";
 import type { ChatContext } from "../platform/chat";
 
-/** Tool names; must match `src-tauri/src/chat.rs`. Its lookups (`list_reminders`, `list_notes`, `review_today`) are answered there and never come here. */
+/** Tool names; must match `src-tauri/src/chat.rs`. */
 const ADD_REMINDER_TOOL = "add_reminder";
-const PLAY_ACTION_TOOL = "play_action";
 const SAVE_NOTE_TOOL = "save_note";
 /** Action ids the native side accepts. */
 const ACTION_ID_PATTERN = /^[a-z0-9_]{1,40}$/;
@@ -33,7 +32,6 @@ const callSchema = z.object({
   dropped: z.number().int().positive().optional(),
 });
 const addReminderSchema = z.object({ text: z.string(), remind_at: z.string().optional(), repeat: z.string().optional() });
-const playActionSchema = z.object({ action: z.string().regex(ACTION_ID_PATTERN) });
 const saveNoteSchema = z.object({ text: z.string() });
 
 const pad = (value: number) => String(value).padStart(2, "0");
@@ -65,8 +63,14 @@ export function loadSavedItems(): SavedItems {
  * model the saved lists only when it looks them up.
  */
 export function chatContext(now: number, actions: readonly string[], saved: SavedItems): ChatContext {
+  const date = new Date(now);
+  const offset = -date.getTimezoneOffset();
+  const minutes = Math.abs(offset);
+  const localIso = new Date(now + offset * 60_000).toISOString().slice(0, 19);
   return {
     now: localTimeText(now),
+    timestamp: `${localIso}${offset < 0 ? "-" : "+"}${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     actions: actions.filter((id) => ACTION_ID_PATTERN.test(id)),
     reminders: reminderLines(saved.agenda, now),
     notes: sortNotes(saved.notes).map((note) => note.text),
@@ -154,7 +158,6 @@ export interface ToolOutcome {
   notes: ToolNote[];
   /** Why each call that could not be saved was rejected, in words for the user. */
   failures: string[];
-  action: string | null;
 }
 
 /** The text of a reminder or note, cut to `limit`; null when there is none. */
@@ -166,13 +169,13 @@ function readText(raw: string, limit: number): { text: string; trimmed: boolean 
 }
 
 /**
- * Turns the tool calls of one reply into reminders, notes and an action.
+ * Turns the tool calls of one reply into reminders and notes.
  * Nothing is dropped silently: overlong text is cut and marked, a reminder
  * without a usable time becomes a note with the reason, and calls that cannot
  * be saved at all come back as failures to show the user.
  */
 export function interpretToolCalls(payloads: readonly string[], now: number, makeId: () => string): ToolOutcome {
-  const outcome: ToolOutcome = { items: [], notes: [], failures: [], action: null };
+  const outcome: ToolOutcome = { items: [], notes: [], failures: [] };
   for (const payload of payloads) {
     const call = parseArguments(callSchema, payload);
     if (!call) { outcome.failures.push("没看懂这条记录请求"); continue; }
@@ -197,9 +200,6 @@ export function interpretToolCalls(payloads: readonly string[], now: number, mak
       const text = args && readText(args.text, NOTE_LIMITS.text);
       if (text) outcome.notes.push(text);
       else outcome.failures.push("没看懂要存什么");
-    } else if (call.name === PLAY_ACTION_TOOL) {
-      // A wrong action only means the pet does not move; nothing the user asked for is lost.
-      outcome.action = parseArguments(playActionSchema, call.arguments)?.action ?? outcome.action;
     } else {
       outcome.failures.push("没看懂这条记录请求");
     }

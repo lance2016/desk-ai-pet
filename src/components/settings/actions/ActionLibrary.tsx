@@ -5,7 +5,6 @@ import { ActionThumbnail } from "./ActionThumbnail";
 import { ActionEditor, VisualPreview } from "./ActionEditor";
 import { CopyButton } from "./CopyButton";
 import { PromptField } from "./PromptField";
-<<<<<<< Updated upstream:src/components/settings/actions/ActionLibrary.tsx
 import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../../actions/UserActions";
 import { BASE_ACTION } from "../../../appearance/looks";
 import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../../assets/ArtPrompt";
@@ -15,28 +14,7 @@ import { petWindow } from "../../../platform/petWindow";
 import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../../preferences/ActionPreferences";
 import { loadArtPrompts, saveArtPrompts } from "../../../preferences/ArtPromptPreferences";
 import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../../preferences/DockPreferences";
-||||||| Stash base:src/components/settings/ActionLibrary.tsx
-import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
-import { BASE_ACTION } from "../../appearance/looks";
-import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
-import type { AnimationEntry, PetControl } from "../../assets/Manifest";
-import type { ActionScene, ActionTier } from "../../types";
-import { petWindow } from "../../platform/petWindow";
-import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
-import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
-import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../preferences/DockPreferences";
-=======
-import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
-import { BASE_ACTION } from "../../appearance/looks";
-import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
-import type { AnimationEntry, PetControl } from "../../assets/Manifest";
-import type { ActionScene, ActionTier } from "../../types";
-import { petWindow } from "../../platform/petWindow";
-import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
-import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
-import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../preferences/DockPreferences";
-import { loadActionTriggerStats, subscribeActionTriggerStats } from "../../preferences/ActionTriggerStats";
->>>>>>> Stashed changes:src/components/settings/ActionLibrary.tsx
+import { loadActionTriggerStats, subscribeActionTriggerStats } from "../../../preferences/ActionTriggerStats";
 
 const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined)[] }[] = [
   { title: "先画这几张", note: "先确定待机形象，再补常用动作。", tiers: ["required", "core"] },

@@ -81,7 +81,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 可改写的对话规则：段名、长度上限（UTF-16） | `CHAT_RULE_IDS`、`CHAT_RULE_LIMIT`（`src/preferences/ChatRules.ts`） | `chat_sections` 里用 `editable` 的段、`MAX_CHAT_RULE_CHARS`（`chat.rs`） |
 | 开发者模式的请求记录命令和字段 | `src/platform/chat.ts` 的 `chat_request_log`、`chat_request_log_clear`、`logSchema` | `chat.rs` 的 `RequestLog`、`lib.rs` 的 `invoke_handler` 和 `.manage` |
 | 你的称呼长度上限 | `USER_PROFILE_LIMITS.nickname`（`src/preferences/UserProfile.ts`） | `MAX_USER_NAME_CHARS`（`src-tauri/src/chat.rs`） |
-| 聊天工具名、提醒和备忘长度上限、动作名格式 | `src/agenda/chatTools.ts`、`AGENDA_LIMITS.text`、`NOTE_LIMITS.text`（`src/notes/NoteStore.ts`） | `src-tauri/src/chat.rs` 的 `ADD_REMINDER_TOOL`、`SAVE_NOTE_TOOL`、`PLAY_ACTION_TOOL`、`MAX_ITEM_CHARS`、`MAX_NOTE_CHARS`、`valid_action_id` |
+| 提醒和备忘工具名、长度上限及聊天动作名格式 | `src/agenda/chatTools.ts`、`AGENDA_LIMITS.text`、`NOTE_LIMITS.text`（`src/notes/NoteStore.ts`） | `src-tauri/src/chat.rs` 的 `ADD_REMINDER_TOOL`、`SAVE_NOTE_TOOL`、`MAX_ITEM_CHARS`、`MAX_NOTE_CHARS`、`valid_action_id` |
 | 聊天查看提醒、备忘和今天的记录时带的清单：条数上限、每行长度上限 | `AGENDA_LIMITS.items`、`NOTE_LIMITS.items`、`REMINDER_LINE_LIMIT`、`TODAY_LIMITS`（`chatTools.ts`，按 UTF-16） | `chat.rs` 的 `MAX_REMINDERS`、`MAX_NOTES`、`MAX_REMINDER_LINE_CHARS`、`MAX_TODAY_LINES`、`MAX_TODAY_LINE_CHARS`（按字符；前端的上限能保证不超）。查看工具 `LOOKUP_TOOLS` 只在原生端 |
 | 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `chat.rs` 里 `add_reminder` 的 `repeat` 参数说明 |
 | 开机启动、备份和重启命令，登录项状态值 | `src/platform/system.ts` | `src-tauri/src/system.rs`、`lib.rs` 的 `invoke_handler` |
@@ -157,9 +157,8 @@ pnpm exec tsc --noEmit && pnpm test
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
-- 只调用 `play_action` 的回复没有任何文字，前端只能显示「没有收到回复」。原生端遇到这种回复会去掉工具再请求一次（`needs_words`、`words_request`，在 `chat.rs`）。新加只做事、不产生文字的工具时，也要算进 `needs_words`。不要在提示词里写「动作不能代替回复」这类话：试过，模型会改成用括号描写动作（「（敲敲木鱼）」），不再调用工具，宠物就不动了。
-- DeepSeek 偶尔把自己提示格式里的东西漏进回复正文，见过的是只调了 `play_action` 时回「\n\n<budget:token_budget>200000</budget:token_budget>」。原生端在流式输出时去掉（`ReplyText`、`strip_leaked`，在 `chat.rs`），只剩这些的回复算「没说话」，照常走 `needs_words` 补一句；发历史前也会把旧回复里的清掉，免得模型照着学。再见到新的漏出格式，加进这里。
-- DeepSeek 有时不调用工具，而是把调用写进正文，见过的是「我这就跳舞！ play_action\naction=dance」。原生端在流式输出时从 `play_action` 起扣住文字直到回复结束，认出带 `action` 键的写法就从文字里去掉、补成一次真的 `play_action` 调用（`take_leaked_actions`、`ReplyText`），宠物照样做动作；只写了工具名、没有 `action` 的不动。发历史前也会清掉旧回复里的。
+- 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才派发，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
+- DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。原生端在流式回复和历史中清掉（`ReplyText`、`strip_leaked`、`take_leaked_actions`，在 `chat.rs`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。

@@ -1,7 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { availableMonitors, getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
-import type { ChatPhase, DockSide } from "../types";
+import type { ActionResult, ChatPhase, DockSide } from "../types";
 import { z } from "zod";
 import { clampWindowX, clampWindowY, dockSideAt, monitorUnderPet, offscreenInsets, snappedWindowX, verticalInsets, type MonitorBounds, type OffscreenInsets } from "./stageGeometry";
 
@@ -21,6 +21,10 @@ const APPEARANCE_TIMEOUT_MS = 8000;
 interface AppearanceRequest { id: string; requestId: string }
 interface AppearanceResult { requestId: string; error?: string }
 const ACTION_EVENT = "pet://request-action";
+const CHAT_ACTION_EVENT = "pet://chat-action";
+const CHAT_ACTION_RESULT_EVENT = "pet://chat-action-result";
+const CHAT_ACTION_TIMEOUT_MS = 1500;
+const chatActionSchema = z.object({ id: z.string(), requestId: z.string(), source: z.enum(["main", "chat"]) });
 const CHAT_PHASE_EVENT = "pet://chat-phase";
 const ON_TOP_EVENT = "pet://on-top";
 /** Must match DND_EVENT and the commands in src-tauri/src/lib.rs. */
@@ -189,6 +193,34 @@ export const petWindow = {
 
   onActionRequested(handler: (id: string) => void): () => void {
     return subscribe<string>(ACTION_EVENT, handler);
+  },
+
+  /** Resolves when the pet accepts or rejects scheduling, without waiting for playback. */
+  async requestChatAction(id: string, requestId: string): Promise<ActionResult> {
+    if (!isTauri()) return { accepted: false, reason: "unavailable" };
+    const source = getCurrentWindow().label;
+    let finish!: (result: ActionResult) => void;
+    const response = new Promise<ActionResult>((resolve) => { finish = resolve; });
+    const unlisten = await listen<{ requestId: string; result: ActionResult }>(CHAT_ACTION_RESULT_EVENT, ({ payload }) => {
+      if (payload?.requestId === requestId) finish(payload.result);
+    });
+    const timer = setTimeout(() => finish({ accepted: false, reason: "unavailable" }), CHAT_ACTION_TIMEOUT_MS);
+    try {
+      await emitTo("main", CHAT_ACTION_EVENT, { id, requestId, source });
+      return await response;
+    } finally { clearTimeout(timer); unlisten(); }
+  },
+
+  onChatActionRequested(handler: (id: string, report: (result: ActionResult) => void) => void): () => void {
+    return subscribe<unknown>(CHAT_ACTION_EVENT, (payload) => {
+      const parsed = chatActionSchema.safeParse(payload);
+      if (!parsed.success) return;
+      const { id, requestId, source } = parsed.data;
+      handler(id, (result) => {
+        void emitTo(source, CHAT_ACTION_RESULT_EVENT, { requestId, result })
+          .catch((error: unknown) => console.warn("Could not report the requested action result", error));
+      });
+    });
   },
 
   /** Tells the pet where a conversation in the calling window stands, so it can think along and keep the user company. */

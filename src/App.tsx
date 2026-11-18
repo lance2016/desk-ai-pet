@@ -438,6 +438,11 @@ export default function App({ packId }: AppProps) {
 
   useEffect(() => { if (runtime && hovered) runtime.bus.emit("pet.hovered", {}); }, [runtime, hovered]);
 
+  useEffect(() => {
+    if (!runtime) return;
+    return petWindow.onChatActionRequested((id, report) => runtime.bus.emit("pet.chat_action_requested", { id, report }));
+  }, [runtime]);
+
   // The chat window says where its conversation stands; the pet listens, thinks and talks along.
   useEffect(() => {
     if (!runtime) return;

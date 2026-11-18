@@ -175,6 +175,7 @@ export interface PetEvents {
   "pet.wake_up": Record<string, never>;
   /** An action from the dock or the action library. A sleeping pet wakes up first, then plays it. */
   "pet.action_requested": { id: string };
+  "pet.chat_action_requested": { id: string; report: (result: ActionResult) => void };
   /** Starts a focus round, or asks on the standing line before stopping the running one. */
   "pet.focus_toggled": Record<string, never>;
   /** The focus or rest countdown at the pet's feet was clicked. */

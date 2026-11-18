@@ -3,17 +3,16 @@ import { chatContext, loadSavedItems } from "../../agenda/chatTools";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
 import type { PetPersona } from "../../assets/Manifest";
-import { applyToolCalls, saveNote, type SavedLine } from "../../chat/toolEffects";
+import { applyToolCalls, dispatchChatAction, saveNote, type SavedLine, type ToolEffects } from "../../chat/toolEffects";
 import { markdownToPlain } from "../../chat/markdown";
 import { NOTE_LIMITS } from "../../notes/NoteStore";
 import { ControlIcon } from "../ControlIcon";
-import { CHAT_LIMITS, clearThreads, contextMessages, loadAutoTitles, loadThreads, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
+import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
 import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
 import { chatPlatform, type ChatMessage } from "../../platform/chat";
 import { mimoPlatform } from "../../platform/mimo";
 import { systemPlatform } from "../../platform/system";
 import { chatPictureActions, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
-import { loadChatModel } from "../../preferences/ChatModel";
 import { characterPictures } from "../../appearance/characterPictures";
 import { characterName, requestPreferences } from "../../preferences/ChatPreferences";
 import { CharacterAvatar } from "../CharacterAvatar";
@@ -84,6 +83,7 @@ export function ChatPage({ packId }: { packId: string }) {
   /** Actions the model may ask the pet to play. */
   const actionIdsRef = useRef<string[]>([]);
   const toolCallsRef = useRef<string[]>([]);
+  const actionRef = useRef<Promise<ToolEffects> | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>(initial.threads);
   const [threadId, setThreadId] = useState(() => initial.threads[0]?.id ?? newId());
   const [messages, setMessages] = useState<ChatMessage[]>(() => initial.threads[0]?.messages ?? []);
@@ -212,24 +212,28 @@ export function ChatPage({ packId }: { packId: string }) {
   useEffect(() => {
     let stop: (() => void) | undefined;
     let disposed = false;
-    chatPlatform.subscribe((event) => {
+    chatPlatform.subscribe(async (event) => {
       if (event.id !== active.current) return;
       if (event.kind === "delta") { replyRef.current += event.text; setReply(replyRef.current); return; }
       if (event.kind === "tool") { toolCallsRef.current.push(event.text); return; }
+      if (event.kind === "action") { actionRef.current ??= dispatchChatAction(event.text, event.id); return; }
+      const action = event.kind === "done" && actionRef.current ? await actionRef.current : null;
+      if (disposed || event.id !== active.current) return;
       active.current = null; setPending(false);
       const toolCalls = toolCallsRef.current;
       toolCallsRef.current = [];
       if (event.kind === "done") {
-        try { const saved = applyToolCalls(toolCalls); setSavedLines(saved.lines); if (!replyRef.current) replyRef.current = saved.confirmation; }
+        try {
+          const saved = applyToolCalls(toolCalls);
+          setSavedLines([...saved.lines, ...(action?.lines ?? [])]);
+          if (!replyRef.current.trim()) replyRef.current = saved.confirmation || action?.confirmation || "";
+        }
         catch (reason) { console.error("Failed to save the reminder or note", reason); setError("提醒或备忘没能保存，删掉几条旧的提醒或备忘再试。"); }
       }
       // A reply the user stopped is kept as far as it got; one that failed is dropped.
       const partial = event.kind === "cancelled" && replyRef.current.trim() ? `${replyRef.current.trimEnd()}\n\n${STOPPED_MARK}` : "";
       const completed = event.kind === "done" && replyRef.current ? `${replyRef.current}${event.text === "length" ? `\n\n${CUT_OFF_MARK}` : ""}` : partial;
       if (completed) {
-        const { threadId: id, messages: before } = latest.current;
-        const firstUser = before.find((message) => message.role === "user")?.content;
-        if (event.kind === "done" && firstUser && !before.some((message) => message.role === "assistant") && loadAutoTitles()) void nameThread(id, firstUser, completed);
         setMessages((current) => [...current, { role: "assistant" as const, content: completed }].slice(-CHAT_LIMITS.messages));
         setAnnouncement(markdownToPlain(completed));
       } else if (event.kind === "done") setError("没有收到回复，请重试。");
@@ -323,7 +327,7 @@ export function ChatPage({ packId }: { packId: string }) {
     const before = latest.current.messages;
     const id = newId();
     stickToBottom.current = true;
-    active.current = id; cancelRequested.current = false; replyRef.current = ""; toolCallsRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
+    active.current = id; cancelRequested.current = false; replyRef.current = ""; toolCallsRef.current = []; actionRef.current = null; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
       await chatPlatform.start(id, contextMessages(next), requestPreferences(packId, personaRef.current), chatContext(Date.now(), actionIdsRef.current, loadSavedItems()));
       if (cancelRequested.current && active.current === id) await chatPlatform.cancel(id);
@@ -344,15 +348,6 @@ export function ChatPage({ packId }: { packId: string }) {
     input.current?.focus();
   };
   const cancel = () => { if (active.current) { cancelRequested.current = true; void chatPlatform.cancel(active.current).catch((reason: unknown) => { console.warn("Could not stop the reply", reason); setError("没能停止回复，请稍等它说完。"); }); } };
-  /** Asks the model for a short title after a thread's first reply; the first message stays the title if that fails. */
-  async function nameThread(id: string, user: string, reply: string) {
-    try {
-      const title = await chatPlatform.title(user, reply, loadChatModel());
-      const next = retitleThread(latest.current.threads, id, title);
-      setThreads(next);
-      saveThreads(packId, next);
-    } catch (reason) { console.warn("Could not name the chat", reason); }
-  }
   const showThread = (id: string, shown: ChatMessage[]) => {
     if (active.current) return;
     savedMessages.current = shown;

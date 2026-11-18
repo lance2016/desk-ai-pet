@@ -50,7 +50,7 @@ function PromptPart({ section, onChanged, onError }: { section: PromptSection; o
 export function ChatRequestDetails({ preview, onChanged, onError }: { preview: ChatPreview; onChanged: () => void; onError: (message: string) => void }) {
   const tools = preview.tools.map((tool) => toolSchema.safeParse(tool));
   return <div className="ai-request-details">
-    <p className="ai-request-details__note">按现在的角色和时间生成。AI 查提醒、备忘时，查到的内容会接在后面再发一次；打开下面的开发者模式，可以看到每次实际发出的内容。</p>
+    <p className="ai-request-details__note">按现在的角色和时间生成。查看清单时在本机展示结果，需要按条件查询或归纳时才会追加请求；打开下面的开发者模式，可以看到每次实际发出的内容。</p>
     <div className="ai-prompt-parts">{preview.sections.map((section) => <PromptPart key={section.id} section={section} onChanged={onChanged} onError={onError} />)}</div>
     <details className="ai-disclosure">
       <summary><span><strong>拼好的完整提示词</strong><small>上面各段按顺序连起来，就是 AI 收到的系统提示词</small></span></summary>
