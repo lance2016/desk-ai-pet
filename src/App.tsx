@@ -44,6 +44,7 @@ import { loadFocus, saveFocus } from "./storage/FocusStorage";
 import type { FocusSnapshot } from "./behavior/FocusTimer";
 import { updaterPlatform } from "./platform/updater";
 import { startUpdateChecks } from "./update/UpdateNotice";
+import { announceUpdate, skipWhatsNew } from "./update/WhatsNew";
 import { CHAT_PHASES } from "./types";
 
 const DEFAULT_SCALE = 1;
@@ -218,11 +219,16 @@ export default function App({ packId }: AppProps) {
   }, []);
 
   // The first time the pet is up, it says how to play with it. Once only, whoever set the key up.
+  // Later starts after an update, it says once that it was updated instead.
   useEffect(() => {
     if (!runtime) return;
     try {
-      if (window.localStorage.getItem(INTRO_KEY) !== null) return;
+      if (window.localStorage.getItem(INTRO_KEY) !== null) {
+        announceUpdate(window.localStorage, (text) => runtime.sayProactively(text));
+        return;
+      }
       window.localStorage.setItem(INTRO_KEY, String(Date.now()));
+      skipWhatsNew(window.localStorage);
     } catch (error) {
       console.warn("Could not remember the intro tips", error);
       return;

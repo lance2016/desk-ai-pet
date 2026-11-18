@@ -64,7 +64,9 @@ src/
 │   ├── updater.ts           检查、下载安装新版本（Tauri 更新插件）
 │   └── hitMask.ts           把宠物轮廓和菜单区域合成一张可点击区域表
 ├── update/
-│   └── UpdateNotice.ts      宠物定时查新版本，同一个版本只提醒一次
+│   ├── UpdateNotice.ts      宠物定时查新版本，同一个版本只提醒一次
+│   ├── releaseNotes.json    每一版的新功能，应用和发布脚本共用
+│   └── WhatsNew.ts          更新后说一句、弹一次「新功能」介绍
 ├── components/
 │   ├── PetStage.tsx         舞台，负责把鼠标操作转成事件
 │   ├── PetControls.tsx      按 Dock 列表显示宠物两侧的浮动按钮
@@ -79,6 +81,7 @@ src/
 │       ├── QuickChatSettings.tsx 快速聊天快捷键
 │       ├── actions/         动作库：素材墙、动作编辑、图层、把上传的图画到舞台上
 │       ├── UpdateRow.tsx    「关于」页的软件更新：检查、下载进度、重启
+│       ├── WhatsNewSheet.tsx 「新功能」介绍弹层
 │       └── SettingsPage.css 设置页样式
 └── App.tsx                  创建运行时，控制窗口大小和菜单显隐
 
@@ -452,7 +455,8 @@ public/pets/girl-default/    默认资源包
 
 - 宠物窗口：`update/UpdateNotice.ts` 在启动一分钟后和之后每 24 小时查一次，发现新版本走 `sayProactively()` 说一句，说出去才把版本号记进 `ai-pet:update-announced:v1`，所以同一版本只提醒一次，被勿扰挡住的下次再说。开发模式不查。
 - 设置窗口：「关于」页的 `UpdateRow` 负责手动检查、显示更新说明和下载进度、重启。
-- 发布：`scripts/release.sh` 只在发布模式下打开 `createUpdaterArtifacts` 并读私钥（`~/.tauri/ai-pet-updater.key`），本机安装（`--local`）不需要私钥。`latest.json` 由脚本生成，平台名按本机架构（目前只有 `darwin-aarch64`）。
+- 新功能介绍：每一版的内容写在 `update/releaseNotes.json`（按版本号，`features` 每条有图标、颜色、标题、说明，`more` 一句写小改动），测试要求当前 `package.json` 版本必须有一条。`update/WhatsNew.ts` 记两个 key：`ai-pet:whats-new-seen:v1`（关掉介绍时记下版本）和 `ai-pet:whats-new-announced:v1`（宠物说过「我更新到…了」）。宠物启动时，第一次运行的新用户两个都直接记上，不弹也不说；老用户没看过这一版就走 `sayProactively()` 说一句。设置窗口打开时没看过就弹 `WhatsNewSheet`（首次引导优先，引导结束也算看过），「关于」页可以再打开。
+- 发布：`scripts/release.sh` 从 `releaseNotes.json` 生成更新说明，Release 页面放完整列表，`latest.json` 只放标题连成的一行。只在发布模式下打开 `createUpdaterArtifacts` 并读私钥（`~/.tauri/ai-pet-updater.key`），本机安装（`--local`）不需要私钥。`latest.json` 由脚本生成，平台名按本机架构（目前只有 `darwin-aarch64`）。
 # 主动陪伴
 
 `Companion` 定期通过 `platform/system.ts` 读取 macOS 的系统空闲秒数，在本机判断深夜持续使用、连续使用与离开后返回。采样中断时不推断使用时长。场景通过 `PetRuntime.greet()` 共用主动说话间隔和问候动作；仅深夜关心允许用户选择绕过定时勿扰，手动勿扰始终生效。专注期间暂停场景触发，专注动作和完成提示由 `BehaviorEngine` 管理。

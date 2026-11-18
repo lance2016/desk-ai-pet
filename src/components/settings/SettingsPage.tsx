@@ -24,6 +24,8 @@ import { HolidaySettings } from "./HolidaySettings";
 import { WelcomeGuide } from "./WelcomeGuide";
 import { BackupSettings } from "./BackupSettings";
 import { UpdateRow } from "./UpdateRow";
+import { WhatsNewSheet } from "./WhatsNewSheet";
+import { CURRENT_VERSION, markWhatsNewSeen, notesFor, shouldShowWhatsNew } from "../../update/WhatsNew";
 import { LaunchAtLoginRow } from "./LaunchAtLoginRow";
 import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
 import { canShortcut } from "../../preferences/ActionPreferences";
@@ -114,6 +116,13 @@ export function SettingsPage({ packId }: { packId: string }) {
   const [resolveAsset, setResolveAsset] = useState<(file: string) => string>(() => (file: string) => file);
 
   const [welcome, setWelcome] = useState(false);
+  // After an update, the "新功能" sheet opens by itself once; "关于" opens it again.
+  const [whatsNew, setWhatsNew] = useState(() => { try { return shouldShowWhatsNew(window.localStorage); } catch { return false; } });
+  const closeWhatsNew = () => {
+    setWhatsNew(false);
+    try { markWhatsNewSeen(window.localStorage); } catch (reason) { console.warn("Could not remember the what's new sheet", reason); }
+  };
+  const currentNotes = notesFor(CURRENT_VERSION);
   // First run: guide the user unless a DeepSeek key is already saved (an existing install).
   useEffect(() => {
     if (isOnboarded()) return;
@@ -288,11 +297,16 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "about" && (
           <div className="settings-section">
             <div className="about-card"><img className="about-card__icon" src="/app-icon.png" alt="" /><h2>AI Pet</h2><p>会陪伴、能帮忙的桌面宠物</p>{version && <span>版本 {version}</span>}</div>
-            <div className="settings-group"><UpdateRow /></div>
+            <div className="settings-group">
+              {currentNotes && <div className="settings-row"><div className="settings-row__body"><strong>{CURRENT_VERSION} 新功能</strong><span>这次更新加了 {currentNotes.features.length} 个新功能</span></div><button type="button" className="settings-button settings-button--small" onClick={() => setWhatsNew(true)}>查看</button></div>}
+              <UpdateRow />
+            </div>
           </div>
         )}
       </section>
-      {welcome && current && <WelcomeGuide name={characterName(packId, current.name)} avatar={pictureFor(loadChatAppearance(packId).avatar, current.actionImages)} onClose={(withoutKey) => { setWelcome(false); if (withoutKey) setSection("ai"); }} />}
+      {/* A new user gets the guide; what is new only matters to someone who used the last version. */}
+      {welcome && current && <WelcomeGuide name={characterName(packId, current.name)} avatar={pictureFor(loadChatAppearance(packId).avatar, current.actionImages)} onClose={(withoutKey) => { setWelcome(false); closeWhatsNew(); if (withoutKey) setSection("ai"); }} />}
+      {!welcome && whatsNew && currentNotes && <WhatsNewSheet version={CURRENT_VERSION} notes={currentNotes} onClose={closeWhatsNew} />}
     </main>
   );
 }

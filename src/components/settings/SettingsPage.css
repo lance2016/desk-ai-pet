@@ -634,6 +634,36 @@ button.dock-row__body { cursor: pointer; }
 .cropper__actions { position: sticky; bottom: 0; justify-content: flex-end; margin: 12px -20px -20px; padding: 10px 20px 20px; background: var(--group); }
 .cropper__actions .cropper__reset { margin-right: auto; background: none; box-shadow: none; color: var(--accent-strong); }
 
+/* ---------- "新功能" sheet: what this version brings, like a phone's update notes ---------- */
+.whats-new { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
+.whats-new__card { box-sizing: border-box; display: flex; flex-direction: column; width: min(460px, 100%); max-height: calc(100dvh - 32px); padding: 24px 28px 20px; background: var(--group); border-radius: 14px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3); animation: whats-new-in 260ms cubic-bezier(.2, .9, .3, 1.15); }
+@keyframes whats-new-in { from { opacity: 0; transform: scale(.94); } }
+.whats-new__icon { flex: none; display: block; width: 56px; height: 56px; margin: 0 auto 8px; }
+.whats-new h2 { flex: none; margin: 0 0 18px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; text-align: center; }
+.whats-new__list { display: grid; gap: 14px; min-height: 0; margin: 0; padding: 0 2px; overflow-y: auto; list-style: none; }
+.whats-new__list li { display: flex; align-items: flex-start; gap: 13px; }
+.whats-new__list strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.whats-new__list p { margin: 2px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.5; }
+/* Colored like the icons in macOS System Settings: a system color with a lighter top. */
+.whats-new__tile { --tile: #8e8e93; flex: none; display: grid; place-items: center; width: 34px; height: 34px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 78%, #fff), var(--tile)); border-radius: 8px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
+.whats-new__tile svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.whats-new__tile--orange { --tile: #ff9500; }
+.whats-new__tile--blue { --tile: #007aff; }
+.whats-new__tile--pink { --tile: #ff2d55; }
+.whats-new__tile--purple { --tile: #af52de; }
+.whats-new__tile--indigo { --tile: #5856d6; }
+@media (prefers-color-scheme: dark) {
+  .whats-new__tile--orange { --tile: #ff9f0a; }
+  .whats-new__tile--blue { --tile: #0a84ff; }
+  .whats-new__tile--pink { --tile: #ff375f; }
+  .whats-new__tile--purple { --tile: #bf5af2; }
+  .whats-new__tile--indigo { --tile: #5e5ce6; }
+}
+.whats-new__more { flex: none; margin: 18px 0 0; padding-top: 14px; color: var(--label-2); border-top: 1px solid var(--separator); font-size: 11px; line-height: 1.5; }
+.whats-new .whats-new__done { flex: none; height: 32px; margin-top: 18px; color: #fff; background: var(--accent-strong); border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.whats-new .whats-new__done:hover { filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) { .whats-new__card { animation: none; } }
+
 /* Settings expand with the window; keep long paragraphs readable on wide screens. */
 .settings-content > .settings-section, .settings-content > .action-editor { margin-left: auto; margin-right: auto; width: 100%; }
 .settings-section { max-width: 1120px; }

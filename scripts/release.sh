@@ -8,7 +8,8 @@
 # Releases go to RELEASES_REPO, which must be public: the app reads latest.json from its latest
 # release (plugins.updater.endpoints in tauri.conf.json) and checks the update against the public
 # key there, so the private key below must never be lost.
-# Release notes shown in the app: RELEASE_NOTES="..." scripts/release.sh
+# Release notes: add the version to src/update/releaseNotes.json (a test fails without it).
+# RELEASE_NOTES="..." scripts/release.sh replaces them with plain text.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -102,7 +103,21 @@ rm -f "$ZIP"
 ditto -c -k --keepParent "$BUNDLE" "$ZIP"
 rm -rf "$UPDATE_DIR" && mkdir -p "$UPDATE_DIR"
 cp "${BUNDLE}.tar.gz" "${UPDATE_DIR}/${UPDATE_ASSET}"
-NOTES="${RELEASE_NOTES:-修复问题、改进体验}"
+# Notes come from src/update/releaseNotes.json, which the app's "新功能" sheet shows too. latest.json
+# gets one line (an older app shows it in the "有新版本" row); the release page gets the full list.
+release_notes() {
+  VERSION="$VERSION" FORMAT="$1" node -e '
+    const { VERSION, FORMAT } = process.env;
+    const entry = require("./src/update/releaseNotes.json")[VERSION];
+    if (!entry) { process.stdout.write("修复问题、改进体验"); process.exit(0); }
+    const text = FORMAT === "line"
+      ? entry.features.map((feature) => feature.title).join("；")
+      : ["## 新功能", "", ...entry.features.map((feature) => `- **${feature.title}**　${feature.detail}`), ...(entry.more ? ["", entry.more] : [])].join("\n");
+    process.stdout.write(text);
+  '
+}
+NOTES="${RELEASE_NOTES:-$(release_notes line)}"
+PAGE_NOTES="${RELEASE_NOTES:-$(release_notes page)}"
 NOTES="$NOTES" VERSION="$VERSION" PLATFORM="$UPDATE_PLATFORM" \
   SIGNATURE="$(cat "${BUNDLE}.tar.gz.sig")" \
   URL="https://github.com/${RELEASES_REPO}/releases/download/${TAG}/${UPDATE_ASSET}" \
@@ -115,7 +130,7 @@ NOTES="$NOTES" VERSION="$VERSION" PLATFORM="$UPDATE_PLATFORM" \
 gh release create "$TAG" "$ZIP" "${UPDATE_DIR}/${UPDATE_ASSET}" "${UPDATE_DIR}/latest.json" \
   --repo "$RELEASES_REPO" \
   --title "${APP_NAME} ${TAG}" \
-  --notes "$NOTES" \
+  --notes "$PAGE_NOTES" \
   --target "$(git rev-parse HEAD)" \
   --latest
 echo "Published: $(gh release view "$TAG" --repo "$RELEASES_REPO" --json url --jq .url)"
