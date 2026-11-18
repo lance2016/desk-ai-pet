@@ -152,6 +152,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
 - 只调用 `play_action` 的回复没有任何文字，前端只能显示「没有收到回复」。原生端遇到这种回复会去掉工具再请求一次（`needs_words`、`without_tools`，在 `chat.rs`）。新加只做事、不产生文字的工具时，也要算进 `needs_words`。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
+- 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。
 - 启动时恢复贴边，必须等 `App` 订阅了 `pet.dock_changed` 再发 `pet.drag_ended`。事件总线不重放，发早了引擎和渲染器已经贴边、`App` 不知道，表现为宠物在边上探头，快捷按钮却出现在离它很远的另一侧。
 - 显示宠物不能用 `window.show()`：它等于 `makeKeyAndOrderFront`，宠物面板会变成 key window，用户接着打的字会落进来。用 `floating_panel::show_without_focus`（`reveal_pet`）。

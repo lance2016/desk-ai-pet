@@ -9,6 +9,7 @@
 use std::{
     collections::HashSet,
     fmt::Display,
+    io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
@@ -168,7 +169,12 @@ fn connect(address: &str, password: &str) -> Result<Session, String> {
         .map_err(|error| network("start TLS", error))?
         .connect(HOST, tcp)
         .map_err(|error| network("start TLS", error))?;
-    let mut client = imap::Client::new(tls);
+    log_in(tls, address, password)
+}
+
+/// Reads the greeting, logs in and names the client, over any stream.
+fn log_in<T: Read + Write>(stream: T, address: &str, password: &str) -> Result<imap::Session<T>, String> {
+    let mut client = imap::Client::new(stream);
     client.read_greeting().map_err(|error| failure("read the greeting", error))?;
     let mut session = client.login(address, password).map_err(|(error, _)| match error {
         imap::error::Error::No(_) | imap::error::Error::Bad(_) => {
@@ -342,7 +348,37 @@ fn copy(_: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{BAD_PASSWORD, NOT_163, validate};
+    use super::{BAD_PASSWORD, NOT_163, log_in, validate};
+    use std::io::{Cursor, Read, Write};
+
+    /// A server that answers with a fixed script and swallows whatever is sent.
+    struct ScriptedServer(Cursor<Vec<u8>>);
+
+    impl Read for ScriptedServer {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            self.0.read(buffer)
+        }
+    }
+
+    impl Write for ScriptedServer {
+        fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+            Ok(buffer.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn logs_in_to_163_and_names_the_client() {
+        // What imap.163.com sent back on 2026-11-18: an untagged `* ID` line before the OK.
+        let script = "* OK Coremail System IMap Server Ready(163com[10774b260cc7a37d26d71b52404dcf5c])\r\n\
+a1 OK LOGIN completed\r\n\
+* ID (\"name\" \"Coremail Imap\" \"vendor\" \"Mailtech\" \"TransID\" \"IcalGAAAAHM2/WoczkMB\")\r\n\
+a2 OK ID completed\r\n";
+        let server = ScriptedServer(Cursor::new(script.as_bytes().to_vec()));
+        assert!(log_in(server, "someone@163.com", "ABCDEFGHIJKLMNOP").is_ok());
+    }
 
     #[test]
     fn takes_only_163_addresses() {

@@ -19,7 +19,8 @@ serde_json = "1"
 tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
-imap = "2.4"
+# 3.x: the 2.x parser rejects the untagged `* ID` reply that 163 requires.
+imap = "=3.0.0-alpha.15"
 native-tls = "0.2"
 # GBK and GB18030, common in Chinese mail, need `full_encoding`.
 mail-parser = { version = "1.0", features = ["full_encoding"] }
