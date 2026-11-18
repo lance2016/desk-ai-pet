@@ -141,26 +141,6 @@
       "loop": true
     },
     {
-      "id": "listen",
-      "file": "animations/listen.png",
-      "frames": 1,
-      "fps": 12,
-      "motion": "breathe",
-      "motionSpeed": 1,
-      "motionStrength": 1,
-      "loop": true
-    },
-    {
-      "id": "talk",
-      "file": "animations/talk.png",
-      "frames": 1,
-      "fps": 12,
-      "motion": "nod",
-      "motionSpeed": 1,
-      "motionStrength": 1,
-      "loop": true
-    },
-    {
       "id": "write",
       "file": "animations/write.png",
       "frames": 1,

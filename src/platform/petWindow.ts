@@ -189,7 +189,7 @@ export const petWindow = {
     return subscribe<string>(ACTION_EVENT, handler);
   },
 
-  /** Tells the pet where a conversation in the calling window stands, so it can listen, think and talk along. */
+  /** Tells the pet where a conversation in the calling window stands, so it can think along and keep the user company. */
   async reportChatPhase(phase: ChatPhase): Promise<void> {
     if (!isTauri()) return;
     await emitTo("main", CHAT_PHASE_EVENT, phase);

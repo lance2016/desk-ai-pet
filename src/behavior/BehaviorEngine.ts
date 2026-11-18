@@ -33,10 +33,13 @@ const CODE_FOUND_ACTION = "happy";
 const YAWN_ACTION = "yawn";
 /** Played when the cursor comes onto the idle pet. */
 const GLANCE_ACTION = "look_around";
-/** The pose held through each part of a conversation. */
-const CHAT_POSES = { listening: "listen", thinking: "think", talking: "talk" } as const;
+/**
+ * The pose held while a reply is on its way. Typing and the reply itself have no
+ * pose: the pet stands free, so a reaction or an action the reply picked shows.
+ */
+const THINK_POSE = "think";
 /** Poses nothing but this engine puts up, so one that is playing is its own to take down. */
-const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION, CHAT_POSES.listening, CHAT_POSES.talking]);
+const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION]);
 
 /** What the pet says around a focus round. Shown in the speech bubble. */
 const FOCUS_LINES = {
@@ -89,8 +92,8 @@ export const BEHAVIOR_CONFIG = {
   /** After the reminder line is dismissed, the same, a moment later. */
   backToEdgeAfterAlertMs: 1_500,
   /**
-   * A chat pose is dropped this long after the last report of its phase, so a
-   * window that went away mid-chat cannot leave the pet stuck in it. Typing
+   * A conversation counts as over this long after the last report of its phase, so a
+   * window that went away mid-chat cannot leave the pet waiting in it. Typing
    * renews "listening" with every keystroke.
    */
   chatHoldMs: { listening: 8_000, thinking: 120_000, talking: 120_000 },
@@ -159,8 +162,8 @@ export class BehaviorEngine {
   private pendingAction: { id: string; onAccepted?: () => void } | null = null;
   /** When the focus button was last pressed during a round, to ask before stopping. */
   private stopAskedAt: number | null = null;
-  /** The part of a conversation the pet is posing for, and when to stop waiting for news of it. */
-  private chat: { phase: keyof typeof CHAT_POSES; until: number } | null = null;
+  /** The part of a conversation going on, and when to stop waiting for news of it. */
+  private chat: { phase: keyof typeof BEHAVIOR_CONFIG.chatHoldMs; until: number } | null = null;
   /** A pose this engine put up that others may play too (think); tells its own from theirs. */
   private posed: string | null = null;
   private patStreak = { count: 0, at: 0 };
@@ -228,8 +231,8 @@ export class BehaviorEngine {
     this.settle(now);
     if (!idling()) return;
     const snapshot = state.get();
-    // With a pose to hold (even one this character cannot show) the pet keeps the user company: no wandering off, no dozing.
-    if (this.heldPose(now) !== null) return;
+    // In a conversation or a focus round the pet keeps the user company: no wandering off, no dozing.
+    if (this.inConversation(now) || this.heldPose(now) !== null) return;
     if (this.returnTo?.at != null && now >= this.returnTo.at && this.alerted.length === 0 && this.focusNotice === null) {
       const side = this.returnTo.side;
       this.returnTo = null;
@@ -271,10 +274,15 @@ export class BehaviorEngine {
     state.changeStats(BEHAVIOR_CONFIG.effects.pet);
   }
 
-  /** The pose the pet should be holding now: the conversation's, else the focus round's. */
-  private heldPose(now: number): string | null {
+  /** True while the user is typing, a reply is awaited, or one is coming out. */
+  private inConversation(now: number): boolean {
     if (this.chat && now >= this.chat.until) this.chat = null;
-    if (this.chat) return CHAT_POSES[this.chat.phase];
+    return this.chat !== null;
+  }
+
+  /** The pose the pet should be holding now: thinking while a reply is awaited, else the focus round's. */
+  private heldPose(now: number): string | null {
+    if (this.inConversation(now) && this.chat?.phase === "thinking") return THINK_POSE;
     return this.deps.focus.get().phase === "focusing" ? FOCUS_ACTION : null;
   }
 

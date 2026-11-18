@@ -25,7 +25,7 @@ describe("planLooks", () => {
   });
 
   it("prefers a picture the user drew for an action on the chain", () => {
-    expect(plan(["listen"], false).get("listen")?.source).toBe("listen");
+    expect(plan(["remind"], false).get("remind")?.source).toBe("remind");
     // write borrows from think; think has the pack's picture, so a user picture for idle changes nothing.
     expect(plan(["idle"], false).get("write")?.source).toBe("think");
   });

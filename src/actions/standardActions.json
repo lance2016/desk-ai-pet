@@ -149,31 +149,6 @@
       "priority": 15
     },
     {
-      "id": "listen",
-      "tier": "interactive",
-      "scene": "chat",
-      "label": "倾听",
-      "description": "你在聊天里打字或录音时，停下一会儿就放下",
-      "pose": "站着，身体微微前倾，头稍稍歪向一侧，一只手拢在耳边，眼睛睁大看着正前方，嘴巴轻轻闭着，认真在听。",
-      "loop": true,
-      "motion": "breathe",
-      "category": "system",
-      "priority": 12,
-      "fallback": "look_around"
-    },
-    {
-      "id": "talk",
-      "tier": "interactive",
-      "scene": "chat",
-      "label": "说话",
-      "description": "回复一个字一个字出来的时候",
-      "pose": "和「安静陪伴」一样的站姿，嘴巴张开正在说话，一只手抬到胸前、食指竖起像在讲解，眼神明亮。",
-      "loop": true,
-      "motion": "nod",
-      "category": "system",
-      "priority": 12
-    },
-    {
       "id": "write",
       "tier": "interactive",
       "scene": "tasks",

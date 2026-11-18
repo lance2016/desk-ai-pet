@@ -26,7 +26,7 @@ const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined
 const SCENE_GROUPS: { scene: ActionScene | undefined; title: string; note: string; icon: string }[] = [
   { scene: "companion", title: "平时陪着你", note: "宠物空闲时自己的小动作。", icon: "M19.5 14.2A7.6 7.6 0 1 1 9.8 4.5a6 6 0 0 0 9.7 9.7z" },
   { scene: "touch", title: "你碰它的时候", note: "点击、摸摸头或拖动时。", icon: "M12 19.5s-7-4.3-7-9.6A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.3c0 5.3-7 9.6-7 9.6z" },
-  { scene: "chat", title: "聊天的时候", note: "听你说话、思考和回应。", icon: "M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5z" },
+  { scene: "chat", title: "聊天的时候", note: "等回复时思考，回复失败时困惑。", icon: "M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5z" },
   { scene: "tasks", title: "帮你做事的时候", note: "提醒、备忘和专注计时。", icon: "M6.5 16v-4.8a5.5 5.5 0 0 1 11 0V16l1.5 2H5zM10 20.2a2.1 2.1 0 0 0 4 0" },
   { scene: "play", title: "小玩法", note: "喂食和敲木鱼等互动。", icon: "M12 4l2.3 4.8 5.2.7-3.8 3.6.9 5.2L12 15.8l-4.6 2.5.9-5.2-3.8-3.6 5.2-.7z" },
   { scene: undefined, title: "其他", note: "这个角色自带的其他动作。", icon: "M6 6h12v12H6zM12 9.5v5M9.5 12h5" },

@@ -162,7 +162,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     else show();
   }), []);
 
-  // The pet listens while the bar is open (each keystroke says so again), thinks until the reply starts, and talks along with it.
+  // The pet is told where the conversation stands: it thinks until the reply starts, and stays with the user (no dozing, no wandering) for the rest.
   const phase: ChatPhase = pending ? (reply?.status === "streaming" ? "talking" : "thinking") : open ? "listening" : "idle";
   useEffect(() => { runtime?.bus.emit("pet.chat_phase", { phase }); }, [runtime, phase, draft]);
   // A click on the pet means "I want to talk to you"; so does the dock's chat button.

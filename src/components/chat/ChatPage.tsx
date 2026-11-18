@@ -154,7 +154,7 @@ export function ChatPage({ packId }: { packId: string }) {
   const recording = voice.phase === "recording";
   const transcribing = voice.phase === "transcribing";
 
-  // The pet listens while the user speaks or types, thinks until the reply starts, and talks along with it.
+  // The pet is told where the conversation stands: it thinks until the reply starts, and stays with the user for the rest.
   const chatPhase: ChatPhase = recording ? "listening" : transcribing || (pending && !reply) ? "thinking" : pending ? "talking" : "idle";
   const typingReportedAt = useRef(0);
   // `voice.seconds` ticks while recording, which keeps "listening" alive for a long recording.

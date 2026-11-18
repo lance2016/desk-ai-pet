@@ -52,9 +52,7 @@ function setup({ stats = {}, extraAnimations = [], missing = [], random = () => 
 
 /** The actions for conversations and passing reactions, as a full character has them. */
 const SCENE_ACTIONS = [
-  { id: "listen", file: "a/idle.png", loop: true, category: "system", priority: 12 },
   { id: "think", file: "a/idle.png", duration: 2400, priority: 10 },
-  { id: "talk", file: "a/idle.png", loop: true, category: "system", priority: 12 },
   { id: "write", file: "a/idle.png", duration: 2200, priority: 20, cooldown: 3000 },
   { id: "remind", file: "a/happy.png", duration: 2400, priority: 40 },
   { id: "wave", file: "a/happy.png", duration: 2200, priority: 20 },
@@ -72,15 +70,25 @@ afterEach(() => vi.useRealTimers());
 describe("conversations", () => {
   const chatting = () => setup({ extraAnimations: SCENE_ACTIONS });
 
-  it("listens, thinks and talks along, then goes back to idle", () => {
+  it("thinks while waiting for the reply and stands free for the rest of the conversation", () => {
     const { bus, controller } = chatting();
     bus.emit("pet.chat_phase", { phase: "listening" });
-    expect(controller.current?.id).toBe("listen");
+    expect(controller.current?.id).toBe("idle");
     bus.emit("pet.chat_phase", { phase: "thinking" });
     expect(controller.current?.id).toBe("think");
     bus.emit("pet.chat_phase", { phase: "talking" });
-    expect(controller.current?.id).toBe("talk");
+    expect(controller.current?.id).toBe("idle");
     bus.emit("pet.chat_phase", { phase: "idle" });
+    expect(controller.current?.id).toBe("idle");
+  });
+
+  it("lets an action the reply picked play out, without snapping into a pose after it", () => {
+    const { bus, controller, pass } = chatting();
+    bus.emit("pet.chat_phase", { phase: "talking" });
+    bus.emit("pet.action_requested", { id: "wooden_fish" });
+    bus.emit("pet.chat_phase", { phase: "listening" });
+    expect(controller.current?.id).toBe("wooden_fish");
+    pass(4_000);
     expect(controller.current?.id).toBe("idle");
   });
 
@@ -95,33 +103,21 @@ describe("conversations", () => {
     expect(renderer.played.slice(from)).toEqual(["think", "think"]);
   });
 
-  it("stops listening when nothing more is typed", () => {
-    const { bus, controller, pass } = chatting();
-    bus.emit("pet.chat_phase", { phase: "listening" });
-    pass(BEHAVIOR_CONFIG.chatHoldMs.listening - 1_000);
-    bus.emit("pet.chat_phase", { phase: "listening" });
-    pass(BEHAVIOR_CONFIG.chatHoldMs.listening - 1_000);
-    expect(controller.current?.id).toBe("listen");
-    pass(1_000);
-    // Free again: it is back to idling, which may be a fidget straight away.
-    expect(controller.current?.id).not.toBe("listen");
-  });
-
   it("lets a reaction play over the pose and returns to the pose", () => {
     const { bus, controller, pass } = chatting();
-    bus.emit("pet.chat_phase", { phase: "talking" });
+    bus.emit("pet.chat_phase", { phase: "thinking" });
     bus.emit("pet.noted", {});
     expect(controller.current?.id).toBe("write");
     pass(2_200);
-    expect(controller.current?.id).toBe("talk");
+    expect(controller.current?.id).toBe("think");
   });
 
   it("breaks off a fidget to pose", () => {
     const { bus, controller } = chatting();
     bus.emit("pet.hovered", {});
     expect(controller.current?.id).toBe("look_around");
-    bus.emit("pet.chat_phase", { phase: "listening" });
-    expect(controller.current?.id).toBe("listen");
+    bus.emit("pet.chat_phase", { phase: "thinking" });
+    expect(controller.current?.id).toBe("think");
   });
 
   it("leaves a thinking action someone else started alone", () => {
@@ -181,7 +177,7 @@ describe("conversations", () => {
     expect(controller.current?.id).toBe("idle");
   });
 
-  it("neither wanders off nor dozes while a character without these pictures is in a conversation", () => {
+  it("neither wanders off nor dozes while a conversation is going on", () => {
     const { bus, state, controller, pass, passSteps } = setup();
     bus.emit("pet.chat_phase", { phase: "talking" });
     expect(controller.current?.id).toBe("idle");

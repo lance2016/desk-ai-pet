@@ -17,10 +17,10 @@ describe("STANDARD_ACTIONS", () => {
   });
 
   it("keeps the borrower's facing when it wears another action's picture", () => {
-    const actions = byId(pack([{ id: "idle", file: "idle.png" }, { id: "look_around", file: "look.png" }]));
-    expect(actions.get("look_around")?.randomFlip).toBe(true);
-    expect(actions.get("listen")?.borrowedFrom).toBe("look_around");
-    expect(actions.get("listen")?.randomFlip).toBe(false);
+    const actions = byId(pack([{ id: "idle", file: "idle.png" }, { id: "blink", file: "blink.png", randomFlip: true }]));
+    expect(actions.get("blink")?.randomFlip).toBe(true);
+    expect(actions.get("yawn")?.borrowedFrom).toBe("blink");
+    expect(actions.get("yawn")?.randomFlip).toBe(false);
   });
 });
 
@@ -98,6 +98,6 @@ describe("the default character", () => {
 
   it("borrows pictures only for the actions that are not drawn yet", () => {
     const borrowed = Object.fromEntries(manifest.animations.filter((entry) => entry.borrowedFrom).map((entry) => [entry.id, entry.borrowedFrom]));
-    expect(borrowed).toEqual({ listen: "look_around", talk: "idle", write: "think", remind: "happy", wave: "happy", yawn: "blink", confused: "think" });
+    expect(borrowed).toEqual({ write: "think", remind: "happy", wave: "happy", yawn: "blink", confused: "think" });
   });
 });

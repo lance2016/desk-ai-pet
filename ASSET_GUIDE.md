@@ -2,7 +2,7 @@
 
 ## 当前素材的状态
 
-默认资源包 `girl-default` 画了下面 14 个动作；标准动作目录里另外 7 个互动动作（`listen`、`talk`、`write`、`remind`、`wave`、`yawn`、`confused`）还没有图，暂时借图播放。前 12 个各 1 帧，来自三张 2×2 的表情图。`wooden_fish` 是 4 帧逐帧动画，来自单独生成的一张 2×2 图。
+默认资源包 `girl-default` 画了下面 14 个动作；标准动作目录里另外 5 个互动动作（`write`、`remind`、`wave`、`yawn`、`confused`）还没有图，暂时借图播放。前 12 个各 1 帧，来自三张 2×2 的表情图。`wooden_fish` 是 4 帧逐帧动画，来自单独生成的一张 2×2 图。
 
 应用图标源文件位于 `src-tauri/app-icon-source.png`，由 Tauri CLI 生成 macOS、Windows、iOS 和 Android 所需的尺寸。更新源图后执行 `pnpm icons:generate`，不要手工只替换某一个尺寸。
 
