@@ -66,6 +66,9 @@
 .action-library__create svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .action-library__create:hover, .action-library__button:hover { filter: brightness(1.08); }
 .action-library__button--quiet { color: var(--accent-strong); background: var(--accent-wash); }
+/* `.settings-page button { color: inherit }` outweighs the single-class rules above; restate the text colors at its weight. */
+.settings-page .action-library__create, .settings-page .action-library__button { color: #fff; }
+.settings-page .action-library__button--quiet { color: var(--accent-strong); }
 
 .action-library__filters { display: flex; gap: 4px; margin: 0 0 8px; padding: 2px; overflow-x: auto; background: var(--fill); border-radius: var(--radius-row); scrollbar-width: none; }
 .action-library__filters::-webkit-scrollbar, .action-library__categories::-webkit-scrollbar { display: none; }

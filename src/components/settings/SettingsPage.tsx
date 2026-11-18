@@ -237,7 +237,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
 
-        {section === "companion" && <CompanionSettings onError={setError} />}
+        {section === "companion" && <CompanionSettings name={name || "宠物"} onError={setError} />}
 
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 

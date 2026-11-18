@@ -55,7 +55,7 @@ export interface QuickChat {
   open: boolean;
   draft: string;
   pending: boolean;
-  /** True when no DeepSeek key is saved: the bar points to settings instead of sending. */
+  /** True when no DeepSeek key is saved: the bar's send button opens the key settings instead. */
   keyMissing: boolean;
   reply: QuickReply | null;
   name: string;
@@ -260,9 +260,16 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     }
   };
 
+  /** Without a key the bar's way forward is the key form; what was typed stays for later. */
+  const openKeySettings = () => {
+    close(true);
+    setReply(null);
+    petWindow.openSettings("ai").catch((error: unknown) => console.error("Failed to open settings", error));
+  };
   const send = () => {
+    if (keyMissing) { openKeySettings(); return; }
     const text = draft.trim();
-    if (!text || pending || keyMissing) return;
+    if (!text || pending) return;
     wakePet();
     void start(text);
   };
@@ -330,14 +337,16 @@ export function QuickChatBar({ chat, ref }: { chat: QuickChat; ref?: Ref<HTMLFor
           value={chat.draft}
           maxLength={MAX_INPUT}
           aria-label={`和${chat.name}说话`}
-          placeholder={chat.keyMissing ? "先在设置里填上 DeepSeek API Key 才能聊天" : `和${chat.name}说点什么… Esc 收起`}
+          placeholder={chat.keyMissing ? "填上 DeepSeek API Key 才能聊天" : `和${chat.name}说点什么… Esc 收起`}
           onChange={(event) => chat.setDraft(event.currentTarget.value)}
           onPaste={chat.onPaste}
           onKeyDown={onKeyDown}
         />
         {chat.pending
           ? <button type="button" onClick={chat.cancel} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
-          : <button type="submit" disabled={!chat.draft.trim() || chat.keyMissing} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
+          : chat.keyMissing
+            ? <button type="submit" className="quick-chat__fix" title="打开设置，填写 DeepSeek API Key">去设置</button>
+            : <button type="submit" disabled={!chat.draft.trim()} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
         <button type="button" onClick={chat.expand} aria-label="在聊天窗口打开" title="在聊天窗口打开"><Icon name="expand" /></button>
       </form>
     </div>

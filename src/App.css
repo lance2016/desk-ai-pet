@@ -332,6 +332,8 @@ body {
 .quick-chat button:hover:not(:disabled) { background: #f2edff; }
 .quick-chat button:disabled { opacity: .4; cursor: default; }
 .quick-chat button[type="submit"]:not(:disabled) { color: #fff; background: #8874d8; }
+.quick-chat button.quick-chat__fix:not(:disabled) { width: auto; padding: 0 11px; border-radius: 14px; background: #6b5fc0; font: inherit; font-size: 12px; font-weight: 600; }
+.quick-chat button.quick-chat__fix:hover { background: #5d51b3; }
 .quick-chat svg {
   width: 15px; height: 15px;
   fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;

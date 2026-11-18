@@ -39,7 +39,11 @@ export function AISettings({ packId, persona, name, actions, onCharacter }: { pa
   const toggleAutoTitles = () => {
     try { saveAutoTitles(!autoTitles); setAutoTitles(!autoTitles); } catch (reason) { console.error("Could not save the title setting", reason); setStatus("设置没能保存，请再试一次。"); }
   };
-  useEffect(() => { chatPlatform.keyStatus().then(setConfigured).catch(() => { setConfigured(false); setStatus("读不到钥匙串，请在 AI Pet 应用里设置。"); }); }, []);
+  /** Opened without a key: the key form leads, and stays there after saving so the result does not jump away. */
+  const [keyFirst, setKeyFirst] = useState(false);
+  useEffect(() => { chatPlatform.keyStatus().then((saved) => { setConfigured(saved); setKeyFirst(!saved); }).catch(() => { setConfigured(false); setKeyFirst(true); setStatus("读不到钥匙串，请在 AI Pet 应用里设置。"); }); }, []);
+  const needsKey = configured === false;
+  useEffect(() => { if (needsKey) setConnectionExpanded(true); }, [needsKey]);
   const updatePreferences = (next: ChatPreferences) => {
     try { saveChatPreferences(packId, next); setPreferences(next); setPreview(null); } catch (reason) { console.error("Could not save chat preferences", reason); setStatus("回复长度没能保存，请再试一次。"); }
   };
@@ -72,14 +76,23 @@ export function AISettings({ packId, persona, name, actions, onCharacter }: { pa
     catch (error) { setStatus(deepSeekProblem(error, "移除")); }
     finally { setBusy(false); }
   };
+  const connection = <section className="ai-section" aria-labelledby="ai-connection-heading">
+    <div className="ai-section__title"><h2 id="ai-connection-heading">连接与模型</h2><p>所有角色共用，用于聊天、问候和自动生成标题。</p></div>
+    <div className="settings-group ai-connection-row"><div className="settings-row"><div className="settings-row__body"><strong>DeepSeek</strong><span>{configured === null ? "正在检查 API Key" : configured ? "API Key 已保存在钥匙串" : "配置 API Key 后就可以开始聊天"}</span></div><button type="button" className="settings-button settings-button--small" aria-expanded={connectionExpanded} onClick={() => setConnectionExpanded((open) => !open)}>{connectionExpanded ? "收起" : "管理 API Key"}</button></div>
+    {connectionExpanded && <div className="ai-connection-form ai-settings"><form onSubmit={(event) => void save(event)}><label htmlFor="deepseek-key">API Key</label><div className="ai-settings__key"><input id="deepseek-key" type="password" autoComplete="off" autoFocus={needsKey} value={key} onChange={(event) => setKey(event.currentTarget.value)} placeholder={configured ? "输入新的 API Key 以替换" : "粘贴 DeepSeek API Key"} /><button type="submit" disabled={busy || !key.trim()}>保存</button></div></form><p>聊天内容会发送给 DeepSeek，服务商可能收费。保存后会自动测试连接；测试会发送一条简短请求。</p><div className="ai-settings__actions"><button type="button" disabled={busy || !configured} onClick={() => void test()}>测试连接</button><ConfirmButton disabled={busy || !configured} confirmLabel="再点一次移除" onConfirm={() => void clear()}>移除 API Key</ConfirmButton><button type="button" className="ai-settings__link" onClick={() => void chatPlatform.openKeyPage().catch((error: unknown) => { console.error("Could not open the DeepSeek page", error); setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"); })}>获取 API Key</button></div></div>}</div>
+    {status && <p className="ai-inline-status" role="status">{status}</p>}
+    <div className="ai-model"><ModelSettings keyConfigured={configured} /></div>
+  </section>;
+
   return <div className="settings-section ai-page">
     <div className="ai-page__intro">
-      <p>调整{who}的回复方式，了解聊天时能帮你做什么。</p>
-      <div className="ai-connection-status"><span className={configured ? "ai-status-dot is-ready" : "ai-status-dot"} /><span>{configured === null ? "正在检查连接" : configured ? "DeepSeek 已配置" : "尚未配置 DeepSeek"}</span><button type="button" onClick={() => setConnectionExpanded((open) => !open)}>{connectionExpanded ? "收起连接设置" : configured ? "管理连接" : "设置连接"}</button></div>
+      <p>{needsKey ? `填上 DeepSeek API Key，${who}就能和你聊天。` : `调整${who}的回复方式，了解聊天时能帮你做什么。`}</p>
+      <div className="ai-connection-status"><span className={configured ? "ai-status-dot is-ready" : "ai-status-dot"} /><span>{configured === null ? "正在检查连接" : configured ? "DeepSeek 已配置" : "尚未配置 DeepSeek"}</span>{!needsKey && <button type="button" onClick={() => setConnectionExpanded((open) => !open)}>{connectionExpanded ? "收起连接设置" : "管理连接"}</button>}</div>
     </div>
 
     <div className="ai-layout">
       <div className="ai-layout__main">
+        {keyFirst && connection}
         <section className="ai-section" aria-labelledby="ai-replies-heading">
           <div className="ai-section__title"><h2 id="ai-replies-heading">回复方式</h2><p>只影响当前角色，换个角色可以单独设置。</p></div>
           <div className="settings-group ai-reply-settings">
@@ -89,13 +102,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter }: { pa
           </div>
         </section>
 
-        <section className="ai-section" aria-labelledby="ai-connection-heading">
-          <div className="ai-section__title"><h2 id="ai-connection-heading">连接与模型</h2><p>所有角色共用，用于聊天、问候和自动生成标题。</p></div>
-          <div className="settings-group ai-connection-row"><div className="settings-row"><div className="settings-row__body"><strong>DeepSeek</strong><span>{configured === null ? "正在检查 API Key" : configured ? "API Key 已保存在钥匙串" : "配置 API Key 后就可以开始聊天"}</span></div><button type="button" className="settings-button settings-button--small" aria-expanded={connectionExpanded} onClick={() => setConnectionExpanded((open) => !open)}>{connectionExpanded ? "收起" : "管理 API Key"}</button></div>
-          {connectionExpanded && <div className="ai-connection-form ai-settings"><form onSubmit={(event) => void save(event)}><label htmlFor="deepseek-key">API Key</label><div className="ai-settings__key"><input id="deepseek-key" type="password" autoComplete="off" value={key} onChange={(event) => setKey(event.currentTarget.value)} placeholder={configured ? "输入新的 API Key 以替换" : "粘贴 DeepSeek API Key"} /><button type="submit" disabled={busy || !key.trim()}>保存</button></div></form><p>聊天内容会发送给 DeepSeek，服务商可能收费。保存后会自动测试连接；测试会发送一条简短请求。</p><div className="ai-settings__actions"><button type="button" disabled={busy || !configured} onClick={() => void test()}>测试连接</button><ConfirmButton disabled={busy || !configured} confirmLabel="再点一次移除" onConfirm={() => void clear()}>移除 API Key</ConfirmButton><button type="button" className="ai-settings__link" onClick={() => void chatPlatform.openKeyPage().catch((error: unknown) => { console.error("Could not open the DeepSeek page", error); setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"); })}>获取 API Key</button></div></div>}</div>
-          {status && <p className="ai-inline-status" role="status">{status}</p>}
-          <div className="ai-model"><ModelSettings keyConfigured={configured} /></div>
-        </section>
+        {!keyFirst && connection}
       </div>
 
       <div className="ai-layout__aside">

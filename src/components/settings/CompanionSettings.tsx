@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPreferences } from "../../preferences/CompanionPreferences";
 
-export function CompanionSettings({ onError }: { onError: (message: string | null) => void }) {
+export function CompanionSettings({ name, onError }: { name: string; onError: (message: string | null) => void }) {
   const [value, setValue] = useState(loadCompanionPreferences);
   const update = (next: CompanionPreferences) => {
     try { saveCompanionPreferences(next); setValue(next); onError(null); }
@@ -12,7 +12,7 @@ export function CompanionSettings({ onError }: { onError: (message: string | nul
     <button type="button" role="switch" aria-label={title} aria-checked={value[key]} className={value[key] ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, [key]: !value[key] })}><span /></button>
   </div>;
   return <div className="settings-section">
-    <div className="settings-section__intro"><h2>主动陪伴</h2><p>小艾会在合适的时候关心你，也会遵守勿扰设置。</p></div>
+    <div className="settings-section__intro"><h2>主动陪伴</h2><p>{name}会在合适的时候关心你，也会遵守勿扰设置。</p></div>
     <div className="settings-group">
       {toggle("night", "深夜关心", "到了设定时间后仍在使用电脑，每晚最多一次")}
       <div className="settings-row"><div className="settings-row__body"><strong>关心时间</strong><span>还需持续使用约 15 分钟才会出现</span></div><input type="time" aria-label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(event) => { if (event.currentTarget.value) update({ ...value, nightTime: event.currentTarget.value }); }} /></div>

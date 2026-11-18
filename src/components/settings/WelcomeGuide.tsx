@@ -30,6 +30,9 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
   const card = useRef<HTMLDivElement>(null);
   useEffect(() => { chatPlatform.keyStatus().then((saved) => setKeyWorks(saved ? true : null)).catch(() => {}); }, []);
 
+  /** A message belongs to the step that showed it. */
+  const goTo = (next: number) => { setStatus(""); setStep(next); };
+  const openKeyPage = () => void chatPlatform.openKeyPage().catch(() => setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"));
   const finish = (chat: boolean) => {
     markOnboarded();
     onClose(keyWorks !== true);
@@ -86,19 +89,18 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
           : <>
             <p>聊天用的是 DeepSeek，需要你自己的 API Key。它存在钥匙串里，只在聊天时使用。</p>
             <ol className="welcome__howto">
-              <li>打开 DeepSeek 开放平台，注册并登录</li>
+              <li>打开 <button type="button" className="welcome__link" onClick={openKeyPage}>DeepSeek 开放平台 ↗</button>，注册并登录</li>
               <li>充值一点余额（聊天花费很少）</li>
               <li>在「API Keys」里新建一个 Key，复制下来</li>
               <li>粘贴到下面，点「保存」</li>
             </ol>
             <input type="password" autoComplete="off" value={key} autoFocus placeholder="粘贴 DeepSeek API Key，一般以 sk- 开头" onChange={(event) => setKey(event.currentTarget.value)} />
-            <button type="button" className="welcome__link" onClick={() => void chatPlatform.openKeyPage().catch(() => setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"))}>打开 DeepSeek 开放平台 ↗</button>
             <p className="welcome__note">保存后会发一条很短的消息试试能不能连上，费用极少。</p>
           </>}
         <div className="welcome__actions">
-          <button type="button" onClick={() => setStep(0)}>上一步</button>
-          {keyWorks ? <button type="button" className="is-primary" onClick={() => setStep(2)}>下一步</button>
-            : <><button type="button" onClick={() => setStep(2)}>稍后再说</button><button type="submit" className="is-primary" disabled={busy || !key.trim()}>{busy ? "正在保存…" : "保存"}</button></>}
+          <button type="button" onClick={() => goTo(0)}>上一步</button>
+          {keyWorks ? <button type="button" className="is-primary" onClick={() => goTo(2)}>下一步</button>
+            : <><button type="button" onClick={() => goTo(2)}>稍后再说</button><button type="submit" className="is-primary" disabled={busy || !key.trim()}>{busy ? "正在保存…" : "保存"}</button></>}
         </div>
       </form>}
 
@@ -110,10 +112,11 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
             {shortcut && <li>在任何应用里按 <kbd>{quickChatShortcutLabel(shortcut)}</kbd> 也能叫我</li>}
             <li><strong>右键我</strong>可以打开设置，也能退出</li>
           </ul>
-          : <p>之后在「设置 → AI 对话」填上 API Key，就能和{name}聊天。右键{name}可以打开设置，也能退出。</p>}
+          : <p>填上 DeepSeek API Key，就能和{name}聊天。右键{name}可以打开设置，也能退出。</p>}
         <div className="welcome__actions">
-          <button type="button" onClick={() => finish(false)}>看看其他设置</button>
-          {keyWorks && <button type="button" className="is-primary" onClick={() => finish(true)}>开始聊天</button>}
+          {keyWorks
+            ? <><button type="button" onClick={() => finish(false)}>看看其他设置</button><button type="button" className="is-primary" onClick={() => finish(true)}>开始聊天</button></>
+            : <button type="button" className="is-primary" onClick={() => finish(false)}>去填 API Key</button>}
         </div>
       </div>}
 
