@@ -6,11 +6,14 @@ import { SettingsPage } from "./components/settings/SettingsPage";
 import { NotesPanel } from "./components/notes/NotesPanel";
 import { TodayPanel } from "./components/today/TodayPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TranslationPanel } from "./components/translation/TranslationPanel";
+import { SelectionFloat } from "./components/translation/SelectionFloat";
 import { dropTimelessAgenda, timelessAgendaTexts } from "./agenda/AgendaStore";
 import { addNote, updateNotes } from "./notes/NoteStore";
 import { loadActiveCharacter, migrateLegacyCharacterData, subscribeActiveCharacter } from "./preferences/CharacterPreferences";
 
 const view = new URLSearchParams(window.location.search).get("window");
+if (view) document.documentElement.dataset.window = view;
 
 /** Every window follows the active character. The pet and chat restart for a new one. */
 function Root() {
@@ -18,6 +21,8 @@ function Root() {
   if (view === "settings") return <SettingsPage packId={packId} />;
   if (view === "today") return <TodayPanel />;
   if (view === "notes") return <NotesPanel />;
+  if (view === "translation") return <TranslationPanel />;
+  if (view === "selection-float") return <SelectionFloat />;
   if (view === "chat") return <ChatPage key={packId} packId={packId} />;
   return <App key={packId} packId={packId} />;
 }

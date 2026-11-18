@@ -8,6 +8,7 @@ mod proxy;
 mod quick_chat;
 mod secrets;
 mod system;
+mod translation;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
@@ -489,6 +490,9 @@ pub fn run() {
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(click_through::HitMask::default())
+        .manage(quick_chat::Shortcuts::default())
+        .manage(translation::Selection::default())
+        .manage(translation::SelectionFloat::default())
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(chat::ChatState::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
@@ -567,6 +571,25 @@ pub fn run() {
                     }
                 });
             }
+            if let Some(window) = app.get_webview_window("translation") {
+                #[cfg(target_os = "macos")]
+                floating_panel::apply_popover(&window)?;
+                let handle = window.clone();
+                let app_handle = app.handle().clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        app_handle.state::<std::sync::Arc<chat::ChatState>>().cancel_window("translation");
+                        let _ = handle.emit("pet://translation-hide", ());
+                        report("hide translation", handle.hide());
+                    }
+                });
+            }
+            if let Some(window) = app.get_webview_window("selection-float") {
+                #[cfg(target_os = "macos")]
+                floating_panel::apply_popover(&window)?;
+            }
+            translation::start_selection_monitor(app.handle().clone());
             click_through::start(app.handle().clone(), MAIN_WINDOW);
             Ok(())
         })
@@ -578,6 +601,14 @@ pub fn run() {
             open_settings,
             set_pet_dnd,
             quick_chat::set_quick_chat_shortcut,
+            quick_chat::set_translation_shortcut,
+            translation::open_translation,
+            translation::selection_status,
+            translation::take_translation_selection,
+            translation::set_selection_float,
+            translation::translate_floating_selection,
+            translation::expand_selection_float,
+            translation::close_selection_float,
             quick_chat::take_pet_keyboard,
             quick_chat::release_pet_keyboard,
             chat::deepseek_test,
@@ -585,6 +616,7 @@ pub fn run() {
             chat::deepseek_save_key,
             chat::deepseek_clear_key,
             chat::deepseek_start,
+            chat::deepseek_translate,
             chat::deepseek_preview,
             chat::deepseek_cancel,
             chat::deepseek_greet,
@@ -607,8 +639,10 @@ pub fn run() {
             system::open_login_items_settings,
             system::open_link,
             system::open_microphone_settings,
+            system::open_accessibility_settings,
             system::system_idle_seconds,
             system::save_backup,
+            system::save_character_package,
             system::restart_app,
             show_pet,
             sync_focus_menu

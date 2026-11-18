@@ -52,6 +52,8 @@ export const animationSchema = z.object({
   fps: z.number().positive().default(12),
   loop: z.boolean().default(false),
   motion: z.enum(MOTION_PRESETS).default("none"),
+  motionSpeed: z.number().min(0.25).max(3).default(1),
+  motionStrength: z.number().min(0).max(2).default(1),
   /** "left" puts the drawing against the stage's left edge, for art cut off by a wall. */
   align: z.enum(["center", "left"]).default("center"),
   /** Optional transparent overlays for composite actions and accessories. */

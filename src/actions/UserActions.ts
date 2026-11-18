@@ -22,7 +22,7 @@ const userActionSchema = z.object({
   duration: z.number().int().min(USER_ACTION_LIMITS.minDuration).max(USER_ACTION_LIMITS.maxDuration),
   createdAt: z.number(),
 });
-const listSchema = z.array(userActionSchema).max(USER_ACTION_LIMITS.count);
+export const userActionListSchema = z.array(userActionSchema).max(USER_ACTION_LIMITS.count);
 
 export type UserAction = z.infer<typeof userActionSchema>;
 
@@ -40,7 +40,7 @@ export function isUserAction(action: Pick<AnimationEntry, "category">): boolean 
 export function loadUserActions(packId: string, storage: Storage = window.localStorage): UserAction[] {
   try {
     const raw = storage.getItem(storageKey(packId));
-    return raw ? listSchema.parse(JSON.parse(raw)) : [];
+    return raw ? userActionListSchema.parse(JSON.parse(raw)) : [];
   } catch (error) {
     console.warn("Ignoring an unreadable list of user actions", error);
     return [];
@@ -54,7 +54,7 @@ export function saveUserAction(packId: string, input: Omit<UserAction, "createdA
   const action = userActionSchema.parse({ ...input, createdAt: existing?.createdAt ?? now });
   if (!existing && list.length >= USER_ACTION_LIMITS.count) throw new Error(`At most ${USER_ACTION_LIMITS.count} user actions`);
   const next = existing ? list.map((item) => (item.id === action.id ? action : item)) : [...list, action];
-  storage.setItem(storageKey(packId), JSON.stringify(listSchema.parse(next)));
+  storage.setItem(storageKey(packId), JSON.stringify(userActionListSchema.parse(next)));
   return action;
 }
 
@@ -75,6 +75,8 @@ export function userActionEntry(idle: AnimationEntry, action: Pick<UserAction, "
     fps: idle.fps,
     loop: false,
     motion: "bounce",
+    motionSpeed: 1,
+    motionStrength: 1,
     align: idle.align,
     layers: [],
     category: USER_ACTION_CATEGORY,

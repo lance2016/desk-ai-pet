@@ -75,6 +75,36 @@
         "skipTaskbar": true
       },
       {
+        "label": "selection-float",
+        "title": "划词翻译",
+        "url": "index.html?window=selection-float",
+        "width": 152,
+        "height": 38,
+        "visible": false,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "skipTaskbar": true,
+        "acceptFirstMouse": true
+      },
+      {
+        "label": "translation",
+        "title": "翻译",
+        "url": "index.html?window=translation",
+        "width": 440,
+        "height": 520,
+        "minWidth": 360,
+        "minHeight": 400,
+        "visible": false,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      },
+      {
         "label": "notes",
         "title": "备忘",
         "url": "index.html?window=notes",

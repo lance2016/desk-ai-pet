@@ -352,7 +352,7 @@ export class PixiRenderer implements PetRenderer {
         const loaded = await this.loadSheet(pack.resolve(definition.file));
         return { definition, frames: sliceFrames(loaded.texture, definition.frames), image: loaded.image };
       }));
-      const animation = { entry, frames: sliceFrames(texture, entry.frames), image, layers };
+      const animation = { entry, motionSpeed: entry.motionSpeed, motionStrength: entry.motionStrength, frames: sliceFrames(texture, entry.frames), image, layers };
       this.animations.set(entry.id, animation);
       this.originalAnimations.set(entry.id, animation);
     } catch (error) {

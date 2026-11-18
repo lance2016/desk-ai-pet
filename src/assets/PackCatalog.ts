@@ -6,8 +6,10 @@ import { loadAssetPack, type AssetPack } from "./AssetLoader";
 const PETS_URL = "/pets";
 const CATALOG_URL = `${PETS_URL}/index.json`;
 
-/** Pack used before the user picks a character, and the owner of pre-character saved data. */
-export const DEFAULT_PACK_ID = "girl-default";
+/** Pack used for new installs and custom characters created without choosing a base. */
+export const DEFAULT_PACK_ID = "six-six";
+/** Previous default pack; existing installs keep it for their migrated data. */
+export const LEGACY_DEFAULT_PACK_ID = "girl-default";
 /** Pack ids double as directory names and storage-key segments, so they stay plain. */
 export const PACK_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** Action whose image stands for the character in lists and the chat window. */

@@ -1,3 +1,6 @@
+import { loadSelectionFloat } from "./preferences/SelectionFloat";
+import { translationPlatform } from "./platform/translation";
+import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
 import { dueReminders, loadAgenda, markReminded, subscribeAgenda, updateAgenda, type AgendaItem } from "./agenda/AgendaStore";
@@ -350,6 +353,16 @@ export default function App({ packId }: AppProps) {
     petWindow.setQuickChatShortcut(shortcut).catch((error: unknown) => {
       console.warn("Could not register the quick chat shortcut", error);
       if (shortcut) runtime.say(`${quickChatShortcutLabel(shortcut)} 被别的应用占用了，可以在设置里换一个`);
+    });
+  }, [runtime]);
+
+  useEffect(() => {
+    if (!runtime) return;
+    translationPlatform.setSelectionFloat(loadSelectionFloat()).catch((error: unknown) => console.warn("Could not enable selection translation", error));
+    const shortcut = loadTranslationShortcut();
+    translationPlatform.setShortcut(shortcut).catch((error: unknown) => {
+      console.warn("Could not register translation shortcut", error);
+      if (shortcut) runtime.say(`翻译快捷键 ${quickChatShortcutLabel(shortcut)} 不可用，可以在设置里换一个`);
     });
   }, [runtime]);
 

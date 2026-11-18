@@ -18,6 +18,7 @@ export const chatPlatform = {
   async test(model: string): Promise<void> { requireNative(); await invoke("deepseek_test", { model }); },
   async clearKey(): Promise<void> { requireNative(); await invoke("deepseek_clear_key"); },
   async start(requestId: string, messages: ChatMessage[], preferences: ChatRequestPreferences, context: ChatContext): Promise<void> { requireNative(); await invoke("deepseek_start", { requestId, messages, preferences, context }); },
+  async translate(requestId: string, text: string, target: "zh" | "en", model: string): Promise<void> { requireNative(); await invoke("deepseek_translate", { requestId, text, target, model }); },
   async preview(preferences: ChatRequestPreferences, context: ChatContext): Promise<ChatPreview> { requireNative(); return invoke("deepseek_preview", { preferences, context }); },
   /** A one-line morning or evening greeting in the character's voice. `now` is `localTimeText()`. */
   async greet(kind: "morning" | "evening", facts: string[], preferences: ChatRequestPreferences, now: string): Promise<string> { requireNative(); return invoke<string>("deepseek_greet", { kind, facts, preferences, now }); },

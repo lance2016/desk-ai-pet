@@ -124,3 +124,19 @@ export async function replaceAppearances(records: readonly AppearanceRecord[]): 
     });
   } finally { db.close(); }
 }
+
+/** Adds a set of pictures atomically without replacing appearances owned by other characters. */
+export async function mergeAppearances(records: readonly AppearanceRecord[]): Promise<void> {
+  const valid = records.map((record) => ({ key: record.key, value: appearanceSchema.parse(record.value) }));
+  const db = await openStore();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(STORE, "readwrite");
+      const store = transaction.objectStore(STORE);
+      for (const record of valid) store.put(record.value, record.key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("Appearance storage failed"));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Appearance storage was interrupted"));
+    });
+  } finally { db.close(); }
+}

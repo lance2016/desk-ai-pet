@@ -6,6 +6,7 @@ const LAUNCH_STATUS_COMMAND = "launch_at_login_status";
 const SET_LAUNCH_COMMAND = "set_launch_at_login";
 const OPEN_LOGIN_ITEMS_COMMAND = "open_login_items_settings";
 const SAVE_BACKUP_COMMAND = "save_backup";
+const SAVE_CHARACTER_PACKAGE_COMMAND = "save_character_package";
 const RESTART_COMMAND = "restart_app";
 const OPEN_LINK_COMMAND = "open_link";
 const OPEN_MICROPHONE_COMMAND = "open_microphone_settings";
@@ -55,6 +56,16 @@ export const systemPlatform = {
   /** Asks where to save the file. Resolves to false when the user cancels. */
   async saveBackup(contents: string, fileName: string): Promise<boolean> {
     if (isTauri()) return invoke<boolean>(SAVE_BACKUP_COMMAND, { contents, fileName });
+    const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
+    const link = Object.assign(document.createElement("a"), { href: url, download: fileName });
+    link.click();
+    URL.revokeObjectURL(url);
+    return true;
+  },
+
+  /** Asks where to save a portable character package. Resolves to false when the user cancels. */
+  async saveCharacterPackage(contents: string, fileName: string): Promise<boolean> {
+    if (isTauri()) return invoke<boolean>(SAVE_CHARACTER_PACKAGE_COMMAND, { contents, fileName });
     const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
     const link = Object.assign(document.createElement("a"), { href: url, download: fileName });
     link.click();

@@ -1,0 +1,264 @@
+{
+  "id": "six-six",
+  "name": "六六",
+  "version": "1.0.0",
+  "canvas": {
+    "width": 620,
+    "height": 640
+  },
+  "scale": 0.4,
+  "headArea": {
+    "x": 0,
+    "y": 0,
+    "width": 1,
+    "height": 0.55
+  },
+  "persona": {
+    "name": "六六",
+    "personality": "慵懒，傲娇，爱看红果短剧，有正义感",
+    "voice": "茉莉",
+    "voiceStyle": "温柔、自然、亲切的年轻女声，语速适中，像熟悉的朋友在轻声陪伴。"
+  },
+  "animations": [
+    {
+      "id": "idle",
+      "file": "animations/idle.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "breathe",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "happy",
+      "file": "animations/happy.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "bounce",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "think",
+      "file": "animations/think.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "tilt",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "sleep",
+      "file": "animations/sleep.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "breathe",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "drag",
+      "file": "animations/drag.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "sway",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "peek",
+      "file": "animations/peek.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "breathe",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "blink",
+      "file": "animations/blink.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "breathe",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "look_around",
+      "file": "animations/look_around.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "sway",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "pet_reaction",
+      "file": "animations/pet_reaction.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "sway",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "shy",
+      "file": "animations/shy.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "wiggle",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "wake_up",
+      "file": "animations/wake_up.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "pop",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "focus",
+      "file": "animations/focus.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "breathe",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "listen",
+      "file": "animations/listen.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "breathe",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "talk",
+      "file": "animations/talk.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "nod",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true
+    },
+    {
+      "id": "write",
+      "file": "animations/write.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "tilt",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "remind",
+      "file": "animations/remind.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "bounce",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "wave",
+      "file": "animations/wave.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "sway",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "yawn",
+      "file": "animations/yawn.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "pop",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "confused",
+      "file": "animations/confused.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "wiggle",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "eat",
+      "file": "animations/eat.png",
+      "frames": 1,
+      "fps": 12,
+      "motion": "sway",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": false
+    },
+    {
+      "id": "wooden_fish",
+      "file": "animations/wooden_fish.png",
+      "frames": 6,
+      "fps": 6,
+      "motion": "none",
+      "motionSpeed": 1,
+      "motionStrength": 1,
+      "loop": true,
+      "layers": [
+        {
+          "file": "layers/wooden_fish-1.png",
+          "frames": 1,
+          "fps": 12,
+          "x": 0,
+          "y": -446,
+          "scaleX": 0.6,
+          "scaleY": 0.6,
+          "rotation": 0,
+          "zIndex": 1,
+          "motion": "float",
+          "startFrame": 4,
+          "endFrame": 6
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "id": "focus",
+      "label": "专注",
+      "icon": "timer",
+      "command": "focus_toggle"
+    },
+    {
+      "id": "wooden_fish",
+      "label": "木鱼",
+      "icon": "wooden_fish",
+      "command": "wooden_fish"
+    }
+  ]
+}

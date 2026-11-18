@@ -82,6 +82,7 @@ pub fn open_login_items_settings() {
 
 /// The Privacy & Security → Microphone pane of System Settings.
 const MICROPHONE_SETTINGS: &str = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+const ACCESSIBILITY_SETTINGS: &str = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
 const MAX_LINK_CHARS: usize = 2048;
 
 /// Whether a link from a chat reply or a settings page may be opened: a plain
@@ -115,6 +116,11 @@ pub fn open_microphone_settings() -> Result<(), String> {
     open_with_system(MICROPHONE_SETTINGS)
 }
 
+#[tauri::command]
+pub fn open_accessibility_settings() -> Result<(), String> {
+    open_with_system(ACCESSIBILITY_SETTINGS)
+}
+
 /// Asks where to save the backup and writes it there. Returns false when the user cancels.
 #[tauri::command]
 pub async fn save_backup(app: AppHandle, contents: String, file_name: String) -> Result<bool, String> {
@@ -129,6 +135,23 @@ pub async fn save_backup(app: AppHandle, contents: String, file_name: String) ->
     };
     let path = target.into_path().map_err(|error| format!("Invalid backup location: {error}"))?;
     write_whole(&path, contents.as_bytes()).map_err(|error| format!("Failed to write the backup: {error}"))?;
+    Ok(true)
+}
+
+/// Asks where to save a portable character package and writes it there.
+#[tauri::command]
+pub async fn save_character_package(app: AppHandle, contents: String, file_name: String) -> Result<bool, String> {
+    let Some(target) = app
+        .dialog()
+        .file()
+        .set_file_name(&file_name)
+        .add_filter("AI Pet character", &["json"])
+        .blocking_save_file()
+    else {
+        return Ok(false);
+    };
+    let path = target.into_path().map_err(|error| format!("Invalid character package location: {error}"))?;
+    write_whole(&path, contents.as_bytes()).map_err(|error| format!("Failed to write the character package: {error}"))?;
     Ok(true)
 }
 

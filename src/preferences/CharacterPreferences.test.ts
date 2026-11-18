@@ -24,8 +24,8 @@ describe("character preferences", () => {
   });
 
   it("falls back to the default character for missing or invalid ids", () => {
-    expect(loadActiveCharacter(createMemoryStorage())).toBe("girl-default");
-    expect(loadActiveCharacter(createMemoryStorage({ "ai-pet:active-character:v1": "../evil" }))).toBe("girl-default");
+    expect(loadActiveCharacter(createMemoryStorage())).toBe("six-six");
+    expect(loadActiveCharacter(createMemoryStorage({ "ai-pet:active-character:v1": "../evil" }))).toBe("six-six");
     const storage = createMemoryStorage();
     saveActiveCharacter("cat", storage);
     expect(loadActiveCharacter(storage)).toBe("cat");

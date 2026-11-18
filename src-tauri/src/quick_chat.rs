@@ -2,6 +2,7 @@
 //! keyboard focus the bar needs.
 
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use std::sync::Mutex;
 use tauri_plugin_global_shortcut::{
     GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState,
 };
@@ -45,8 +46,16 @@ const RESERVED_SHORTCUTS: [&str; 28] = [
 const MAX_SHORTCUT_LEN: usize = 64;
 
 /// Called by the shortcut plugin for every press and release.
-pub fn on_shortcut(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
+#[derive(Default)]
+pub struct Shortcuts(Mutex<[Option<Shortcut>; 2]>);
+
+pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state != ShortcutState::Pressed {
+        return;
+    }
+    let is_translation = app.state::<Shortcuts>().0.lock().map(|slots| slots[1].as_ref() == Some(shortcut)).unwrap_or(false);
+    if is_translation {
+        crate::translation::open(app);
         return;
     }
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
@@ -66,15 +75,34 @@ pub fn on_shortcut(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) 
 /// the plugin can hop to the main thread without waiting on itself.
 #[tauri::command]
 pub async fn set_quick_chat_shortcut(app: AppHandle, shortcut: Option<String>) -> Result<(), String> {
+    set_shortcut(&app, 0, shortcut)
+}
+
+#[tauri::command]
+pub async fn set_translation_shortcut(app: AppHandle, shortcut: Option<String>) -> Result<(), String> {
+    set_shortcut(&app, 1, shortcut)
+}
+
+fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Result<(), String> {
     let parsed = shortcut.as_deref().map(parse_shortcut).transpose()?;
+    let state = app.state::<Shortcuts>();
+    let mut slots = state.0.lock().map_err(|_| "Shortcut state unavailable")?;
+    if slots[index] == parsed { return Ok(()); }
+    if parsed.is_some() && slots[1 - index] == parsed { return Err("Shortcut already in use".into()); }
     let manager = app.global_shortcut();
-    manager.unregister_all().map_err(|error| error.to_string())?;
     if let Some(value) = parsed {
         manager.register(value).map_err(|error| {
-            eprintln!("failed to register quick chat shortcut {value}: {error}");
+            eprintln!("failed to register shortcut {value}: {error}");
             error.to_string()
         })?;
     }
+    if let Some(old) = slots[index] {
+        if let Err(error) = manager.unregister(old) {
+            if let Some(value) = parsed { let _ = manager.unregister(value); }
+            return Err(error.to_string());
+        }
+    }
+    slots[index] = parsed;
     Ok(())
 }
 

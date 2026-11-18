@@ -7,7 +7,9 @@
     "settings",
     "chat",
     "today",
-    "notes"
+    "notes",
+    "translation",
+    "selection-float"
   ],
   "permissions": [
     "core:default",

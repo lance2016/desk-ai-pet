@@ -1,4 +1,4 @@
-import { DEFAULT_PACK_ID, PACK_ID_PATTERN } from "../assets/PackCatalog";
+import { DEFAULT_PACK_ID, LEGACY_DEFAULT_PACK_ID, PACK_ID_PATTERN } from "../assets/PackCatalog";
 
 const ACTIVE_KEY = "ai-pet:active-character:v1";
 
@@ -46,7 +46,7 @@ export function migrateLegacyCharacterData(storage: Storage = window.localStorag
     const legacyKey = `${LEGACY_PREFIX}${name}`;
     const value = storage.getItem(legacyKey);
     if (value === null) continue;
-    const key = characterKey(DEFAULT_PACK_ID, name);
+    const key = characterKey(LEGACY_DEFAULT_PACK_ID, name);
     if (storage.getItem(key) === null) storage.setItem(key, value);
     storage.removeItem(legacyKey);
   }
@@ -55,7 +55,9 @@ export function migrateLegacyCharacterData(storage: Storage = window.localStorag
 export function loadActiveCharacter(storage: Storage = window.localStorage): string {
   try {
     const id = storage.getItem(ACTIVE_KEY);
-    return id !== null && PACK_ID_PATTERN.test(id) ? id : DEFAULT_PACK_ID;
+    if (id !== null && PACK_ID_PATTERN.test(id)) return id;
+    const hasLegacyCharacterData = Object.values(CHARACTER_DATA).some((name) => storage.getItem(characterKey(LEGACY_DEFAULT_PACK_ID, name)) !== null);
+    return hasLegacyCharacterData ? LEGACY_DEFAULT_PACK_ID : DEFAULT_PACK_ID;
   } catch (error) {
     console.warn("Failed to read the active character", error);
     return DEFAULT_PACK_ID;

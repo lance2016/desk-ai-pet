@@ -1,3 +1,4 @@
+import { TranslationShortcutSettings } from "./TranslationShortcutSettings";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { appendUserActions, loadUserActions } from "../../actions/UserActions";
 import { isCustomCharacter, loadCharacterPack, loadPackCatalog, type CatalogEntry } from "../../assets/PackCatalog";
@@ -225,6 +226,8 @@ export function SettingsPage({ packId }: { packId: string }) {
             </div>
             <h2 className="settings-group-title">快速聊天</h2>
             <QuickChatSettings onError={setError} />
+            <h2 className="settings-group-title">翻译</h2>
+            <TranslationShortcutSettings onError={setError} />
             <h2 className="settings-group-title">勿扰</h2>
             <QuietSettings onError={setError} />
             <h2 className="settings-group-title">提醒</h2>
@@ -251,7 +254,7 @@ export function SettingsPage({ packId }: { packId: string }) {
             </div>
             <h2 className="settings-group-title">会发出去的内容</h2>
             <div className="settings-group settings-prose">
-              <p>聊天时，会发给 DeepSeek 的有：这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格、聊天补充要求，以及宠物会做的动作名称。早安晚安会把今天的提醒数量、专注轮数和提醒内容发给 DeepSeek 来写问候。用语音输入时，录音会发给 MiMo 识别，不会保存。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。缺少今年或明年的法定节假日安排时，宠物每天最多一次从公开的节假日数据源下载，请求里不带任何个人信息。宠物每天会去 GitHub 查一次有没有新版本，同样不带个人信息。</p>
+              <p>聊天时，会发给 DeepSeek 的有：这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格、聊天补充要求，以及宠物会做的动作名称。早安晚安会把今天的提醒数量、专注轮数和提醒内容发给 DeepSeek 来写问候。翻译只在你点击翻译时把原文发送给 DeepSeek，不附带聊天记录和角色设定。用语音输入时，录音会发给 MiMo 识别，不会保存。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。缺少今年或明年的法定节假日安排时，宠物每天最多一次从公开的节假日数据源下载，请求里不带任何个人信息。宠物每天会去 GitHub 查一次有没有新版本，同样不带个人信息。</p>
             </div>
           </div>
         )}

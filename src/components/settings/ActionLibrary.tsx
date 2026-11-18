@@ -114,6 +114,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   const usablePrompts = usableArtPrompts(prompts);
 
   const promptFor = (action: AnimationEntry) => fillArtPrompt(isCustomPack && action.id === BASE_ACTION ? usablePrompts.first : usablePrompts.action, action);
+  const copyPromptFor = (action: AnimationEntry) => isUserAction(action) ? usablePrompts.action : promptFor(action);
   const appearanceFor = (action: AnimationEntry) => appearances?.[action.id] ?? null;
   const artFor = (action: AnimationEntry): PreviewArt | null => {
     const saved = appearanceFor(action);
@@ -312,7 +313,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         </div>
         <p title={action.description ?? action.pose ?? ""}>{action.description ?? action.pose ?? (isUserAction(action) ? "自定义动作" : "角色动作")}</p>
         <div className="action-tile__tools">
-          {pending && isCustomPack && <CopyButton className="action-tile__link" text={promptFor(action)} onMessage={setMessage}>复制提示词</CopyButton>}
+          <CopyButton className="action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>
           {!pending && <button type="button" className="action-tile__link" onClick={(event) => openPreview(action, event.currentTarget)}>预览</button>}
           <button type="button" className={pending ? "action-tile__button is-primary" : "action-tile__button"} onClick={() => pending ? uploadDirect(action) : openEditor(action)}>{pending ? "上传图片" : "编辑"}</button>
         </div>
@@ -398,7 +399,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
               <p>{previewAction.description ?? previewAction.pose ?? "角色动作"}</p>
               {previewArt && previewArt.frames > 1 && <span className="action-preview__meta">{previewArt.frames} 帧 · {previewArt.fps} 帧 / 秒</span>}
               {previewAction.duration && <span className="action-preview__meta">播放时长 {`${(previewAction.duration / 1000).toFixed(1)} 秒`}</span>}
-              {!previewArt && isCustomPack && <CopyButton className="action-library__button action-library__button--quiet" text={promptFor(previewAction)} onMessage={setMessage}>复制这张图的提示词</CopyButton>}
+              <CopyButton className="action-library__button action-library__button--quiet" text={copyPromptFor(previewAction)} onMessage={setMessage}>{isUserAction(previewAction) ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton>
               {message && <p className="action-preview__message" role="status">{message}</p>}
             </aside>
           </div>

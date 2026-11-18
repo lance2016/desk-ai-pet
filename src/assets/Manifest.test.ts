@@ -16,12 +16,19 @@ describe("parseManifest", () => {
       fps: 12,
       loop: false,
       motion: "none",
+      motionSpeed: 1,
+      motionStrength: 1,
       align: "center",
       layers: [],
       category: "reaction",
       priority: 10,
       interruptible: true,
     });
+  });
+
+  it("keeps the motion speed and strength supplied by a character pack", () => {
+    const manifest = parseManifest(withAnimation({ id: "dance", file: "animations/dance.png", motionSpeed: 2, motionStrength: 0.5 }));
+    expect(manifest.animations[0]).toMatchObject({ motionSpeed: 2, motionStrength: 0.5 });
   });
 
   it.each(["../secret.png", "/etc/passwd", "https://example.com/a.png", "a\\b.png", "a/../../b.png"])(
