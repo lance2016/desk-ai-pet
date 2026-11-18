@@ -15,6 +15,7 @@ import { createLocalPetStorage } from "../../storage/PetStorage";
 import { AISettings } from "./AISettings";
 import { CharacterSettings } from "./CharacterSettings";
 import { VoiceSettings } from "./VoiceSettings";
+import { MailSettings } from "./MailSettings";
 import { ActionLibrary } from "./ActionLibrary";
 import { DockSettings } from "./DockSettings";
 import { QuietSettings } from "./QuietSettings";
@@ -36,7 +37,7 @@ const SCALES = [
   { value: 1.3, label: "大" },
 ] as const;
 const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
-const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "privacy", "about"] as const;
+const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "mail", "privacy", "about"] as const;
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["dock", "actions"];
 type SettingsSection = (typeof SECTIONS)[number];
@@ -51,6 +52,7 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     actions: <><path d="M12 20c-3 0-5-1.4-5-3.8 0-2 2.3-3.6 5-3.6s5 1.6 5 3.6c0 2.4-2 3.8-5 3.8Z" /><circle cx="5.5" cy="10" r="2" /><circle cx="10" cy="6" r="2" /><circle cx="15" cy="6" r="2" /><circle cx="19" cy="10" r="2" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
     voice: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
+    mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
     about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   };
@@ -66,6 +68,7 @@ const NAV: readonly { id: SettingsSection; label: string }[] = [
   { id: "actions", label: "动作库" },
   { id: "ai", label: "AI 对话" },
   { id: "voice", label: "语音" },
+  { id: "mail", label: "邮箱" },
   { id: "privacy", label: "隐私与数据" },
   { id: "about", label: "关于" },
 ];
@@ -245,6 +248,7 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
         {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onCharacter={() => go("character")} />}
         {section === "voice" && packInfo && <VoiceSettings key={packId} packId={packId} />}
+        {section === "mail" && <MailSettings />}
         {section === "privacy" && (
           <div className="settings-section">
             <h2 className="settings-group-title">备份</h2>

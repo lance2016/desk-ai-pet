@@ -60,6 +60,7 @@ src/
 ├── platform/
 │   ├── petWindow.ts         原生窗口操作：移动、贴边、改大小、弹菜单、可点击区域
 │   ├── holidays.ts          下载某一年的法定节假日数据（原生端 `holidays.rs`）
+│   ├── mailCode.ts          邮箱设置的保存、移除，接收「查收验证码」的进展（原生端 `mail_code.rs`）
 │   ├── updater.ts           检查、下载安装新版本（Tauri 更新插件）
 │   └── hitMask.ts           把宠物轮廓和菜单区域合成一张可点击区域表
 ├── update/
@@ -84,6 +85,8 @@ src-tauri/src/
 ├── lib.rs                   托盘、右键菜单、隐藏 Dock 图标
 ├── floating_panel.rs        把窗口变成浮动面板，能盖在全屏应用上；快速聊天时拿键盘、还键盘（仅 macOS）
 ├── proxy.rs                 读系统代理，交给 curl
+├── mail_code.rs             查收验证码：163 邮箱账号（钥匙串）、IMAP 只读登录、等邮件、复制到剪贴板
+├── mail_extract.rs          从一封邮件里认出验证码（纯规则，不用 AI）
 ├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
 └── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
 public/pets/girl-default/    默认资源包
@@ -137,6 +140,7 @@ public/pets/girl-default/    默认资源包
 | `pet.chat_phase` | `{ phase: "idle" \| "listening" \| "thinking" \| "talking" \| "failed" }`，对话进行到哪一步 | `useQuickChat`、`App`（转发聊天窗口的） |
 | `pet.noted` | 无，新增了一条提醒或备忘 | `App`（比较存储变化） |
 | `pet.item_done` | 无，勾掉了一条提醒 | `App`（比较存储变化） |
+| `pet.mail_code` | `MailCodeUpdate`：`waiting`、`found`（带 `code`、`sender`、`copied`）、`unrecognized`、`timeout`、`cancelled`、`unset`、`failed`（带 `message`） | `App`（转发原生事件 `pet://mail-code`） |
 | `pet.hovered` | 无，光标移到了宠物上 | `App` |
 | `pet.drag_started` | 无 | `PetStage` |
 | `pet.drag_ended` | `{ dockSide: "left" \| "right" \| null }`，松手时贴到的屏幕边缘 | `PetStage` |
@@ -452,3 +456,15 @@ AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附�
 翻译快捷键与快速聊天分别注册，修改任意一个不会注销另一个。用户触发快捷键时，原生层通过 macOS 辅助功能接口读取当前选区，未授权、无选区或应用不支持时回退到手动输入；不模拟复制。翻译窗口使用独立的 DeepSeek 请求，只发送原文和翻译指令，不附带角色性格、聊天记录或工具。请求复用聊天流事件和取消机制，不保存翻译内容。
 
 划词浮钮默认关闭，仅在用户启用且已授权辅助功能时检测鼠标拖选和双击，并尝试读取选区；文本只在内存里短暂保留，点击浮钮才发送。原生非激活面板提供就地翻译和详情入口；就地翻译的结果流式显示在选区附近，详情接收原文和已完成的译文。两个入口使用已捕获的选区，避免焦点变化后读取到其他内容；停用、失去权限、点击外部和浮钮超时都会清理。
+
+## 查收验证码
+
+入口是右键菜单和托盘共用的「查收验证码」。等邮件的循环在原生层（`mail_code.rs`）：菜单点一下开始，再点一下（这时叫「停止等验证码」）取消。开始时立即发 `waiting`，之后用一次 IMAP 登录撑完整个等待，每 5 秒重新 `EXAMINE INBOX` 看一次，最多 2 分钟。每 5 秒重新登录可能触发 163 的风控，所以不这样做。
+
+- **只读。** 用 `EXAMINE` 打开收件箱，正文用 `BODY.PEEK[]` 取，邮件不会被标成已读。
+- **163 要先报名字。** 登录后必须先发 IMAP `ID` 命令（RFC 2971），否则打开收件箱时返回 `Unsafe Login`。curl 每次只能发一条 IMAP 命令，插不进 `ID`，所以这里用 `imap` crate 自己建连接，也因此不走系统代理（`proxy.rs` 只管 curl）。
+- **挑哪一封。** 只看收件箱最新 10 封里 10 分钟内收到、不到 512 KB 的邮件，从新到旧逐封下载解析。同一次等待里每封只下载一次；已经给过用户的邮件（`delivered`，只在内存里）不再给，所以「重新发送」后再查收会等新的那封。
+- **认码。** `mail_extract.rs` 先看标题、再看正文（HTML 由 `mail-parser` 转成纯文本，GBK 需要它的 `full_encoding`）。邮件必须含「验证码」「verification code」这类词才算；码是离「码」「code」最近的 4～8 位数字（`123 456`、`G-123456` 也认），日期、时间、金额、手机号排除在外。都找不到时，取单独占一行的数字。是验证码邮件但认不出码时报 `unrecognized`。
+- **复制。** 原生层写系统剪贴板，同时加 `org.nspasteboard.ConcealedType`，让剪贴板工具不记进历史。
+- **宠物的反应。** `App` 把原生事件转成总线上的 `pet.mail_code`，由 `BehaviorEngine` 处理：等待时徽标加一段「等验证码…」；查到时用 `callOut` 叫醒、从边上出来、开心一下并说出验证码，10 秒后回到边上；认不出、超时、失败时困惑一下并说原因。这是用户主动要的结果，用 `say()`，不受勿扰限制。宠物被隐藏时，原生层在发结果前先把它显示出来。没配邮箱时报 `unset`，`App` 打开「设置 → 邮箱」。
+- **账号。** 地址和授权码一起以 JSON 存在钥匙串（服务名 `<identifier>.mail.163`）。保存前先登录并打开一次收件箱，成功才保存。

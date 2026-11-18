@@ -32,6 +32,7 @@ import { composeHitMask, HIT_CELL_PX, maskToElement, type MaskRect } from "./pla
 import { saveActiveCharacter } from "./preferences/CharacterPreferences";
 import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
+import { mailCodePlatform } from "./platform/mailCode";
 import { STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
 import { PixiRenderer } from "./renderer/PixiRenderer";
 import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
@@ -344,6 +345,15 @@ export default function App({ packId }: AppProps) {
   useEffect(() => {
     if (!runtime) return;
     return petWindow.onPatRequested(() => runtime.bus.emit("pet.petted", {}));
+  }, [runtime]);
+
+  // "查收验证码" in the pet menu: the native side waits for the mail, the engine shows and says how it went.
+  useEffect(() => {
+    if (!runtime) return;
+    return mailCodePlatform.onUpdate((update) => {
+      runtime.bus.emit("pet.mail_code", update);
+      if (update.kind === "unset") void petWindow.openSettings("mail").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
+    });
   }, [runtime]);
 
   // The global quick chat shortcut. Settings changes it directly; this restores it at launch.

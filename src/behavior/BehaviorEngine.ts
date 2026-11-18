@@ -2,7 +2,7 @@ import type { ActionController } from "../actions/ActionController";
 import { IDLE_ACTION, type ActionRegistry } from "../actions/ActionRegistry";
 import type { EventBus } from "../core/EventBus";
 import type { PetState } from "../core/PetState";
-import type { ChatPhase, DockSide, PetEvents, PetStats } from "../types";
+import type { ChatPhase, DockSide, MailCodeUpdate, PetEvents, PetStats } from "../types";
 import { FOCUS_CONFIG, focusBadge, type FocusTimer } from "./FocusTimer";
 
 /** Played while the user carries the pet around. */
@@ -25,8 +25,10 @@ const GREET_ACTION = "wave";
 const NOTE_ACTION = "write";
 /** Played when a reminder is ticked off. */
 const DONE_ACTION = "happy";
-/** Played when a reply or a voice transcription failed. */
+/** Played when a reply, a voice transcription or a wait for a mail code failed. */
 const CONFUSED_ACTION = "confused";
+/** Played when a verification code from the mailbox is copied for the user. */
+const CODE_FOUND_ACTION = "happy";
 /** Played shortly before the pet dozes off. */
 const YAWN_ACTION = "yawn";
 /** Played when the cursor comes onto the idle pet. */
@@ -54,6 +56,16 @@ const REMINDER_LINES = {
   many: (texts: string[], count: number) => `别忘了：${texts.join("、")} 等 ${count} 件`,
   badge: (count: number) => `提醒 ${count}`,
   doNotDisturb: "勿扰",
+};
+
+/** What the pet says about "查收验证码". The native side has already copied a found code. */
+const MAIL_CODE_LINES = {
+  badge: "等验证码…",
+  found: (code: string, sender: string) => `验证码 ${code}，已复制（${sender}）`,
+  notCopied: (code: string, sender: string) => `验证码 ${code}（${sender}），没能复制，手动输一下吧`,
+  unrecognized: (sender: string) => `收到一封验证码邮件（${sender}），但我没认出码，去邮箱看一眼吧`,
+  timeout: "一直没等到验证码，可以再点一次查收",
+  unset: "先在设置里加个 163 邮箱吧",
 };
 
 export const BEHAVIOR_CONFIG = {
@@ -135,6 +147,8 @@ export class BehaviorEngine {
   private shownBadge: string | null = null;
   /** Due reminders held back while it is quiet. */
   private waitingReminders = 0;
+  /** True while "查收验证码" waits for mail; shown on the badge. */
+  private waitingForCode = false;
   /** Reminders on the standing line, until the user clicks it away. */
   private alerted: DueReminder[] = [];
   /** "Focus done" waits on the standing line too, after any reminders. */
@@ -179,6 +193,7 @@ export class BehaviorEngine {
       bus.on("pet.chat_phase", ({ phase }) => this.onChatPhase(phase)),
       bus.on("pet.noted", () => this.react(NOTE_ACTION)),
       bus.on("pet.item_done", () => this.onItemDone()),
+      bus.on("pet.mail_code", (update) => this.onMailCode(update)),
       bus.on("pet.hovered", () => this.onHovered()),
       // A pose that ran out, or a reaction that played over it: back into the pose without a blink of idle.
       bus.on("pet.action.completed", () => this.settle(Date.now())),
@@ -315,6 +330,41 @@ export class BehaviorEngine {
     if (now - this.lastCheerAt < BEHAVIOR_CONFIG.cheerGapMs) return;
     this.lastCheerAt = now;
     this.react(DONE_ACTION);
+  }
+
+  /**
+   * The user asked for a code and is waiting for it, so a found one is worth
+   * coming out from the edge for; anything else is a passing line.
+   */
+  private onMailCode(update: MailCodeUpdate): void {
+    const now = Date.now();
+    this.waitingForCode = update.kind === "waiting";
+    this.showBadge(now);
+    switch (update.kind) {
+      case "waiting":
+      case "cancelled":
+        return;
+      case "found":
+        this.callOut(now, CODE_FOUND_ACTION);
+        if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs };
+        this.say(update.copied ? MAIL_CODE_LINES.found(update.code, update.sender) : MAIL_CODE_LINES.notCopied(update.code, update.sender));
+        return;
+      case "unrecognized":
+        this.react(CONFUSED_ACTION);
+        this.say(MAIL_CODE_LINES.unrecognized(update.sender));
+        return;
+      case "timeout":
+        this.react(CONFUSED_ACTION);
+        this.say(MAIL_CODE_LINES.timeout);
+        return;
+      case "unset":
+        this.say(MAIL_CODE_LINES.unset);
+        return;
+      case "failed":
+        this.react(CONFUSED_ACTION);
+        this.say(update.message);
+        return;
+    }
   }
 
   /** The cursor is not an interaction: the idle pet glances at it now and then, and still dozes off under it. */
@@ -564,6 +614,7 @@ export class BehaviorEngine {
       focusBadge(this.deps.focus.get(), now),
       this.waitingReminders > 0 ? REMINDER_LINES.badge(this.waitingReminders) : null,
       doNotDisturb ? REMINDER_LINES.doNotDisturb : null,
+      this.waitingForCode ? MAIL_CODE_LINES.badge : null,
     ];
     const badge = parts.filter((part) => part !== null).join(" · ") || null;
     if (badge === this.shownBadge) return;
