@@ -8,7 +8,7 @@ import { loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance
 import { characterName, chatDefaults, loadChatPreferences, saveChatPreferences, type ChatPreferences } from "../../preferences/ChatPreferences";
 import { loadUserProfile, saveUserProfile, USER_PROFILE_LIMITS } from "../../preferences/UserProfile";
 import { systemPlatform } from "../../platform/system";
-import { characterPackageFileName, characterPackageText, createCharacterPackage, importCharacterPackage, MAX_CHARACTER_PACKAGE_BYTES, parseCharacterPackage, summarizeCharacterPackage, type CharacterPackage, type CharacterPackageSummary } from "../../storage/CharacterPackage";
+import { characterPackageFileName, characterPackageText, createCharacterPackage, importCharacterPackage, MAX_CHARACTER_PACKAGE_BYTES, parseCharacterPackage, renameCharacterPackage, summarizeCharacterPackage, uniqueCharacterName, type CharacterPackage, type CharacterPackageSummary } from "../../storage/CharacterPackage";
 import { PERSONA_LIMITS } from "../../types";
 import { CharacterAvatar } from "../CharacterAvatar";
 import { ConfirmButton } from "../ConfirmButton";
@@ -39,7 +39,7 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [message, setMessage] = useState<{ area: Area; text: string } | null>(null);
   const [transferBusy, setTransferBusy] = useState(false);
-  const [pendingImport, setPendingImport] = useState<{ characterPackage: CharacterPackage; summary: CharacterPackageSummary } | null>(null);
+  const [pendingImport, setPendingImport] = useState<{ characterPackage: CharacterPackage; summary: CharacterPackageSummary; name: string } | null>(null);
   /** Bumped when the avatar changes, so the tiles read it again. */
   const [, setLookVersion] = useState(0);
   const looks = catalog.filter((entry) => !entry.custom);
@@ -121,7 +121,9 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
     }
     try {
       const characterPackage = parseCharacterPackage(await file.text());
-      setPendingImport({ characterPackage, summary: summarizeCharacterPackage(characterPackage) });
+      const summary = summarizeCharacterPackage(characterPackage);
+      const taken = catalog.map((entry) => (entry.id === packId ? preferences.name : characterName(entry.id, entry.name)));
+      setPendingImport({ characterPackage, summary, name: uniqueCharacterName(summary.name, taken) });
       setMessage(null);
     } catch (reason) {
       console.warn("Rejected a character package", reason);
@@ -134,7 +136,7 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
     setTransferBusy(true);
     let id: string;
     try {
-      id = await importCharacterPackage(pendingImport.characterPackage);
+      id = await importCharacterPackage(renameCharacterPackage(pendingImport.characterPackage, pendingImport.name));
     } catch (reason) {
       console.error("Could not import the character", reason);
       const text = String(reason);
@@ -211,7 +213,7 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
         </label>
       </div>
       {pendingImport && <div className="settings-row backup-confirm" role="alertdialog" aria-label="确认导入角色包">
-        <div className="settings-row__body"><strong>导入「{pendingImport.summary.name}」？</strong><span>将新增一个角色，包含动作图片 {pendingImport.summary.actions} 张、自定义动作 {pendingImport.summary.customActions} 个、带图层的动作 {pendingImport.summary.layeredActions} 个。</span></div>
+        <div className="settings-row__body"><strong>导入「{pendingImport.summary.name}」？</strong><span>{pendingImport.name !== pendingImport.summary.name && `已经有叫「${pendingImport.summary.name}」的角色，导入后会改名为「${pendingImport.name}」。`}将新增一个角色，包含动作图片 {pendingImport.summary.actions} 张、自定义动作 {pendingImport.summary.customActions} 个、带图层的动作 {pendingImport.summary.layeredActions} 个。</span></div>
         <div className="settings-button-row"><button type="button" className="settings-button settings-button--small" disabled={transferBusy} onClick={() => setPendingImport(null)}>取消</button><button type="button" className="settings-button settings-button--small" disabled={transferBusy} onClick={() => void importCharacter()}>{transferBusy ? "正在导入…" : "导入并切换"}</button></div>
       </div>}
       {note("transfer")}

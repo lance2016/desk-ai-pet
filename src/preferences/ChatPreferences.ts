@@ -7,6 +7,7 @@ import { loadUserProfile } from "./UserProfile";
 import { loadChatInstructions } from "./ChatInstructions";
 const schema = z.object({ name: z.string().trim().min(1).max(PERSONA_LIMITS.name), personality: z.string().trim().max(PERSONA_LIMITS.personality), length: z.enum(["short", "normal"]) });
 export type ChatPreferences = z.infer<typeof schema>;
+export { schema as chatPreferencesSchema };
 export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = { name: "小艾", personality: "温暖、自然，像朋友一样陪伴我", length: "short" };
 const key = (packId: string) => characterKey(packId, CHARACTER_DATA.chatPreferences);
 /** What a character says about itself, used until the user changes it. */

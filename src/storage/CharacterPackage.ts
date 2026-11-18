@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { userActionListSchema } from "../actions/UserActions";
 import { characterKey, CHARACTER_DATA } from "../preferences/CharacterPreferences";
+import { chatPreferencesSchema } from "../preferences/ChatPreferences";
 import { appearanceSchema, mergeAppearances, type AppearanceRecord } from "../appearance/AppearanceStore";
 import { createCustomCharacter, deleteCustomCharacter, isCustomCharacter, loadCharacterPack, loadCustomCharacters, PACK_ID_PATTERN } from "../assets/PackCatalog";
 import { PERSONA_LIMITS } from "../types";
@@ -36,7 +37,8 @@ const packageSchema = z.object({
     name: z.string().trim().min(1).max(PERSONA_LIMITS.name),
     personality: z.string().max(PERSONA_LIMITS.personality),
   }).strict().refine((character) => !isCustomCharacter(character.base), "A character package must use a built-in base"),
-  preferences: z.record(portableDataName, z.string().max(MAX_PREFERENCE_CHARS)),
+  // A character saves only the settings it changed, so any of them may be missing.
+  preferences: z.partialRecord(portableDataName,z.string().max(MAX_PREFERENCE_CHARS)),
   appearances: z.array(z.object({
     actionId: z.string().regex(ACTION_ID_PATTERN),
     value: appearanceSchema,
@@ -116,11 +118,46 @@ export function characterPackageText(characterPackage: CharacterPackage): string
   return text;
 }
 
+/** The character's chat settings in the package, when it has valid ones. */
+function packagedChatPreferences(characterPackage: CharacterPackage) {
+  const raw = characterPackage.preferences[CHARACTER_DATA.chatPreferences];
+  if (raw === undefined) return null;
+  try {
+    return chatPreferencesSchema.parse(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+/** The name the character goes by: the one the user changed it to, or the one it was created with. */
+function packagedName(characterPackage: CharacterPackage): string {
+  return packagedChatPreferences(characterPackage)?.name ?? characterPackage.character.name;
+}
+
+/** `name`, or `name 2`, `name 3`… when another character already uses it. Stays within the name limit. */
+export function uniqueCharacterName(name: string, taken: readonly string[]): string {
+  if (!taken.includes(name)) return name;
+  for (let number = 2; ; number += 1) {
+    const suffix = ` ${number}`;
+    const candidate = `${name.slice(0, PERSONA_LIMITS.name - suffix.length)}${suffix}`;
+    if (!taken.includes(candidate)) return candidate;
+  }
+}
+
+/** A copy of the package whose character goes by `name`, both as created and in its chat settings. */
+export function renameCharacterPackage(characterPackage: CharacterPackage, name: string): CharacterPackage {
+  const chat = packagedChatPreferences(characterPackage);
+  const preferences = chat
+    ? { ...characterPackage.preferences, [CHARACTER_DATA.chatPreferences]: JSON.stringify({ ...chat, name }) }
+    : characterPackage.preferences;
+  return packageSchema.parse({ ...characterPackage, character: { ...characterPackage.character, name }, preferences });
+}
+
 export function summarizeCharacterPackage(characterPackage: CharacterPackage): CharacterPackageSummary {
   const rawActions = characterPackage.preferences[CHARACTER_DATA.userActions];
   const customActions = rawActions ? userActionListSchema.parse(JSON.parse(rawActions)).length : 0;
   return {
-    name: characterPackage.character.name,
+    name: packagedName(characterPackage),
     actions: characterPackage.appearances.length,
     customActions,
     layeredActions: characterPackage.appearances.filter((appearance) => (appearance.value.layers?.length ?? 0) > 0).length,
