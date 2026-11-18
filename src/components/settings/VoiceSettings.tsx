@@ -4,6 +4,7 @@ import { mimoPlatform } from "../../platform/mimo";
 import { systemPlatform } from "../../platform/system";
 import { loadVoiceLanguage, saveVoiceLanguage, type VoiceLanguage } from "../../preferences/VoicePreferences";
 import { ConfirmButton } from "../ConfirmButton";
+import { moveRadioChoice } from "./radioKeys";
 
 /** Where MiMo API keys are made: the API Keys page of the MiMo console. */
 const MIMO_CONSOLE = "https://platform.xiaomimimo.com/";
@@ -57,7 +58,7 @@ export function VoiceSettings({ packId }: { packId: string }) {
     </article>
     <div className="settings-section__intro settings-section__intro--spaced"><h2>识别设置</h2><p>对所有角色生效。</p></div>
     <div className="settings-group">
-      <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说时选「自动」</span></div><div className="segmented" role="radiogroup" aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说时选「自动」</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
     </div>
     <p className="settings-footnote">点聊天窗口的麦克风开始录音，再点一次停止；识别结果会填进输入框，你可以修改后发送。最长录 2 分钟。</p>
   </div>;

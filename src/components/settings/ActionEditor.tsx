@@ -236,7 +236,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
     const first = await readFirstFrame(frames);
     if (!first.visible) throw new Error("这张图片是全透明的，请换一张");
     const fallback = await startingCrop(first, staged);
-    setCropping({ ...frames, names, first, crop: fallback, fallback, warning: first.opaque ? "这张图片没有透明像素，宠物可能会连底色一起显示。仍可继续摆位。" : undefined });
+    setCropping({ ...frames, names, first, crop: fallback, fallback, warning: first.opaque ? "这张图片没有透明像素，宠物可能会连底色一起显示。仍可继续调整位置。" : undefined });
     return first;
   };
   const placeCropped = async (target: Picked, crop: PictureCrop) => {
@@ -413,14 +413,14 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
       <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>
     </fieldset>}
-    <fieldset className="action-editor__group action-editor__materials" disabled={busy}><legend>动作图片</legend><div className="action-editor__types" role="group" aria-label="素材类型">{([ ["single", "单张图片"], ["frames", "多张逐帧"], ["sheet", "横向帧图"], ["grid", "宫格图片"] ] as const).map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p className="action-editor__mode-note">{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张同尺寸图片，按文件名数字顺序播放。" : mode === "sheet" ? "选择一张横向帧图，各帧需等宽排列。" : "按从左到右、从上到下拆分，所有帧使用同一摆位。"}</p>
-      {mode === "grid" && <div className="action-editor__field"><label>行数 <NumberField min={1} max={16} value={gridRows} onChange={setGridRows} /></label><label>列数 <NumberField min={1} max={16} value={gridColumns} onChange={setGridColumns} /></label>{gridSource && <button type="button" className="settings-button" onClick={() => { setError(""); void openGrid(gridSource, gridRows, gridColumns, sourceNames[0]?.split(" · ")[0] ?? "宫格图片").catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "宫格图片无法拆分")); }}>重新拆分并摆位</button>}</div>}
+    <fieldset className="action-editor__group action-editor__materials" disabled={busy}><legend>动作图片</legend><div className="action-editor__types" role="group" aria-label="素材类型">{([ ["single", "单张图片"], ["frames", "多张图片"], ["sheet", "一排多格"], ["grid", "多行多列"] ] as const).map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p className="action-editor__mode-note">{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张同尺寸图片，按文件名数字顺序播放。" : mode === "sheet" ? "一张图里横排着几个画面，每格一样宽。" : "一张图里排着几行几列画面，按从左到右、从上到下播放，位置统一调整。"}</p>
+      {mode === "grid" && <div className="action-editor__field"><label>行数 <NumberField min={1} max={16} value={gridRows} onChange={setGridRows} /></label><label>列数 <NumberField min={1} max={16} value={gridColumns} onChange={setGridColumns} /></label>{gridSource && <button type="button" className="settings-button" onClick={() => { setError(""); void openGrid(gridSource, gridRows, gridColumns, sourceNames[0]?.split(" · ")[0] ?? "宫格图片").catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "这张图片没法按这个行列数拆分")); }}>重新拆分并调整位置</button>}</div>}
       {mode === "sheet" && <label className="action-editor__field">帧数<NumberField min={1} max={16} value={frames} onChange={changeSheetFrames} /></label>}
       <div className={draggingFiles ? "action-editor__dropzone is-dragging" : "action-editor__dropzone"} onClick={(event) => { if (event.target === event.currentTarget || event.target instanceof HTMLSpanElement && !event.target.closest("label")) fileRef.current?.click(); }} onDragOver={dragOver} onDragLeave={dragLeave} onDrop={dropFiles}>
         <label className="action-editor__upload"><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple={mode === "frames"} onChange={(e) => void selectFiles(e)} /><span>{image ? "更换图片" : mode === "frames" ? "选择多张图片" : "选择图片"}</span></label>
-        {image && <button type="button" className="settings-button action-editor__adjust" disabled={busy} onClick={() => void adjust()}>重新摆位</button>}
+        {image && <button type="button" className="settings-button action-editor__adjust" disabled={busy} onClick={() => void adjust()}>调整位置</button>}
         <span className="action-editor__drop-hint">或把图片拖到这里</span>
-        <span className="action-editor__format">支持 PNG、JPG、WebP；建议透明 PNG，每张不超过 4 MB。选好后进入摆位。</span>
+        <span className="action-editor__format">支持 PNG、JPG、WebP；建议透明 PNG，每张不超过 4 MB。选好后调整位置和大小。</span>
         {sourceNames.length > 0 && <span className="action-editor__file-meta" title={sourceNames.join("、")}>{mode === "frames" ? `已选 ${sourceNames.length} 张图片` : sourceNames[0]}</span>}
       </div>
       <div className="action-editor__prompt-row"><span>{own ? "还没准备好图片？" : "需要重新生成这张图？"}</span><CopyButton className="settings-link action-editor__prompt" text={prompt} title={own ? `粘贴到 ChatGPT 后，把 ${ACTION_SLOT} 换成想要的姿势` : "和角色的图一起发给 ChatGPT，画出这一张"} onMessage={setError}>{own ? "复制提示词模板" : "复制这张图的提示词"}</CopyButton></div>
@@ -448,7 +448,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
     </details>
     {error && <p className="settings-error" role="alert">{error}</p>}
     {cropping && <PictureCropper title={`摆好「${actionName}」`} src={cropping.first.display} crop={cropping.crop} fallback={cropping.fallback} frameAspect={canvas.width / canvas.height} round={false} large warning={cropping.warning}
-      hint={`拖动摆位置，滚轮或滑块缩放。站姿头顶对齐虚线，脚踩地面线。${align === "left" ? "探头动作靠左边缘。" : ""}`}
+      hint={`拖动调整位置，滚轮或滑块缩放。站姿头顶对齐虚线，脚踩地面线。${align === "left" ? "探头动作靠左边缘。" : ""}`}
       guide={<StageGuide guide={guide} stage={canvas} />}
       onCancel={() => setCropping(null)} onConfirm={(crop) => void placeCropped(cropping, crop)} />}
     <div className="action-editor__footer">

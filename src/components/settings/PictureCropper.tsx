@@ -95,7 +95,7 @@ export function PictureCropper({ title, src, crop: initial, fallback, frameAspec
       <div className="cropper__actions">
         <button type="button" className="cropper__reset" onClick={() => setCrop(fallback)}>重置</button>
         <button type="button" onClick={onCancel}>取消</button>
-        <button type="button" className="is-primary" onClick={() => onConfirm(crop)}>应用摆位</button>
+        <button type="button" className="is-primary" onClick={() => onConfirm(crop)}>应用</button>
       </div>
     </div>
   </div>;

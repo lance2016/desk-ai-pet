@@ -1,21 +1,74 @@
-.translation { box-sizing: border-box; min-height: 100vh; padding: 24px; max-width: 760px; margin: auto; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #25252b; background: #f8f8fa; }
+/*
+ * The translation window uses the chat window's tokens (see ChatPage.css):
+ * system font, semantic greys, one radius scale and one focus ring. The native
+ * title bar names the window and closes it, so the page has neither.
+ */
+.translation {
+  --bg: #f3f2f7;
+  --group: #fff;
+  --group-border: rgba(0, 0, 0, .07);
+  --label: rgba(0, 0, 0, .85);
+  --label-2: rgba(0, 0, 0, .55);
+  --field-border: rgba(0, 0, 0, .14);
+  --accent: #8a72e0;
+  --accent-strong: #6f58c9;
+  --accent-ring: rgba(138, 114, 224, .38);
+  --accent-wash: rgba(138, 114, 224, .12);
+  --radius-group: 10px;
+  --radius-control: 6px;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  max-width: 760px;
+  margin: auto;
+  padding: 16px 20px 20px;
+  color: var(--label);
+  background: var(--bg);
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  .translation {
+    --bg: #222127;
+    --group: #2e2d34;
+    --group-border: rgba(255, 255, 255, .06);
+    --label: rgba(255, 255, 255, .88);
+    --label-2: rgba(255, 255, 255, .6);
+    --field-border: rgba(255, 255, 255, .14);
+    --accent: #a693f5;
+    --accent-strong: #7d66e0;
+    --accent-ring: rgba(166, 147, 245, .45);
+    --accent-wash: rgba(166, 147, 245, .2);
+    color-scheme: dark;
+  }
+}
+html[data-window="translation"], html[data-window="translation"] body, html[data-window="translation"] #root { margin: 0; background: #f3f2f7; }
+@media (prefers-color-scheme: dark) { html[data-window="translation"], html[data-window="translation"] body, html[data-window="translation"] #root { background: #222127; } }
+
 .translation * { box-sizing: border-box; }
-.translation button, .translation select, .translation textarea { font: inherit; }
-.translation header, .translation-language, .translation-actions, .translation-result > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.translation h1 { margin: 0; font-size: 20px; }
-.translation header p { color: #858590; font-size: 12px; margin: 5px 0 0; }
-.translation-close { background: none; border: 0; font-size: 24px; color: #888; cursor: pointer; }
-.translation-language { justify-content: flex-start; margin: 24px 0 12px; color: #777783; font-size: 13px; }
-.translation select { border: 0; background: transparent; color: #5269b7; cursor: pointer; }
-.translation textarea { width: 100%; min-height: 130px; padding: 14px; resize: vertical; border: 1px solid #e3e4ea; border-radius: 10px; background: white; outline-color: #91a1db; line-height: 1.6; }
-.translation-actions { margin: 12px 0; }
-.translation-actions span { color: #92929d; font-size: 11px; }
-.translation-actions button { border: 0; border-radius: 8px; background: #6d81c8; color: white; padding: 8px 20px; cursor: pointer; }
-.translation-actions button:disabled { opacity: .5; cursor: default; }
-.translation-message { font-size: 12px; color: #9b6b38; line-height: 1.5; }
-.translation-permission { padding: 0; border: 0; background: transparent; color: #5269b7; font-size: 12px; cursor: pointer; }
-.translation-result { margin-top: 20px; padding: 16px; border-radius: 10px; background: white; border: 1px solid #eeeef2; }
-.translation-result strong { font-size: 13px; }
-.translation-result button { border: 0; background: transparent; color: #5269b7; cursor: pointer; }
-.translation-result p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: 14px; }
-@media (prefers-color-scheme: dark) { .translation { color: #ececf0; background: #222226; } .translation textarea, .translation-result { color: #ececf0; background: #303036; border-color: #45454b; } }
+.translation ::selection { background: var(--accent-wash); }
+.translation button, .translation select, .translation textarea { font: inherit; color: inherit; }
+.translation :is(button, select):focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.translation-hint { margin: 0; color: var(--label-2); font-size: 12px; }
+.translation-language { display: flex; align-items: center; gap: 8px; margin: 14px 0 8px; color: var(--label-2); }
+.translation select { padding: 2px 4px; color: var(--accent-strong); background: transparent; border: 0; border-radius: var(--radius-control); font-weight: 600; cursor: pointer; }
+.translation textarea { width: 100%; min-height: 130px; padding: 12px 14px; resize: vertical; color: var(--label); background: var(--group); border: 1px solid var(--field-border); border-radius: var(--radius-group); outline: none; line-height: 1.6; }
+.translation textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.translation textarea::placeholder { color: var(--label-2); }
+
+.translation-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
+.translation-actions span { color: var(--label-2); font-size: 12px; }
+.translation-actions button { min-height: 28px; padding: 0 18px; color: #fff; background: var(--accent-strong); border: 0; border-radius: var(--radius-control); font-weight: 600; cursor: pointer; }
+.translation-actions button:hover:not(:disabled) { filter: brightness(1.08); }
+.translation-actions button:disabled { opacity: .45; cursor: default; }
+
+.translation-message { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 6px 6px 10px; color: var(--label); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-control); font-size: 12px; }
+.translation-message button, .translation-permission, .translation-result button { padding: 2px 6px; color: var(--accent-strong); background: transparent; border: 0; border-radius: var(--radius-control); font-size: 12px; font-weight: 600; cursor: pointer; }
+.translation-message button { flex: none; }
+.translation-permission { margin-top: 6px; }
+.translation :is(.translation-message, .translation-result) button:hover, .translation-permission:hover { background: var(--accent-wash); }
+
+.translation-result { margin-top: 16px; padding: 12px 14px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
+.translation-result > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.translation-result strong { font-size: 12px; color: var(--label-2); }
+.translation-result p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: 14px; user-select: text; }

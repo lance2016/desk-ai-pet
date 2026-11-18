@@ -12,6 +12,7 @@ import { requestPreferences } from "../../preferences/ChatPreferences";
 import { CHAT_INSTRUCTIONS_LIMIT, loadChatInstructions, saveChatInstructions } from "../../preferences/ChatInstructions";
 import type { ChatPreview } from "../../platform/chat";
 import { ChatRequestDetails } from "./ChatRequestDetails";
+import { moveRadioChoice } from "./radioKeys";
 
 const LENGTHS: readonly [ChatPreferences["length"], string][] = [["short", "简短"], ["normal", "自然"]];
 
@@ -97,7 +98,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter }: { pa
           <div className="ai-section__title"><h2 id="ai-replies-heading">回复方式</h2><p>只影响当前角色，换个角色可以单独设置。</p></div>
           <div className="settings-group ai-reply-settings">
             <div className="settings-row"><div className="settings-row__body"><strong>性格</strong><span>{preferences.personality || "还没有设置性格"}</span></div><button type="button" className="settings-button settings-button--small" onClick={onCharacter}>编辑性格</button></div>
-            <div className="settings-row"><div className="settings-row__body"><strong>回复长度</strong><span>简短适合日常聊天；自然会按问题补充细节</span></div><div className="segmented" role="radiogroup" aria-label="回复长度">{LENGTHS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={preferences.length === value} className={preferences.length === value ? "is-selected" : ""} onClick={() => updatePreferences({ ...preferences, length: value })}>{label}</button>)}</div></div>
+            <div className="settings-row"><div className="settings-row__body"><strong>回复长度</strong><span>简短适合日常聊天；自然会按问题补充细节</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="回复长度">{LENGTHS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={preferences.length === value} className={preferences.length === value ? "is-selected" : ""} onClick={() => updatePreferences({ ...preferences, length: value })}>{label}</button>)}</div></div>
             <div className="ai-instructions"><label htmlFor="chat-instructions">对回复的补充要求</label><p>还想让{who}怎么和你交流？写下你的偏好。</p><textarea id="chat-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="例如：聊天时简短一些，讨论技术问题时可以详细解释。" onChange={(event) => updateInstructions(event.currentTarget.value)} /><div className="ai-instructions__foot"><span>自动保存，仅用于这个角色的聊天</span><span>{instructions.length} / {CHAT_INSTRUCTIONS_LIMIT}</span></div></div>
           </div>
         </section>

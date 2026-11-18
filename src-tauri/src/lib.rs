@@ -39,6 +39,7 @@ const DND_ID: &str = "dnd";
 const QUIT_ID: &str = "quit";
 const SETTINGS_ID: &str = "settings";
 const NOTES_ID: &str = "notes";
+const TRANSLATE_ID: &str = "translate";
 const CHAT_ID: &str = "chat";
 const TODAY_ID: &str = "today";
 const FOCUS_ID: &str = "focus";
@@ -146,6 +147,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let chat = item(CHAT_ID, "打开聊天窗口")?;
     let today = item(TODAY_ID, "提醒")?;
     let notes = item(NOTES_ID, "备忘")?;
+    let translate = item(TRANSLATE_ID, "翻译…")?;
     let pat = item(PAT_ID, "摸摸头")?;
     let focus = item(FOCUS_ID, FOCUS_LABELS[0].1)?;
     let sizes = SIZES
@@ -169,6 +171,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &chat,
             &today,
             &notes,
+            &translate,
             &PredefinedMenuItem::separator(app)?,
             &pat,
             &focus,
@@ -240,6 +243,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             Ok(checked) => report("emit dnd event", app.emit(DND_EVENT, checked)),
             Err(error) => eprintln!("failed to read menu state: {error}"),
         },
+        TRANSLATE_ID => translation::open_translation(app.clone()),
         SETTINGS_ID => {
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
                 report("show settings", settings.show());

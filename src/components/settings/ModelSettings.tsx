@@ -3,6 +3,7 @@ import { classifyServiceError } from "../../chat/serviceErrors";
 import { chatPlatform } from "../../platform/chat";
 import { CHAT_MODEL_PATTERN, CHAT_MODELS, isBuiltInModel, loadChatModel, saveChatModel } from "../../preferences/ChatModel";
 import { deepSeekProblem } from "./AISettings";
+import { moveRadioChoice } from "./radioKeys";
 
 const CUSTOM = "custom";
 
@@ -42,7 +43,7 @@ export function ModelSettings({ keyConfigured }: { keyConfigured: boolean | null
     <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>回复用的模型</strong><span>{hint}</span></div>
-        <div className="segmented" role="radiogroup" aria-label="回复用的模型">
+        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="回复用的模型">
           {CHAT_MODELS.map((item) => <button key={item.id} type="button" role="radio" aria-checked={choice === item.id} className={choice === item.id ? "is-selected" : ""} disabled={busy} onClick={() => pickBuiltIn(item.id)}>{item.label}</button>)}
           <button type="button" role="radio" aria-checked={choice === CUSTOM} className={choice === CUSTOM ? "is-selected" : ""} disabled={busy} onClick={() => { setChoice(CUSTOM); setStatus(""); }}>自定义</button>
         </div>

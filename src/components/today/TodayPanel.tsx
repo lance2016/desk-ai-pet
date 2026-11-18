@@ -311,7 +311,7 @@ export function TodayPanel() {
         <button type="button" className="today-row__main" title="点击修改" onClick={() => setEditing({ id: item.id, draft: draftOf(item) })}>
           <span className="today-row__text">{item.text}</span>
           <span className="today-row__meta">
-            <time className={overdue ? "today-row__time is-due" : "today-row__time"}>{reminderLabel(at, now)}</time>
+            <time className={overdue ? "today-row__time is-due" : "today-row__time"}>{reminderLabel(at, now)}{overdue && " · 已到点"}</time>
             {item.repeat !== null && <span className="today-row__repeat"><Glyph name="repeat" />{repeatLabel(item.repeat)}</span>}
           </span>
         </button>
@@ -330,7 +330,7 @@ export function TodayPanel() {
             {quiet && <span className="today-quiet" title="勿扰开着：到点的提醒先显示在宠物旁边的徽标上，关掉勿扰后再弹出"><Glyph name="moon" />勿扰中</span>}
           </p>
         </div>
-        <span className="today-count"><span aria-hidden="true">{open.length}</span><span className="visually-hidden">{open.length} 个提醒未完成</span></span>
+        <span className="today-count"><span aria-hidden="true">{open.length}<small>未完成</small></span><span className="visually-hidden">{open.length} 个提醒未完成</span></span>
       </header>
 
       <form className="today-add" onSubmit={add}>

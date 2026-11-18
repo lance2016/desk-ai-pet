@@ -171,10 +171,37 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
     </div>
     {note("list")}
 
+    {creating && <>
+      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>先借用一个现有形象。创建后可以在「动作库」里把动作图一张张换成你自己的，那里也有用 AI 画图的说明。</p></div>
+      <form className="settings-card ai-settings" onSubmit={create}>
+        <label className="ai-preference">名字<input value={draft.name} maxLength={PERSONA_LIMITS.name} autoFocus placeholder="例如：阿橘" onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })} /></label>
+        <label className="ai-preference">性格<textarea value={draft.personality} maxLength={PERSONA_LIMITS.personality} placeholder="例如：慵懒、爱撒娇的橘猫，说话常带“喵”" onChange={(event) => setDraft({ ...draft, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {draft.personality.length} / {PERSONA_LIMITS.personality}</small></label>
+        {looks.length > 1 && <label className="ai-preference">形象<select value={draft.base} onChange={(event) => setDraft({ ...draft, base: event.currentTarget.value })}>{looks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
+        <div className="ai-settings__actions"><button type="button" onClick={() => { setCreating(false); setDraft(EMPTY_DRAFT); setMessage(null); }}>取消</button><button type="submit" className="is-primary" disabled={!draft.name.trim()}>创建并切换</button></div>
+        {note("create")}
+      </form>
+    </>}
+
+    {!creating && <>
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>当前角色</h2><p>名字会显示在聊天窗口里，名字和性格都会随对话发给 AI。</p></div>
+    <article className="settings-card ai-settings">
+      <label className="ai-preference">名字<input value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => update({ ...preferences, name: preferences.name.trim() || defaults.name })} /></label>
+      <label className="ai-preference">性格<textarea value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
+      <div className="ai-settings__actions">
+        <ConfirmButton confirmLabel="再点一次，改回默认的名字和性格" onConfirm={restoreDefaults}>恢复默认</ConfirmButton>
+        {isCustomCharacter(packId) && <ConfirmButton className="is-danger" confirmLabel="再点一次删除，聊天记录和动作图片一起删掉" onConfirm={() => void remove()}>删除这个角色</ConfirmButton>}
+      </div>
+      {note("current")}
+    </article>
+    </>}
+
+    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里的头像和小人。默认用角色自己的形象，也可以上传图片，再调整位置和大小。</p></div>
+    {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => setLookVersion((version) => version + 1)} />}
+
     <div className="settings-section__intro settings-section__intro--spaced"><h2>导入与导出</h2><p>把自建角色和动作图片带到另一台电脑。</p></div>
     <article className="settings-card ai-settings">
       <div className="settings-row">
-        <div className="settings-row__body"><strong>导出当前角色</strong><span>包含角色设定、动作库图片、帧数与图层配置、快捷按钮和语音偏好；不包含聊天记录、宠物状态或 API Key。</span></div>
+        <div className="settings-row__body"><strong>导出当前角色</strong><span>{current?.custom ? "包含角色设定、动作库图片、帧数与图层配置、快捷按钮和语音偏好；不包含聊天记录、宠物状态或 API Key。" : "内置角色每台电脑上都有，不用导出。切换到自建角色后可以导出。"}</span></div>
         <button type="button" className="settings-button settings-button--small" disabled={!current?.custom || transferBusy} onClick={() => void exportCharacter()}>{transferBusy ? "处理中…" : "导出角色包"}</button>
       </div>
       <div className="settings-row">
@@ -189,30 +216,5 @@ export function CharacterSettings({ packId, catalog, persona, actions, onCatalog
       </div>}
       {note("transfer")}
     </article>
-
-    {creating && <>
-      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>先借用一个现有形象。创建后可以在「动作库」复制提示词，用 ChatGPT 按你的参考图画一整套动作图，再逐个替换。</p></div>
-      <form className="settings-card ai-settings" onSubmit={create}>
-        <label className="ai-preference">名字<input value={draft.name} maxLength={PERSONA_LIMITS.name} autoFocus placeholder="例如：阿橘" onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })} /></label>
-        <label className="ai-preference">性格<textarea value={draft.personality} maxLength={PERSONA_LIMITS.personality} placeholder="例如：慵懒、爱撒娇的橘猫，说话常带“喵”" onChange={(event) => setDraft({ ...draft, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {draft.personality.length} / {PERSONA_LIMITS.personality}</small></label>
-        {looks.length > 1 && <label className="ai-preference">形象<select value={draft.base} onChange={(event) => setDraft({ ...draft, base: event.currentTarget.value })}>{looks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
-        <div className="ai-settings__actions"><button type="button" onClick={() => { setCreating(false); setDraft(EMPTY_DRAFT); setMessage(null); }}>取消</button><button type="submit" className="is-primary" disabled={!draft.name.trim()}>创建并切换</button></div>
-        {note("create")}
-      </form>
-    </>}
-
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>当前角色</h2><p>名字会显示在聊天窗口里，名字和性格都会随对话发给 AI。</p></div>
-    <article className="settings-card ai-settings">
-      <label className="ai-preference">名字<input value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => update({ ...preferences, name: preferences.name.trim() || defaults.name })} /></label>
-      <label className="ai-preference">性格<textarea value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
-      <div className="ai-settings__actions">
-        <ConfirmButton confirmLabel="再点一次，改回默认的名字和性格" onConfirm={restoreDefaults}>恢复默认</ConfirmButton>
-        {isCustomCharacter(packId) && <ConfirmButton className="is-danger" confirmLabel="再点一次删除，聊天记录和动作图片一起删掉" onConfirm={() => void remove()}>删除这个角色</ConfirmButton>}
-      </div>
-      {note("current")}
-    </article>
-
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里的头像和小人。默认用角色自己的形象，也可以上传图片，再调整位置和大小。</p></div>
-    {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => setLookVersion((version) => version + 1)} />}
   </div>;
 }

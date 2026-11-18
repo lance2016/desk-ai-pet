@@ -233,7 +233,7 @@ export function NotesPanel() {
           <p>点一条就能复制</p>
         </div>
         <span className="today-count" title={notes.length >= NEAR_FULL ? `备忘最多 ${NOTE_LIMITS.items} 条，满了会挤掉最久没改的一条` : undefined}>
-          <span aria-hidden="true">{notes.length >= NEAR_FULL ? `${notes.length}/${NOTE_LIMITS.items}` : notes.length}</span>
+          <span aria-hidden="true">{notes.length >= NEAR_FULL ? `${notes.length}/${NOTE_LIMITS.items}` : notes.length}<small>条</small></span>
           <span className="visually-hidden">共 {notes.length} 条{notes.length >= NEAR_FULL ? `，最多 ${NOTE_LIMITS.items} 条` : ""}</span>
         </span>
       </header>

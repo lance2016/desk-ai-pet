@@ -282,19 +282,19 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
 
   const filterOptions: { key: AssetFilter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: actions.length },
-    { key: "changed", label: "已替换", count: customImageCount },
+    { key: "changed", label: "已换图", count: customImageCount },
     ...(borrowedCount > 0 ? [{ key: "borrowed" as const, label: "沿用图片", count: borrowedCount }] : []),
     ...(missingCount > 0 ? [{ key: "missing" as const, label: "待补图片", count: missingCount }] : []),
   ];
 
   const statusOf = (action: AnimationEntry) => {
-    if (appearanceFor(action)) return { className: "is-changed", label: "已替换" };
+    if (appearanceFor(action)) return { className: "is-changed", label: "已换图" };
     if (isCustomPack || isUserAction(action)) return { className: "is-missing", label: "待补图片" };
     if (action.borrowedFrom) {
       const lender = actions.find((item) => item.id === action.borrowedFrom);
       return { className: "is-borrowed", label: `沿用${lender?.label ?? "其他动作"}` };
     }
-    return { className: "is-native", label: "资源包图片" };
+    return { className: "is-native", label: "原图" };
   };
 
   const renderCard = (action: AnimationEntry) => {
@@ -316,7 +316,8 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         </div>
         <p title={action.description ?? action.pose ?? ""}>{action.description ?? action.pose ?? (isUserAction(action) ? "自定义动作" : "角色动作")}</p>
         <div className="action-tile__tools">
-          <CopyButton className="action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>
+          {/* Prompts help only while a picture is still to be drawn; a drawn one offers them in its preview and editor. */}
+          {pending && <CopyButton className="action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>}
           {!pending && <button type="button" className="action-tile__link" onClick={(event) => openPreview(action, event.currentTarget)}>预览</button>}
           <button type="button" className={pending ? "action-tile__button is-primary" : "action-tile__button"} onClick={() => pending ? uploadDirect(action) : openEditor(action)}>{pending ? "上传图片" : "编辑"}</button>
         </div>

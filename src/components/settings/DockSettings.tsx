@@ -10,6 +10,7 @@ import { ControlIconView } from "../ControlIconView";
 import { DockButtonFace } from "../DockButtonFace";
 import { ConfirmButton } from "../ConfirmButton";
 import { shrinkImage } from "./shrinkImage";
+import { moveRadioChoice } from "./radioKeys";
 
 /** Uploaded icons are scaled down to this side, so they do not fill up local storage. */
 const ICON_MAX_SIDE = 128;
@@ -165,7 +166,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
         </label>
         <div className="dock-editor__field">
           <span>图标</span>
-          <div className="dock-editor__icons" role="radiogroup" aria-label={`${item.label}的图标`}>
+          <div className="dock-editor__icons" role="radiogroup" onKeyDown={moveRadioChoice} aria-label={`${item.label}的图标`}>
             {ICON_OPTIONS[item.command].map((icon) => (
               <button key={icon} type="button" role="radio" aria-checked={item.icon === icon} aria-label={ICON_NAMES[icon]} className={item.icon === icon ? "icon-choice is-selected" : "icon-choice"} onClick={() => update(key, { icon })}><ControlIcon name={icon} /></button>
             ))}
@@ -256,8 +257,9 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
           {adding && addable.length > 0 && (
             <div className="dock-add__choices" role="group" aria-label="可以添加的动作">
               {addable.map((action) => (
-                <button key={action.id} type="button" className="settings-button settings-button--small" onClick={() => { commit(setDockAction(items, action.id, true)); if (addable.length === 1) setAdding(false); }}>
-                  {action.label ?? action.id}
+                <button key={action.id} type="button" className="dock-add__choice" title={action.description ?? undefined} onClick={() => { commit(setDockAction(items, action.id, true)); if (addable.length === 1) setAdding(false); }}>
+                  <span className="dock-add__face" aria-hidden="true"><DockButtonFace item={{ kind: "action", id: action.id, enabled: true }} packId={packId} actions={actions} resolveAsset={resolveAsset} /></span>
+                  <span className="dock-add__label">{action.label ?? action.id}</span>
                 </button>
               ))}
             </div>

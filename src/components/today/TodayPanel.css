@@ -69,6 +69,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 .today-header h1 { margin: 0; color: var(--accent); font-size: 20px; font-weight: 700; line-height: 1.2; }
 .today-header p { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; color: var(--label-2); font-size: 11px; }
 .today-count { color: var(--accent); font-size: 20px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.today-count small { margin-left: 3px; color: var(--label-2); font-size: 11px; font-weight: 500; }
 .today-quiet { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-strong); }
 .today-quiet .today-glyph { width: 11px; height: 11px; }
 

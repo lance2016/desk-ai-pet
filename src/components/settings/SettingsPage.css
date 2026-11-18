@@ -125,6 +125,8 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-divider { height: 1px; background: var(--separator); }
 .settings-prose { padding: 10px 12px; }
 .settings-prose p, .settings-info p { margin: 0; color: var(--label-2); line-height: 1.6; }
+.settings-prose__list { display: grid; gap: 8px; max-width: 75ch; margin: 0; padding: 0; list-style: none; color: var(--label-2); line-height: 1.6; }
+.settings-prose__list strong { display: block; color: var(--label); font-weight: 600; }
 .settings-info { padding: 12px; }
 .settings-footnote { margin: 6px 4px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 /* Sticks under the page title, so an error from a row far down the page is still seen. */
@@ -222,7 +224,13 @@ button.dock-row__body { cursor: pointer; }
 @media (prefers-color-scheme: dark) { .dock-add { color: var(--accent); } }
 .dock-add:hover:not(:disabled) { background: var(--accent-wash); }
 .dock-add:disabled { color: var(--label-2); cursor: default; }
-.dock-add__choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px 6px; }
+.dock-add__choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin: 6px 0 4px 6px; }
+/* Each choice shows the face the button will wear on the pet. */
+.dock-add__choice { min-width: 0; display: grid; justify-items: center; gap: 5px; padding: 8px 4px 7px; background: var(--fill); border: 0; border-radius: var(--radius-control); cursor: pointer; }
+.dock-add__choice:hover { background: var(--accent-wash); }
+.dock-add__face { display: grid; place-items: center; width: 40px; height: 40px; overflow: hidden; color: var(--accent-strong); background: var(--group); border-radius: 50%; box-shadow: inset 0 0 0 .5px var(--separator); }
+.dock-add__face svg { width: 18px; height: 18px; }
+.dock-add__label { max-width: 100%; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Action library ---------- */
 .art-prompt { margin-top: 22px; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
@@ -516,6 +524,9 @@ button.dock-row__body { cursor: pointer; }
 .quiet-hours { display: flex; gap: 16px; padding: 0 0 12px; color: var(--label-2); font-size: 12px; }
 .quiet-hours label { display: flex; align-items: center; gap: 6px; }
 .quiet-hours input { height: 22px; padding: 0 6px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+/* A time or a choice at the end of a row looks like the quiet-hours fields. */
+.settings-row > :is(input[type="time"], select) { flex: none; height: 24px; padding: 0 6px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.settings-row > :is(input[type="time"], select):disabled { opacity: .45; }
 
 .shortcut-key { flex: none; min-width: 72px; padding: 2px 10px; color: var(--label); background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow), inset 0 -1px 0 var(--fill-strong); font-weight: 600; font-size: 12px; text-align: center; }
 .shortcut-key.is-recording { color: var(--accent-strong); box-shadow: 0 0 0 2px var(--accent); }

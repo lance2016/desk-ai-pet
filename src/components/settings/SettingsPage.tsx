@@ -28,6 +28,7 @@ import { LaunchAtLoginRow } from "./LaunchAtLoginRow";
 import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
+import { moveRadioChoice } from "./radioKeys";
 
 const SCALES = [
   { value: 0.75, label: "小" },
@@ -221,8 +222,8 @@ export function SettingsPage({ packId }: { packId: string }) {
             <h2 className="settings-group-title">窗口</h2>
             <div className="settings-group">
               <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>宠物显示在其他窗口前面，包括全屏应用</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>鼠标离开后快捷按钮保留</strong><span>留一点时间，方便把鼠标移到按钮上</span></div><div className="segmented" role="radiogroup" aria-label="快捷按钮保留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>鼠标离开后快捷按钮保留</strong><span>留一点时间，方便把鼠标移到按钮上</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮保留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
             <h2 className="settings-group-title">快速聊天</h2>
             <QuickChatSettings onError={setError} />
@@ -254,7 +255,14 @@ export function SettingsPage({ packId }: { packId: string }) {
             </div>
             <h2 className="settings-group-title">会发出去的内容</h2>
             <div className="settings-group settings-prose">
-              <p>聊天时，会发给 DeepSeek 的有：这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格、聊天补充要求，以及宠物会做的动作名称。早安晚安会把今天的提醒数量、专注轮数和提醒内容发给 DeepSeek 来写问候。翻译只在你点击翻译时把原文发送给 DeepSeek，不附带聊天记录和角色设定。用语音输入时，录音会发给 MiMo 识别，不会保存。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。缺少今年或明年的法定节假日安排时，宠物每天最多一次从公开的节假日数据源下载，请求里不带任何个人信息。宠物每天会去 GitHub 查一次有没有新版本，同样不带个人信息。</p>
+              <ul className="settings-prose__list">
+                <li><strong>DeepSeek · 聊天</strong>这段聊天最近的消息、当前时间、你的称呼、角色的名字和性格、聊天补充要求，以及宠物会做的动作名称。备忘只在你让宠物“记一下”时经过 DeepSeek，其余时候不会发出去。</li>
+                <li><strong>DeepSeek · 早安晚安</strong>今天的提醒数量、专注轮数和提醒内容，用来写问候。</li>
+                <li><strong>DeepSeek · 翻译</strong>只在你点击翻译时发送原文，不附带聊天记录和角色设定。</li>
+                <li><strong>MiMo · 语音输入</strong>录音发去识别，不会保存。</li>
+                <li><strong>节假日数据源</strong>缺少今年或明年的法定节假日安排时，每天最多下载一次，请求里不带任何个人信息。</li>
+                <li><strong>GitHub</strong>每天查一次有没有新版本，同样不带个人信息。</li>
+              </ul>
             </div>
           </div>
         )}
