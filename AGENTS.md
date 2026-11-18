@@ -156,6 +156,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
 - 只调用 `play_action` 的回复没有任何文字，前端只能显示「没有收到回复」。原生端遇到这种回复会去掉工具再请求一次（`needs_words`、`words_request`，在 `chat.rs`）。新加只做事、不产生文字的工具时，也要算进 `needs_words`。不要在提示词里写「动作不能代替回复」这类话：试过，模型会改成用括号描写动作（「（敲敲木鱼）」），不再调用工具，宠物就不动了。
+- DeepSeek 偶尔把自己提示格式里的东西漏进回复正文，见过的是只调了 `play_action` 时回「\n\n<budget:token_budget>200000</budget:token_budget>」。原生端在流式输出时去掉（`ReplyText`、`strip_leaked`，在 `chat.rs`），只剩这些的回复算「没说话」，照常走 `needs_words` 补一句；发历史前也会把旧回复里的清掉，免得模型照着学。再见到新的漏出格式，加进这里。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。

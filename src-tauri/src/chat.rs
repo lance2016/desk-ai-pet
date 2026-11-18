@@ -616,6 +616,14 @@ fn start_request(
         if !matches!(role, "user" | "assistant") || content.is_empty() || content.len() > 16_000 {
             return Err("Invalid conversation content".into());
         }
+        // Replies saved before leaked tags were stripped would teach the model to repeat them.
+        if role == "assistant" {
+            let clean = strip_leaked(content);
+            if !clean.trim().is_empty() {
+                safe.push(json!({"role":role,"content":clean}));
+            }
+            continue;
+        }
         safe.push(json!({"role":role,"content":content}));
     }
     let key = crate::secrets::load(&service(&app))?.ok_or("API key is not configured")?;
@@ -858,11 +866,73 @@ impl Round {
     }
 }
 
+/// DeepSeek sometimes leaks part of its own prompt format into a reply, such as
+/// `<budget:token_budget>200000</budget:token_budget>` after a play_action call. It is never for the user.
+const LEAKED_OPEN: &str = "<budget:";
+const LEAKED_CLOSE: &str = "</budget:";
+
+/// `text` without complete leaked tags; an unfinished one at the end stays.
+fn strip_leaked(text: &str) -> String {
+    let mut clean = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find(LEAKED_OPEN) {
+        clean.push_str(&rest[..start]);
+        let tag = &rest[start..];
+        match tag.find(LEAKED_CLOSE).and_then(|close| tag[close..].find('>').map(|end| close + end + 1)) {
+            Some(end) => rest = &tag[end..],
+            None => {
+                rest = tag;
+                break;
+            }
+        }
+    }
+    clean.push_str(rest);
+    clean
+}
+
+/// The reply's text on its way to the webview, without leaked tags. A tag can arrive split
+/// over several chunks, so text that may still turn into one is held back until it is clear.
+/// Blank lines before the first words are dropped: a reply of only those has said nothing.
+#[derive(Default)]
+struct ReplyText {
+    pending: String,
+    started: bool,
+}
+
+impl ReplyText {
+    /// Takes the next chunk; returns the text that can be shown now.
+    fn push(&mut self, text: &str) -> String {
+        self.pending.push_str(text);
+        self.pending = strip_leaked(&self.pending);
+        if !self.started {
+            self.pending = self.pending.trim_start().to_owned();
+        }
+        let hold = if let Some(start) = self.pending.find(LEAKED_OPEN) {
+            start
+        } else {
+            match self.pending.rfind('<') {
+                Some(start) if LEAKED_OPEN.starts_with(&self.pending[start..]) => start,
+                _ => self.pending.len(),
+            }
+        };
+        let ready: String = self.pending.drain(..hold).collect();
+        self.started |= !ready.is_empty();
+        ready
+    }
+
+    /// The text still held when the reply ends; an unfinished leaked tag is dropped.
+    fn finish(&mut self) -> String {
+        let rest = std::mem::take(&mut self.pending);
+        if rest.starts_with(LEAKED_OPEN) { String::new() } else { rest }
+    }
+}
+
 /// Streams the text to the webview as it arrives and collects the tool calls, until curl exits.
 fn read_stream(app: &AppHandle, window: &str, request_id: &str, child: &Arc<Mutex<Child>>, stdout: ChildStdout, stderr: Option<ChildStderr>) -> Round {
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
     let mut round = Round::default();
+    let mut reply = ReplyText::default();
     loop {
         line.clear();
         match reader.read_line(&mut line) {
@@ -876,6 +946,7 @@ fn read_stream(app: &AppHandle, window: &str, request_id: &str, child: &Arc<Mute
                 match parse_stream_line(&line) {
                     StreamLine::Done => round.done = true,
                     StreamLine::Chunk { text, tools, truncated } => {
+                        let text = reply.push(&text);
                         if !text.is_empty() {
                             round.said = true;
                             emit(app, window, request_id, "delta", &text);
@@ -889,6 +960,11 @@ fn read_stream(app: &AppHandle, window: &str, request_id: &str, child: &Arc<Mute
             }
             Err(_) => break,
         }
+    }
+    let rest = reply.finish();
+    if !rest.is_empty() {
+        round.said = true;
+        emit(app, window, request_id, "delta", &rest);
     }
     let status = loop {
         let result = child.lock().ok().and_then(|mut process| process.try_wait().ok());
@@ -1283,5 +1359,49 @@ mod lookup_tests {
         assert!(saved_items(&json!({"reminders":vec!["开会"; MAX_REMINDERS + 1]})).is_err());
         assert!(saved_items(&json!({"reminders":[1]})).is_err());
         assert!(saved_items(&json!({"today":vec!["专注了 0 轮"; MAX_TODAY_LINES + 1]})).is_err());
+    }
+}
+
+#[cfg(test)]
+mod leaked_tests {
+    use super::{ReplyText, strip_leaked};
+
+    /// Feeds `chunks` through as one streamed reply and returns what the webview gets.
+    fn shown(chunks: &[&str]) -> Vec<String> {
+        let mut reply = ReplyText::default();
+        let mut out: Vec<String> = chunks.iter().map(|chunk| reply.push(chunk)).collect();
+        out.push(reply.finish());
+        out
+    }
+
+    #[test]
+    fn strips_complete_tags_and_keeps_the_words() {
+        assert_eq!(strip_leaked("好呀<budget:token_budget>200000</budget:token_budget>！"), "好呀！");
+        assert_eq!(strip_leaked("a < b，<b>粗</b>"), "a < b，<b>粗</b>");
+        assert_eq!(strip_leaked("还没完<budget:token"), "还没完<budget:token");
+    }
+
+    #[test]
+    fn a_reply_of_only_a_leaked_tag_says_nothing() {
+        let out = shown(&["\n\n", "<budget:token_budget>200000</budget:token_budget>"]);
+        assert!(out.iter().all(String::is_empty));
+    }
+
+    #[test]
+    fn a_tag_split_over_chunks_is_held_back_and_dropped() {
+        assert_eq!(shown(&["跳好啦", "<bud", "get:token_budget>2</budget:", "token_budget>", "！"]).concat(), "跳好啦！");
+        assert_eq!(shown(&["好", "<budget:token_budget>2000"]).concat(), "好");
+    }
+
+    #[test]
+    fn other_angle_brackets_still_come_through() {
+        assert_eq!(shown(&["1 <", " 2"]), vec!["1 ", "< 2", ""]);
+        assert_eq!(shown(&["看 <b", "r>"]).concat(), "看 <br>");
+        assert_eq!(shown(&["结尾是 <"]).concat(), "结尾是 <");
+    }
+
+    #[test]
+    fn only_blank_lines_before_the_first_words_are_dropped() {
+        assert_eq!(shown(&["\n\n", "第一行\n\n", "第二行"]).concat(), "第一行\n\n第二行");
     }
 }
