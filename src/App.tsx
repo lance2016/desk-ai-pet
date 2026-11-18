@@ -39,6 +39,7 @@ import { PixiRenderer } from "./renderer/PixiRenderer";
 import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
 import { isQuietAt, loadQuietPreferences, saveQuietPreferences } from "./preferences/QuietPreferences";
 import { loadQuickChatShortcut, quickChatShortcutLabel } from "./preferences/QuickChatPreferences";
+import { recordActionTrigger } from "./preferences/ActionTriggerStats";
 import { createLocalPetStorage } from "./storage/PetStorage";
 import { loadFocus, saveFocus } from "./storage/FocusStorage";
 import type { FocusSnapshot } from "./behavior/FocusTimer";
@@ -169,7 +170,7 @@ export default function App({ packId }: AppProps) {
     restoredPosition.current = petWindow.restorePosition().catch((error: unknown) => { console.warn("Could not restore the pet position", error); return false; });
 
     loadCharacterPack(packId)
-      .then((pack) => PetRuntime.create({ renderer, storage, pack, reminders: REMINDERS, isQuiet, holdsReminders, focusStore: FOCUS_STORE, userActions: () => loadUserActions(packId) }))
+      .then((pack) => PetRuntime.create({ renderer, storage, pack, reminders: REMINDERS, isQuiet, holdsReminders, focusStore: FOCUS_STORE, userActions: () => loadUserActions(packId), onActionStarted: (actionId) => recordActionTrigger(packId, actionId) }))
       .then((instance) => {
         if (cancelled) {
           instance.destroy();

@@ -79,6 +79,8 @@ interface RuntimeOptions {
   focusStore?: { load(): FocusSnapshot | null; save(snapshot: FocusSnapshot): void };
   /** The actions the user made for this character, read again whenever one changes. */
   userActions?: () => UserAction[];
+  /** Observes actions that actually started; wired by the app to local statistics. */
+  onActionStarted?: (actionId: string) => void;
 }
 
 /** Wires the modules together and owns their lifetime. */
@@ -92,6 +94,7 @@ export class PetRuntime {
   private readonly tickTimer: ReturnType<typeof setInterval>;
   private readonly stopSaving: () => void;
   private readonly stopMirroring: () => void;
+  private readonly stopTrackingActions: () => void;
   private readonly isQuiet: (now: number) => boolean;
   private readonly userActions: () => UserAction[];
   private lastProactiveAt: number | null = null;
@@ -110,7 +113,7 @@ export class PetRuntime {
     /** What each action shows, as `showLooks` left it. */
     private readonly shown: Map<string, string>,
     storage: PetStorage,
-    { reminders, isQuiet, holdsReminders, focusStore, userActions }: Pick<RuntimeOptions, "reminders" | "isQuiet" | "holdsReminders" | "focusStore" | "userActions">,
+    { reminders, isQuiet, holdsReminders, focusStore, userActions, onActionStarted }: Pick<RuntimeOptions, "reminders" | "isQuiet" | "holdsReminders" | "focusStore" | "userActions" | "onActionStarted">,
   ) {
     this.currentManifest = manifest;
     this.focus = new FocusTimer(restoreFocus(focusStore?.load() ?? null, Date.now()), focusStore?.save);
@@ -119,6 +122,12 @@ export class PetRuntime {
     this.registry.registerManifest(manifest, new Set([...loaded].filter((id) => !unplayable.has(id))));
     this.state = new PetState(createSnapshot(Date.now(), storage.loadPet() ?? undefined));
     this.controller = new ActionController({ registry: this.registry, renderer, bus: this.bus });
+    this.stopTrackingActions = onActionStarted
+      ? this.bus.on("pet.action.started", ({ actionId }) => {
+          try { onActionStarted(actionId); }
+          catch (error) { console.warn("Failed to record an action start", error); }
+        })
+      : () => {};
     this.behavior = new BehaviorEngine({
       bus: this.bus,
       state: this.state,
@@ -276,6 +285,7 @@ export class PetRuntime {
     clearInterval(this.tickTimer);
     this.stopSaving();
     this.stopMirroring();
+    this.stopTrackingActions();
     this.behavior.stop();
     this.controller.dispose();
     this.renderer.destroy();

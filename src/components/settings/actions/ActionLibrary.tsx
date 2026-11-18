@@ -5,6 +5,7 @@ import { ActionThumbnail } from "./ActionThumbnail";
 import { ActionEditor, VisualPreview } from "./ActionEditor";
 import { CopyButton } from "./CopyButton";
 import { PromptField } from "./PromptField";
+<<<<<<< Updated upstream:src/components/settings/actions/ActionLibrary.tsx
 import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../../actions/UserActions";
 import { BASE_ACTION } from "../../../appearance/looks";
 import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../../assets/ArtPrompt";
@@ -14,6 +15,28 @@ import { petWindow } from "../../../platform/petWindow";
 import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../../preferences/ActionPreferences";
 import { loadArtPrompts, saveArtPrompts } from "../../../preferences/ArtPromptPreferences";
 import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../../preferences/DockPreferences";
+||||||| Stash base:src/components/settings/ActionLibrary.tsx
+import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
+import { BASE_ACTION } from "../../appearance/looks";
+import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
+import type { AnimationEntry, PetControl } from "../../assets/Manifest";
+import type { ActionScene, ActionTier } from "../../types";
+import { petWindow } from "../../platform/petWindow";
+import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
+import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
+import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../preferences/DockPreferences";
+=======
+import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../actions/UserActions";
+import { BASE_ACTION } from "../../appearance/looks";
+import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../assets/ArtPrompt";
+import type { AnimationEntry, PetControl } from "../../assets/Manifest";
+import type { ActionScene, ActionTier } from "../../types";
+import { petWindow } from "../../platform/petWindow";
+import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../preferences/ActionPreferences";
+import { loadArtPrompts, saveArtPrompts } from "../../preferences/ArtPromptPreferences";
+import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../preferences/DockPreferences";
+import { loadActionTriggerStats, subscribeActionTriggerStats } from "../../preferences/ActionTriggerStats";
+>>>>>>> Stashed changes:src/components/settings/ActionLibrary.tsx
 
 const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined)[] }[] = [
   { title: "先画这几张", note: "先确定待机形象，再补常用动作。", tiers: ["required", "core"] },
@@ -75,6 +98,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   const [appearances, setAppearances] = useState<Record<string, ActionAppearance> | null>(null);
   const [inDock, setInDock] = useState(() => loadDock(packId, dockControls(controls), actions).filter((item) => item.kind === "action" && item.enabled).map((item) => item.id));
   const [disabledIdle, setDisabledIdle] = useState(() => loadDisabledIdleActions(packId));
+  const [triggerStats, setTriggerStats] = useState(() => loadActionTriggerStats(packId));
   const [message, setMessage] = useState("");
   const [prompts, setPrompts] = useState(() => loadArtPrompts(packId));
   const [search, setSearch] = useState("");
@@ -89,6 +113,12 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     const reload = () => setInDock(loadDock(packId, dockControls(controls), actions).filter((item) => item.kind === "action" && item.enabled).map((item) => item.id));
     return subscribeDock(packId, reload);
   }, [packId, controls, actions]);
+
+  useEffect(() => {
+    const reload = () => setTriggerStats(loadActionTriggerStats(packId));
+    reload();
+    return subscribeActionTriggerStats(packId, reload);
+  }, [packId]);
 
   useEffect(() => {
     let active = true;
@@ -317,6 +347,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
           {status && <span className={`action-tile__status ${status.className}`} title={status.label}>{status.label}</span>}
         </div>
         <p title={action.description ?? action.pose ?? ""}>{action.description ?? action.pose ?? (isUserAction(action) ? "自定义动作" : "角色动作")}</p>
+        <span className="action-tile__count">实际播放 {triggerStats[action.id] ?? 0} 次</span>
         <div className="action-tile__tools">
           {/* Prompts help only while a picture is still to be drawn; a drawn one offers them in its preview and editor. */}
           {pending && <CopyButton className="action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>}
@@ -356,6 +387,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       <button type="button" aria-pressed={sceneFilter === "all"} className={sceneFilter === "all" ? "is-selected" : ""} onClick={() => setSceneFilter("all")}>所有场景</button>
       {descriptors.filter((group) => categoryCount(group.key as SceneFilter) > 0).map((group) => <button key={group.key} type="button" aria-pressed={sceneFilter === group.key} className={sceneFilter === group.key ? "is-selected" : ""} onClick={() => setSceneFilter(group.key as SceneFilter)}>{group.title}<span>{categoryCount(group.key as SceneFilter)}</span></button>)}
     </nav>
+    <p className="action-library__stats-note">统计动作实际开始播放的次数，从本次更新起累计；手动预览也会计入。</p>
 
     {isCustomPack && <details className="action-guide" open={guideOpen} onToggle={(event) => setGuideOpen(event.currentTarget.open)}>
       <summary><span>素材制作说明</span><small>{baseDrawn ? "可以逐张补动作，也可以修改提示词" : "先上传待机图，再补其他动作"}</small></summary>
@@ -403,6 +435,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
             <aside className="action-preview__details">
               {previewStatus && <span className={`action-tile__status ${previewStatus.className}`}>{previewStatus.label}</span>}
               <p>{previewAction.description ?? previewAction.pose ?? "角色动作"}</p>
+              <span className="action-preview__meta">实际播放 {triggerStats[previewAction.id] ?? 0} 次 · 从本次更新起</span>
               {previewArt && previewArt.frames > 1 && <span className="action-preview__meta">{previewArt.frames} 帧 · {previewArt.fps} 帧 / 秒</span>}
               {previewAction.duration && <span className="action-preview__meta">播放时长 {`${(previewAction.duration / 1000).toFixed(1)} 秒`}</span>}
               {previewArt?.randomFlip && <span className="action-preview__meta">每次随机朝左或朝右，一张图镜像出两个方向；可在编辑图片里关掉</span>}

@@ -192,10 +192,26 @@ export class BehaviorEngine {
   private focusPrompt: { text: string; choices: AlertChoice[]; until: number } | null = null;
   /** The edge the pet left to call the user, and when to go back behind it. */
   private returnTo: { side: DockSide; at: number | null } | null = null;
+<<<<<<< Updated upstream
   /** An action asked for while the pet slept, played once it is awake and idle. */
   private pendingAction: { id: string; onAccepted?: () => void } | null = null;
   /** The part of a conversation going on, and when to stop waiting for news of it. */
   private chat: { phase: keyof typeof BEHAVIOR_CONFIG.chatHoldMs; until: number } | null = null;
+||||||| Stash base
+  /** An action asked for while the pet slept, played once it is awake and idle. */
+  private pendingAction: { id: string; onAccepted?: () => void } | null = null;
+  /** When the focus button was last pressed during a round, to ask before stopping. */
+  private stopAskedAt: number | null = null;
+  /** The part of a conversation the pet is posing for, and when to stop waiting for news of it. */
+  private chat: { phase: keyof typeof CHAT_POSES; until: number } | null = null;
+=======
+  /** Actions held briefly by a non-interruptible wake-up or higher-priority action. */
+  private pendingActions: Array<{ id: string; onAccepted?: () => void }> = [];
+  /** When the focus button was last pressed during a round, to ask before stopping. */
+  private stopAskedAt: number | null = null;
+  /** The part of a conversation the pet is posing for, and when to stop waiting for news of it. */
+  private chat: { phase: keyof typeof CHAT_POSES; until: number } | null = null;
+>>>>>>> Stashed changes
   /** A pose this engine put up that others may play too (think); tells its own from theirs. */
   private posed: string | null = null;
   private patStreak = { count: 0, at: 0 };
@@ -255,6 +271,15 @@ export class BehaviorEngine {
     this.unsubscribers = [];
   }
 
+  private deferAction(id: string, onAccepted?: () => void): void {
+    const existing = this.pendingActions.find((action) => action.id === id);
+    if (existing) {
+      if (onAccepted) existing.onAccepted = onAccepted;
+      return;
+    }
+    this.pendingActions.push({ id, onAccepted });
+  }
+
   /** Runs the autonomous checks. Cheap enough to call about once a second. */
   tick(now: number): void {
     const { state, controller } = this.deps;
@@ -263,11 +288,16 @@ export class BehaviorEngine {
     if (this.focusPrompt && now >= this.focusPrompt.until) this.clearFocusPrompt();
     this.showBadge(now);
     const idling = () => state.get().activity === "awake" && controller.current?.id === IDLE_ACTION;
-    if (idling() && this.pendingAction) {
-      const { id, onAccepted } = this.pendingAction;
-      this.pendingAction = null;
-      if (controller.request(id).accepted) onAccepted?.();
-      return;
+    if (this.pendingActions.length > 0 && state.get().activity === "awake" && !this.dockSide) {
+      const pending = this.pendingActions[0];
+      const result = controller.request(pending.id);
+      if (result.accepted) {
+        this.pendingActions.shift();
+        pending.onAccepted?.();
+        return;
+      }
+      if (result.reason === "busy") return;
+      this.pendingActions.shift();
     }
     this.settle(now);
     if (!idling()) return;
@@ -306,15 +336,22 @@ export class BehaviorEngine {
     this.rouse();
   }
 
-  /** A pat: the pet reacts once it is awake and out in the open, and turns shy when the pats keep coming. */
+  /** A pat: count every deliberate pat, then react when the controller can play the matching action. */
   private onPetted(): void {
     const { state, controller } = this.deps;
     if (this.rouse()) return;
     const now = Date.now();
     const count = now - this.patStreak.at <= BEHAVIOR_CONFIG.patStreakMs ? this.patStreak.count + 1 : 1;
-    if (!controller.request(count >= BEHAVIOR_CONFIG.shyFromPat ? SHY_ACTION : PET_ACTION).accepted) return;
+    const id = count >= BEHAVIOR_CONFIG.shyFromPat ? SHY_ACTION : PET_ACTION;
     this.patStreak = { count, at: now };
-    state.changeStats(BEHAVIOR_CONFIG.effects.pet);
+    const accepted = () => state.changeStats(BEHAVIOR_CONFIG.effects.pet);
+    if (controller.current?.id === "wake_up") {
+      this.deferAction(id, accepted);
+      return;
+    }
+    const result = controller.request(id);
+    if (result.accepted) accepted();
+    else if (result.reason === "busy") this.deferAction(id, accepted);
   }
 
   /** True while the user is typing, a reply is awaited, or one is coming out. */
@@ -373,7 +410,13 @@ export class BehaviorEngine {
   private react(id: string): void {
     const { state, controller } = this.deps;
     state.markInteraction(Date.now());
-    if (state.get().activity === "awake" && !this.dockSide) controller.request(id);
+    if (state.get().activity !== "awake" || this.dockSide) return;
+    if (controller.current?.id === "wake_up") {
+      this.deferAction(id);
+      return;
+    }
+    const result = controller.request(id);
+    if (!result.accepted && result.reason === "busy") this.deferAction(id);
   }
 
   private onItemDone(): void {
@@ -425,9 +468,11 @@ export class BehaviorEngine {
   /** The cursor is not an interaction: the idle pet glances at it now and then, and still dozes off under it. */
   private onHovered(): void {
     const now = Date.now();
-    const { state, controller } = this.deps;
+    const { state, controller, registry } = this.deps;
     if (now - this.lastGlanceAt < BEHAVIOR_CONFIG.glanceGapMs) return;
-    if (state.get().activity !== "awake" || this.dockSide || controller.current?.id !== IDLE_ACTION) return;
+    const current = controller.current;
+    const idling = current?.id === IDLE_ACTION || registry.get(current?.id ?? "")?.category === BEHAVIOR_CONFIG.idleCategory;
+    if (state.get().activity !== "awake" || this.dockSide || !idling) return;
     this.lastGlanceAt = now;
     controller.request(GLANCE_ACTION);
   }
@@ -459,8 +504,8 @@ export class BehaviorEngine {
     const { state, controller } = this.deps;
     state.markInteraction(Date.now());
     this.returnTo = null;
-    this.pendingAction = null;
     this.setDock(null);
+    if (controller.current?.id === "wake_up") controller.stop();
     const result = controller.request(DRAG_ACTION);
     // Being picked up wakes the pet, but only if it visibly reacts to it.
     if (result.accepted && result.actionId === DRAG_ACTION) state.setActivity("awake");
@@ -471,6 +516,12 @@ export class BehaviorEngine {
     const { state, controller } = this.deps;
     state.markInteraction(now);
     if (controller.current?.id === DRAG_ACTION) controller.stop();
+    if (dockSide && state.get().activity === "awake" && this.pendingActions.length > 0) {
+      this.returnTo = { side: dockSide, at: null };
+      this.setDock(null);
+      this.scheduleIdleAction(now);
+      return;
+    }
     if (dockSide && state.get().activity === "awake") {
       const result = controller.request(PEEK_ACTION);
       if (result.accepted && result.actionId === PEEK_ACTION) this.setDock(dockSide);
@@ -506,15 +557,21 @@ export class BehaviorEngine {
     state.markInteraction(Date.now());
     this.returnTo = null;
     if (state.get().activity === "sleeping") {
+      this.deferAction(id, onAccepted);
       this.wakeUp();
-      this.pendingAction = { id, onAccepted };
+      return;
+    }
+    if (controller.current?.id === "wake_up") {
+      this.deferAction(id, onAccepted);
       return;
     }
     if (this.dockSide) {
       this.setDock(null);
       controller.stop();
     }
-    if (controller.request(id).accepted) onAccepted?.();
+    const result = controller.request(id);
+    if (result.accepted) onAccepted?.();
+    else if (result.reason === "busy") this.deferAction(id, onAccepted);
   }
 
   private onSleepRequested(): void {
@@ -724,14 +781,29 @@ export class BehaviorEngine {
   private callOut(now: number, action: string): void {
     const { state, controller } = this.deps;
     state.markInteraction(now);
+<<<<<<< Updated upstream
     // The call-out itself wakes the pet: a wake-up animation would refuse it.
     if (state.get().activity === "sleeping") this.wakeUp(false);
+||||||| Stash base
+    if (state.get().activity === "sleeping") this.wakeUp();
+=======
+>>>>>>> Stashed changes
     if (this.dockSide) {
       this.returnTo = { side: this.dockSide, at: null };
       this.setDock(null);
       controller.stop();
     }
-    controller.request(action);
+    if (state.get().activity === "sleeping") {
+      this.deferAction(action);
+      this.wakeUp();
+      return;
+    }
+    if (controller.current?.id === "wake_up") {
+      this.deferAction(action);
+      return;
+    }
+    const result = controller.request(action);
+    if (!result.accepted && result.reason === "busy") this.deferAction(action);
   }
 
   /** Stops a running round or rest and leaves the focus pose. */

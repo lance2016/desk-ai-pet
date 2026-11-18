@@ -10,7 +10,7 @@ function serveManifest(extraAnimations: unknown[] = []) {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(manifest))));
 }
 
-async function start(options: { renderer?: FakeRenderer; backing?: Storage; isQuiet?: (now: number) => boolean; userActions?: () => UserAction[] } = {}) {
+async function start(options: { renderer?: FakeRenderer; backing?: Storage; isQuiet?: (now: number) => boolean; userActions?: () => UserAction[]; onActionStarted?: (actionId: string) => void } = {}) {
   const renderer = options.renderer ?? new FakeRenderer();
   const backing = options.backing ?? createMemoryStorage();
   const runtime = await PetRuntime.create({
@@ -19,6 +19,7 @@ async function start(options: { renderer?: FakeRenderer; backing?: Storage; isQu
     pack: await loadAssetPack("/pets/test-pet"),
     isQuiet: options.isQuiet,
     userActions: options.userActions,
+    onActionStarted: options.onActionStarted,
   });
   return { runtime, renderer, backing };
 }
@@ -55,6 +56,17 @@ describe("PetRuntime", () => {
     const { runtime, renderer } = await start();
     expect(renderer.played).toEqual(["idle"]);
     expect(runtime.registry.has("happy")).toBe(true);
+    runtime.destroy();
+  });
+
+  it("reports actual action starts, including the initial idle action", async () => {
+    const onActionStarted = vi.fn();
+    const { runtime } = await start({ onActionStarted });
+    expect(onActionStarted.mock.calls).toEqual([["idle"]]);
+
+    runtime.requestAction("happy");
+    runtime.requestAction("happy");
+    expect(onActionStarted.mock.calls).toEqual([["idle"], ["happy"]]);
     runtime.destroy();
   });
 

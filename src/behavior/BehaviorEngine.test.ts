@@ -250,6 +250,7 @@ describe("passing reactions", () => {
     expect(state.get().activity).toBe("sleeping");
   });
 
+<<<<<<< Updated upstream
   it("stays up while the user works at the computer, and dozes off once they leave", () => {
     const { bus, state, renderer, passSteps } = reacting();
     for (let report = 0; report < 60; report += 1) {
@@ -284,6 +285,15 @@ describe("passing reactions", () => {
     bus.emit("pet.sleep", {});
     bus.emit("pet.user_active", { at: Date.now() + 1_000 });
     expect(state.get().activity).toBe("sleeping");
+||||||| Stash base
+=======
+  it("glances at the cursor while an idle fidget is playing", () => {
+    const { bus, controller } = reacting();
+    bus.emit("pet.action_requested", { id: "blink" });
+    expect(controller.current?.id).toBe("blink");
+    bus.emit("pet.hovered", {});
+    expect(controller.current?.id).toBe("look_around");
+>>>>>>> Stashed changes
   });
 
   it("waves with a greeting", () => {
@@ -327,6 +337,17 @@ describe("user interaction", () => {
     bus.emit("pet.petted", {});
     expect(state.get().activity).toBe("awake");
     expect(renderer.played).not.toContain("pet_reaction");
+  });
+
+  it("reacts to a pat after an already-running wake-up animation", () => {
+    const { bus, controller, state, pass } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.wake_up", {});
+    bus.emit("pet.petted", {});
+    expect(controller.current?.id).toBe("wake_up");
+    pass(1_000);
+    expect(controller.current?.id).toBe("pet_reaction");
+    expect(state.get().stats.affinity).toBe(52);
   });
 
   it("feeds the pet", () => {
@@ -393,6 +414,14 @@ describe("being carried", () => {
 
     bus.emit("pet.drag_ended", { dockSide: null });
     expect(controller.current?.id).toBe("idle");
+  });
+
+  it("starts the drag action if picked up during wake-up", () => {
+    const { bus, controller } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.wake_up", {});
+    bus.emit("pet.drag_started", {});
+    expect(controller.current?.id).toBe("drag");
   });
 
   it("keeps sleeping when the pack has no drag animation", () => {
@@ -520,6 +549,16 @@ describe("sleeping and waking", () => {
   it("wakes up for an action from the dock or the action library", () => {
     const { bus, renderer, pass } = setup();
     bus.emit("pet.sleep", {});
+    bus.emit("pet.action_requested", { id: "wooden_fish" });
+    expect(renderer.last).toBe("wake_up");
+    pass(1_000);
+    expect(renderer.last).toBe("wooden_fish");
+  });
+
+  it("plays a requested action after an already-running wake-up animation", () => {
+    const { bus, renderer, pass } = setup();
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.wake_up", {});
     bus.emit("pet.action_requested", { id: "wooden_fish" });
     expect(renderer.last).toBe("wake_up");
     pass(1_000);
@@ -839,6 +878,40 @@ describe("reminders", () => {
     expect(shown).toHaveLength(2);
   });
 
+  it("plays the reminder action after waking a sleeping pet", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "快递", remindAt: Date.now() + 1_000 }]);
+    const { bus, controller, pass } = setup({ reminders, extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.sleep", {});
+    pass(1_000);
+    expect(controller.current?.id).toBe("wake_up");
+    pass(1_000);
+    expect(controller.current?.id).toBe("remind");
+  });
+
+  it("waits for a higher-priority action, then plays the reminder", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "快递", remindAt: Date.now() + 1_000 }]);
+    const { bus, controller, pass } = setup({ reminders, extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.fed", {});
+    expect(controller.current?.id).toBe("eat");
+    pass(1_000);
+    expect(controller.current?.id).toBe("eat");
+    pass(1_500);
+    expect(controller.current?.id).toBe("remind");
+  });
+
+  it("calls out after a drag ends at the screen edge", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "快递", remindAt: Date.now() + 1_000 }]);
+    const { bus, controller, docks, pass } = setup({ reminders, extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.drag_started", {});
+    pass(1_000);
+    expect(controller.current?.id).toBe("drag");
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    pass(0);
+    expect(controller.current?.id).toBe("remind");
+    expect(docks).toEqual([]);
+  });
+
   it("wakes the pet and brings it out from the screen edge", () => {
     const reminders = fakeReminders([{ id: "r1", text: "喝水", remindAt: Date.now() + 1_000 }]);
     const sleeping = setup({ reminders });
@@ -992,6 +1065,15 @@ describe("greetings", () => {
     expect(state.get().activity).toBe("awake");
     expect(docks).toEqual(["right", null]);
     expect(said).toEqual(["早上好！"]);
+  });
+
+  it("plays the greeting action after waking a sleeping pet", () => {
+    const { bus, controller, pass } = setup({ extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.sleep", {});
+    bus.emit("pet.greeting", { text: "早上好！" });
+    expect(controller.current?.id).toBe("wake_up");
+    pass(1_000);
+    expect(controller.current?.id).toBe("wave");
   });
 
   it("goes back behind the edge after a greeting", () => {

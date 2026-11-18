@@ -213,6 +213,8 @@ pnpm exec tsc --noEmit && pnpm test
 - 不要假设角色画全了动作。自建角色可能只有一张待机图，其余都是借图（`src/appearance/looks.ts`）。只有 `requiresArt` 的动作（目前是 `peek`）会因为没图而不能播，用到它的地方要看请求结果里的 `actionId`。
 - 新增动效：改 `src/renderer/motions.ts` 和 `src/types.ts` 的 `MOTION_PRESETS`。会让整个宠物移动的动效（跳、晃、抖）要加进 `TRAVELLING`，系统开了「减弱动态效果」时会去掉。
 - 行为引擎按名字使用的动作见 `ACTIONS.md` 的"内置动作名"。改名要同步改 `BehaviorEngine.ts`。
+- `wake_up` 不可被控制器动作请求打断。提醒、问候、摸摸头、备忘反应和快捷动作要在 `BehaviorEngine` 中等它结束后再请求；拖动是直接用户操作，开始拖动时先停止唤醒动作。提醒、问候也要在更高优先级动作结束后补播，拖动时到点则松手后再呼叫。
+- 动作播放次数只从 `pet.action.started` 统计，不能数 `requestAction()` 的请求数：控制器可能因冷却、优先级、图片降级拒绝或替换动作。统计键按角色登记在 `CHARACTER_DATA`，只记本版本之后实际开始的播放。
 
 ## 文档要跟着改
 

@@ -56,7 +56,8 @@ src/
 │   ├── CharacterPreferences.ts 当前角色、按角色生成存储 key、旧数据迁移
 │   ├── QuietPreferences.ts  勿扰、免打扰时段，判断现在是否该安静
 │   ├── DisplayPreferences.ts 本机显示偏好与跨窗口同步
-│   └── DockPreferences.ts   Dock：内置按钮、角色按钮和动作合成一个有序列表，校验、迁移、同步
+│   ├── DockPreferences.ts   Dock：内置按钮、角色按钮和动作合成一个有序列表，校验、迁移、同步
+│   └── ActionTriggerStats.ts 按角色记录实际开始播放的次数
 ├── platform/
 │   ├── petWindow.ts         原生窗口操作：移动、贴边、改大小、弹菜单、可点击区域
 │   ├── holidays.ts          下载某一年的法定节假日数据（原生端 `holidays.rs`）
@@ -138,6 +139,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **React 组件只发事件，不直接播放动作。** 例如点击喂食按钮只是发出 `pet.fed`。
 - **`BehaviorEngine` 只提出请求。** 请求被拒绝时不修改属性，所以连点喂食不会刷属性。
 - **动作结束由 `ActionController` 计时。** 结束时发出 `pet.action.completed`，然后回到待机。
+- **动作次数只统计实际开始的播放。** `PetRuntime` 监听 `pet.action.started` 写入角色专属本机数据；被拒绝的请求不会计数。
 - **界面通过订阅 `PetState` 更新。** 用的是 React 自带的 `useSyncExternalStore`，没有引入状态管理库。
 
 ## 事件
@@ -172,6 +174,8 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
 | `pet.reminders_snoozed` | 无，提醒气泡上的「10 分钟后」：过一会儿再提醒 | `PetSpeech`（气泡按钮） |
 | `pet.badge` | `{ chips }`，角色脚下的一排状态小块（专注/休息倒计时带进度、提醒数、勿扰、等验证码），空数组表示隐藏 | `BehaviorEngine` |
+
+动作统计监听 `pet.action.started`，以实际开始的 `actionId` 为键写入 `characterKey(packId, CHARACTER_DATA.actionTriggerStats)`。该键从本次更新开始为空，不迁移旧历史；动作库手动预览会计入，跨窗口存储变化会刷新动作库计数。请求被控制器拒绝时不会产生事件，也不会计数。
 
 单击宠物的意思是“我要跟你说话”：`useQuickChat` 收到 `pet.clicked` 就打开输入条，`BehaviorEngine` 只负责叫醒和从边上出来，不播反应、不加属性。摸摸头不抢这个入口，改由 `pet.petted` 触发：`PetStage` 按下后计时 500 毫秒，期间没松手也没移动就发 `pet.petted`，之后松手不再算点击，移动仍然开始拖动。事件里仍带 `region`，但不再区分头部和身体。
 
