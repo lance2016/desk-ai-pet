@@ -113,6 +113,21 @@ export const CHAT_PHASES = ["idle", "listening", "thinking", "talking", "failed"
 
 export type ChatPhase = (typeof CHAT_PHASES)[number];
 
+/**
+ * How "查收验证码" in the pet menu is going, as the native side reports it:
+ * waiting for mail, a code was found (and copied), a verification email came
+ * whose code could not be read, two minutes passed, the user stopped it, no
+ * mailbox is set up, or it failed with a message for the user.
+ */
+export type MailCodeUpdate =
+  | { kind: "waiting" }
+  | { kind: "found"; code: string; sender: string; copied: boolean }
+  | { kind: "unrecognized"; sender: string }
+  | { kind: "timeout" }
+  | { kind: "cancelled" }
+  | { kind: "unset" }
+  | { kind: "failed"; message: string };
+
 export interface PetEvents {
   "pet.clicked": { region: HitRegion };
   /** A long press on the pet, or "摸摸头" in the pet menu. */
@@ -125,6 +140,8 @@ export interface PetEvents {
   "pet.noted": Record<string, never>;
   /** A reminder was ticked off. */
   "pet.item_done": Record<string, never>;
+  /** "查收验证码" moved on; the pet shows it is waiting and says what came of it. */
+  "pet.mail_code": MailCodeUpdate;
   /** The cursor came onto the pet. */
   "pet.hovered": Record<string, never>;
   "pet.drag_started": Record<string, never>;

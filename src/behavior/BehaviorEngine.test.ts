@@ -893,3 +893,69 @@ describe("greetings", () => {
     expect(completed).toBe(1);
   });
 });
+
+describe("mail codes", () => {
+  const withScenes = () => setup({ extraAnimations: SCENE_ACTIONS });
+  const last = <T,>(list: T[]): T | undefined => list[list.length - 1];
+
+  it("shows it is waiting on the badge until the wait ends", () => {
+    const { bus, badges } = withScenes();
+    bus.emit("pet.mail_code", { kind: "waiting" });
+    expect(last(badges)).toBe("等验证码…");
+    bus.emit("pet.mail_code", { kind: "cancelled" });
+    expect(last(badges)).toBeNull();
+  });
+
+  it("keeps the other badge parts while waiting", () => {
+    const { bus, badges } = withScenes();
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.mail_code", { kind: "waiting" });
+    expect(last(badges)).toMatch(/ · 等验证码…$/);
+    bus.emit("pet.mail_code", { kind: "timeout" });
+    expect(last(badges)).not.toContain("等验证码");
+    expect(last(badges)).not.toBeNull();
+  });
+
+  it("comes out from the edge and says the copied code", () => {
+    const { bus, renderer, docks, said } = withScenes();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "right" });
+    bus.emit("pet.mail_code", { kind: "waiting" });
+    bus.emit("pet.mail_code", { kind: "found", code: "384920", sender: "网易邮件中心", copied: true });
+    expect(renderer.last).toBe("happy");
+    expect(docks).toEqual(["right", null]);
+    expect(last(said)).toBe("验证码 384920，已复制（网易邮件中心）");
+  });
+
+  it("goes back to the edge a while after showing the code", () => {
+    const { bus, docks, pass } = withScenes();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.mail_code", { kind: "found", code: "384920", sender: "GitHub", copied: true });
+    pass(BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs + 1000);
+    expect(last(docks)).toBe("left");
+  });
+
+  it("asks the user to type the code when it could not be copied", () => {
+    const { bus, said } = withScenes();
+    bus.emit("pet.mail_code", { kind: "found", code: "1234", sender: "GitHub", copied: false });
+    expect(last(said)).toBe("验证码 1234（GitHub），没能复制，手动输一下吧");
+  });
+
+  it("looks confused and says why when no code came", () => {
+    const { bus, renderer, said } = withScenes();
+    bus.emit("pet.mail_code", { kind: "unrecognized", sender: "GitHub" });
+    expect(renderer.last).toBe("confused");
+    expect(last(said)).toContain("没认出码");
+    bus.emit("pet.mail_code", { kind: "failed", message: "连不上 163 邮箱，检查一下网络。" });
+    expect(last(said)).toBe("连不上 163 邮箱，检查一下网络。");
+  });
+
+  it("points to the settings when no mailbox is set up", () => {
+    const { bus, said, badges } = withScenes();
+    bus.emit("pet.mail_code", { kind: "waiting" });
+    bus.emit("pet.mail_code", { kind: "unset" });
+    expect(last(said)).toBe("先在设置里加个 163 邮箱吧");
+    expect(last(badges)).toBeNull();
+  });
+});

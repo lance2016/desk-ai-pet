@@ -96,6 +96,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-nav__icon--actions { background: linear-gradient(#ffb340, #f58f0a); }
 .settings-nav__icon--ai { background: linear-gradient(#9b86f0, #6f58c9); }
 .settings-nav__icon--voice { background: linear-gradient(#ff6b85, #e93e5c); }
+.settings-nav__icon--mail { background: linear-gradient(#3ec8e8, #149fc7); }
 .settings-nav__icon--privacy { background: linear-gradient(#4aa3ff, #1a7ef0); }
 .settings-nav__icon--about { background: linear-gradient(#8f9bb0, #6b778c); }
 
@@ -414,6 +415,8 @@ button.dock-row__body { cursor: pointer; }
 .ai-settings__actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .ai-settings__actions a { margin-left: auto; color: var(--accent-strong); font-size: 12px; }
 .ai-settings__actions .ai-settings__link { margin-left: auto; padding: 0 4px; color: var(--accent-strong); background: none; box-shadow: none; font-size: 12px; }
+.mail-settings .ai-settings__key + label { margin-top: 10px; }
+.mail-steps { margin: 12px 0 0; padding-left: 18px; color: var(--label-2); font-size: 11px; line-height: 1.6; }
 .ai-settings__status { padding: 8px 10px; background: var(--fill); border-radius: var(--radius-row); color: var(--label) !important; }
 .ai-data-details { margin-top: 10px; padding: 0 12px; }
 .ai-data-details summary { padding: 10px 0; color: var(--accent-strong); font-size: 12px; cursor: pointer; list-style: none; }

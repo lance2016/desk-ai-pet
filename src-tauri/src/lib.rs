@@ -4,6 +4,8 @@ mod click_through;
 #[cfg(target_os = "macos")]
 mod floating_panel;
 mod holidays;
+mod mail_code;
+mod mail_extract;
 mod mimo;
 mod proxy;
 mod quick_chat;
@@ -41,6 +43,10 @@ const QUIT_ID: &str = "quit";
 const SETTINGS_ID: &str = "settings";
 const NOTES_ID: &str = "notes";
 const TRANSLATE_ID: &str = "translate";
+const MAIL_CODE_ID: &str = "mail_code";
+/// The mail code item names what a click will do: start waiting for a code, or stop.
+const MAIL_CODE_LABEL: &str = "查收验证码";
+const MAIL_CODE_STOP_LABEL: &str = "停止等验证码";
 const CHAT_ID: &str = "chat";
 const TODAY_ID: &str = "today";
 const FOCUS_ID: &str = "focus";
@@ -70,6 +76,7 @@ struct PetMenu {
     menu: Menu<Wry>,
     visibility: MenuItem<Wry>,
     focus: MenuItem<Wry>,
+    mail_code: MenuItem<Wry>,
     /** Whether a focus round or rest is running, so the item knows what a click means. */
     focus_running: AtomicBool,
     on_top: CheckMenuItem<Wry>,
@@ -93,6 +100,14 @@ pub(crate) fn sync_pet_visibility(app: &AppHandle, visible: bool) {
     if let Some(menu) = app.try_state::<PetMenu>() {
         let label = if visible { HIDE_PET_LABEL } else { SHOW_PET_LABEL };
         report("rename show/hide item", menu.visibility.set_text(label));
+    }
+}
+
+/// Renames the mail code item while a wait runs, so the same item stops it.
+pub(crate) fn sync_mail_code_menu(app: &AppHandle, waiting: bool) {
+    if let Some(menu) = app.try_state::<PetMenu>() {
+        let label = if waiting { MAIL_CODE_STOP_LABEL } else { MAIL_CODE_LABEL };
+        report("rename mail code item", menu.mail_code.set_text(label));
     }
 }
 
@@ -133,11 +148,16 @@ fn toggle_visibility(app: &AppHandle, window: &WebviewWindow) {
 /// Shows the pet if it is hidden, e.g. for a reminder that came due. Sync, so it runs on the main thread.
 #[tauri::command]
 fn show_pet(app: AppHandle) {
+    show_pet_if_hidden(&app);
+}
+
+/// Must be called on the main thread.
+pub(crate) fn show_pet_if_hidden(app: &AppHandle) {
     let hidden = app
         .get_webview_window(MAIN_WINDOW)
         .is_some_and(|window| !window.is_visible().unwrap_or(true));
     if hidden {
-        reveal_pet(&app);
+        reveal_pet(app);
     }
 }
 
@@ -161,6 +181,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let today = item(TODAY_ID, "提醒")?;
     let notes = item(NOTES_ID, "备忘")?;
     let translate = item(TRANSLATE_ID, "翻译…")?;
+    let mail_code = item(MAIL_CODE_ID, MAIL_CODE_LABEL)?;
     let pat = item(PAT_ID, "摸摸头")?;
     let focus = item(FOCUS_ID, FOCUS_LABELS[0].1)?;
     let sizes = SIZES
@@ -187,6 +208,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &today,
             &notes,
             &translate,
+            &mail_code,
             &PredefinedMenuItem::separator(app)?,
             &pat,
             &dock,
@@ -201,7 +223,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &quit,
         ],
     )?;
-    Ok(PetMenu { menu, visibility, focus, focus_running: AtomicBool::new(false), on_top, dnd, sizes, dock })
+    Ok(PetMenu { menu, visibility, focus, mail_code, focus_running: AtomicBool::new(false), on_top, dnd, sizes, dock })
 }
 
 /// The app's menu bar. It shows only while the settings window keeps the app in the Dock,
@@ -311,6 +333,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             Err(error) => eprintln!("failed to read menu state: {error}"),
         },
         TRANSLATE_ID => translation::open_translation(app.clone()),
+        MAIL_CODE_ID => mail_code::toggle(app),
         SETTINGS_ID => {
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
                 report("show settings", show_settings_window(app, &settings));
@@ -588,6 +611,7 @@ pub fn run() {
         .manage(quick_chat::Shortcuts::default())
         .manage(translation::Selection::default())
         .manage(translation::SelectionFloat::default())
+        .manage(mail_code::MailCodeState::default())
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(chat::ChatState::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
@@ -722,6 +746,9 @@ pub fn run() {
             chat::deepseek_greet,
             chat::deepseek_title,
             holidays::fetch_holiday_year,
+            mail_code::mail_account,
+            mail_code::mail_save_account,
+            mail_code::mail_remove_account,
             mimo::mimo_speech_cancel,
             mimo::mimo_key_status,
             mimo::mimo_save_key,
