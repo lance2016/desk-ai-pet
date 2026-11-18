@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CHARACTER_DATA, characterKey } from "../preferences/CharacterPreferences";
 import { createMemoryStorage } from "../testing/fixtures";
 import { CHAT_LIMITS, cleanTitle, clearThreads, loadAutoTitles, loadThreads, recordThread, removeThread, retitleThread, saveAutoTitles, saveThreads, threadTitle, type ChatThread } from "./ChatThreads";
+import { containsWebAddress, findWebAddresses, LINK_CONTEXT_BUDGET, webConversationStart } from "./ReadLinks";
+import { loadReadLinks, saveReadLinks } from "../preferences/ReadLinkPreferences";
 
 const PACK = "girl-default";
 const threadsKey = characterKey(PACK, CHARACTER_DATA.chatThreads);
@@ -75,6 +77,69 @@ describe("thread storage", () => {
     expect(storage.getItem(threadsKey)).toBeNull();
     expect(storage.getItem(legacyKey)).toBeNull();
     expect(loadThreads(PACK, storage)).toEqual({ threads: [], valid: true });
+  });
+
+  it("round-trips the latest webpage snapshot and keeps sources for older replies", () => {
+    const storage = createMemoryStorage();
+    const open = { ...user("看 https://example.com"), readLink: "open" as const };
+    const web = {
+      sources: [{ url: "https://example.com", title: "Example" }],
+      calls: "x".repeat(LINK_CONTEXT_BUDGET),
+      incomplete: false,
+      truncated: false,
+    };
+    const reply = { ...assistant("内容"), web };
+    const threads = recordThread(recordThread([], "old", [open, reply], 1), "new", [open, reply], 2);
+    saveThreads(PACK, threads, storage);
+    const [newest, older] = loadThreads(PACK, storage).threads;
+    expect(webConversationStart(newest.messages)).toBe(0);
+    expect(newest.messages[1].web?.calls).toBe(web.calls);
+    expect(webConversationStart(older.messages)).toBe(-1);
+    expect(older.messages[1].web?.sources).toEqual(web.sources);
+  });
+
+  it("stores attachment information without persisting image bytes", () => {
+    const storage = createMemoryStorage();
+    const image = { id: "screenshot", name: "报错.png" };
+    const message = { ...user("看看截图"), readLink: "image" as const, image, imageData: "data:image/png;base64,aGVsbG8=" };
+    saveThreads(PACK, recordThread([], "image", [message], 1), storage);
+    expect(loadThreads(PACK, storage).threads[0].messages).toEqual([{ ...user("看看截图"), readLink: "image", image }]);
+    expect(storage.getItem(threadsKey)).not.toContain("data:image");
+  });
+});
+
+describe("reading links", () => {
+  it("defaults to automatic reading and keeps the user's setting", () => {
+    const storage = createMemoryStorage();
+    expect(loadReadLinks(storage)).toBe(true);
+    saveReadLinks(false, storage);
+    expect(loadReadLinks(storage)).toBe(false);
+    saveReadLinks(true, storage);
+    expect(loadReadLinks(storage)).toBe(true);
+  });
+
+  it("finds URLs in Chinese text and rejects non-web URLs", () => {
+    expect(containsWebAddress("帮我看（https://example.com/docs）。")).toBe(true);
+    expect(containsWebAddress("file:///tmp/test.html")).toBe(false);
+    expect(containsWebAddress("https://secret:password@example.com")).toBe(false);
+  });
+
+  it("keeps punctuation outside clickable URLs and preserves URL parentheses", () => {
+    const text = "参考 (https://example.com/wiki/Topic_(part)).";
+    const [link] = findWebAddresses(text);
+    expect(text.slice(0, link.start)).toBe("参考 (");
+    expect(link.url.href).toBe("https://example.com/wiki/Topic_(part)");
+    expect(text.slice(link.start + link.text.length)).toBe(").");
+  });
+
+  it("continues a webpage conversation until the user returns to regular chat", () => {
+    const open = { ...user("看 https://example.com"), readLink: "open" as const };
+    const follow = { ...user("第二节呢"), readLink: "follow" as const };
+    const web = { sources: [], calls: "[]", incomplete: false, truncated: false };
+    const replies = [open, { ...assistant("摘要"), web }, follow];
+    expect(webConversationStart(replies)).toBe(0);
+    expect(webConversationStart([...replies, user("敲个木鱼")])).toBe(-1);
+    expect(webConversationStart([open])).toBe(-1);
   });
 });
 

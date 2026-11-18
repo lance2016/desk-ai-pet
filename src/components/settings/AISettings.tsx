@@ -15,6 +15,7 @@ import type { ChatPreview } from "../../platform/chat";
 import { ChatRequestDetails } from "./ChatRequestDetails";
 import { ChatRequestLog } from "./ChatRequestLog";
 import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
+import { loadReadLinks, saveReadLinks } from "../../preferences/ReadLinkPreferences";
 import { moveRadioChoice } from "./radioKeys";
 
 const LENGTHS: readonly [ChatPreferences["length"], string][] = [["short", "简短"], ["normal", "自然"]];
@@ -40,6 +41,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   const [previewError, setPreviewError] = useState("");
   const [connectionExpanded, setConnectionExpanded] = useState(false);
   const [developer, setDeveloper] = useState(loadDeveloperMode);
+  const [readLinks, setReadLinks] = useState(loadReadLinks);
   const who = name ?? characterName(packId, persona?.name ?? "");
   const toggleAutoTitles = () => {
     try { saveAutoTitles(!autoTitles); setAutoTitles(!autoTitles); } catch (reason) { console.error("Could not save the title setting", reason); setStatus("设置没能保存，请再试一次。"); }
@@ -58,6 +60,10 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   };
   const toggleDeveloper = () => {
     try { saveDeveloperMode(!developer); setDeveloper(!developer); } catch (reason) { console.error("Could not save developer mode", reason); setStatus("设置没能保存，请再试一次。"); }
+  };
+  const toggleReadLinks = () => {
+    try { saveReadLinks(!readLinks); setReadLinks(!readLinks); }
+    catch (reason) { console.error("Could not save link reading preference", reason); setStatus("设置没能保存，请再试一次。"); }
   };
   const showPreview = async () => {
     setPreviewError("");
@@ -91,6 +97,12 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
     {connectionExpanded && <div className="ai-connection-form ai-settings"><form onSubmit={(event) => void save(event)}><label htmlFor="deepseek-key">API Key</label><div className="ai-settings__key"><input id="deepseek-key" type="password" autoComplete="off" autoFocus={needsKey} value={key} onChange={(event) => setKey(event.currentTarget.value)} placeholder={configured ? "输入新的 API Key 以替换" : "粘贴 DeepSeek API Key"} /><button type="submit" disabled={busy || !key.trim()}>保存</button></div></form><p>保存后会自动测试一次。DeepSeek 按用量收费。</p><div className="ai-settings__actions"><button type="button" disabled={busy || !configured} onClick={() => void test()}>测试连接</button><ConfirmButton disabled={busy || !configured} confirm={{ message: "移除 DeepSeek API Key？", detail: "API Key 会从钥匙串里删掉，之后要重新填写才能聊天。", action: "移除" }} onConfirm={() => void clear()}>移除 API Key</ConfirmButton><button type="button" className="ai-settings__link" onClick={() => void chatPlatform.openKeyPage().catch((error: unknown) => { console.error("Could not open the DeepSeek page", error); setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"); })}>获取 API Key</button></div></div>}</div>
     {status && <p className="ai-inline-status" role="status">{status}</p>}
     <div className="ai-model"><ModelSettings keyConfigured={configured} /></div>
+    <div className="settings-group ai-model">
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>自动阅读网页链接</strong><span>在完整聊天里发送网页链接时，交给 DeepSeek 阅读</span></div>
+        <button type="button" role="switch" aria-label="自动阅读网页链接" aria-checked={readLinks} className={readLinks ? "toggle is-on" : "toggle"} onClick={toggleReadLinks}><span /></button>
+      </div>
+    </div>
   </section>;
 
   return <div className="settings-section ai-page">

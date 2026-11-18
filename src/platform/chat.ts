@@ -2,9 +2,12 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { ChatRequestPreferences } from "../preferences/ChatPreferences";
 import { z } from "zod";
+import type { WebMode, WebReply } from "../chat/ReadLinks";
+import type { ChatImage } from "../chat/ChatImage";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
-const eventSchema = z.object({ id: z.string(), kind: z.enum(["delta", "tool", "action", "done", "error", "cancelled"]), text: z.string() });
+export type ChatMessage = { role: "user" | "assistant"; content: string; readLink?: WebMode; web?: WebReply; image?: ChatImage };
+type OutgoingChatMessage = ChatMessage & { imageData?: string };
+const eventSchema = z.object({ id: z.string(), kind: z.enum(["delta", "tool", "action", "web-progress", "web-result", "web-error", "done", "error", "cancelled"]), text: z.string() });
 export type ChatEvent = z.infer<typeof eventSchema>;
 /** The local time, the pet actions the model may pick, and the saved lists it may look up; see `chatContext`. */
 export interface ChatContext { now: string; timestamp: string; timeZone: string; actions: string[]; reminders: string[]; notes: string[]; today: string[] }
@@ -31,7 +34,10 @@ export const chatPlatform = {
   /** Sends a tiny message to `model`, to check the key and the model name. */
   async test(model: string): Promise<void> { requireNative(); await invoke("deepseek_test", { model }); },
   async clearKey(): Promise<void> { requireNative(); await invoke("deepseek_clear_key"); },
-  async start(requestId: string, messages: ChatMessage[], preferences: ChatRequestPreferences, context: ChatContext): Promise<void> { requireNative(); await invoke("deepseek_start", { requestId, messages, preferences, context }); },
+  async start(requestId: string, messages: OutgoingChatMessage[], preferences: ChatRequestPreferences, context: ChatContext | null, readLink?: WebMode): Promise<void> {
+    requireNative();
+    await invoke("deepseek_start", { requestId, messages, preferences, context: context ?? {}, readLink });
+  },
   async translate(requestId: string, text: string, target: TextTask, model: string): Promise<void> { requireNative(); await invoke("deepseek_translate", { requestId, text, target, model }); },
   async preview(preferences: ChatRequestPreferences, context: ChatContext): Promise<ChatPreview> { requireNative(); return invoke("deepseek_preview", { preferences, context }); },
   async requestLog(): Promise<ChatRequestLog> { requireNative(); return logSchema.parse(await invoke("chat_request_log")); },

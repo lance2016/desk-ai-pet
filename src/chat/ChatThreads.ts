@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { ChatMessage } from "../platform/chat";
 import { CHARACTER_DATA, characterKey } from "../preferences/CharacterPreferences";
+import { LINK_CONTEXT_BUDGET, webModeSchema, webReplySchema } from "./ReadLinks";
+import { chatImageSchema } from "./ChatImage";
 
 /**
  * Messages kept and shown per thread; the latest of them sent to the model as
@@ -13,7 +15,13 @@ const FALLBACK_TITLE = "新聊天";
 /** Global switch: normalize each new thread title locally. */
 const AUTO_TITLES_KEY = "ai-pet:chat-auto-titles:v1";
 
-const messagesSchema = z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(MAX_MESSAGE_CHARS) })).max(CHAT_LIMITS.messages);
+const messagesSchema = z.array(z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(MAX_MESSAGE_CHARS),
+  readLink: webModeSchema.optional(),
+  web: webReplySchema.optional(),
+  image: chatImageSchema.optional(),
+})).max(CHAT_LIMITS.messages);
 const threadsSchema = z.array(z.object({
   id: z.string().min(1).max(100),
   title: z.string().max(CHAT_LIMITS.titleChars + 1),
@@ -111,7 +119,19 @@ export function loadThreads(packId: string, storage: Storage = window.localStora
 }
 
 export function saveThreads(packId: string, threads: readonly ChatThread[], storage: Storage = window.localStorage): void {
-  storage.setItem(threadsKey(packId), JSON.stringify(threadsSchema.parse(threads)));
+  let remaining = LINK_CONTEXT_BUDGET;
+  const bounded = threads.map((thread) => {
+    const messages = thread.messages.slice();
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      const calls = message.web?.calls;
+      if (!calls || !message.web) continue;
+      if (calls.length <= remaining) remaining -= calls.length;
+      else messages[index] = { ...message, web: { ...message.web, calls: undefined } };
+    }
+    return { ...thread, messages };
+  });
+  storage.setItem(threadsKey(packId), JSON.stringify(threadsSchema.parse(bounded)));
 }
 
 /** Deletes every thread of a character, including an unreadable old history. */

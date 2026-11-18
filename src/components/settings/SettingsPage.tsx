@@ -76,6 +76,8 @@ const STORED: readonly [string, string][] = [
 ];
 const ONLINE: readonly [string, string, string][] = [
   ["DeepSeek · 聊天", `最近 ${CHAT_LIMITS.context} 条消息、你的称呼、角色设定和补充要求`, "聊天时"],
+  ["DeepSeek · 网页", "链接和问题，追问时附上该网页的对话。联网搜索发送本轮问题", "阅读链接或搜索时"],
+  ["DeepSeek · 图片", "缩小后的图片和本轮问题，聊天记录只保存图片名和问答", "发送带图片的消息时"],
   ["DeepSeek · 早安晚安", "今天的提醒内容和数量、专注了几轮", "每天两次"],
   ["DeepSeek · 查提醒和备忘", "所查类型的记录", "按条件查找时"],
   ["DeepSeek · 今日回顾", "今天勾掉和没处理的提醒、专注轮数、今天记的备忘", "需要归纳时"],

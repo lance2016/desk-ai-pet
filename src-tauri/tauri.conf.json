@@ -45,6 +45,7 @@
       },
       {
         "label": "chat",
+        "dragDropEnabled": false,
         "title": "和宠物聊天",
         "url": "index.html?window=chat",
         "width": 400,

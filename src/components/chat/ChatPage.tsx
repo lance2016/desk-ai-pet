@@ -5,6 +5,8 @@ import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../c
 import type { PetPersona } from "../../assets/Manifest";
 import { applyToolCalls, dispatchChatAction, saveNote, type SavedLine, type ToolEffects } from "../../chat/toolEffects";
 import { markdownToPlain } from "../../chat/markdown";
+import { CHAT_IMAGE_TYPES, prepareChatImage, type AttachedChatImage } from "../../chat/ChatImage";
+import { containsWebAddress, webAddress, webConversationStart, webReplySchema, type WebMode, type WebReply } from "../../chat/ReadLinks";
 import { NOTE_LIMITS } from "../../notes/NoteStore";
 import { ControlIcon } from "../ControlIcon";
 import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
@@ -15,12 +17,13 @@ import { systemPlatform } from "../../platform/system";
 import { chatPictureActions, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
 import { characterPictures } from "../../appearance/characterPictures";
 import { characterName, requestPreferences } from "../../preferences/ChatPreferences";
+import { loadReadLinks, READ_LINKS_KEY } from "../../preferences/ReadLinkPreferences";
 import { CharacterAvatar } from "../CharacterAvatar";
 import { ConfirmButton } from "../ConfirmButton";
 import { isComposing } from "../keyboard";
 import { PeekPicture } from "../PeekPicture";
 import { ChatHistory } from "./ChatHistory";
-import { ChatMarkdown } from "./ChatMarkdown";
+import { ChatMarkdown, ChatPlainText } from "./ChatMarkdown";
 import { MAX_RECORD_SECONDS, useVoiceInput, type VoiceProblem } from "./useVoiceInput";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import { loadVoiceLanguage } from "../../preferences/VoicePreferences";
@@ -51,9 +54,20 @@ const STOPPED_MARK = "（已停止）";
 const STORAGE_FULL = "聊天记录存满了，删掉几段旧聊天再试。";
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-const sameMessages = (a: readonly ChatMessage[], b: readonly ChatMessage[]) => a.length === b.length && a.every((message, index) => message.role === b[index].role && message.content === b[index].content);
+const sameMessages = (a: readonly ChatMessage[], b: readonly ChatMessage[]) => a.length === b.length && a.every((message, index) =>
+  message.role === b[index].role && message.content === b[index].content && message.readLink === b[index].readLink
+  && message.image?.id === b[index].image?.id && JSON.stringify(message.web) === JSON.stringify(b[index].web));
 
-function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" }) {
+const WEB_PROGRESS: Record<string, string> = {
+  reading: "正在读取网页…",
+  read: "已读取网页，正在整理…",
+  failed: "这个链接未能读到，正在等待结果…",
+  searching: "正在搜索网页…",
+  searched: "正在整理搜索结果…",
+  "search-failed": "这一轮搜索未返回结果…",
+};
+
+function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" | "image" | "globe" }) {
   const paths = {
     mic: <><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></>,
     stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
@@ -61,6 +75,8 @@ function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "s
     new: <path d="M12 5v14M5 12h14" />,
     history: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
     close: <path d="m7 7 10 10M17 7 7 17" />,
+    globe: <><circle cx="12" cy="12" r="9" /><ellipse cx="12" cy="12" rx="4" ry="9" /><path d="M3 12h18" /></>,
+    image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="9" r="1.5" /><path d="m4 17 4-4 3 3 5-5 4 4" /></>,
     copy: <><rect x="8" y="8" width="11" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h1" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
   } as const;
@@ -98,6 +114,21 @@ export function ChatPage({ packId }: { packId: string }) {
   const [removedThread, setRemovedThread] = useState<ChatThread | null>(null);
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState("");
+  const [webProgress, setWebProgress] = useState("");
+  const [readLinks, setReadLinks] = useState(loadReadLinks);
+  const [search, setSearch] = useState(false);
+  const [draftImage, setDraftImage] = useState<AttachedChatImage | null>(null);
+  const [sentImage, setSentImage] = useState<AttachedChatImage | null>(null);
+  const [preparingImage, setPreparingImage] = useState(false);
+  const [draggingImage, setDraggingImage] = useState(false);
+  const imageAttempt = useRef(0);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const [skipWeb, setSkipWeb] = useState(false);
+  const webReplyRef = useRef<WebReply | undefined>(undefined);
+  const webSourcesRef = useRef<WebReply["sources"]>([]);
+  const webCandidate: WebMode | undefined = !readLinks || search || draftImage ? undefined
+    : containsWebAddress(draft) ? "open"
+      : webConversationStart(messages.slice(1 - CHAT_LIMITS.context)) >= 0 ? "follow" : undefined;
   const [pending, setPending] = useState(false);
   const [ready, setReady] = useState(false);
   /** Whether the DeepSeek key is missing; null until checked. Missing shows a way to set one up. */
@@ -199,7 +230,7 @@ export function ChatPage({ packId }: { packId: string }) {
     try { saveThreads(packId, next); } catch (reason) { console.error("Could not save the chat", reason); setError(STORAGE_FULL); }
   }, [messages, threads, threadId, historyValid, packId]);
   // Follow new pieces only while the user reads the bottom, past the padding that keeps the last bubble clear of the peeking character.
-  useEffect(() => { const scroller = list.current; if (scroller && stickToBottom.current) scroller.scrollTop = scroller.scrollHeight; }, [messages, reply, pending, error, notice, savedLines]);
+  useEffect(() => { const scroller = list.current; if (scroller && stickToBottom.current) scroller.scrollTop = scroller.scrollHeight; }, [messages, reply, webProgress, pending, error, notice, savedLines]);
   useEffect(() => {
     const field = input.current;
     const scroller = list.current;
@@ -217,6 +248,15 @@ export function ChatPage({ packId }: { packId: string }) {
       if (event.kind === "delta") { replyRef.current += event.text; setReply(replyRef.current); return; }
       if (event.kind === "tool") { toolCallsRef.current.push(event.text); return; }
       if (event.kind === "action") { actionRef.current ??= dispatchChatAction(event.text, event.id); return; }
+      if (event.kind === "web-progress") { setWebProgress(WEB_PROGRESS[event.text] ?? ""); return; }
+      if (event.kind === "web-result") {
+        try {
+          const result = webReplySchema.parse(JSON.parse(event.text));
+          webReplyRef.current = { ...result, sources: result.sources.length > 0 ? result.sources : webSourcesRef.current };
+        }
+        catch (reason) { console.warn("Invalid link reading result", reason); }
+        return;
+      }
       const action = event.kind === "done" && actionRef.current ? await actionRef.current : null;
       if (disposed || event.id !== active.current) return;
       active.current = null; setPending(false);
@@ -232,14 +272,18 @@ export function ChatPage({ packId }: { packId: string }) {
       }
       // A reply the user stopped is kept as far as it got; one that failed is dropped.
       const partial = event.kind === "cancelled" && replyRef.current.trim() ? `${replyRef.current.trimEnd()}\n\n${STOPPED_MARK}` : "";
-      const completed = event.kind === "done" && replyRef.current ? `${replyRef.current}${event.text === "length" ? `\n\n${CUT_OFF_MARK}` : ""}` : partial;
+      const web = event.kind === "done" ? webReplyRef.current : undefined;
+      const completed = event.kind === "done" && replyRef.current.trim()
+        ? `${replyRef.current}${event.text === "length" && !web ? `\n\n${CUT_OFF_MARK}` : ""}` : partial;
       if (completed) {
-        setMessages((current) => [...current, { role: "assistant" as const, content: completed }].slice(-CHAT_LIMITS.messages));
+        setMessages((current) => [...current, { role: "assistant" as const, content: completed, web }].slice(-CHAT_LIMITS.messages));
         setAnnouncement(markdownToPlain(completed));
       } else if (event.kind === "done") setError("没有收到回复，请重试。");
+      else if (event.kind === "web-error") { setFailure("other"); setError(event.text); }
       else if (event.kind === "error") reportServiceError("DeepSeek", event.text || "回复中断");
       else if (event.kind === "cancelled") setNotice("已停止回复。");
       setReply("");
+      setWebProgress("");
       replyRef.current = "";
     }).then((unsubscribe) => { if (disposed) unsubscribe(); else { stop = unsubscribe; setReady(true); } }).catch((reason: unknown) => { console.error("Chat is unavailable", reason); setError("聊天功能需要在 AI Pet 应用里使用。"); });
     return () => { disposed = true; stop?.(); if (active.current) void chatPlatform.cancel(active.current).catch(() => {}); };
@@ -264,6 +308,7 @@ export function ChatPage({ packId }: { packId: string }) {
     };
     const onFocus = () => {
       check();
+      setReadLinks(loadReadLinks());
       if (document.activeElement === document.body || document.activeElement === null) input.current?.focus();
     };
     check();
@@ -276,7 +321,14 @@ export function ChatPage({ packId }: { packId: string }) {
   }, [name, personaReady]);
   // Settings is another window; follow a rename or a new picture made there.
   useEffect(() => {
-    const refresh = () => { if (ownName.current) setName(characterName(packId, ownName.current)); setLook(loadChatAppearance(packId)); };
+    const refresh = (event: StorageEvent) => {
+      if (event.key === READ_LINKS_KEY || event.key === null) {
+        setReadLinks(loadReadLinks());
+        setSkipWeb(false);
+      }
+      if (ownName.current) setName(characterName(packId, ownName.current));
+      setLook(loadChatAppearance(packId));
+    };
     window.addEventListener("storage", refresh);
     return () => window.removeEventListener("storage", refresh);
   }, [packId]);
@@ -322,28 +374,62 @@ export function ChatPage({ packId }: { packId: string }) {
     return () => clearTimeout(timer);
   }, [copied]);
 
-  const startReply = async (next: ChatMessage[], typed = "") => {
-    if (pending || !ready || !personaReady || !historyValid) return;
+  const startReply = async (requested: ChatMessage[], typed = "", attachment = sentImage) => {
+    if (active.current || !ready || !personaReady || !historyValid) return;
     const before = latest.current.messages;
     const id = newId();
+    const last = requested[requested.length - 1];
+    const preferenceApplies = last?.readLink === "open" || last?.readLink === "follow";
+    const mode = preferenceApplies && !loadReadLinks() ? undefined : last?.readLink;
+    const next = last?.readLink && !mode ? [...requested.slice(0, -1), { ...last, readLink: undefined }] : requested;
+    const recent = contextMessages(next);
+    const webStart = mode === "follow" ? webConversationStart(recent) : -1;
+    if (mode === "follow" && webStart < 0) {
+      setError("这篇网页需要重新读取，请重新发送链接。");
+      return;
+    }
+    if (mode === "image" && (!attachment || attachment.id !== last?.image?.id)) {
+      setError("图片已不在当前窗口，请重新添加再发送。");
+      return;
+    }
+    const outgoing = mode === "image" && attachment && last ? [{ ...last, imageData: attachment.dataUrl }]
+      : mode === "open" || mode === "search" ? next.slice(-1) : webStart >= 0 ? recent.slice(webStart) : recent;
     stickToBottom.current = true;
+    webReplyRef.current = undefined;
+    webSourcesRef.current = webStart >= 0 ? recent[webStart + 1]?.web?.sources ?? [] : [];
+    setWebProgress(mode === "open" ? "准备读取网页…" : mode === "follow" ? "正在根据网页回答…"
+      : mode === "search" ? "准备联网搜索…" : mode === "image" ? "正在查看图片…" : "");
+    setSearch(false);
+    if (mode === "image") { setSentImage(attachment); setDraftImage(null); }
+    setSkipWeb(false);
     active.current = id; cancelRequested.current = false; replyRef.current = ""; toolCallsRef.current = []; actionRef.current = null; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
-      await chatPlatform.start(id, contextMessages(next), requestPreferences(packId, personaRef.current), chatContext(Date.now(), actionIdsRef.current, loadSavedItems()));
+      const context = mode ? null : chatContext(Date.now(), actionIdsRef.current, loadSavedItems());
+      await chatPlatform.start(id, outgoing, requestPreferences(packId, personaRef.current), context, mode);
       if (cancelRequested.current && active.current === id) await chatPlatform.cancel(id);
     } catch (reason) {
       if (active.current !== id) return;
-      active.current = null; setPending(false);
+      active.current = null; setPending(false); setWebProgress("");
       // Another reply in this window is still running: give the message back instead of leaving it unanswered.
-      if (classifyServiceError(String(reason)) === "running") { setMessages(before); if (typed) setDraft(typed); }
+      if (classifyServiceError(String(reason)) === "running") {
+        setMessages(before);
+        if (typed) setDraft(typed);
+        if (mode === "image") setDraftImage(attachment);
+        if (mode === "search") setSearch(true);
+      }
       reportServiceError("DeepSeek", String(reason));
     }
   };
   const startReplyRef = useRef(startReply);
   startReplyRef.current = startReply;
   const send = (event: FormEvent) => {
-    event.preventDefault(); const text = draft.trim(); if (!text || pending || recording || !ready || !historyValid || keyMissing) return;
-    void startReply([...messages, { role: "user" as const, content: text }].slice(-CHAT_LIMITS.messages), draft);
+    event.preventDefault();
+    const text = draft.trim();
+    if ((!text && !draftImage) || preparingImage || pending || recording || !ready || !historyValid || keyMissing) return;
+    const readLink = draftImage ? "image" : search ? "search" : skipWeb ? undefined : webCandidate;
+    const image = draftImage ? { id: draftImage.id, name: draftImage.name } : undefined;
+    const message: ChatMessage = { role: "user", content: text || "帮我看看这张图片。", readLink, image };
+    void startReply([...messages, message].slice(-CHAT_LIMITS.messages), draft, draftImage);
     // A click on the button would leave the focus there, where Space would stop the reply.
     input.current?.focus();
   };
@@ -352,6 +438,11 @@ export function ChatPage({ packId }: { packId: string }) {
     if (active.current) return;
     savedMessages.current = shown;
     stickToBottom.current = true;
+    setSkipWeb(false);
+    imageAttempt.current++;
+    setPreparingImage(false);
+    setDraftImage(null);
+    setSearch(false);
     setThreadId(id); setMessages(shown); setError(""); setNotice(""); setReply(""); setSavedLines([]); setNotedMessages({}); setHistoryOpen(false);
     input.current?.focus();
   };
@@ -435,8 +526,57 @@ export function ChatPage({ packId }: { packId: string }) {
       <button type="button" className={saved ? "chat-row__action is-saved" : "chat-row__action"} disabled={tooLong} onClick={() => noteMessage(content)} aria-label={label} title={label}><ControlIcon name={saved ? "checklist" : "note"} /></button>
     </div>;
   };
-  const assistantRow = (content: string, key?: number) => <div key={key} className="chat-row chat-row--assistant"><CharacterAvatar picture={avatar} className="chat-portrait" /><div className="chat-bubble chat-bubble--assistant"><ChatMarkdown text={content} /></div>{key !== undefined && replyActions(content, key)}</div>;
+  const assistantRow = (content: string, key?: number, web?: WebReply) => <div key={key} className="chat-row chat-row--assistant">
+    <CharacterAvatar picture={avatar} className="chat-portrait" />
+    <div className="chat-bubble chat-bubble--assistant">
+      {key === undefined && webProgress && <div className="chat-web-progress" role="status">{webProgress}</div>}
+      {content && <ChatMarkdown text={content} />}
+      {web?.truncated && <div className="chat-web-progress">{CUT_OFF_MARK}</div>}
+      {web?.incomplete && <div className="chat-web-progress">部分网页来源暂不可用。</div>}
+      {web && key !== undefined && messages[key - 1]?.readLink === "open" && !web.calls
+        && <div className="chat-web-progress">要继续追问，请重新发送链接。</div>}
+      {web && web.sources.length > 0 && <details className="chat-web-sources">
+        <summary>查看 {web.sources.length} 个来源</summary>
+        {web.sources.map(({ url, title }) => {
+          const address = webAddress(url);
+          return address && <button type="button" key={url} title={address.href} onClick={() => {
+            void systemPlatform.openLink(address.href).catch((reason: unknown) => {
+              console.error("Could not open the source link", reason);
+              setError("没能打开来源链接。");
+            });
+          }}><span>{title || address.hostname}</span><small>{address.hostname}</small></button>;
+        })}
+      </details>}
+    </div>
+    {key !== undefined && replyActions(content, key)}
+  </div>;
+  const attachImage = async (files: FileList | File[]) => {
+    if (active.current || recording || transcribing) return;
+    if (files.length !== 1) { setNotice("一次可以添加一张图片。"); return; }
+    const attempt = ++imageAttempt.current;
+    setPreparingImage(true);
+    try {
+      const image = await prepareChatImage(files[0], newId());
+      if (attempt !== imageAttempt.current) return;
+      setDraftImage(image);
+      setSearch(false);
+      setNotice("");
+      input.current?.focus();
+    } catch (reason) {
+      if (attempt !== imageAttempt.current) return;
+      console.warn("Could not prepare the chat image", reason);
+      setNotice(reason instanceof Error && /[\u4e00-\u9fff]/.test(reason.message) ? reason.message : "这张图片无法读取，请换一张再试。");
+    } finally {
+      if (attempt === imageAttempt.current) setPreparingImage(false);
+    }
+  };
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files);
+    if (files.some((file) => file.type.startsWith("image/"))) {
+      event.preventDefault();
+      void attachImage(files);
+      return;
+    }
     const field = event.currentTarget;
     const pasted = event.clipboardData.getData("text").length;
     if (draft.length - (field.selectionEnd - field.selectionStart) + pasted > MAX_INPUT) setNotice(`内容太长，只保留了前 ${MAX_INPUT} 字。`);
@@ -445,7 +585,11 @@ export function ChatPage({ packId }: { packId: string }) {
   const canRetry = historyValid && lastIsUser && !pending && keyMissing === false;
   const micLabel = recording ? "停止录音并识别" : transcribing ? "取消识别" : voiceMissing ? "语音输入未配置，去设置" : `语音输入（最长 ${MAX_RECORD_SECONDS / 60} 分钟）`;
 
-  return <main className="chat-page">
+  return <main className="chat-page" onDragOver={(event) => {
+    if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+  }} onDrop={(event) => {
+    if (event.dataTransfer.files.length > 0) event.preventDefault();
+  }}>
     <header ref={header} className="chat-header">
       <CharacterAvatar picture={avatar} className="chat-portrait chat-portrait--header" />
       <div className="chat-header__title"><strong>{name}</strong><span className={`chat-status is-${status.tone}`}>{status.label}</span></div>
@@ -457,8 +601,16 @@ export function ChatPage({ packId }: { packId: string }) {
     <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>
       {keyMissing && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={() => openSettings("ai")}>去设置</button></div>}
       {messages.length === 0 && !keyMissing && <div className="chat-empty"><strong>今天想聊点什么？</strong><p>说说你的心情，或者让{name}帮你记件事。</p></div>}
-      {messages.map((message, index) => message.role === "assistant" ? assistantRow(message.content, index) : <div key={index} className="chat-row chat-row--user"><div className="chat-bubble chat-bubble--user">{message.content}</div></div>)}
-      {(pending || reply) && assistantRow(reply || "正在想…")}
+      {messages.map((message, index) => message.role === "assistant" ? assistantRow(message.content, index, message.web) : <div key={index} className="chat-row chat-row--user">
+        <div className="chat-bubble chat-bubble--user">
+          {message.image && <div className="chat-sent-image">
+            {sentImage?.id === message.image.id && <img src={sentImage.dataUrl} alt={message.image.name} />}
+            <span><Icon name="image" />{message.image.name}</span>
+          </div>}
+          <ChatPlainText text={message.content} />
+        </div>
+      </div>)}
+      {(pending || reply) && assistantRow(reply || (webProgress ? "" : "正在想…"))}
       {savedLines.length > 0 && !pending && <div className="chat-saved">{savedLines.map((line, index) => <div key={line.id ?? `failed-${index}`} className={line.kind === "failed" ? "chat-saved__item is-failed" : "chat-saved__item"}>
         <span className={line.kind === "note" ? "chat-saved__note" : undefined}>{line.text}</span>
         {line.kind === "agenda" && line.id && <button type="button" onClick={() => openReminder(line.id as string)}>修改</button>}
@@ -474,19 +626,61 @@ export function ChatPage({ packId }: { packId: string }) {
       {!error && canRetry && <div className="chat-notice"><button type="button" onClick={() => void startReply(messages)}>重新回复</button></div>}
     </section>
     <div className="visually-hidden" aria-live="polite">{announcement}</div>
-    <form className="chat-composer" onSubmit={(event) => void send(event)}>
+    <form className="chat-composer" onSubmit={(event) => void send(event)}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        const available = !pending && !recording && !transcribing;
+        event.dataTransfer.dropEffect = available ? "copy" : "none";
+        setDraggingImage(available);
+      }}
+      onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setDraggingImage(false); }}
+      onDrop={(event) => {
+        if (event.dataTransfer.files.length === 0) return;
+        event.preventDefault();
+        setDraggingImage(false);
+        void attachImage(event.dataTransfer.files);
+      }}>
       {peek && <PeekPicture picture={peek} className="chat-peek" />}
-      <div className={recording ? "chat-input is-recording" : "chat-input"}>
-        <textarea ref={input} rows={1} aria-label="聊天内容" placeholder={recording ? `正在听你说… ${clock(voice.seconds)}，再点麦克风结束` : transcribing ? "正在识别语音…" : keyMissing ? "先在设置里填上 DeepSeek API Key 才能聊天" : `和${name}说点什么…`} value={draft} maxLength={MAX_INPUT} onPaste={onPaste} onChange={(event) => setDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !isComposing(event)) { event.preventDefault(); if (!recording) event.currentTarget.form?.requestSubmit(); } }} />
-        {draft.length >= SHOW_COUNT_FROM && <span className="chat-count">{draft.length}/{MAX_INPUT}</span>}
-        {recording && <button type="button" className="chat-mic chat-mic--cancel" onClick={voice.cancel} aria-label="取消录音" title="取消录音，不识别"><Icon name="close" /></button>}
-        <button type="button" className={voiceMissing ? "chat-mic is-unconfigured" : "chat-mic"} disabled={voice.phase === "starting" || (pending && !recording)} onClick={transcribing ? voice.cancelTranscription : toggleRecording} aria-label={micLabel} title={micLabel}>
-          {transcribing ? <span className="chat-spinner" /> : <Icon name={recording ? "stop" : "mic"} />}
-        </button>
+      <div className="chat-compose-field">
+        {webCandidate && !pending && <div className="chat-web-mode">
+          <button type="button" aria-pressed={!skipWeb} aria-label={webCandidate === "open" ? "阅读链接" : "追问网页"}
+            title={skipWeb ? "切换到网页阅读" : "使用 DeepSeek Flash 阅读网页，可切回普通聊天"} onClick={() => setSkipWeb((skip) => !skip)}>
+            {skipWeb ? "普通聊天" : webCandidate === "open" ? "阅读链接" : "追问网页"}
+          </button>
+        </div>}
+        {(draftImage || preparingImage) && <div className="chat-draft-image" aria-live="polite">
+          {draftImage && <img src={draftImage.dataUrl} alt="" />}
+          <div><strong>{preparingImage ? "正在准备图片…" : draftImage?.name}</strong><small>发送时交给 DeepSeek Flash 查看</small></div>
+          <button type="button" className="chat-mic" aria-label="移除图片" onClick={() => {
+            imageAttempt.current++;
+            setDraftImage(null);
+            setPreparingImage(false);
+            input.current?.focus();
+          }}><Icon name="close" /></button>
+        </div>}
+        <div className={`chat-input${recording ? " is-recording" : ""}${draggingImage ? " is-dragging" : ""}`}>
+          <input type="file" ref={imageInput} hidden accept={CHAT_IMAGE_TYPES} onChange={(event) => {
+            const files = Array.from(event.currentTarget.files ?? []);
+            event.currentTarget.value = "";
+            if (files.length) void attachImage(files);
+          }} />
+          <button type="button" className="chat-mic chat-mic--attach" disabled={pending || recording || transcribing} aria-label="添加图片"
+            title="添加图片，也可以粘贴截图或拖入图片" onClick={() => imageInput.current?.click()}><Icon name="image" /></button>
+          <button type="button" className="chat-search" disabled={pending || recording || transcribing || preparingImage || Boolean(draftImage)}
+            aria-pressed={search} aria-label="联网搜索" title={draftImage ? "移除图片后可以联网搜索" : "仅为这条消息联网搜索"}
+            onClick={() => { setSearch((enabled) => !enabled); input.current?.focus(); }}><Icon name="globe" />联网</button>
+          <textarea ref={input} rows={1} aria-label="聊天内容" placeholder={recording ? `正在听你说… ${clock(voice.seconds)}，再点麦克风结束` : transcribing ? "正在识别语音…" : keyMissing ? "先在设置里填上 DeepSeek API Key 才能聊天" : `和${name}说点什么…`} value={draft} maxLength={MAX_INPUT} onPaste={onPaste} onChange={(event) => setDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !isComposing(event)) { event.preventDefault(); if (!recording) event.currentTarget.form?.requestSubmit(); } }} />
+          {draft.length >= SHOW_COUNT_FROM && <span className="chat-count">{draft.length}/{MAX_INPUT}</span>}
+          {recording && <button type="button" className="chat-mic chat-mic--cancel" onClick={voice.cancel} aria-label="取消录音" title="取消录音，不识别"><Icon name="close" /></button>}
+          <button type="button" className={voiceMissing ? "chat-mic is-unconfigured" : "chat-mic"} disabled={voice.phase === "starting" || (pending && !recording)} onClick={transcribing ? voice.cancelTranscription : toggleRecording} aria-label={micLabel} title={micLabel}>
+            {transcribing ? <span className="chat-spinner" /> : <Icon name={recording ? "stop" : "mic"} />}
+          </button>
+        </div>
       </div>
       {pending
         ? <button className="chat-send" type="button" onClick={cancel} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
-        : <button className="chat-send" type="submit" disabled={!draft.trim() || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
+        : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage) || preparingImage || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
     </form>
   </main>;
 }

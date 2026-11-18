@@ -26,6 +26,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "dock", title: "按钮", keywords: "快捷按钮 排序 图标 隐藏 添加动作" },
   { section: "ai", title: "DeepSeek", keywords: "API Key 密钥 连接 测试" },
   { section: "ai", title: "回复用的模型", keywords: "模型 flash pro 自定义" },
+  { section: "ai", title: "自动阅读网页链接", keywords: "网址 网页 链接 浏览器" },
   { section: "ai", title: "回复长度", keywords: "长短 简短 详细" },
   { section: "ai", title: "快速聊天", keywords: "快捷键 输入框 Space" },
   { section: "ai", title: "聊天记录", keywords: "历史" },

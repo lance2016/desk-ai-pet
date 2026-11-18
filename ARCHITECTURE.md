@@ -428,7 +428,9 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 你的称呼存在全局 `ai-pet:user-profile:v1`（`UserProfile.ts`），所有角色共用。`requestPreferences()` 把它作为 `userName` 和角色的对话设置一起发给 `deepseek_start` 与 `deepseek_greet`，`chat.rs` 的 `user_address()` 校验后在系统提示词里加一句“称呼用户为「…」”。长度上限 20，两边一致。
 - 首次引导：`ai-pet:onboarded:v1` 不存在时，宠物窗口启动后查 `deepseek_key_status`。已有 Key 就直接记为完成（老用户不打扰），没有就调用 `open_settings`；设置页同样检查，然后显示 `WelcomeGuide`。完成或跳过都写入标记。
 - `open_settings` 显示并聚焦设置窗口；带 `section` 时先向设置窗口发 `pet://settings-section`，设置页切到对应分区。浏览器模式下改为打开 `?window=settings&section=…`。
-- 回复的 Markdown 由 `src/chat/markdown.ts` 解析成数据（段落、标题、列表、代码块，以及粗体、斜体、行内代码），`ChatMarkdown` 只生成 React 元素，不使用 `innerHTML`。链接不渲染成可点击的元素，因为在聊天窗口里打开会让页面跳走。未闭合的标记和代码块按原样显示，流式输出时不会闪烁。
+- 回复的 Markdown 由 `src/chat/markdown.ts` 解析成数据（段落、标题、列表、代码块，以及粗体、斜体、行内代码和链接），`ChatMarkdown` 只生成 React 元素，不使用 `innerHTML`。未闭合的标记和代码块按原样显示，流式输出时不会闪烁。
+- 完整聊天的「自动阅读网页链接」是默认开启的全局设置（`ai-pet:read-links:v1`）。开启时，用户发送 HTTP(S) 地址触发读取，点输入框上的模式按钮可切回普通聊天。原生端限定 `chat` 窗口，使用 Flash 非思考模式，只挂 `deepseek_read_url`；追问复用该网页对话，不挂工具。网页内容和网页回合不会进入可执行本机工具的普通聊天。服务端事件变成 `web-progress` 和 `web-result`，聊天中的链接和来源用按钮交给系统浏览器。最后的 `server_tool_calls` 按原样保存在对应回复中，供追问还原上下文；整个角色的网页快照有大小预算，超出时保留文字和来源，优先保留近期快照。首次读取没有成功页面或收到 `content_filter` 时丢弃已流出的文字。
+- 完整聊天的「联网」仅用于本次发送，原生端使用 Flash 非思考模式和 `deepseek_web_search`，复用网页进度与来源事件。单图输入支持选择、粘贴和向输入框拖放（聊天窗口关闭原生文件拖放拦截），先用画布缩小到最长边 1800 像素，发送时以内联 `image_url` 加当前问题交给 Flash。图片字节只在当前窗口暂存，不写入聊天记录或开发者请求日志。两个入口只发送当前问题所需的数据，不提供本机工具，不把这些回合转入可执行工具的普通对话。
 - 对话设置和语音设置在用户没改过时使用 `persona` 的值。系统提示词仍在 `chat.rs` 拼接，性格长度上限 1000 字，与 `PERSONA_LIMITS` 保持一致。
 
 ## 换平台时要改什么
