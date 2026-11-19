@@ -31,7 +31,7 @@ import { loadCharacterPack } from "./assets/PackCatalog";
 import { loadUserActions } from "./actions/UserActions";
 import { applyLaunchAtLoginDefault } from "./preferences/LaunchAtLogin";
 import { systemPlatform } from "./platform/system";
-import { composeHitMask, HIT_CELL_PX, maskToElement, type MaskRect } from "./platform/hitMask";
+import { composeHitMask, drawnInsets, HIT_CELL_PX, maskToElement, type MaskRect } from "./platform/hitMask";
 import { saveActiveCharacter } from "./preferences/CharacterPreferences";
 import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
@@ -50,6 +50,8 @@ import { startUpdateChecks } from "./update/UpdateNotice";
 import { announceUpdate, skipWhatsNew } from "./update/WhatsNew";
 import { CHAT_PHASES } from "./types";
 
+/** The pose the chat button is placed against. */
+const RESTING_ACTION = "idle";
 const DEFAULT_SCALE = 1;
 /** Set once the pet has told a new user how to play with it. */
 const INTRO_KEY = "ai-pet:intro-tips:v1";
@@ -142,6 +144,8 @@ export default function App({ packId }: AppProps) {
   const quickBarRef = useRef<HTMLFormElement>(null);
   const quickReplyRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  /** Room between the pet's resting pose and the edges of its area, so the chat button sits by the drawing itself. */
+  const [artInsets, setArtInsets] = useState({ top: 0, right: 0, bottom: 0 });
   /** Text of the standing reminder bubble, which must take clicks while it is up. */
   const [alert, setAlert] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<PetRuntime | null>(null);
@@ -581,11 +585,15 @@ export default function App({ packId }: AppProps) {
       const bar = quickChat.open ? quickBarRef.current?.getBoundingClientRect() : undefined;
       const answer = quickReplyShown ? quickReplyRef.current?.getBoundingClientRect() : undefined;
       const launcher = launcherShown ? launcherRef.current?.getBoundingClientRect() : undefined;
+      const drawn = runtime.opaqueMask(HIT_CELL_PX);
+      // Measured on the resting pose only, so the button does not follow every action around.
+      const resting = runtime.currentActionId === RESTING_ACTION && drawn ? drawnInsets(drawn, HIT_CELL_PX) : null;
+      if (resting) setArtInsets((current) => (current.top === resting.top && current.right === resting.right && current.bottom === resting.bottom ? current : resting));
       const cells = composeHitMask({
         cell: HIT_CELL_PX,
         columns,
         rows,
-        drawn: runtime.opaqueMask(HIT_CELL_PX),
+        drawn,
         offset: { columns: STAGE_MARGIN.side / HIT_CELL_PX, rows: STAGE_MARGIN.top / HIT_CELL_PX },
         grow: HIT_GROW_CELLS,
         rects: [...controls, standing, badge, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
@@ -643,6 +651,9 @@ export default function App({ packId }: AppProps) {
     "--stage-side": `${STAGE_MARGIN.side}px`,
     "--stage-top": `${STAGE_MARGIN.top}px`,
     "--stage-bottom": `${STAGE_MARGIN.bottom}px`,
+    "--art-top": `${artInsets.top}px`,
+    "--art-right": `${artInsets.right}px`,
+    "--art-bottom": `${artInsets.bottom}px`,
     "--visible-left": `${insets.left}px`,
     "--visible-right": `${insets.right}px`,
     "--visible-top": `${insets.top}px`,

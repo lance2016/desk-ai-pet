@@ -14,7 +14,6 @@ import { moveRadioChoice } from "./radioKeys";
 /** Uploaded icons are scaled down to this side, so they do not fill up local storage. */
 const ICON_MAX_SIDE = 128;
 const ICON_OPTIONS: Record<DockCommand, ControlIconPreset[]> = {
-  chat_open: ["chat", "sparkle", "bell"],
   today_open: ["bell", "checklist", "timer"],
   notes_open: ["note", "clipboard", "book"],
   focus_toggle: ["timer", "hourglass", "book"],
@@ -23,7 +22,6 @@ const ICON_OPTIONS: Record<DockCommand, ControlIconPreset[]> = {
   sleep_toggle: ["rest", "bed", "sun"],
 };
 const DESCRIPTIONS: Record<DockCommand, string> = {
-  chat_open: "在宠物脚下打开输入条",
   today_open: "打开提醒列表",
   notes_open: "打开备忘列表",
   focus_toggle: "开始 25 分钟专注",

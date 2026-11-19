@@ -60,6 +60,22 @@ export function composeHitMask({ cell, columns, rows, drawn, offset = { columns:
  * drawn (a load error, a crash): otherwise the transparent window keeps
  * whatever mask it had, and the message under it cannot be clicked.
  */
+/** How far the drawn part of `mask` stays from the top, right and bottom of the view, in pixels; null when nothing is drawn. */
+export function drawnInsets(mask: OpaqueMask, cell: number): { top: number; right: number; bottom: number } | null {
+  let top = mask.rows;
+  let right = -1;
+  let bottom = -1;
+  mask.cells.forEach((drawn, index) => {
+    if (!drawn) return;
+    const row = Math.floor(index / mask.columns);
+    top = Math.min(top, row);
+    right = Math.max(right, index % mask.columns);
+    bottom = Math.max(bottom, row);
+  });
+  if (right < 0) return null;
+  return { top: top * cell, right: (mask.columns - 1 - right) * cell, bottom: (mask.rows - 1 - bottom) * cell };
+}
+
 export function maskToElement(element: Element | null): void {
   if (!element || !petWindow.isNative) return;
   const columns = Math.ceil(window.innerWidth / HIT_CELL_PX);

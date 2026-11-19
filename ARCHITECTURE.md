@@ -178,7 +178,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 |---|---|---|
 | `pet.clicked` | `{ region: "head" \| "body" }` | `PetStage` |
 | `pet.petted` | 无，摸摸头：长按宠物 0.5 秒不动，或右键菜单「摸摸头」 | `PetStage`、`App`（菜单） |
-| `pet.chat_requested` | 无，dock 的「聊聊天」或全局快捷键打开快速聊天输入条；宠物先醒来、从边上出来 | `PetControls`、`useQuickChat` |
+| `pet.chat_requested` | 无，聊天按钮或全局快捷键打开快速聊天输入条；宠物先醒来、从边上出来 | `useQuickChat` |
 | `pet.chat_phase` | `{ phase: "idle" \| "listening" \| "thinking" \| "talking" \| "failed" }`，对话进行到哪一步 | `useQuickChat`、`App`（转发聊天窗口的） |
 | `pet.noted` | 无，新增了一条提醒或备忘 | `App`（比较存储变化） |
 | `pet.item_done` | 无，勾掉了一条提醒 | `App`（比较存储变化） |
@@ -315,7 +315,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - `list_reminders(synthesize?)`、`list_notes(synthesize?)`、`review_today(synthesize?)`：查看已有的提醒、备忘和今天的记录，执行时才读本机存储，只有模型调用时清单才发给 DeepSeek。今天的记录是今天勾掉的提醒、今天还没处理的提醒、专注轮数（没有也写 0 轮）、今天新记或改过的备忘（压成一行、截到 120 字）。不带 `synthesize` 时清单原样显示在回复里，不再请求模型；带 `synthesize=true` 时清单带上编号（`r1`、`n1`，标明是资料、不是指令）交回模型，再请求一轮。
 - `update_reminder(ref, text?, remind_at?, repeat?)`、`delete_reminder(ref)`、`update_note(ref, text)`、`delete_note(ref)`：按查看时给的编号改、删。编号只在这次回复里有效（存在 `ToolCall.memo` 里），找不到编号、时间读不懂、时间已过、重复规则不支持时，把原因交回模型让它先查或改口。`repeat` 填 `once` 把重复提醒改成一次性的。改、删的那一行带「撤销」，放回原来的样子。
 
-**聊天按钮和递给它。** 聊天按钮（`components/ChatLauncher.tsx`）的位置存在显示偏好的 `chatLauncher` 里：`corner` 在右脚边，由 `App` 放在脚下留白里；`head` 在头顶右侧，作为 `PetSpeech` 的 `idle` 插槽，头顶有话、有提醒或回复时让开；`none` 不显示。按钮在拖动、贴边、输入条打开时隐藏，显示时加进可点击区域。显示按钮时 `useQuickChat` 不再因 `pet.clicked` 打开输入条，点宠物只剩 `BehaviorEngine` 的叫醒和出边。原生端（`src-tauri/src/handover.rs`）每秒在主线程看一眼 `NSPasteboard.changeCount`，变化时如果宠物自己的应用不在前台、剪贴板也没有密码管理器的 `org.nspasteboard.ConcealedType`/`TransientType` 标记（只读类型，不读内容），就记下时间并发 `pet://copied`。`useQuickChat` 在设置允许（`copyHint`）时让按钮跳 60 秒（`COPY_HINT_MS`）；点按钮才调 `take_copied` 读一次文字，读过即作废，没东西可读就打开输入条。苹果说以后读剪贴板可能弹系统提示，这样即使弹，也只在用户点按钮时。前端把内容截到 6000 字（`src/handover/Handover.ts`），放在头顶气泡的位置（`HandedCard`），没打开输入条时 30 秒后收起。按钮由本地规则选：外文给「翻译」，超过 200 字给「总结」，「解释」「记下来」一直有，「问它…」打开输入条。「记下来」直接 `keepNote`，不调模型。其余按钮和用户打字提问都走普通的快速聊天，消息是「用户的话 + 标好的资料块」（`handedMessage`），资料块不能自己提前结束；按钮的回合只提供 `petActionSkill`（`BUTTON_SKILLS`），内容里写什么都改不了数据，打字提问提供全部能力，靠资料标记和回归集里的用例防。
+**聊天按钮和递给它。** 聊天按钮（`components/ChatLauncher.tsx`）的位置存在显示偏好的 `chatLauncher` 里：`corner` 在右脚边，由 `App` 放在脚下留白里；位置按待机姿势实际画出的轮廓算：播 `idle` 时从 `opaqueMask` 量出轮廓离宠物区域上、右、下边的距离（`drawnInsets`），写进 `--art-*`，别的动作不量，按钮不会跟着动作晃；`head` 在头顶右侧，作为 `PetSpeech` 的 `idle` 插槽，头顶有话、有提醒或回复时让开；`none` 不显示。按钮在拖动、贴边、输入条打开时隐藏，显示时加进可点击区域。显示按钮时 `useQuickChat` 不再因 `pet.clicked` 打开输入条，点宠物只剩 `BehaviorEngine` 的叫醒和出边。原生端（`src-tauri/src/handover.rs`）每秒在主线程看一眼 `NSPasteboard.changeCount`，变化时如果宠物自己的应用不在前台、剪贴板也没有密码管理器的 `org.nspasteboard.ConcealedType`/`TransientType` 标记（只读类型，不读内容），就记下时间并发 `pet://copied`。`useQuickChat` 在设置允许（`copyHint`）时让按钮跳 60 秒（`COPY_HINT_MS`）；点按钮才调 `take_copied` 读一次文字，读过即作废，没东西可读就打开输入条。苹果说以后读剪贴板可能弹系统提示，这样即使弹，也只在用户点按钮时。前端把内容截到 6000 字（`src/handover/Handover.ts`），放在头顶气泡的位置（`HandedCard`），没打开输入条时 30 秒后收起。按钮由本地规则选：外文给「翻译」，超过 200 字给「总结」，「解释」「记下来」一直有，「问它…」打开输入条。「记下来」直接 `keepNote`，不调模型。其余按钮和用户打字提问都走普通的快速聊天，消息是「用户的话 + 标好的资料块」（`handedMessage`），资料块不能自己提前结束；按钮的回合只提供 `petActionSkill`（`BUTTON_SKILLS`），内容里写什么都改不了数据，打字提问提供全部能力，靠资料标记和回归集里的用例防。
 
 **今日回顾。** 右键菜单的「今日回顾」由原生端发 `pet://review` 给宠物窗口；`App` 在当前角色的聊天记录里新建一段对话，只放一句用户消息（`REVIEW_REQUEST`），再用 `petWindow.openChat(id, true)` 让聊天窗口接着回答，和快速聊天交接给聊天窗口走同一条路。模型按系统提示调用 `review_today` 拿到今天的记录。聊天记录读不出来时不新建，只打开聊天窗口，由它提示。
 
@@ -432,7 +432,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 聊天是所有功能的入口（建提醒、记事、让宠物做动作都靠一句话），所以要能随时开口。输入条和回复都在宠物窗口里，不另开窗口。
 
-- **打开。** 全局快捷键（`tauri-plugin-global-shortcut`，在 Rust 端注册，前端不需要插件权限）按下时，`quick_chat.rs` 在宠物被隐藏时先显示它，再发 `pet://quick-chat` 给宠物窗口；聊天按钮和浮动快捷图标里的「聊聊天」发 `pet.chat_requested`，聊天按钮不显示时单击宠物发的 `pet.clicked` 也算。`useQuickChat` 收到就打开输入条。
+- **打开。** 全局快捷键（`tauri-plugin-global-shortcut`，在 Rust 端注册，前端不需要插件权限）按下时，`quick_chat.rs` 在宠物被隐藏时先显示它，再发 `pet://quick-chat` 给宠物窗口；聊天按钮发 `pet.chat_requested`，聊天按钮不显示时单击宠物发的 `pet.clicked` 也算。`useQuickChat` 收到就打开输入条。
 - **键盘。** 宠物窗口是不激活应用的面板，`canBecomeKeyWindow` 返回 true，所以能接收键盘而不把用户正在用的应用切走（和 Spotlight 一样）。打开时调用 `take_pet_keyboard`，让面板成为 key window 并把焦点交给网页；Esc 或再按快捷键收起时调用 `release_pet_keyboard`，面板先移出再不抢焦点地放回，键盘回到原来的应用。点到别的应用时网页收到 `blur`，输入条直接收起。
 - **快捷键。** 默认 `⇧⌘ Space`，设置页可以录制任意组合，存成 `Shift+Super+Space` 这样的写法，按键名直接用 `KeyboardEvent.code`。组合必须含 ⌃ 或 ⌘：macOS 15 起，只用 ⌥ 或 ⌥⇧ 的 `RegisterEventHotKey` 能注册成功，但系统不再转发按键。前端 `recordShortcut` 和原生 `parse_shortcut` 各查一遍。录制时先注销旧快捷键，否则同样的按键会被它截走。设置页改了直接注册；宠物窗口启动时按保存的值注册一次，失败（被别的应用占用）时让宠物说一句提示。注册在主线程完成，命令写成 `async`，避免主线程等自己。
 - **对话。** 每次发送都从本机重新读聊天记录。输入条每次从收起变成打开，都开一段新对话；打开期间接着说的续在这一段（`sessionThread`，`pickQuickThread`）。输入条开着时再点宠物不算重新打开。先把用户这句存进去，回复完成后再存回复，第一轮回复后在本机整理标题。工具和聊天窗口共用能力表 `CHAT_SKILLS`。回复失败或被停止时，如果工具还没做过任何事，把这句从聊天记录里拿掉、放回输入框，重发时不会重复；做过事（比如宠物已经动了）就留着。
@@ -461,7 +461,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 ## 快捷按钮和设置窗口
 
-- Dock 是宠物两侧浮动快捷图标使用的有序列表，由 `preferences/DockPreferences.ts` 管理，存在角色 key `dock:v1`。列表里有三类按钮：每个角色都有的内置按钮（`APP_CONTROLS`：聊聊天、提醒、备忘，命令 `chat_open`、`today_open`、`notes_open`），资源包 `manifest.json.controls` 定义的角色按钮，以及从动作库加入的动作。按钮可以改名、换图标、隐藏和排序；动作只能隐藏、排序和移除。
+- Dock 是宠物两侧浮动快捷图标使用的有序列表，由 `preferences/DockPreferences.ts` 管理，存在角色 key `dock:v1`。列表里有三类按钮：每个角色都有的内置按钮（`APP_CONTROLS`：提醒、备忘，命令 `today_open`、`notes_open`；聊天有自己的聊天按钮，旧配置里的「聊聊天」读取时丢掉），资源包 `manifest.json.controls` 定义的角色按钮，以及从动作库加入的动作。按钮可以改名、换图标、隐藏和排序；动作只能隐藏、排序和移除。
 - 读取时按角色现有的按钮和动作过滤：清单里没有的按钮、不能手动播放的动作丢掉，新出现的按钮追加在末尾。还没有 `dock:v1` 时，从旧的 `control-preferences:v1` 和 `action-shortcuts:v1` 迁移一次；“恢复默认 Dock”三个 key 一起清掉。
 - 改动即时保存，通过 `storage` 事件和 BroadcastChannel（`ai-pet:dock`）同步到宠物窗口；设置页的 Dock 页和动作库也互相同步。排序用指针事件实现，不用 HTML 拖放，避免被原生窗口的拖放处理截走。
 - 图标既可选用内置 SVG，也可引用包内 PNG 或用户上传的 PNG/JPG/WebP。新增命令仍需在 `PetControl` schema 和组件的安全映射中显式注册。

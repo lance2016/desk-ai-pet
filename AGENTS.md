@@ -34,7 +34,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 6. **React 组件只发事件。** 不直接调用控制器，不直接改状态。聊天、提醒、备忘这些场景也一样：只报告发生了什么（`pet.chat_phase`、`pet.noted`、`pet.item_done`），播哪个动作由 `BehaviorEngine` 决定，不要在入口处自己 `requestAction`。
 7. **外部入口只有 `PetRuntime.requestAction()`。** 它不能改属性，也不能触发 `system` 类动作。以后的 AI、提醒都走这个入口。
 8. **状态不可变。** `PetState` 的快照每次更新都生成新对象。
-9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；聊聊天、提醒、备忘是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
+9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；提醒、备忘是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮。聊天不进快捷按钮，用宠物旁边的聊天按钮（`ChatLauncher`）。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
 11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。原生的 `llm.rs` 只管钥匙串、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 

@@ -5,7 +5,7 @@
       { "icon": "chat", "color": "blue", "title": "点一下就能聊天", "detail": "点宠物旁边的聊天按钮，回复显示在它头顶。说「敲个木鱼」时，它会边回复边做动作。按钮可以挪到头顶或关掉，关掉后点宠物就是聊天。", "how": ["点聊天按钮", "⇧⌘ Space"], "section": "ai" },
       { "icon": "hand", "color": "pink", "title": "摸摸头", "detail": "按住不动半秒；连着摸三次它会害羞。", "how": ["按住宠物 0.5 秒", "右键宠物 › 摸摸头"] },
       { "icon": "move", "color": "teal", "title": "拖走或躲到边上", "detail": "拖到屏幕左右边缘松手，它会躲在边上探头，点一下出来。", "how": ["按住拖动"] },
-      { "icon": "sparkle", "color": "purple", "title": "快捷按钮", "detail": "鼠标移到宠物上，两侧出现聊天、提醒、备忘、专注和你加的动作。", "how": ["鼠标移到宠物上"], "section": "dock" },
+      { "icon": "sparkle", "color": "purple", "title": "快捷按钮", "detail": "鼠标移到宠物上，两侧出现提醒、备忘、专注和你加的动作。", "how": ["鼠标移到宠物上"], "section": "dock" },
       { "icon": "sleep", "color": "indigo", "title": "跟着你作息", "detail": "你在用电脑时它醒着，走开 5 分钟它会睡着，回来就醒。" }
     ]
   },

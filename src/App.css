@@ -434,10 +434,10 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
 .chat-launcher:hover, .chat-launcher.is-hinting { opacity: 1; }
 .chat-launcher:hover { transform: scale(1.06); }
 .chat-launcher:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
-/* By the pet's right foot, mostly in the room below it, under the side buttons. */
-.chat-launcher--corner { right: calc(var(--stage-side) - 28px); bottom: calc(var(--stage-bottom) - 22px); }
-/* By the top of the head, reaching down from the room above the pet; it gives way to anything said there. */
-.chat-launcher--head { right: calc(var(--stage-side) + 6px); bottom: -26px; }
+/* By the right foot of the resting pose (--art-*: room between the drawing and the pet's area). */
+.chat-launcher--corner { right: calc(var(--stage-side) + var(--art-right) - 30px); bottom: calc(var(--stage-bottom) + var(--art-bottom) - 4px); }
+/* By the top right of the head, reaching down from the room above the pet; it gives way to anything said there. */
+.chat-launcher--head { right: calc(var(--stage-side) + var(--art-right) - 14px); bottom: calc(-12px - var(--art-top)); }
 .chat-launcher.is-hinting { animation: launcher-hint 1.6s ease-in-out infinite; }
 @keyframes launcher-hint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 

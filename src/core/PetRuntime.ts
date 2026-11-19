@@ -296,6 +296,11 @@ export class PetRuntime {
     return this.renderer.opaqueMask(cell);
   }
 
+  /** The action playing now, or null between actions. */
+  get currentActionId(): string | null {
+    return this.controller.current?.id ?? null;
+  }
+
   destroy(): void {
     clearInterval(this.tickTimer);
     this.stopSaving();

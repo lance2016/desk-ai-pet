@@ -49,7 +49,6 @@ export function PetControls({ runtime, visible, offscreenInsets, ref }: PetContr
     if (now - (lastClicks.current[control.command] ?? -Infinity) < CONTROL_CLICK_GUARD_MS) return;
     lastClicks.current[control.command] = now;
     switch (control.command) {
-      case "chat_open": runtime.bus.emit("pet.chat_requested", {}); break;
       case "today_open": void petWindow.openToday().catch((error) => console.error("Failed to open today", error)); break;
       case "notes_open": void petWindow.openNotes().catch((error) => console.error("Failed to open notes", error)); break;
       case "focus_toggle": runtime.bus.emit("pet.focus_toggled", {}); break;
@@ -125,7 +124,7 @@ export function PetControls({ runtime, visible, offscreenInsets, ref }: PetContr
         type="button"
         aria-pressed={item.command === "focus_toggle" ? active : undefined}
         aria-label={label}
-        title={item.command === "chat_open" ? `${label}（点一下宠物也可以）` : label}
+        title={label}
         onClick={() => emitControl(item)}
       >
         <DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} />

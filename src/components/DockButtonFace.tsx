@@ -12,8 +12,7 @@ import "./DockButtonFace.css";
 function hasIllustration(item: Extract<DockItem, { kind: "control" }>): boolean {
   const icon = item.icon;
   if (typeof icon !== "string") return false;
-  return (item.command === "chat_open" && icon === "chat")
-    || (item.command === "today_open" && (icon === "checklist" || icon === "bell"))
+  return (item.command === "today_open" && (icon === "checklist" || icon === "bell"))
     || (item.command === "notes_open" && icon === "note")
     || (item.command === "focus_toggle" && icon === "timer");
 }

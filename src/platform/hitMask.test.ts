@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeHitMask } from "./hitMask";
+import { composeHitMask, drawnInsets } from "./hitMask";
 
 /** Renders a mask as rows of `#` and `.` so expectations are readable. */
 function draw(cells: boolean[], columns: number): string[] {
@@ -40,5 +40,13 @@ describe("composeHitMask", () => {
   it("ignores the parts of a rectangle outside the window", () => {
     const rects = [{ left: -10, top: 12, right: 100, bottom: 100 }];
     expect(draw(composeHitMask({ ...base, rects }), 6)).toEqual(["......", "......", "......", "######"]);
+  });
+});
+
+describe("drawnInsets", () => {
+  it("measures the room around the drawn cells", () => {
+    const mask = { columns: 4, rows: 3, cells: [false, false, false, false, false, true, true, false, false, true, false, false] };
+    expect(drawnInsets(mask, 4)).toEqual({ top: 4, right: 4, bottom: 0 });
+    expect(drawnInsets({ columns: 2, rows: 1, cells: [false, false] }, 4)).toBeNull();
   });
 });

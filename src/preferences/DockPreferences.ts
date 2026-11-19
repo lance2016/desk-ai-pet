@@ -7,7 +7,8 @@ import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
 
 /**
  * The floating controls around the pet: one ordered list of buttons. App
- * buttons (chat, today, notes) exist for every character; the character's own
+ * buttons (today, notes) exist for every character; chat has its own button
+ * beside the pet (`ChatLauncher`), so a saved chat button is dropped. The character's own
  * buttons come from its manifest; actions are added from the action library.
  */
 const BROADCAST_CHANNEL = "ai-pet:dock";
@@ -16,7 +17,7 @@ const MAX_LABEL_CHARS = 12;
 const MAX_ENTRIES = 120;
 const CUSTOM_ICON_DATA_URL = /^data:image\/(png|jpeg|webp);base64,/;
 
-export type DockCommand = PetControl["command"] | "chat_open" | "today_open" | "notes_open";
+export type DockCommand = PetControl["command"] | "today_open" | "notes_open";
 
 /** A button's defaults, before the user's changes. */
 export interface DockControl {
@@ -32,7 +33,6 @@ export type DockItem =
 
 /** Buttons every character has. Ids cannot clash with manifest control ids, which are a fixed enum. */
 export const APP_CONTROLS: readonly DockControl[] = [
-  { id: "chat", label: "聊聊天", icon: "chat", command: "chat_open" },
   { id: "today", label: "提醒", icon: "bell", command: "today_open" },
   { id: "notes", label: "备忘", icon: "note", command: "notes_open" },
 ];

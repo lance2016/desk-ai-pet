@@ -1,6 +1,5 @@
 /* Dock button faces, shared by the pet window and the settings preview. */
 .control-illustration { display: block; width: 28px; height: 28px; background-image: url('/control-icons.png'); background-size: 400% 100%; background-repeat: no-repeat; }
-.control-illustration--chat_open { background-position: 0% 50%; }
 .control-illustration--today_open { background-position: 33.333% 50%; }
 .control-illustration--notes_open { background-position: 66.667% 50%; }
 .control-illustration--focus_toggle { background-position: 100% 50%; }
