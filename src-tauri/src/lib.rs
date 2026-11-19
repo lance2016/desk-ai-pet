@@ -741,7 +741,7 @@ pub fn run() {
             quick_chat::set_quick_chat_shortcut,
             quick_chat::set_translation_shortcut,
             translation::open_translation,
-            handover::take_handover,
+            handover::take_copied,
             translation::selection_status,
             translation::take_translation_selection,
             translation::set_selection_float,

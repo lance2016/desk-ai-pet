@@ -15,6 +15,8 @@ interface PetSpeechProps {
   onLayoutChange?: () => void;
   /** A quick chat answer. While there is one it has the bubble to itself. */
   reply?: ReactNode;
+  /** Shown above the pet only while nothing is said there, such as the chat button. */
+  idle?: ReactNode;
   hideBadge?: boolean;
 }
 
@@ -68,7 +70,7 @@ function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => vo
  * finished focus round) stays until it is clicked, and a question on it stays
  * until one of its buttons is. Each part of the status row does its own thing.
  */
-export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, hideBadge }: PetSpeechProps) {
+export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge }: PetSpeechProps) {
   const [line, setLine] = useState<string | null>(null);
   const [alert, setAlert] = useState<StandingAlert | null>(null);
   const [chips, setChips] = useState<StatusChip[]>([]);
@@ -89,7 +91,8 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   // A passing line borrows the bubble for a moment; the standing one comes back after it.
   const standing = line === null && !reply ? alert : null;
   const badgeShown = chips.length > 0 && !hideBadge;
-  useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, onLayoutChange]);
+  const idleShown = Boolean(idle) && line === null && standing === null;
+  useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, onLayoutChange]);
 
   const dismiss = () => {
     runtime.bus.emit("pet.alert_dismissed", {});
@@ -120,6 +123,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   return (
     <>
       <div className="speech-area" aria-live="polite">
+        {idleShown && idle}
         {line && <p key={line} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{line}</p>}
         {standing && (
           <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>

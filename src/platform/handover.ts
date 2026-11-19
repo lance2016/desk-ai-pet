@@ -1,17 +1,20 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { z } from "zod";
 
-const handedSchema = z.object({ text: z.string().min(1), source: z.enum(["selection", "clipboard"]) }).nullable();
-/** What the user handed the pet as it was called up; see `src-tauri/src/handover.rs`. */
-export type HandedText = NonNullable<z.infer<typeof handedSchema>>;
+/** Must match `COPIED_EVENT` and `take_copied` in `src-tauri/src/handover.rs`. */
+const COPIED_EVENT = "pet://copied";
+const copiedSchema = z.string().min(1).nullable();
 
+/** Text the user copies for the pet. The native side reads it only when `takeCopied` asks. */
 export const handoverPlatform = {
-  /**
-   * The selected text in the app in front, or else what was copied in the last minute when `clipboard` allows it.
-   * Null when there is none, and outside the desktop app.
-   */
-  async take(clipboard: boolean): Promise<HandedText | null> {
+  /** Called when something was copied in another app; not called for copies password managers mark as private. */
+  async onCopied(handler: () => void): Promise<() => void> {
+    return isTauri() ? listen(COPIED_EVENT, handler) : () => {};
+  },
+  /** What was copied in the last minute, read now; null when there is none, and outside the desktop app. */
+  async takeCopied(): Promise<string | null> {
     if (!isTauri()) return null;
-    return handedSchema.parse(await invoke("take_handover", { clipboard }));
+    return copiedSchema.parse(await invoke("take_copied"));
   },
 };

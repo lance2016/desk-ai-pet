@@ -2,9 +2,17 @@ import { z } from "zod";
 
 const ON_TOP_KEY = "ai-pet:on-top:v1";
 const KEY = "ai-pet:display-preferences:v1";
-const schema = z.object({ controlsLingerMs: z.union([z.literal(400), z.literal(700), z.literal(1200)]) });
+/** Where the chat button sits: "corner" at the pet's lower right, "head" beside its head, or "none": a click on the pet opens the chat. */
+export const CHAT_LAUNCHERS = ["corner", "head", "none"] as const;
+export type ChatLauncher = (typeof CHAT_LAUNCHERS)[number];
+const schema = z.object({
+  controlsLingerMs: z.union([z.literal(400), z.literal(700), z.literal(1200)]),
+  chatLauncher: z.enum(CHAT_LAUNCHERS).default("corner"),
+  /** A copy in another app lights up the chat button; nothing is read until it is clicked. */
+  copyHint: z.boolean().default(true),
+});
 export type DisplayPreferences = z.infer<typeof schema>;
-export const DEFAULT_DISPLAY_PREFERENCES: DisplayPreferences = { controlsLingerMs: 700 };
+export const DEFAULT_DISPLAY_PREFERENCES: DisplayPreferences = { controlsLingerMs: 700, chatLauncher: "corner", copyHint: true };
 
 export function loadDisplayPreferences(): DisplayPreferences {
   try {

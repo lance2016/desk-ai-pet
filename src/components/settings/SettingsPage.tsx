@@ -208,7 +208,8 @@ export function SettingsPage({ packId }: { packId: string }) {
   };
 
   const updateLinger = (value: DisplayPreferences["controlsLingerMs"]) => {
-    const next: DisplayPreferences = { ...display, controlsLingerMs: value };
+    // Read again: the AI page saves the chat button into the same preferences.
+    const next: DisplayPreferences = { ...loadDisplayPreferences(), controlsLingerMs: value };
     try { saveDisplayPreferences(next); setDisplay(next); setError(null); } catch (reason) { console.error("Could not save the display setting", reason); setError("设置没能保存，请再试一次。"); }
   };
 

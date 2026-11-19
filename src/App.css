@@ -425,7 +425,21 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
 .handed__foot button:hover:not(:disabled) { background: #f2edff; }
 .handed__foot button:disabled { opacity: .45; cursor: default; }
 .handed__foot button:focus-visible, .handed__close:focus-visible { outline: 2px solid #8874d8; outline-offset: 1px; }
-.handed__source { flex: 1; min-width: 0; margin-left: 2px; overflow: hidden; color: #8f88b8; font-size: 11px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.handed__foot .handed__ask { margin-left: auto; color: #8f88b8; border-color: transparent; background: none; }
+.handed__foot .handed__ask:hover:not(:disabled) { color: #6b5fc0; }
+
+/* The chat button: always there, quiet until hovered or until something was copied in another app. */
+.chat-launcher { position: absolute; z-index: 3; width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 50%; opacity: .78; cursor: pointer; pointer-events: auto; transition: opacity 140ms ease, transform 140ms ease; }
+.chat-launcher img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 4px rgba(53, 43, 102, .22)); -webkit-user-drag: none; }
+.chat-launcher:hover, .chat-launcher.is-hinting { opacity: 1; }
+.chat-launcher:hover { transform: scale(1.06); }
+.chat-launcher:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+/* By the pet's right foot, mostly in the room below it, under the side buttons. */
+.chat-launcher--corner { right: calc(var(--stage-side) - 28px); bottom: calc(var(--stage-bottom) - 22px); }
+/* By the top of the head, reaching down from the room above the pet; it gives way to anything said there. */
+.chat-launcher--head { right: calc(var(--stage-side) + 6px); bottom: -26px; }
+.chat-launcher.is-hinting { animation: launcher-hint 1.6s ease-in-out infinite; }
+@keyframes launcher-hint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
 /* Quick chat stays in the bottom stage margin, separate from the floating controls. */
 .quick-chat {
@@ -489,6 +503,7 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .chat-launcher.is-hinting { animation: none; }
   .controls,
   .controls button {
     transition: none;

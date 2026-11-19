@@ -23,6 +23,7 @@ import { requestPreferences } from "./preferences/ChatPreferences";
 import { isOnboarded, markOnboarded } from "./preferences/UserProfile";
 import { PetControls } from "./components/PetControls";
 import { QuickChatBar, QuickReplyBubble, useQuickChat } from "./components/QuickChat";
+import { ChatLauncher } from "./components/ChatLauncher";
 import { PetSpeech } from "./components/PetSpeech";
 import { PetStage } from "./components/PetStage";
 import { PetRuntime } from "./core/PetRuntime";
@@ -140,6 +141,7 @@ export default function App({ packId }: AppProps) {
   const onSpeechLayout = useCallback(() => setSpeechLayout((count) => count + 1), []);
   const quickBarRef = useRef<HTMLFormElement>(null);
   const quickReplyRef = useRef<HTMLDivElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
   /** Text of the standing reminder bubble, which must take clicks while it is up. */
   const [alert, setAlert] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<PetRuntime | null>(null);
@@ -156,8 +158,11 @@ export default function App({ packId }: AppProps) {
   /** Resolves to whether the saved position was restored for the character being loaded. */
   const restoredPosition = useRef<Promise<boolean> | null>(null);
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences);
-  const quickChat = useQuickChat(runtime, packId);
+  const quickChat = useQuickChat(runtime, packId, { style: displayPreferences.chatLauncher, copyHint: displayPreferences.copyHint });
   const quickReplyShown = quickChat.bubble;
+  const launcherStyle = displayPreferences.chatLauncher;
+  /** The chat button steps aside while the pet is dragged or peeks from an edge, and while the bar is open. */
+  const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open;
   const controlsVisible = useLingering(hovered, displayPreferences.controlsLingerMs) && !dragging && !quickChat.open && !dockSide;
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }
@@ -575,6 +580,7 @@ export default function App({ packId }: AppProps) {
       const badge = badgeRef.current?.getBoundingClientRect();
       const bar = quickChat.open ? quickBarRef.current?.getBoundingClientRect() : undefined;
       const answer = quickReplyShown ? quickReplyRef.current?.getBoundingClientRect() : undefined;
+      const launcher = launcherShown ? launcherRef.current?.getBoundingClientRect() : undefined;
       const cells = composeHitMask({
         cell: HIT_CELL_PX,
         columns,
@@ -582,7 +588,7 @@ export default function App({ packId }: AppProps) {
         drawn: runtime.opaqueMask(HIT_CELL_PX),
         offset: { columns: STAGE_MARGIN.side / HIT_CELL_PX, rows: STAGE_MARGIN.top / HIT_CELL_PX },
         grow: HIT_GROW_CELLS,
-        rects: [...controls, standing, badge, bar, answer].filter((rect): rect is MaskRect => rect !== undefined),
+        rects: [...controls, standing, badge, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
       });
       const key = `${columns}:${cells.map(Number).join("")}`;
       if (key === lastSent) return;
@@ -601,7 +607,7 @@ export default function App({ packId }: AppProps) {
       runtime.bus.on("pet.dock_changed", schedule),
     ];
     const observer = new ResizeObserver(schedule);
-    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current]) if (element) observer.observe(element);
+    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current]) if (element) observer.observe(element);
     const controlsElement = controlsRef.current;
     const controlsMutations = controlsElement ? new MutationObserver(schedule) : null;
     controlsMutations?.observe(controlsElement!, { childList: true, subtree: true, attributes: true });
@@ -615,7 +621,7 @@ export default function App({ packId }: AppProps) {
       controlsElement?.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [runtime, controlsVisible, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide]);
+  }, [runtime, controlsVisible, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
 
   // Without a pet there is no mask: let the error message take the mouse instead.
   useEffect(() => { if (loadError) maskToElement(loadErrorRef.current); }, [loadError]);
@@ -648,9 +654,10 @@ export default function App({ packId }: AppProps) {
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown && launcherStyle === "head" ? <ChatLauncher ref={launcherRef} style="head" hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
       {runtime && <PetControls ref={controlsRef} runtime={runtime} visible={controlsVisible} offscreenInsets={insets} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
+      {runtime && launcherShown && launcherStyle === "corner" && <ChatLauncher ref={launcherRef} style="corner" hinting={quickChat.copied} onClick={quickChat.launch} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}
     </main>
   );

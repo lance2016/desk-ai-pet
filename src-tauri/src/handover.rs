@@ -1,19 +1,23 @@
-//! What the user hands the pet when calling it up: the text selected in the app in
-//! front, or else what was just copied. Both are read only at that moment. Between
-//! calls the clipboard is watched by its change count alone, never its content.
+//! Text the user hands the pet by copying it. Between uses the clipboard is watched by its
+//! change count and its kinds of data alone, never its content: a copy only lights up the chat
+//! button, and the content is read when the user clicks it.
 
-use serde_json::{json, Value};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
-/// Something copied this recently counts as handed over. The settings footnote says "1 分钟".
+/// Something copied this recently can still be handed over. Must match `COPY_HINT_MS` in `src/components/QuickChat.tsx`.
 const RECENT_COPY: Duration = Duration::from_secs(60);
 const POLL: Duration = Duration::from_secs(1);
 /// Characters passed to the page at most; the page keeps fewer.
 const MAX_CHARS: usize = 16_000;
+/// Tells the pet window something was copied in another app. Must match `src/platform/handover.ts`.
+const COPIED_EVENT: &str = "pet://copied";
+/// Kinds of data password managers add to what they copy (nspasteboard.org); such copies are left alone.
+#[cfg(target_os = "macos")]
+const PRIVATE_TYPES: [&str; 2] = ["org.nspasteboard.ConcealedType", "org.nspasteboard.TransientType"];
 
-/// The clipboard's change count as last seen, and when it last changed while another app was in front.
+/// The clipboard's change count as last seen, and when it last changed with something worth offering.
 #[derive(Default)]
 pub struct Clipboard(Mutex<Watch>);
 
@@ -24,16 +28,19 @@ struct Watch {
 }
 
 impl Watch {
-    /// A new count. The first one only sets the baseline; a copy made in the pet's own windows does not count.
-    fn saw(&mut self, count: isize, own_app_in_front: bool, now: Instant) {
+    /// A new count; true when it is a copy worth offering. The first count only sets the baseline, and
+    /// a copy made in the pet's own windows or by a password manager does not count.
+    fn saw(&mut self, count: isize, worth_offering: bool, now: Instant) -> bool {
         let changed = self.count.is_some_and(|seen| seen != count);
         self.count = Some(count);
-        if changed {
-            self.changed_at = if own_app_in_front { None } else { Some(now) };
+        if !changed {
+            return false;
         }
+        self.changed_at = worth_offering.then_some(now);
+        worth_offering
     }
 
-    /// Whether a copy is recent enough to offer; offering it uses it up.
+    /// Whether a copy is recent enough to hand over; handing it over uses it up.
     fn take_recent(&mut self, now: Instant) -> bool {
         let recent = self.changed_at.is_some_and(|at| now.duration_since(at) <= RECENT_COPY);
         self.changed_at = None;
@@ -54,13 +61,19 @@ mod pasteboard {
         NSApplication::sharedApplication(main_thread).isActive()
     }
 
-    /// Reads the content: the one call that may make macOS ask the user, so it happens only when they call the pet.
+    /// Whether the copy is marked private. Reads only the kinds of data, not the data.
+    pub fn is_private() -> bool {
+        let Some(types) = NSPasteboard::generalPasteboard().types() else { return false };
+        types.iter().any(|kind| super::PRIVATE_TYPES.contains(&kind.to_string().as_str()))
+    }
+
+    /// Reads the content: the one call that may make macOS ask the user, so it happens only on their click.
     pub fn text() -> Option<String> {
         NSPasteboard::generalPasteboard().stringForType(unsafe { NSPasteboardTypeString }).map(|text| text.to_string())
     }
 }
 
-/// Watches the clipboard's change count, once a second, on the main thread as AppKit expects.
+/// Watches the clipboard once a second, on the main thread as AppKit expects.
 #[cfg(target_os = "macos")]
 pub fn start_watch(app: AppHandle) {
     std::thread::spawn(move || loop {
@@ -69,9 +82,16 @@ pub fn start_watch(app: AppHandle) {
         let polled = app.run_on_main_thread(move || {
             let Some(main_thread) = objc2::MainThreadMarker::new() else { return };
             let count = pasteboard::change_count();
-            let in_front = pasteboard::own_app_in_front(main_thread);
-            if let Ok(mut watch) = handle.state::<Clipboard>().0.lock() {
-                watch.saw(count, in_front, Instant::now());
+            let clipboard = handle.state::<Clipboard>();
+            let Ok(mut watch) = clipboard.0.lock() else { return };
+            if watch.count == Some(count) {
+                return;
+            }
+            let worth_offering = !pasteboard::own_app_in_front(main_thread) && !pasteboard::is_private();
+            if watch.saw(count, worth_offering, Instant::now()) {
+                if let Err(error) = handle.emit_to(crate::MAIN_WINDOW, COPIED_EVENT, ()) {
+                    log::warn!("failed to tell the pet about a copy: {error}");
+                }
             }
         });
         if polled.is_err() {
@@ -93,25 +113,16 @@ fn clipped(text: String) -> Option<String> {
     })
 }
 
-/// What to put in the quick chat bar as it opens: `{ text, source }`, or null.
-/// `clipboard`: the user lets the pet look at what was just copied.
+/// The text copied in the last minute, read now that the user asked for it; None when there is none.
 #[tauri::command]
-pub fn take_handover(state: State<'_, Clipboard>, clipboard: bool) -> Value {
+pub fn take_copied(state: State<'_, Clipboard>) -> Option<String> {
+    let recent = state.0.lock().map(|mut watch| watch.take_recent(Instant::now())).unwrap_or(false);
     #[cfg(target_os = "macos")]
-    {
-        if let Some(text) = crate::translation::selected_text().and_then(clipped) {
-            return json!({ "text": text, "source": "selection" });
-        }
-        let recent = state.0.lock().map(|mut watch| watch.take_recent(Instant::now())).unwrap_or(false);
-        if clipboard && recent {
-            if let Some(text) = pasteboard::text().and_then(clipped) {
-                return json!({ "text": text, "source": "clipboard" });
-            }
-        }
+    if recent {
+        return pasteboard::text().and_then(clipped);
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (state, clipboard);
-    Value::Null
+    let _ = recent;
+    None
 }
 
 #[cfg(test)]
@@ -119,24 +130,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn counts_a_copy_from_another_app_until_it_is_offered() {
+    fn offers_a_copy_from_another_app_once() {
         let start = Instant::now();
         let mut watch = Watch::default();
-        watch.saw(1, false, start);
-        assert!(!watch.take_recent(start), "the first count is only the baseline");
-        watch.saw(2, false, start);
+        assert!(!watch.saw(1, true, start), "the first count is only the baseline");
+        assert!(!watch.take_recent(start));
+        assert!(watch.saw(2, true, start));
         assert!(watch.take_recent(start + Duration::from_secs(30)));
-        assert!(!watch.take_recent(start + Duration::from_secs(31)), "offered once");
+        assert!(!watch.take_recent(start + Duration::from_secs(31)), "handed over once");
     }
 
     #[test]
-    fn ignores_old_copies_and_the_pets_own() {
+    fn leaves_out_old_copies_and_ones_not_worth_offering() {
         let start = Instant::now();
         let mut watch = Watch::default();
-        watch.saw(1, false, start);
-        watch.saw(2, false, start);
+        watch.saw(1, true, start);
+        watch.saw(2, true, start);
         assert!(!watch.take_recent(start + RECENT_COPY + Duration::from_secs(1)));
-        watch.saw(3, true, start);
+        assert!(!watch.saw(3, false, start));
         assert!(!watch.take_recent(start));
     }
 

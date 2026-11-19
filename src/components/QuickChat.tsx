@@ -12,9 +12,9 @@ import { characterName, requestPreferences } from "../preferences/ChatPreference
 import { CHAT_SKILLS } from "../skills";
 import { petActionSkill } from "../skills/petActions";
 import { readText } from "../agenda/chatTools";
-import { ACTION_LABELS, ACTION_QUESTIONS, handedMessage, handover, handoverPreview, sourceLabel, suggestions, type Handover, type HandoverAction } from "../handover/Handover";
+import { ACTION_LABELS, ACTION_QUESTIONS, HANDED_LABEL, handedMessage, handover, handoverPreview, suggestions, type Handover, type HandoverAction } from "../handover/Handover";
 import { handoverPlatform } from "../platform/handover";
-import { loadHandoverClipboard } from "../preferences/HandoverPreferences";
+import type { ChatLauncher } from "../preferences/DisplayPreferences";
 import { loadNotes, NOTE_LIMITS, removeNote } from "../notes/NoteStore";
 import { changeNotes, keepNote } from "../worklog/store";
 import type { ChatPhase } from "../types";
@@ -31,6 +31,10 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.r
  * it cannot change reminders, notes or what the pet remembers. Typed questions get every skill.
  */
 const BUTTON_SKILLS: readonly Skill[] = [petActionSkill];
+/** How long a copy keeps the chat button lit. Must match `RECENT_COPY` in `src-tauri/src/handover.rs`. */
+const COPY_HINT_MS = 60_000;
+/** How long copied text waits above the pet when the bar is not opened for it. */
+const CARD_LINGER_MS = 30_000;
 
 /** What the bubble above the pet shows. `fix` is where a click takes the user to sort out an error. */
 export interface QuickReply {
@@ -72,8 +76,10 @@ export interface QuickChat {
   /** True when no DeepSeek key is saved: the bar's send button opens the key settings instead. */
   keyMissing: boolean;
   reply: QuickReply | null;
-  /** Text the user handed over as the bar opened, shown above the pet until sent or put aside. */
+  /** Text the user copied and asked about with the chat button, shown above the pet until used or put aside. */
   handed: Handover | null;
+  /** Something was copied in another app in the last minute: the chat button lights up. */
+  copied: boolean;
   /** Whether the bubble above the pet has something to show: a reply, or the handed text. */
   bubble: boolean;
   name: string;
@@ -94,6 +100,10 @@ export interface QuickChat {
   dismissHanded: () => void;
   /** One of the buttons under the handed text. */
   runAction: (action: HandoverAction) => void;
+  /** The chat button: what was just copied, or else the bar. */
+  launch: () => void;
+  /** Opens the bar to ask about the handed text in one's own words. */
+  askAbout: () => void;
 }
 
 const reportFocus = (error: unknown) => console.warn("Could not move keyboard focus for quick chat", error);
@@ -122,7 +132,10 @@ function saveReply(packId: string, request: Request, text: string): void {
  * shortcut or the dock, it answers in the speech bubble and shares threads
  * with the chat window.
  */
-export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickChat {
+/** Where the chat button is ("none": a click on the pet opens the bar) and whether a copy lights it up. */
+export interface LauncherSetup { style: ChatLauncher; copyHint: boolean }
+
+export function useQuickChat(runtime: PetRuntime | null, packId: string, launcher: LauncherSetup): QuickChat {
   const [open, setOpen] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [draft, setDraft] = useState("");
@@ -130,6 +143,9 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   const [reply, setReply] = useState<QuickReply | null>(null);
   const [keyMissing, setKeyMissing] = useState(false);
   const [handed, setHanded] = useState<Handover | null>(null);
+  const [copiedAt, setCopiedAt] = useState<number | null>(null);
+  const launcherRef = useRef(launcher);
+  launcherRef.current = launcher;
   const inputRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(open);
   openRef.current = open;
@@ -144,24 +160,9 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   runtimeRef.current = runtime;
   /** Talking counts as being with the pet: it wakes up and does not doze off mid-chat. */
   const wakePet = () => runtimeRef.current?.bus.emit("pet.wake_up", {});
-  /** Reads what the user selected or just copied, now that they called the pet up. */
-  const pickUpHanded = () => {
-    handoverPlatform.take(loadHandoverClipboard())
-      .then((found) => {
-        if (!found || !openRef.current) return;
-        setHanded(handover(found));
-        // The handed text takes the bubble; a finished reply from before steps aside.
-        setReply((current) => (current !== MISSING_KEY_REPLY && (current?.status === "done" || current?.status === "error") ? null : current));
-      })
-      .catch((error: unknown) => console.warn("Could not read the handed text", error));
-  };
   const show = () => {
     // Asked again while it is open (another click on the pet): the conversation goes on.
-    if (!openRef.current) {
-      sessionThread.current = null;
-      setHanded(null);
-      pickUpHanded();
-    }
+    if (!openRef.current) sessionThread.current = null;
     setOpen(true);
     setFocusRequest((count) => count + 1);
     wakePet();
@@ -207,12 +208,38 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   // The pet is told where the conversation stands: it thinks until the reply starts, and stays with the user (no dozing, no wandering) for the rest.
   const phase: ChatPhase = pending ? (reply?.status === "streaming" ? "talking" : "thinking") : open ? "listening" : "idle";
   useEffect(() => { runtime?.bus.emit("pet.chat_phase", { phase }); }, [runtime, phase, draft]);
-  // A click on the pet means "I want to talk to you"; so does the dock's chat button.
+  // The dock's chat button and the chat button by the pet mean "I want to talk to you"; so does a click
+  // on the pet, unless the chat button is shown and the click is only for the pet.
   useEffect(() => {
     if (!runtime) return;
-    const stops = [runtime.bus.on("pet.clicked", show), runtime.bus.on("pet.chat_requested", show)];
+    const onClicked = () => { if (launcherRef.current.style === "none") show(); };
+    const stops = [runtime.bus.on("pet.clicked", onClicked), runtime.bus.on("pet.chat_requested", show)];
     return () => stops.forEach((stop) => stop());
   }, [runtime]);
+
+  // A copy in another app lights up the chat button for a minute; nothing is read until it is clicked.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let disposed = false;
+    handoverPlatform.onCopied(() => {
+      const { style, copyHint } = launcherRef.current;
+      if (style !== "none" && copyHint) setCopiedAt(Date.now());
+    })
+      .then((unsubscribe) => { if (disposed) unsubscribe(); else stop = unsubscribe; })
+      .catch((error: unknown) => console.warn("Cannot hear about copies here", error));
+    return () => { disposed = true; stop?.(); };
+  }, []);
+  useEffect(() => {
+    if (copiedAt === null) return;
+    const timer = setTimeout(() => setCopiedAt(null), COPY_HINT_MS);
+    return () => clearTimeout(timer);
+  }, [copiedAt]);
+  // Copied text left alone above the pet goes away; once the bar is open it stays with it.
+  useEffect(() => {
+    if (!handed || open || pending) return;
+    const timer = setTimeout(() => setHanded(null), CARD_LINGER_MS);
+    return () => clearTimeout(timer);
+  }, [handed, open, pending]);
 
   // Once the bar is closed, a finished reply stays up long enough to read it.
   useEffect(() => {
@@ -377,9 +404,24 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   };
 
   const ownName = runtime ? runtime.manifest.persona?.name ?? runtime.manifest.name : "宠物";
-  const bubble = reply !== null || (open && handed !== null);
-  const dismissHanded = () => { setHanded(null); inputRef.current?.focus(); };
-  return { open, draft, pending, keyMissing, reply, handed, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction };
+  const requestChat = () => runtimeRef.current?.bus.emit("pet.chat_requested", {});
+  /** Reads what was copied only now, on the user's click; with nothing to read the bar opens instead. */
+  const launch = () => {
+    if (copiedAt === null) { requestChat(); return; }
+    setCopiedAt(null);
+    wakePet();
+    handoverPlatform.takeCopied()
+      .then((text) => {
+        if (!text) { requestChat(); return; }
+        setHanded(handover(text));
+        // The copied text takes the bubble; a finished reply from before steps aside.
+        setReply((current) => (current !== MISSING_KEY_REPLY && (current?.status === "done" || current?.status === "error") ? null : current));
+      })
+      .catch((error: unknown) => { console.warn("Could not read what was copied", error); requestChat(); });
+  };
+  const bubble = reply !== null || handed !== null;
+  const dismissHanded = () => { setHanded(null); if (openRef.current) inputRef.current?.focus(); };
+  return { open, draft, pending, keyMissing, reply, handed, copied: copiedAt !== null, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction, launch, askAbout: requestChat };
 }
 
 function Icon({ name }: { name: "send" | "stop" | "expand" }) {
@@ -432,7 +474,7 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
     const field = textRef.current;
     setClipped(field !== null && field.scrollHeight > field.clientHeight + 1);
   }, [reply]);
-  if (!reply) return chat.open && chat.handed ? <HandedCard chat={chat} handed={chat.handed} ref={ref} /> : null;
+  if (!reply) return chat.handed ? <HandedCard chat={chat} handed={chat.handed} ref={ref} /> : null;
   const error = reply.status === "error";
   const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
   const hint = reply.fix === "settings" ? "去设置" : "在聊天窗口打开";
@@ -462,20 +504,20 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   );
 }
 
-/** What the user handed over, in the bubble above the pet, with what can be done with it. */
+/** Text the user copied, in the bubble above the pet, with what can be done with it. */
 function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; ref?: Ref<HTMLDivElement> }) {
-  const label = sourceLabel(handed);
+  const size = `${HANDED_LABEL} · ${[...handed.text].length}${handed.trimmed ? "+" : ""} 字`;
   return (
-    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={`递给${chat.name}的${label}`}>
+    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={`${HANDED_LABEL}，${size}`} title={size}>
       <span className="speech-bubble__spark" aria-hidden="true">✦</span>
       <span className="speech-bubble__body">
         <span className="handed__main">
           <span className="speech-bubble__text handed__text">{handoverPreview(handed.text)}</span>
-          <button type="button" className="handed__close" aria-label="不带上这段内容" title="不带上这段内容" onClick={chat.dismissHanded}>×</button>
+          <button type="button" className="handed__close" aria-label="不用了" title="不用了" onClick={chat.dismissHanded}>×</button>
         </span>
         <span className="handed__foot">
           {suggestions(handed.text).map((action) => <button key={action} type="button" disabled={chat.pending} onClick={() => chat.runAction(action)}>{ACTION_LABELS[action]}</button>)}
-          <small className="handed__source">{label} · {[...handed.text].length}{handed.trimmed ? "+" : ""} 字</small>
+          {!chat.open && <button type="button" className="handed__ask" disabled={chat.pending} onClick={chat.askAbout}>问它…</button>}
         </span>
       </span>
     </div>

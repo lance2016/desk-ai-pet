@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { petWindow } from "../../platform/petWindow";
-import { loadHandoverClipboard, saveHandoverClipboard } from "../../preferences/HandoverPreferences";
+import { loadDisplayPreferences, saveDisplayPreferences, type ChatLauncher, type DisplayPreferences } from "../../preferences/DisplayPreferences";
+import { moveRadioChoice } from "./radioKeys";
 import { DEFAULT_QUICK_CHAT_SHORTCUT, loadQuickChatShortcut, quickChatShortcutLabel, recordShortcut, saveQuickChatShortcut, type QuickChatShortcut } from "../../preferences/QuickChatPreferences";
 import { ShortcutField } from "./ShortcutField";
+
+const LAUNCHERS: readonly [ChatLauncher, string][] = [["corner", "右下角"], ["head", "头顶"], ["none", "不显示"]];
 
 const HINTS = {
   recording: "按下新的组合键，要包含 ⌃ 或 ⌘。按 Esc 取消。",
@@ -11,15 +14,17 @@ const HINTS = {
   reserved: "这个组合已经被系统占用，换一个试试。",
 } as const;
 
-/** Records the global shortcut that opens the quick chat bar under the pet, and what comes along when it opens. */
+/** Records the global shortcut that opens the quick chat bar under the pet, and places the chat button beside it. */
 export function QuickChatSettings({ onError }: { onError: (message: string | null) => void }) {
   const [shortcut, setShortcut] = useState(loadQuickChatShortcut);
   const [recording, setRecording] = useState(false);
   const [hint, setHint] = useState<string>(HINTS.recording);
-  const [clipboard, setClipboard] = useState(loadHandoverClipboard);
-  const toggleClipboard = () => {
-    try { saveHandoverClipboard(!clipboard); setClipboard(!clipboard); onError(null); }
-    catch (reason) { console.error("Could not save the clipboard setting", reason); onError("设置没能保存，请再试一次。"); }
+  const [display, setDisplay] = useState(loadDisplayPreferences);
+  /** Read again before saving: the general page saves other display settings into the same place. */
+  const updateDisplay = (change: Partial<DisplayPreferences>) => {
+    const next = { ...loadDisplayPreferences(), ...change };
+    try { saveDisplayPreferences(next); setDisplay(next); onError(null); }
+    catch (reason) { console.error("Could not save the chat button setting", reason); onError("设置没能保存，请再试一次。"); }
   };
 
   /** Registers `next`, saves it on success, and puts the old one back on failure. */
@@ -80,10 +85,19 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
       </div>
       <div className="settings-row">
         <div className="settings-row__body">
-          <strong>召唤时带上刚复制的内容</strong>
-          <span>没选中文字时，带上 1 分钟内复制的内容。选中的文字总会带上</span>
+          <strong>聊天按钮</strong>
+          <span>{display.chatLauncher === "none" ? "不显示时，点宠物打开输入条" : "点按钮打开输入条，点宠物只是和它玩"}</span>
         </div>
-        <button type="button" role="switch" aria-label="召唤时带上刚复制的内容" aria-checked={clipboard} className={clipboard ? "toggle is-on" : "toggle"} onClick={toggleClipboard}><span /></button>
+        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="聊天按钮的位置">
+          {LAUNCHERS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={display.chatLauncher === value} className={display.chatLauncher === value ? "is-selected" : ""} onClick={() => updateDisplay({ chatLauncher: value })}>{label}</button>)}
+        </div>
+      </div>
+      <div className="settings-row">
+        <div className="settings-row__body">
+          <strong>复制后提示</strong>
+          <span>{display.chatLauncher === "none" ? "要先显示聊天按钮" : "在别的应用里复制后，聊天按钮会跳一跳，1 分钟内点它可以翻译、解释或存进备忘。不点就不会读取复制的内容"}</span>
+        </div>
+        <button type="button" role="switch" aria-label="复制后提示" aria-checked={display.copyHint} disabled={display.chatLauncher === "none"} className={display.copyHint ? "toggle is-on" : "toggle"} onClick={() => updateDisplay({ copyHint: !display.copyHint })}><span /></button>
       </div>
     </article>
   );

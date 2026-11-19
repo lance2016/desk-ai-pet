@@ -92,8 +92,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 划词浮钮宽度 | `tauri.conf.json` 里 `selection-float` 窗口的 `width` | `FLOAT_WIDTH`（`src-tauri/src/translation.rs`） |
 | 日志和诊断的命令名、日志行格式 | `src/platform/diagnostics.ts`、`parseLog`（`src/diagnostics/logEntries.ts`，`[日期][时间][来源][级别] 内容`、窗口名表） | `src-tauri/src/diagnostics.rs`（`log_plugin` 的 `format`、`WEBVIEW_TARGET`）、`lib.rs` 的 `invoke_handler` |
 | 工作日志的命令名、字段 | `src/platform/worklog.ts`、`workLogSchema`（`src/worklog/WorkLog.ts`，文字上限 500 字，种类和来源 `[a-z_]`） | `src-tauri/src/worklog.rs`（文字上限 1000 字）、`lib.rs` 的 `invoke_handler` |
-| 召唤时读递来内容的命令、来源名 | `src/platform/handover.ts`（`take_handover`、`selection`/`clipboard`） | `src-tauri/src/handover.rs`、`lib.rs` 的 `invoke_handler` |
-| 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`、`README.md` 里写的「1 分钟」 |
+| 复制通知的事件名、读复制内容的命令名 | `src/platform/handover.ts`（`pet://copied`、`take_copied`） | `src-tauri/src/handover.rs`（`COPIED_EVENT`）、`lib.rs` 的 `invoke_handler` |
+| 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `COPY_HINT_MS`（`src/components/QuickChat.tsx`），`QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`、`README.md` 里写的「1 分钟」 |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
 | 提醒窗口圆角 | `tauri.conf.json` 里 `today` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
@@ -206,7 +206,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 默认资源包在 `public/pets/girl-default/`。新增角色的步骤见 `ACTIONS.md` 的“新增一个角色”。
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
 - 用户或聊天工具改提醒、备忘，要用 `changeReminders`、`changeNotes`、`keepNote`（`src/worklog/store.ts`）并写明来源，不要直接调 `updateAgenda`、`updateNotes`、`saveNote`，否则工作日志漏记。只有不算用户操作的整理（标记已提醒、过期作废、旧数据迁移）可以直接写。数据库的表结构只能往 `database.rs` 的 `MIGRATIONS` 末尾加新脚本，不能改已经发出去的。
-- 用户递来的内容（选区、剪贴板，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在召唤时读内容，平时只看变更计数。
+- 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮时读内容，平时只看变更计数和类型。
 - 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
