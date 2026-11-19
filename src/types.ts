@@ -201,7 +201,8 @@ export interface PetEvents {
    * `choices`: the line asks something and only these buttons answer it; a click elsewhere on it does nothing.
    */
   /** `heading`: a short word over the text, such as "到点啦" over a reminder's own words. */
-  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[] };
+  /** `immediate`: asked in answer to a press, so it shows at once over a passing line instead of waiting for it. */
+  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[]; immediate?: boolean };
   /** The user clicked the standing line away. */
   "pet.alert_dismissed": Record<string, never>;
   /** "完成" on the reminder line: tick off the reminders it names. */

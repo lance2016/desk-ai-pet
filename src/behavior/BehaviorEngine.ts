@@ -716,7 +716,8 @@ export class BehaviorEngine {
   private showAlert(now: number): void {
     const { bus } = this.deps;
     if (this.focusPrompt) {
-      bus.emit("pet.alert", { text: this.focusPrompt.text, icon: "timer", choices: this.focusPrompt.choices });
+      // Only a press asks it, right after "好，我陪你专注…" perhaps: the user is waiting for it.
+      bus.emit("pet.alert", { text: this.focusPrompt.text, icon: "timer", choices: this.focusPrompt.choices, immediate: true });
       return;
     }
     if (this.codeNotice) {

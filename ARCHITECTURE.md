@@ -199,7 +199,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
 | `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
 | `pet.greeting` | `{ text, offerMove? }`，宠物出来打招呼并说这句话；`offerMove` 时再问要不要把之前没做完的提醒挪到今天 | `PetRuntime.greet()` |
-| `pet.alert` | `{ text \| null, heading?, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；`heading` 是事项上方或按钮旁的小字（「到点啦」「别忘了」）；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件，最后一个（非危险操作时）画成主按钮 | `BehaviorEngine` |
+| `pet.alert` | `{ text \| null, heading?, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；`heading` 是事项上方或按钮旁的小字（「到点啦」「别忘了」）；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件，最后一个（非危险操作时）画成主按钮；`immediate` 表示这是点了按钮才问的（专注的停止、提前开始），立刻顶掉正在显示的临时气泡，不排在它后面 | `BehaviorEngine` |
 | `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
 | `pet.reminders_snoozed` | 无，提醒气泡上的「10 分钟后」：过一会儿再提醒 | `PetSpeech`（气泡按钮） |

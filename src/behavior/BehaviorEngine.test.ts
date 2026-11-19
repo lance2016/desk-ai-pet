@@ -752,7 +752,7 @@ describe("focus companion", () => {
     bus.emit("pet.focus_toggled", {});
     bus.emit("pet.focus_toggled", {});
     expect(focus.get().phase).toBe("focusing");
-    expect(shown[shown.length - 1]).toMatchObject({ text: "已经专注 3 分钟了，现在停下，这轮就不算了。", icon: "timer" });
+    expect(shown[shown.length - 1]).toMatchObject({ text: "已经专注 3 分钟了，现在停下，这轮就不算了。", icon: "timer", immediate: true });
     expect(shown[shown.length - 1].choices?.map((choice) => choice.event)).toEqual(["pet.alert_dismissed", "pet.focus_stopped"]);
     bus.emit("pet.alert_dismissed", {});
     expect(shown[shown.length - 1].text).toBeNull();

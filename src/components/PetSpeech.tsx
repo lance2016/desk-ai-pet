@@ -4,6 +4,7 @@ import { SpeechQueue } from "../core/SpeechQueue";
 import { mailCodePlatform } from "../platform/mailCode";
 import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
+import { speechShown } from "./speechShown";
 
 interface PetSpeechProps {
   runtime: PetRuntime;
@@ -100,10 +101,9 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
     };
   }, [runtime]);
 
-  // A passing line borrows the bubble for a moment; the standing one comes back after it.
-  const standing = line === null && !reply ? alert : null;
+  const { line: passing, standing } = speechShown(line, alert, Boolean(reply));
   const badgeShown = chips.length > 0 && !hideBadge;
-  const idleShown = Boolean(idle) && line === null && standing === null;
+  const idleShown = Boolean(idle) && passing === null && standing === null;
   useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, onLayoutChange]);
 
   const dismiss = () => {
@@ -136,7 +136,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
     <>
       <div className="speech-area" aria-live="polite">
         {idleShown && idle}
-        {line && <p key={line} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{line}</p>}
+        {passing && <p key={passing} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
         {standing && (
           <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>
             {standing.choices ? (
