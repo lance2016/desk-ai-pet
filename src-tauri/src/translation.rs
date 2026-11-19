@@ -98,7 +98,7 @@ fn show_selection(app: &AppHandle, text: Option<String>, auto: bool, result: Opt
     if let Some(window) = app.get_webview_window("translation") {
         let _ = window.emit("pet://translation-open", ());
         #[cfg(target_os = "macos")]
-        if let Err(error) = crate::floating_panel::take_keyboard(&window) { eprintln!("failed to show translation: {error}"); }
+        if let Err(error) = crate::floating_panel::take_keyboard(&window) { log::warn!("failed to show translation: {error}"); }
         #[cfg(not(target_os = "macos"))]
         { let _ = window.show(); let _ = window.set_focus(); }
     }

@@ -48,7 +48,7 @@ mod keychain {
     /// prompt, -25293 a refused password, -25308 no way to ask: all mean the
     /// app was not allowed in, which the user fixes by clicking "Allow".
     fn keychain_error(action: &str, status: i32) -> String {
-        eprintln!("Keychain {action} failed ({status})");
+        log::warn!("Keychain {action} failed ({status})");
         if matches!(status, -128 | -25293 | -25308) {
             "没有钥匙串访问权限，请在系统弹窗里点「允许」后再试。".into()
         } else {

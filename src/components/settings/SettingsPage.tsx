@@ -23,6 +23,7 @@ import { CompanionSettings } from "./CompanionSettings";
 import { HolidaySettings } from "./HolidaySettings";
 import { WelcomeGuide } from "./WelcomeGuide";
 import { BackupSettings } from "./BackupSettings";
+import { DiagnosticsSettings } from "./DiagnosticsSettings";
 import { UpdateRow } from "./UpdateRow";
 import { WhatsNewSheet } from "./WhatsNewSheet";
 import { CURRENT_VERSION, markWhatsNewSeen, notesFor, shouldShowWhatsNew } from "../../update/WhatsNew";
@@ -340,6 +341,8 @@ export function SettingsPage({ packId }: { packId: string }) {
               {currentNotes && <div className="settings-row"><div className="settings-row__body"><strong>{CURRENT_VERSION} 新功能</strong><span>这次更新加了 {currentNotes.features.length} 个新功能</span></div><button type="button" className="settings-button settings-button--small" onClick={() => setWhatsNew(true)}>查看</button></div>}
               <UpdateRow />
             </div>
+            <h2 className="settings-group-title">诊断</h2>
+            <DiagnosticsSettings onError={setError} />
           </div>
         )}
       </section>

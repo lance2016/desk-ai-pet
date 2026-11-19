@@ -788,3 +788,21 @@ button.dock-row__body { cursor: pointer; }
 .layer-editor__text label { display: flex; align-items: center; gap: 8px; }
 .layer-editor__text input { width: 140px; }
 .layer-editor__text span { flex-basis: 100%; color: var(--label-2); font-size: 11px; }
+
+/* 关于 → 诊断: the log, newest first, read like Console.app. Errors in red, warnings marked by an orange bar. */
+.log-viewer { padding: 8px 0 10px; border-top: 1px solid var(--separator); }
+.log-viewer__bar { display: flex; align-items: center; gap: 8px; }
+.settings-page .log-viewer__search { flex: 1; min-width: 80px; box-sizing: border-box; height: 22px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-size: 12px; }
+.settings-page .log-viewer__search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.log-viewer__search::placeholder { color: var(--label-2); }
+.log-viewer__note { margin: 10px 0 0; color: var(--label-2); font-size: 12px; }
+.log-viewer__list { max-height: 360px; overflow: auto; margin: 10px 0 0; padding: 2px 0; list-style: none; background: var(--fill); border-radius: var(--radius-control); user-select: text; -webkit-user-select: text; }
+.log-viewer__list li { padding: 5px 10px; font-size: 12px; line-height: 1.5; }
+.log-viewer__list li + li { border-top: 1px solid var(--separator); }
+.log-viewer__meta { display: flex; gap: 8px; color: var(--label-2); font-size: 11px; }
+.log-viewer__meta time { font-variant-numeric: tabular-nums; }
+.log-viewer__message { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log-viewer__list li.is-error { box-shadow: inset 2px 0 0 var(--red); }
+.log-viewer__list li.is-error .log-viewer__message { color: var(--red); }
+.log-viewer__list li.is-warn { box-shadow: inset 2px 0 0 var(--orange); }
+.log-viewer + .settings-row { border-top: 1px solid var(--separator); }

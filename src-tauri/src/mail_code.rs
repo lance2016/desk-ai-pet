@@ -132,7 +132,7 @@ pub async fn mail_save_account(app: AppHandle, address: String, password: String
     })
     .await
     .map_err(|error| {
-        eprintln!("Mail account check stopped: {error}");
+        log::warn!("Mail account check stopped: {error}");
         MAIL_ERROR.to_string()
     })?
 }
@@ -163,7 +163,7 @@ pub fn mail_remove_account(app: AppHandle) -> Result<(), String> {
 }
 
 fn network(step: &str, error: impl Display) -> String {
-    eprintln!("Mail: failed to {step}: {error}");
+    log::warn!("Mail: failed to {step}: {error}");
     NETWORK_ERROR.into()
 }
 
@@ -171,7 +171,7 @@ fn failure(step: &str, error: imap::error::Error) -> String {
     match error {
         imap::error::Error::Io(_) | imap::error::Error::Tls(_) | imap::error::Error::ConnectionLost => network(step, error),
         other => {
-            eprintln!("Mail: failed to {step}: {other}");
+            log::warn!("Mail: failed to {step}: {other}");
             MAIL_ERROR.into()
         }
     }
@@ -200,7 +200,7 @@ fn log_in<T: Read + Write>(stream: T, address: &str, password: &str) -> Result<i
     client.read_greeting().map_err(|error| failure("read the greeting", error))?;
     let mut session = client.login(address, password).map_err(|(error, _)| match error {
         imap::error::Error::No(_) | imap::error::Error::Bad(_) => {
-            eprintln!("Mail: login refused: {error}");
+            log::warn!("Mail: login refused: {error}");
             LOGIN_REFUSED.to_string()
         }
         other => failure("log in", other),
@@ -211,7 +211,7 @@ fn log_in<T: Read + Write>(stream: T, address: &str, password: &str) -> Result<i
 
 fn emit(app: &AppHandle, payload: Value) {
     if let Err(error) = app.emit_to(crate::MAIN_WINDOW, EVENT, payload) {
-        eprintln!("Mail: failed to tell the pet window: {error}");
+        log::warn!("Mail: failed to tell the pet window: {error}");
     }
 }
 
@@ -262,7 +262,7 @@ pub fn toggle(app: &AppHandle) {
             // The user may have asked from the tray with the pet hidden.
             let handle = app.clone();
             if let Err(error) = app.run_on_main_thread(move || crate::show_pet_if_hidden(&handle)) {
-                eprintln!("Mail: failed to show the pet: {error}");
+                log::warn!("Mail: failed to show the pet: {error}");
             }
             emit(&app, payload);
         }
@@ -356,7 +356,7 @@ fn check_inbox(app: &AppHandle, session: &mut Session, looked_at: &mut HashSet<u
         let payload = match reading.verdict {
             Verdict::NotCode => continue,
             Verdict::Code(code) => {
-                eprintln!("Mail: found a code {}s after the mailbox got it", unix_now() - at);
+                log::info!("Mail: found a code {}s after the mailbox got it", unix_now() - at);
                 let copied = copy(&code);
                 json!({ "kind": "found", "code": code, "sender": reading.sender, "copied": copied })
             }

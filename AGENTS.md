@@ -60,7 +60,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 - 代码、注释、日志、报错、提交信息用英文。界面上给用户看的文字用中文。
 - 外部输入用 Zod 校验：清单文件和存档。
 - 数值用具名常量，放在所属模块顶部，不要散落魔法数字。
-- 不用 `console.log`。可恢复的问题用 `console.warn`，真正的错误用 `console.error`。
+- 不用 `console.log`。可恢复的问题用 `console.warn`，真正的错误用 `console.error`；这两种会写进日志文件，所以不要把聊天原文、API Key、授权码传给它们。Rust 用 `log::warn!`、`log::error!`，不用 `eprintln!`（不进日志文件）。
 - 测试文件和源码放在一起，命名 `*.test.ts`。公共夹具在 `src/testing/fixtures.ts`。
 - 时间相关的逻辑直接用 `Date.now()` 和 `setTimeout`，测试里用 Vitest 的假时钟。随机数通过参数注入。
 
@@ -86,6 +86,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 「认不出验证码？」的长度上限 | `TRY_TEXT_LIMIT`（`src/components/settings/MailCodeTester.tsx`，按 UTF-16） | `MAX_TRY_CHARS`（`src-tauri/src/mail_code.rs`，按字符；前端的上限能保证不超） |
 | 查收验证码最多等多久 | `src-tauri/src/mail_code.rs` 的 `WAIT_FOR` | `MailSettings.tsx` 脚注、`README.md` 里写的「2 分钟」 |
 | 划词浮钮宽度 | `tauri.conf.json` 里 `selection-float` 窗口的 `width` | `FLOAT_WIDTH`（`src-tauri/src/translation.rs`） |
+| 日志和诊断的命令名、日志行格式 | `src/platform/diagnostics.ts`、`parseLog`（`src/diagnostics/logEntries.ts`，`[日期][时间][来源][级别] 内容`、窗口名表） | `src-tauri/src/diagnostics.rs`（`log_plugin` 的 `format`、`WEBVIEW_TARGET`）、`lib.rs` 的 `invoke_handler` |
 | 工作日志的命令名、字段 | `src/platform/worklog.ts`、`workLogSchema`（`src/worklog/WorkLog.ts`，文字上限 500 字，种类和来源 `[a-z_]`） | `src-tauri/src/worklog.rs`（文字上限 1000 字）、`lib.rs` 的 `invoke_handler` |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
 | 提醒窗口圆角 | `tauri.conf.json` 里 `today` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |

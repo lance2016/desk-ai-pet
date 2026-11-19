@@ -220,7 +220,7 @@ fn start_stream(app: AppHandle, window: String, state: Arc<LlmState>, provider: 
         }
         let cancelled = cancelled.load(Ordering::Relaxed);
         if !cancelled && (!ok || !status.is_some_and(|code| (200..300).contains(&code))) && !details.trim().is_empty() {
-            eprintln!("Model request failed ({status:?}): {}", details.trim());
+            log::warn!("Model request failed ({status:?}): {}", details.trim());
         }
         emit(&app, &window, json!({"id": id, "kind": "end", "status": status, "ok": ok, "cancelled": cancelled}));
     });
@@ -277,7 +277,7 @@ pub async fn llm_complete(app: AppHandle, provider: String, body: Value) -> Resu
         let output = child.wait_with_output().map_err(|_| "Cannot read the reply".to_string())?;
         let (reply, status) = split_status(&String::from_utf8_lossy(&output.stdout));
         if !output.status.success() {
-            eprintln!("Model request failed ({status:?}): {}", String::from_utf8_lossy(&output.stderr).trim());
+            log::warn!("Model request failed ({status:?}): {}", String::from_utf8_lossy(&output.stderr).trim());
         }
         Ok(json!({"status": status, "ok": output.status.success(), "body": reply}))
     })

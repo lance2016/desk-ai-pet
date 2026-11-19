@@ -67,7 +67,7 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         crate::reveal_pet(app);
     }
     if let Err(error) = app.emit_to(MAIN_WINDOW, QUICK_CHAT_EVENT, ()) {
-        eprintln!("failed to emit quick chat event: {error}");
+        log::warn!("failed to emit quick chat event: {error}");
     }
 }
 
@@ -92,7 +92,7 @@ fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Resu
     let manager = app.global_shortcut();
     if let Some(value) = parsed {
         manager.register(value).map_err(|error| {
-            eprintln!("failed to register shortcut {value}: {error}");
+            log::warn!("failed to register shortcut {value}: {error}");
             error.to_string()
         })?;
     }

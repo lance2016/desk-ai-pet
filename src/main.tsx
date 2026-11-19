@@ -10,10 +10,12 @@ import { TranslationPanel } from "./components/translation/TranslationPanel";
 import { SelectionFloat } from "./components/translation/SelectionFloat";
 import { dropTimelessAgenda, timelessAgendaTexts } from "./agenda/AgendaStore";
 import { addNote, updateNotes } from "./notes/NoteStore";
+import { forwardToLog } from "./platform/diagnostics";
 import { loadActiveCharacter, migrateLegacyCharacterData, subscribeActiveCharacter } from "./preferences/CharacterPreferences";
 
 const view = new URLSearchParams(window.location.search).get("window");
 if (view) document.documentElement.dataset.window = view;
+forwardToLog(view ?? "main");
 
 /** Every window follows the active character. The pet and chat restart for a new one. */
 function Root() {

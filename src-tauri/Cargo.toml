@@ -27,6 +27,8 @@ imap = "=3.0.0-alpha.15"
 native-tls = "0.2"
 # GBK and GB18030, common in Chinese mail, need `full_encoding`.
 mail-parser = { version = "1.0", features = ["full_encoding"] }
+log = "0.4"
+tauri-plugin-log = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

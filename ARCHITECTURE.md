@@ -121,6 +121,7 @@ src-tauri/src/
 ├── mail_extract.rs          从一封邮件里认出验证码（纯规则，不用 AI）
 ├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
 ├── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
+├── diagnostics.rs           日志文件（tauri-plugin-log）、panic 记录，设置页查看、清理、在访达中显示、导出诊断信息的命令
 └── worklog.rs               工作日志的 SQLite（rusqlite）：按版本跑迁移、追加、按日期读、折叠、导出、整体替换，只开有类型的命令
 public/pets/                 内置角色：six-six（小祭司，默认）、girl-default（小糕）
 ```
@@ -333,6 +334,14 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 5. `ai.greet`（`src/ai/completions.ts`）用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
 6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求 `happy` 并说话。到点提醒也用同一段逻辑叫宠物出来。
 7. 早安时有没做完的提醒，`pet.greeting` 带 `offerMove`。`BehaviorEngine` 通过 `ReminderSource.leftovers` 再取一次，放进常驻气泡（`moveOffer`，小字「之前没做完」），按钮是「不用了」（`pet.alert_dismissed`）和「挪到今天」（`pet.leftovers_moved`）。挪的时候 `ReminderSource.moveToToday` 调 `moveToToday`：排到今天同一时刻，已经过了就排到半小时后，清掉 `remindedAt` 让它到点再叫。气泡里的提醒在别处勾掉或删掉，下一秒就拿掉。
+
+## 日志和诊断
+
+原生端用 `tauri-plugin-log`（`diagnostics.rs` 的 `log_plugin`，第一个注册）把日志写到 `~/Library/Logs/com.aipet.desktop/ai-pet.log`，每行 `[日期][时间][来源][级别] 内容`，本地时间；满 1 MB 轮转，连当前文件最多留 3 个。开发时同时打到终端。Rust 一律用 `log` 宏，不用 `eprintln!`；`log_panics` 让 panic 也进日志。
+
+每个窗口启动时调 `forwardToLog`（`platform/diagnostics.ts`）：`console.warn`、`console.error`、没接住的错误和 Promise 拒绝都经 `diagnostics_log` 写进日志，带上窗口名。纯浏览器下不转发。
+
+「设置 → 关于 → 诊断」（`DiagnosticsSettings`）：`diagnostics_read_logs` 读所有日志文件末尾共 256 KB，`diagnostics/logEntries.ts` 解析成条目（堆栈并入上一条，来源翻成「聊天」「原生 llm」这类名字），最新的在最上面，最多画 300 条，按级别筛、搜索、复制。「清理」清空当前文件、删掉轮转出来的旧文件（当前文件被日志插件开着，只能截断）。「导出诊断信息」把版本号、系统版本、架构和同样的 256 KB 日志存成文本文件，保存面板在 Rust 里弹。
 
 ## 工作日志
 

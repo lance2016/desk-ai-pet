@@ -1,5 +1,6 @@
 mod alert;
 mod click_through;
+mod diagnostics;
 #[cfg(target_os = "macos")]
 mod floating_panel;
 mod holidays;
@@ -119,7 +120,7 @@ struct OnTopState(AtomicBool);
 
 fn report<T>(action: &str, result: tauri::Result<T>) {
     if let Err(error) = result {
-        eprintln!("failed to {action}: {error}");
+        log::warn!("failed to {action}: {error}");
     }
 }
 
@@ -145,7 +146,7 @@ fn toggle_visibility(app: &AppHandle, window: &WebviewWindow) {
             sync_pet_visibility(app, false);
         }
         Ok(false) => reveal_pet(app),
-        Err(error) => eprintln!("failed to read window visibility: {error}"),
+        Err(error) => log::warn!("failed to read window visibility: {error}"),
     }
 }
 
@@ -306,7 +307,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         CHAT_ID | TODAY_ID => {
             let label = if id == CHAT_ID { CHAT_WINDOW } else { TODAY_WINDOW };
             if let Err(error) = show_beside_pet(app, label) {
-                eprintln!("failed to open {label}: {error}");
+                log::warn!("failed to open {label}: {error}");
             }
         }
         PAT_ID => report("emit pat event", app.emit_to(MAIN_WINDOW, PAT_EVENT, ())),
@@ -319,7 +320,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         ),
         NOTES_ID => {
             if let Err(error) = show_beside_pet(app, NOTES_WINDOW) {
-                eprintln!("failed to open notes: {error}");
+                log::warn!("failed to open notes: {error}");
             }
         }
         // The check mark has already been flipped by the time this fires.
@@ -331,14 +332,14 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
                     }
                     report("emit on-top event", app.emit(ON_TOP_EVENT, checked));
                 }
-                Err(error) => eprintln!("failed to set always on top: {error}"),
+                Err(error) => log::warn!("failed to set always on top: {error}"),
             },
-            Err(error) => eprintln!("failed to read menu state: {error}"),
+            Err(error) => log::warn!("failed to read menu state: {error}"),
         },
         // The pet window saves the new value; see `petWindow.onDoNotDisturbChanged`.
         DND_ID => match menu.dnd.is_checked() {
             Ok(checked) => report("emit dnd event", app.emit(DND_EVENT, checked)),
-            Err(error) => eprintln!("failed to read menu state: {error}"),
+            Err(error) => log::warn!("failed to read menu state: {error}"),
         },
         TRANSLATE_ID => translation::open_translation(app.clone()),
         MAIL_CODE_ID => mail_code::toggle(app),
@@ -587,7 +588,10 @@ fn request_pet_scale(app: AppHandle, scale: f64) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    diagnostics::log_panics();
     tauri::Builder::default()
+        // First, so everything after it can log.
+        .plugin(diagnostics::log_plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -609,10 +613,13 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            // Marks each launch in the log, so a problem can be placed before or after a restart.
+            log::info!("AI Pet {} started", app.package_info().version);
+
             // Without the work log the pet still runs; its commands then report an error.
             let work_log = app.path().app_data_dir().map_err(|error| error.to_string()).and_then(|folder| worklog::WorkLog::open(&folder));
             app.manage(work_log.unwrap_or_else(|error| {
-                eprintln!("failed to open the work log: {error}");
+                log::warn!("failed to open the work log: {error}");
                 worklog::WorkLog::default()
             }));
 
@@ -776,7 +783,12 @@ pub fn run() {
             worklog::worklog_compact,
             worklog::worklog_add_counts,
             worklog::worklog_export,
-            worklog::worklog_replace
+            worklog::worklog_replace,
+            diagnostics::diagnostics_log,
+            diagnostics::diagnostics_read_logs,
+            diagnostics::diagnostics_clear_logs,
+            diagnostics::diagnostics_reveal_logs,
+            diagnostics::diagnostics_export
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

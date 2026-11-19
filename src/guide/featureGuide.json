@@ -39,7 +39,8 @@
       { "icon": "user", "color": "purple", "title": "换角色、建角色", "detail": "切换内置角色，或新建一个自己的，改名字和性格。", "section": "character" },
       { "icon": "text", "color": "indigo", "title": "改对话规则", "detail": "发给 AI 的规则分段列出，记提醒、查东西、做动作这几段可以自己改写；打开开发者模式还能看每次实际发出的内容和 AI 的原始回复。", "how": ["设置 › AI 对话 › 对话规则"], "section": "ai" },
       { "icon": "paw", "color": "orange", "title": "换动作图、做新动作", "detail": "换上自己画的动作图，或新建动作放进快捷按钮。", "section": "actions" },
-      { "icon": "archive", "color": "gray", "title": "备份", "detail": "提醒、备忘、工作日志、聊天记录和设置导出成一个文件，换电脑时恢复。", "section": "privacy" }
+      { "icon": "archive", "color": "gray", "title": "备份", "detail": "提醒、备忘、工作日志、聊天记录和设置导出成一个文件，换电脑时恢复。", "section": "privacy" },
+      { "icon": "search", "color": "gray", "title": "查看日志", "detail": "出了问题可以看应用自己记的日志，按级别筛、搜索、复制，也能清理；导出诊断信息发给帮你排查的人。日志不含聊天内容和 API Key。", "how": ["设置 › 关于 › 诊断"], "section": "about" }
     ]
   }
 ]

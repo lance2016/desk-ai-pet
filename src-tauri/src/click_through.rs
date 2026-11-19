@@ -147,10 +147,10 @@ pub fn start(app: AppHandle, window_label: &'static str) {
                 Ok(()) => {
                     over_pet = Some(now_over);
                     if let Err(error) = app.emit(HOVER_EVENT, now_over) {
-                        eprintln!("failed to emit hover event: {error}");
+                        log::warn!("failed to emit hover event: {error}");
                     }
                 }
-                Err(error) => eprintln!("failed to switch click-through: {error}"),
+                Err(error) => log::warn!("failed to switch click-through: {error}"),
             }
         }
     });
