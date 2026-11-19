@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type Ref, type RefObject } from "react";
+import { ai } from "../ai";
 import { chatContext, loadSavedItems } from "../agenda/chatTools";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
 import { contextMessages, loadThreads, recordThread, saveThreads } from "../chat/ChatThreads";
 import { pickQuickThread, plainReply, quickHistory, replyLingerMs } from "../chat/QuickChat";
 import { applyToolCalls, dispatchChatAction, type SavedLine, type ToolEffects } from "../chat/toolEffects";
 import type { PetRuntime } from "../core/PetRuntime";
-import { chatPlatform, type ChatMessage } from "../platform/chat";
+import type { ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
 import type { ChatPhase } from "../types";
@@ -137,7 +138,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   // Say up front when there is no key, instead of letting the first message fail.
   useEffect(() => {
     if (!open) return;
-    chatPlatform.keyStatus()
+    ai.keyStatus()
       .then((saved) => {
         setKeyMissing(!saved);
         if (!saved) setReply(MISSING_KEY_REPLY);
@@ -181,7 +182,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   useEffect(() => {
     let stop: (() => void) | undefined;
     let disposed = false;
-    chatPlatform.subscribe(async (event) => {
+    ai.subscribe(async (event) => {
       const current = request.current;
       if (!current || event.id !== current.id) return;
       if (event.kind === "delta") { replyText.current += event.text; setReply({ text: replyText.current, status: "streaming" }); return; }
@@ -223,7 +224,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     return () => {
       disposed = true;
       stop?.();
-      if (request.current) void chatPlatform.cancel(request.current.id).catch(() => {});
+      if (request.current) void ai.cancel(request.current.id).catch(() => {});
     };
   }, [packId]);
 
@@ -249,7 +250,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     setReply({ text: "", status: "thinking" });
     const actions = runtime.chatActionIds();
     try {
-      await chatPlatform.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), chatContext(Date.now(), actions, loadSavedItems()));
+      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), chatContext(Date.now(), actions, loadSavedItems()));
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;
@@ -278,7 +279,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     void start(text);
   };
   const cancel = () => {
-    if (request.current) void chatPlatform.cancel(request.current.id).catch((error: unknown) => console.warn("Could not stop the reply", error));
+    if (request.current) void ai.cancel(request.current.id).catch((error: unknown) => console.warn("Could not stop the reply", error));
   };
   /** Opens the same conversation while the quick chat request finishes in its original window. */
   const expand = () => {

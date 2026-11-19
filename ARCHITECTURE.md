@@ -58,7 +58,20 @@ src/
 │   ├── DisplayPreferences.ts 本机显示偏好与跨窗口同步
 │   ├── DockPreferences.ts   Dock：内置按钮、角色按钮和动作合成一个有序列表，校验、迁移、同步
 │   └── ActionTriggerStats.ts 按角色记录实际开始播放的次数
+├── ai/                      AI 模块：窗口只用 index.ts 导出的 `ai`，见下文「AI 模块」
+│   ├── index.ts             对外入口：Key、聊天、文本处理、问候、测试连接、提示词预览、请求记录
+│   ├── provider.ts          供应商（目前只有 DeepSeek）、按 HTTP 状态给的报错
+│   ├── prompt.ts            系统提示词分段、文本处理的提示词
+│   ├── tools.ts             给模型的工具定义和工具名
+│   ├── requests.ts          组装请求体：普通聊天、网页回合、文本处理、查看后的归纳请求
+│   ├── stream.ts            读 OpenAI 格式的流，把工具调用拼完整
+│   ├── chatRun.ts           跑一次回复：读流、派动作、答查看工具、发事件给窗口
+│   ├── lookup.ts            查看提醒、备忘和今天的记录
+│   ├── completions.ts       不走流式的请求：问候、测试连接
+│   ├── requestLog.ts        开发者模式的请求记录
+│   └── deepseek/            DeepSeek 特有：正文里泄露的格式（leaks.ts）、读网页和联网搜索（web.ts）
 ├── platform/
+│   ├── llm.ts               模型通道：Key、发请求、取消、请求记录（原生端 `llm.rs`）
 │   ├── petWindow.ts         原生窗口操作：移动、贴边、改大小、弹菜单、可点击区域
 │   ├── holidays.ts          下载某一年的法定节假日数据（原生端 `holidays.rs`）
 │   ├── mailCode.ts          邮箱设置的保存、移除，接收「查收验证码」的进展（原生端 `mail_code.rs`）
@@ -94,6 +107,7 @@ src/
 src-tauri/src/
 ├── lib.rs                   托盘、右键菜单、应用菜单；平时隐藏 Dock 图标，设置窗口打开时显示
 ├── alert.rs                 不可撤销操作前的原生确认框（NSAlert）
+├── llm.rs                   模型通道：钥匙串里的 Key、供应商地址白名单、curl、按行转发流、取消、请求记录的内存存储
 ├── floating_panel.rs        把窗口变成浮动面板，能盖在全屏应用上；快速聊天时拿键盘、还键盘（仅 macOS）
 ├── proxy.rs                 读系统代理，交给 curl
 ├── mail_code.rs             查收验证码：163 邮箱账号（钥匙串）、IMAP 只读登录、等邮件、复制到剪贴板
@@ -276,16 +290,16 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 以前的版本允许没有时间的普通待办。`loadAgenda` 读到这种条目会略过；每个窗口启动时（`main.tsx`）把没做完的用 `timelessAgendaTexts` 取出存成备忘，再用 `dropTimelessAgenda` 从提醒里删掉，做完的直接丢弃。备忘遇到相同文字只更新时间，所以多个窗口重复执行也没关系。
 
-**一句话创建。** 聊天请求带上 `context`：本地时间（`YYYY-MM-DD HH:mm 周X`）和角色可从外部触发的动作名。`chat.rs` 据此在请求里加工具，系统提示要求按有没有时间选工具：
+**一句话创建。** 聊天请求带上 `context`：本地时间（`YYYY-MM-DD HH:mm 周X`）和角色可从外部触发的动作名。`src/ai/prompt.ts` 据此在请求里加工具，系统提示要求按有没有时间选工具：
 
 - `add_reminder(text, remind_at, repeat?)`：设一个提醒，`remind_at` 必填，是本地时间字符串。`repeat` 是 `workdays`、`daily` 或 `1,3,5` 这样的星期数字（7 是周日）；有 `repeat` 时只取 `remind_at` 的时分，第一次提醒由前端算，模型把日期算错也没关系。
 - `save_note(text)`：存一条备忘，没有时间的待办、资料、想法都用它，最多 500 字。
 - `play_action(action)`：只有动作列表非空时提供，`action` 限定在列表里。
-- `list_reminders()`、`list_notes()`、`review_today()`：查看已有的提醒、备忘和今天的记录。`context` 里一直带着三份清单（`reminderLines`、`sortNotes` 后的备忘原文、`todayLines`），但只在模型调用对应工具时才发给 DeepSeek：今天的记录是今天勾掉的提醒、今天还没处理的提醒、专注轮数（没有也写 0 轮）、今天新记或改过的备忘（压成一行、截到 120 字）。原生端把它要的清单接在系统提示后面（标明是资料、不是指令），去掉查看工具（`LOOKUP_TOOLS`）再请求一次，第二次的回复接着流进同一条消息。第一次请求里的其他工具调用丢掉，因为模型当时还没看到清单；第二次的工具调用照常发给前端。查看工具由原生端处理，前端收不到。
+- `list_reminders()`、`list_notes()`、`review_today()`：查看已有的提醒、备忘和今天的记录。`context` 里一直带着三份清单（`reminderLines`、`sortNotes` 后的备忘原文、`todayLines`），但只在模型调用对应工具时才发给 DeepSeek：今天的记录是今天勾掉的提醒、今天还没处理的提醒、专注轮数（没有也写 0 轮）、今天新记或改过的备忘（压成一行、截到 120 字）。`chatRun.ts` 把它要的清单接在系统提示后面（标明是资料、不是指令），去掉工具再请求一次，第二次的回复接着流进同一条消息。查看工具在 `src/ai/` 里答完，窗口收不到这些调用。
 
 **今日回顾。** 右键菜单的「今日回顾」由原生端发 `pet://review` 给宠物窗口；`App` 在当前角色的聊天记录里新建一段对话，只放一句用户消息（`REVIEW_REQUEST`），再用 `petWindow.openChat(id, true)` 让聊天窗口接着回答，和快速聊天交接给聊天窗口走同一条路。模型按系统提示调用 `review_today` 拿到今天的记录。聊天记录读不出来时不新建，只打开聊天窗口，由它提示。
 
-原生端把流式返回的工具调用拼完整，回复成功后逐个发 `tool` 事件，再发 `done`。聊天窗口用 `chatTools.ts` 校验参数：提醒的时间缺失、不存在，或一次性提醒早于现在一分钟以上的，改存成备忘；`repeat` 读不懂就当一次性提醒；动作经 `petWindow.requestAction` 交给宠物窗口，照常检查类别和调度规则。模型只调了工具、没有文字时，聊天窗口拼一句确认（如“好，15:00 提醒你：开会”“好，以后工作日 11:00 都提醒你：点外卖”“好，存进备忘了”）作为回复存进历史。
+`chatRun.ts` 把流式返回的工具调用拼完整，回复成功后逐个发 `tool` 事件，再发 `done`。聊天窗口用 `chatTools.ts` 校验参数：提醒的时间缺失、不存在，或一次性提醒早于现在一分钟以上的，改存成备忘；`repeat` 读不懂就当一次性提醒；动作经 `petWindow.requestAction` 交给宠物窗口，照常检查类别和调度规则。模型只调了工具、没有文字时，聊天窗口拼一句确认（如“好，15:00 提醒你：开会”“好，以后工作日 11:00 都提醒你：点外卖”“好，存进备忘了”）作为回复存进历史。
 
 **备忘。** 备忘存在全局 key `ai-pet:notes:v1`，最多 200 条。保存和已有备忘完全相同的文字时，不新增，只把那条更新时间提前。满了会挤掉最久没改的未置顶备忘，面板底部提示「备忘满了，移除了最旧的一条」并可以撤销（撤销会拿掉刚加的那条）；快到上限时计数显示成「195/200」。列表先排置顶，再按 `updatedAt` 倒序；复制不改顺序，免得点了之后那一行从鼠标下跑走。聊天的 `save_note` 和聊天窗口的「存进备忘」都调用 `toolEffects.ts` 的 `saveNote`；「查看」调用 `petWindow.openNotes(id)`，先发 `pet://note` 让面板清掉搜索并高亮这一条，再显示面板。备忘面板和提醒面板一样，失焦就隐藏。
 
@@ -306,7 +320,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 2. `greetingDue()` 判断该不该问候。早安窗口是免打扰结束后的 4 个小时；晚安窗口是免打扰开始前 30 分钟。时段开关不影响这两个时间点。“一天”从免打扰结束时算起，所以跨午夜的晚安仍算前一天。
 3. 该问候时，先在 `ai-pet:greetings:v1` 记下今天已问候，再去生成内容，避免请求慢或失败时问两次。
 4. `collectFacts()` 从提醒和专注记录里整理事实：未完成数、今天完成数、下一个提醒、今天最近一次提醒（即路线图里的 `latest_reminder`）、今天和昨天的专注轮数。早安提今天的事和昨天的专注，晚安提今天的完成情况。
-5. 原生命令 `deepseek_greet` 用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候（和 `deepseek_title` 共用 `complete_once()`）。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
+5. `ai.greet`（`src/ai/completions.ts`）用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
 6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求 `happy` 并说话。到点提醒也用同一段逻辑叫宠物出来。
 
 专注记录存在全局 key `ai-pet:focus-log:v1`，按本地日期计数，保留 14 天。`BehaviorEngine` 在专注正常结束时发 `pet.focus_completed`，宠物窗口收到后记一笔。
@@ -374,7 +388,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 **错误分类。** 原生端返回的是给人看的中文报错，`chat/serviceErrors.ts` 的 `classifyServiceError()` 按关键词把它们分成未配置、Key 无效、余额不足、请求太频繁、网络错误和其他，聊天窗口、快速聊天和语音识别共用。Key 问题给“去设置”，其余只说明原因。
 
 
-聊天窗口为独立 Tauri 窗口，从快速聊天的输入条或回复气泡打开，定位在宠物旁边的屏幕范围内。聊天历史和对话偏好使用本机存储；服务商 Key 只存系统钥匙串，前端不读取已保存的 Key。原生端限定 DeepSeek 与 MiMo 的 HTTPS 地址，将密钥和请求体通过标准输入传给系统 curl。从访达启动的应用没有代理环境变量，`proxy.rs` 每次请求时用 `scutil --proxy` 读系统设置里的 HTTPS 或 SOCKS 代理，交给 curl（环境变量里已有代理时不覆盖，不支持自动代理配置 PAC）。DeepSeek SSE 被解析为增量事件；请求使用 ID 区分，停止、关闭窗口和主动退出时取消子进程。MiMo ASR 只接收 WAV/MP3 base64，识别文本回填输入框由用户确认后发送；MiMo TTS 的原生命令和 `pcmAudioPlayer.ts` 仍保留，但聊天窗口暂时不再朗读回复。录音仅驻留内存、限制两分钟且不写入聊天记录。语音偏好保存在本机。钥匙串与网络请求当前支持 macOS，麦克风权限说明写在应用 Info.plist。
+聊天窗口为独立 Tauri 窗口，从快速聊天的输入条或回复气泡打开，定位在宠物旁边的屏幕范围内。聊天历史和对话偏好使用本机存储；服务商 Key 只存系统钥匙串，前端不读取已保存的 Key。原生端限定 DeepSeek 与 MiMo 的 HTTPS 地址，将密钥和请求体通过标准输入传给系统 curl；请求体由 `src/ai/` 组装（见「AI 模块」）。从访达启动的应用没有代理环境变量，`proxy.rs` 每次请求时用 `scutil --proxy` 读系统设置里的 HTTPS 或 SOCKS 代理，交给 curl（环境变量里已有代理时不覆盖，不支持自动代理配置 PAC）。`llm.rs` 把 SSE 的每个 `data:` 行原样转给发起请求的窗口，由 `src/ai/` 解析；请求使用 ID 区分，停止、关闭窗口和主动退出时取消子进程。MiMo ASR 只接收 WAV/MP3 base64，识别文本回填输入框由用户确认后发送；MiMo TTS 的原生命令和 `pcmAudioPlayer.ts` 仍保留，但聊天窗口暂时不再朗读回复。录音仅驻留内存、限制两分钟且不写入聊天记录。语音偏好保存在本机。钥匙串与网络请求当前支持 macOS，麦克风权限说明写在应用 Info.plist。
 
 ### 快速聊天
 
@@ -385,7 +399,22 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **快捷键。** 默认 `⇧⌘ Space`，设置页可以录制任意组合，存成 `Shift+Super+Space` 这样的写法，按键名直接用 `KeyboardEvent.code`。组合必须含 ⌃ 或 ⌘：macOS 15 起，只用 ⌥ 或 ⌥⇧ 的 `RegisterEventHotKey` 能注册成功，但系统不再转发按键。前端 `recordShortcut` 和原生 `parse_shortcut` 各查一遍。录制时先注销旧快捷键，否则同样的按键会被它截走。设置页改了直接注册；宠物窗口启动时按保存的值注册一次，失败（被别的应用占用）时让宠物说一句提示。注册在主线程完成，命令写成 `async`，避免主线程等自己。
 - **对话。** 每次发送都从本机重新读聊天记录。输入条每次从收起变成打开，都开一段新对话；打开期间接着说的续在这一段（`sessionThread`，`pickQuickThread`）。输入条开着时再点宠物不算重新打开。先把用户这句存进去，回复完成后再存回复，第一轮回复后在本机整理标题。工具调用和聊天窗口共用 `applyToolCalls`。回复失败或被停止时，把这句从聊天记录里拿掉、放回输入框，重发时不会重复。
 - **回复气泡。** 回复显示在 `PetSpeech` 的位置，有回复时普通气泡和提醒气泡让开。Markdown 转成一行纯文本，最多四行，被截断时底部写「点开看完整回复」。存下的提醒和备忘只显示一条（有没记上的优先），其余写「还有 N 条」。输入条开着时一直显示；收起后按长度停留 6～20 秒。点击在聊天窗口打开这段对话（没有 Key 时打开设置）。输入条和回复气泡显示时都加进可点击区域表。
-- **和聊天窗口同步。** 原生端按窗口互斥：每个窗口同时只有一个请求，聊天窗口和宠物窗口可以各自在回复；同一个窗口再发会收到「上一条还在回复」，前端把这句放回输入框。原生端把聊天流只发给发起请求的窗口；关闭聊天窗口不取消回复，只停录音和识别；回复照常写进聊天记录，再打开就能看到。原生端分别累积文字和工具参数，文字边到边显示，`play_action` 的 JSON 完整且 ID 在枚举内时立即发动作事件。同轮最多发一个动作。宠物窗口把事件送入运行时，动作控制器返回调度结果，聊天用它提示失败，或在模型只发工具时用本地话术补一句。调度不等待动画结束。完整清单和基础日报在本机组织，只有定向查询或复杂归纳才追加一个只读的模型请求。聊天窗口只在当前角色的聊天记录 key 变化时重新读取，内容没变不刷新；`petWindow.openChat(threadId)` 先发 `pet://chat-thread` 让它切到这段对话再显示。快速聊天回复到一半时点「在聊天窗口打开」，请求在原窗口继续，完成后由聊天记录同步到聊天窗口。两边同时在同一段对话里生成回复时，后完成的一方会覆盖前一方，这种情况很少，暂不处理。
+- **和聊天窗口同步。** 每个窗口同时只有一个请求（`chatRun.ts` 按窗口互斥），聊天窗口和宠物窗口可以各自在回复；同一个窗口再发会收到「上一条还在回复」，前端把这句放回输入框。`llm.rs` 把流只发给发起请求的窗口；关闭聊天窗口不取消回复，只停录音和识别；回复照常写进聊天记录，再打开就能看到。`chatRun.ts` 分别累积文字和工具参数，文字边到边显示，`play_action` 的 JSON 完整且 ID 在枚举内时立即发动作事件。同轮最多发一个动作。宠物窗口把事件送入运行时，动作控制器返回调度结果，聊天用它提示失败，或在模型只发工具时用本地话术补一句。调度不等待动画结束。完整清单和基础日报在本机组织，只有定向查询或复杂归纳才追加一个只读的模型请求。聊天窗口只在当前角色的聊天记录 key 变化时重新读取，内容没变不刷新；`petWindow.openChat(threadId)` 先发 `pet://chat-thread` 让它切到这段对话再显示。快速聊天回复到一半时点「在聊天窗口打开」，请求在原窗口继续，完成后由聊天记录同步到聊天窗口。两边同时在同一段对话里生成回复时，后完成的一方会覆盖前一方，这种情况很少，暂不处理。
+
+## AI 模块
+
+所有向模型发的请求都由 `src/ai/` 组织，窗口只用它导出的 `ai`。原生端的 `llm.rs` 是一条安全通道：
+
+| 层 | 负责 | 不负责 |
+|---|---|---|
+| `src/ai/`（TS） | 提示词、工具定义、请求体、读流、派动作、答查看工具、DeepSeek 的毛病、报错措辞、请求记录的内容 | Key、网络 |
+| `platform/llm.ts` | 调原生命令、收 `pet://llm-stream` 事件 | 任何 AI 逻辑 |
+| `llm.rs`（Rust） | 钥匙串里的 Key、供应商地址白名单（`PROVIDERS`）、请求体大小上限、curl、取消、请求记录的内存存储 | 拼提示词、解读回复 |
+
+- **一次回复。** `ai.start` 组装请求体，`chatRun.ts` 调 `llm_stream`。`llm.rs` 把 SSE 的每个 `data:` 行作为 `data` 事件发给发起请求的窗口，结束时发 `end`（HTTP 状态、curl 是否正常退出、是否被取消）。`chatRun.ts` 读流后给窗口发和以前一样的事件：`delta`、`action`、`tool`、`web-progress`、`web-result`、`web-error`、`done`、`error`、`cancelled`。
+- **不走流式。** 问候和测试连接调 `llm_complete`，拿回 HTTP 状态和回复原文，由 `completions.ts` 解读。
+- **供应商。** 目前只有 DeepSeek。它特有的东西放在 `src/ai/deepseek/`：正文里泄露的 `<budget:…>` 和写成文字的 `play_action`，以及服务端的读网页、联网搜索。请求体里的 `thinking: disabled` 在 `provider.ts`。钥匙串服务名沿用 `<identifier>.deepseek`，已存的 Key 不受影响。
+- **校验在哪。** 偏好、补充要求、对话规则、称呼的长度由各自的 Zod 读取函数保证，不在原生端再查一遍。原生端只查请求 ID 的格式和请求体不超过 8 MB。
 
 ## 快捷按钮和设置窗口
 
@@ -420,18 +449,18 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 自建角色换了自己的待机图之后，只有用户上传过的图才算它的：没上传的动作借它自己的图（`looks.ts` 的 `planLooks`），不再显示 `base` 的形象。`PetRuntime` 启动时和每次换图后都重新算一遍每个动作显示谁的图（`showLooks`），出借的动作换了图，借它的动作跟着换。
 - 显示的名字统一用 `characterName()`：用户在「角色」页改过就用改过的，否则用 `persona.name`。聊天窗口监听 `storage` 事件，设置页改名后立即更新。
 - 聊天记录按段保存在 `chat-threads:v1`，最近的一段在最前，每段最多保存和显示 200 条（`CHAT_LIMITS.messages`），发给模型的只有最近 30 条（`CHAT_LIMITS.context`，`contextMessages()`）；每个角色最多 20 段。旧版的单份 `chat-history:v1` 第一次读取时转成一段对话后删除。
-- 模型是全局设置 `ai-pet:chat-model:v1`（`src/preferences/ChatModel.ts`），默认 `deepseek-flash`。`requestPreferences()` 把它带进聊天和问候请求，`deepseek_test` 单独传 `model`。原生端用 `valid_model` 再校验一次格式；`deepseek_test` 收到 400、404、422 时报「模型名不可用」，设置页据此拒绝换成写错的自定义模型。
+- 模型是全局设置 `ai-pet:chat-model:v1`（`src/preferences/ChatModel.ts`），默认 `deepseek-flash`。`requestPreferences()` 把它带进聊天和问候请求，`ai.test` 单独传 `model`；收到 400、404、422 时报「模型名不可用」，设置页据此拒绝换成写错的自定义模型。
 - 标题先用用户的第一句话。全局开关 `ai-pet:chat-auto-titles:v1` 打开时（默认打开），`recordThread()` 在保存第一轮回复时用 `cleanTitle()` 在本机整理开场白。用户已改过的标题继续保留。
 - 聊天窗口的头像和小人按角色存在 `chat-appearance:v1`：每个位置是一个动作 ID 或一张上传图片（`data:` URL），可以带一个取景 `crop`；小人还可以是 `hidden`。`pictureFor()` 把它变成图片地址和取景。上传图保存的是缩到 512 像素以内的原图（不透明的存 JPEG，带透明的存 PNG），不是裁好的结果，所以可以反复调整。
 - 取景（`src/appearance/pictureCrop.ts`）记录画面中心点在图上的位置 `x`、`y`、取景框占图片宽度的比例 `zoom`，以及图片高宽比 `ratio`。`cropStyle()` 把它换算成 `<img>` 的 `width`、`left`、`top` 百分比；头像框是 1:1 的圆，小人框是 `FRAME_ASPECT.peek`（78:64）。裁剪弹窗 `PictureCropper` 和显示端用同一套换算，所见即所得。没有取景时沿用旧的默认取景：动作图头像裁到头部，小人露出顶部，上传图整张显示。动作已不存在时退回 `idle`，并丢掉原来的取景。
 - 聊天窗口通过 `petWindow.setTitle()` 把标题栏改成“和<角色名>聊天”，需要 `core:window:allow-set-title` 权限。
-- 你的称呼存在全局 `ai-pet:user-profile:v1`（`UserProfile.ts`），所有角色共用。`requestPreferences()` 把它作为 `userName` 和角色的对话设置一起发给 `deepseek_start` 与 `deepseek_greet`，`chat.rs` 的 `user_address()` 校验后在系统提示词里加一句“称呼用户为「…」”。长度上限 20，两边一致。
-- 首次引导：`ai-pet:onboarded:v1` 不存在时，宠物窗口启动后查 `deepseek_key_status`。已有 Key 就直接记为完成（老用户不打扰），没有就调用 `open_settings`；设置页同样检查，然后显示 `WelcomeGuide`。完成或跳过都写入标记。
+- 你的称呼存在全局 `ai-pet:user-profile:v1`（`UserProfile.ts`），所有角色共用。`requestPreferences()` 把它作为 `userName` 和角色的对话设置一起交给 `ai.start` 与 `ai.greet`，在系统提示词里加一句“称呼用户为「…」”。长度上限 20。
+- 首次引导：`ai-pet:onboarded:v1` 不存在时，宠物窗口启动后查 `ai.keyStatus()`。已有 Key 就直接记为完成（老用户不打扰），没有就调用 `open_settings`；设置页同样检查，然后显示 `WelcomeGuide`。完成或跳过都写入标记。
 - `open_settings` 显示并聚焦设置窗口；带 `section` 时先向设置窗口发 `pet://settings-section`，设置页切到对应分区。浏览器模式下改为打开 `?window=settings&section=…`。
 - 回复的 Markdown 由 `src/chat/markdown.ts` 解析成数据（段落、标题、列表、代码块，以及粗体、斜体、行内代码和链接），`ChatMarkdown` 只生成 React 元素，不使用 `innerHTML`。未闭合的标记和代码块按原样显示，流式输出时不会闪烁。
-- 完整聊天的「自动阅读网页链接」是默认开启的全局设置（`ai-pet:read-links:v1`）。开启时，用户发送 HTTP(S) 地址触发读取，点输入框上的模式按钮可切回普通聊天。原生端限定 `chat` 窗口，使用 Flash 非思考模式，只挂 `deepseek_read_url`；追问复用该网页对话，不挂工具。网页内容和网页回合不会进入可执行本机工具的普通聊天。服务端事件变成 `web-progress` 和 `web-result`，聊天中的链接和来源用按钮交给系统浏览器。最后的 `server_tool_calls` 按原样保存在对应回复中，供追问还原上下文；整个角色的网页快照有大小预算，超出时保留文字和来源，优先保留近期快照。首次读取没有成功页面或收到 `content_filter` 时丢弃已流出的文字。
-- 完整聊天的「联网」仅用于本次发送，原生端使用 Flash 非思考模式和 `deepseek_web_search`，复用网页进度与来源事件。单图输入支持选择、粘贴和向输入框拖放（聊天窗口关闭原生文件拖放拦截），先用画布缩小到最长边 1800 像素，发送时以内联 `image_url` 加当前问题交给 Flash。图片字节只在当前窗口暂存，不写入聊天记录或开发者请求日志。两个入口只发送当前问题所需的数据，不提供本机工具，不把这些回合转入可执行工具的普通对话。
-- 对话设置和语音设置在用户没改过时使用 `persona` 的值。系统提示词仍在 `chat.rs` 拼接，性格长度上限 1000 字，与 `PERSONA_LIMITS` 保持一致。
+- 完整聊天的「自动阅读网页链接」是默认开启的全局设置（`ai-pet:read-links:v1`）。开启时，用户发送 HTTP(S) 地址触发读取，点输入框上的模式按钮可切回普通聊天。使用 Flash 非思考模式，只挂 DeepSeek 服务端的 `deepseek_read_url`（`src/ai/deepseek/web.ts`）；追问复用该网页对话，不挂工具。网页内容和网页回合不会进入可执行本机工具的普通聊天。服务端事件变成 `web-progress` 和 `web-result`，聊天中的链接和来源用按钮交给系统浏览器。最后的 `server_tool_calls` 按原样保存在对应回复中，供追问还原上下文；整个角色的网页快照有大小预算，超出时保留文字和来源，优先保留近期快照。首次读取没有成功页面或收到 `content_filter` 时丢弃已流出的文字。
+- 完整聊天的「联网」仅用于本次发送，使用 Flash 非思考模式和 DeepSeek 服务端的 `deepseek_web_search`，复用网页进度与来源事件。单图输入支持选择、粘贴和向输入框拖放（聊天窗口关闭原生文件拖放拦截），先用画布缩小到最长边 1800 像素，发送时以内联 `image_url` 加当前问题交给 Flash。图片字节只在当前窗口暂存，不写入聊天记录或开发者请求日志。两个入口只发送当前问题所需的数据，不提供本机工具，不把这些回合转入可执行工具的普通对话。
+- 对话设置和语音设置在用户没改过时使用 `persona` 的值。系统提示词在 `src/ai/prompt.ts` 拼接，性格长度上限 1000 字（`PERSONA_LIMITS`）。
 
 ## 换平台时要改什么
 
@@ -479,11 +508,11 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 `Companion` 定期通过 `platform/system.ts` 读取 macOS 的系统空闲秒数，在本机判断深夜持续使用、连续使用与离开后返回。采样中断时不推断使用时长。场景通过 `PetRuntime.greet()` 共用主动说话间隔和问候动作；仅深夜关心允许用户选择绕过定时勿扰，手动勿扰始终生效。专注期间暂停场景触发，专注动作和完成提示由 `BehaviorEngine` 管理。
 
-AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带，原生端按 UTF-16 长度校验；问候不使用。聊天预览通过 `deepseek_preview` 在本机调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
+AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带；问候不使用。聊天预览 `ai.preview` 直接调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
 
-当前时间、UTC 偏移、时区和未来日期由本地时钟动态提供。系统提示词由 `chat_sections`（`chat.rs`）按段组装：`persona`、`date`、`memory`、`lookup`、`actions`（有可选动作时）、`instructions`（填了补充要求时），非空段用换行连起来。`memory`、`lookup`、`actions` 三段可被用户改写：`ChatRules`（`ai-pet:chat-rules:v1`，所有角色共用）随 `requestPreferences` 以 `rules` 发出，缺省用默认写法，空字符串表示去掉这一段。预览返回每段的 `text` 和 `default`，设置页据此显示「已修改」和「恢复默认」。
+当前时间、UTC 偏移、时区和未来日期由本地时钟动态提供。系统提示词由 `chatSections`（`src/ai/prompt.ts`）按段组装：`persona`、`date`、`memory`、`lookup`、`actions`（有可选动作时）、`instructions`（填了补充要求时），非空段用换行连起来。`memory`、`lookup`、`actions` 三段可被用户改写：`ChatRules`（`ai-pet:chat-rules:v1`，所有角色共用）随 `requestPreferences` 以 `rules` 发出，缺省用默认写法，空字符串表示去掉这一段。预览返回每段的 `text` 和 `default`，设置页据此显示「已修改」和「恢复默认」。
 
-开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，原生端把这次回复的每个请求体（首个请求和可能的只读归纳请求）和模型原样返回的文字、工具调用记进 `RequestLog`，最多 20 条，只在内存；设置页通过 `chat_request_log`、`chat_request_log_clear` 读取和清空。
+开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，`src/ai/requestLog.ts` 把这次回复的每个请求体（首个请求和可能的只读归纳请求，图片换成占位）和模型原样返回的文字、工具调用写进原生端的 `RequestLog`（`llm_log_put`），最多 20 条，只在内存；设置页通过 `ai.requestLog`、`ai.clearRequestLog` 读取和清空。
 
 动作图层的上飘淡出按主图指定的显示帧范围计算进度，预览与渲染器共用动效采样。文字图层先生成透明 PNG，再按普通图层保存。
 
@@ -491,7 +520,7 @@ AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附�
 
 翻译快捷键与快速聊天分别注册，修改任意一个不会注销另一个。用户触发快捷键时，原生层通过 macOS 辅助功能接口读取当前选区，未授权、无选区或应用不支持时回退到手动输入；不模拟复制。翻译窗口使用独立的 DeepSeek 请求，只发送原文和翻译指令，不附带角色性格、聊天记录或工具。请求复用聊天流事件和取消机制，不保存翻译内容。
 
-划词浮钮默认关闭，仅在用户启用且已授权辅助功能时检测鼠标拖选和双击，并尝试读取选区；文本只在内存里短暂保留，点击浮钮才发送。原生非激活面板提供翻译、解释、总结、润色四个就地按钮和详情入口；结果流式显示在选区附近，结果卡片顶部可以换一种处理，同一段文字重新请求（先取消正在进行的那次）。四种处理共用 `deepseek_translate` 命令，`target` 是 `zh`、`en`、`explain`、`summarize`、`polish`（`TextTask`），提示词在 `translation_prompt`，都声明原文只是资料。详情窗口只做翻译，接收原文和已完成的译文。两个入口使用已捕获的选区，避免焦点变化后读取到其他内容；停用、失去权限、点击外部和浮钮超时都会清理。
+划词浮钮默认关闭，仅在用户启用且已授权辅助功能时检测鼠标拖选和双击，并尝试读取选区；文本只在内存里短暂保留，点击浮钮才发送。原生非激活面板提供翻译、解释、总结、润色四个就地按钮和详情入口；结果流式显示在选区附近，结果卡片顶部可以换一种处理，同一段文字重新请求（先取消正在进行的那次）。四种处理共用 `ai.translate`，任务是 `zh`、`en`、`explain`、`summarize`、`polish`（`TextTask`），提示词在 `textTaskPrompt`（`src/ai/prompt.ts`），都声明原文只是资料。详情窗口只做翻译，接收原文和已完成的译文。两个入口使用已捕获的选区，避免焦点变化后读取到其他内容；停用、失去权限、点击外部和浮钮超时都会清理。
 
 ## 查收验证码
 

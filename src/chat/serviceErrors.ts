@@ -1,7 +1,8 @@
 /**
  * Sorts the errors of the DeepSeek and MiMo native commands, so the user is
  * told whether to fix a key or check the network. The phrases below match the
- * messages in `src-tauri/src/chat.rs` and `src-tauri/src/mimo.rs`.
+ * messages of `failureMessage` (`src/ai/provider.ts`), `src-tauri/src/llm.rs`,
+ * `src-tauri/src/mimo.rs` and `keychain_error` in `src-tauri/src/secrets.rs`.
  */
 export type ServiceError = "missing-key" | "bad-key" | "model" | "keychain" | "billing" | "rate" | "busy" | "rejected" | "running" | "network" | "other";
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
+import type { ChatPreview, PromptSection } from "../../ai";
 import { z } from "zod";
-import type { ChatPreview, PromptSection } from "../../platform/chat";
 import { CHAT_RULE_IDS, CHAT_RULE_LIMIT, saveChatRule, type ChatRuleId } from "../../preferences/ChatRules";
 import { ConfirmButton } from "../ConfirmButton";
 

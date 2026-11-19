@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-/** The nickname limit is also enforced as `MAX_USER_NAME_CHARS` in `src-tauri/src/chat.rs`. */
 export const USER_PROFILE_LIMITS = { nickname: 20 } as const;
 /** About the user, shared by every character. */
 const PROFILE_KEY = "ai-pet:user-profile:v1";

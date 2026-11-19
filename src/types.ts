@@ -59,7 +59,7 @@ export const MIMO_VOICES = ["mimo_default", "冰糖", "茉莉", "苏打", "白�
 
 export type MimoVoice = (typeof MIMO_VOICES)[number];
 
-/** Length limits of persona text. The personality limit is also enforced in `src-tauri/src/chat.rs`. */
+/** Length limits of persona text. */
 export const PERSONA_LIMITS = { name: 20, personality: 1000, voiceStyle: 200 } as const;
 
 export interface ActionDefinition {

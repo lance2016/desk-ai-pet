@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { chatPlatform, type TextTask } from "../../platform/chat";
+import { ai, type TextTask } from "../../ai";
 import { translationPlatform } from "../../platform/translation";
 import { loadChatModel } from "../../preferences/ChatModel";
 import { classifyServiceError, isKeyProblem } from "../../chat/serviceErrors";
@@ -37,7 +37,7 @@ export function SelectionFloat() {
     const stops: Array<() => void> = [];
     const setup = async () => {
       const add = (stop: () => void) => { if (disposed) stop(); else stops.push(stop); };
-      add(await chatPlatform.subscribe((event) => {
+      add(await ai.subscribe((event) => {
         if (event.id !== request.current) return;
         if (event.kind === "delta") setResult((value) => value + event.text);
         if (event.kind === "done" || event.kind === "error" || event.kind === "cancelled") {
@@ -64,13 +64,13 @@ export function SelectionFloat() {
     request.current = null;
     setAction(next); setPending(true);
     try {
-      if (previous) await chatPlatform.cancel(previous);
+      if (previous) await ai.cancel(previous);
       const text = await translationPlatform.expandSelection();
       if (current !== generation.current) return;
       if (!text) { setPending(false); return; }
       setExpanded(true); setResult(""); setMessage(""); setKeyFix(false);
       const id = crypto.randomUUID(); request.current = id;
-      await chatPlatform.translate(id, text, taskFor(next, text), loadChatModel());
+      await ai.translate(id, text, taskFor(next, text), loadChatModel());
     } catch (error) {
       if (current !== generation.current) return;
       console.error(`Could not start ${next} on the selection`, error);

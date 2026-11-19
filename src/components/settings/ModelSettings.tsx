@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { ai } from "../../ai";
 import { classifyServiceError } from "../../chat/serviceErrors";
-import { chatPlatform } from "../../platform/chat";
 import { CHAT_MODEL_PATTERN, CHAT_MODELS, isBuiltInModel, loadChatModel, saveChatModel } from "../../preferences/ChatModel";
 import { deepSeekProblem } from "./AISettings";
 import { moveRadioChoice } from "./radioKeys";
@@ -29,7 +29,7 @@ export function ModelSettings({ keyConfigured }: { keyConfigured: boolean | null
     if (!CHAT_MODEL_PATTERN.test(name)) { setStatus("模型名只能有英文字母、数字和 - _ . : /，最多 64 个字符。"); return; }
     if (!keyConfigured) { keep(name, `已换成 ${name}。填好 API Key 后就用它回复。`); return; }
     setBusy(true); setStatus(`正在用 ${name} 试着连一下…`);
-    try { await chatPlatform.test(name); keep(name, `已换成 ${name}，连接正常。`); }
+    try { await ai.test(name); keep(name, `已换成 ${name}，连接正常。`); }
     catch (reason) {
       setStatus(classifyServiceError(String(reason)) === "model"
         ? `DeepSeek 不认识「${name}」，检查一下拼写。没有换，还在用 ${model}。`

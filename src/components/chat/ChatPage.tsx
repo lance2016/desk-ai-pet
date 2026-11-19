@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
+import { ai } from "../../ai";
 import { chatContext, loadSavedItems } from "../../agenda/chatTools";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
@@ -243,7 +244,7 @@ export function ChatPage({ packId }: { packId: string }) {
   useEffect(() => {
     let stop: (() => void) | undefined;
     let disposed = false;
-    chatPlatform.subscribe(async (event) => {
+    ai.subscribe(async (event) => {
       if (event.id !== active.current) return;
       if (event.kind === "delta") { replyRef.current += event.text; setReply(replyRef.current); return; }
       if (event.kind === "tool") { toolCallsRef.current.push(event.text); return; }
@@ -286,7 +287,7 @@ export function ChatPage({ packId }: { packId: string }) {
       setWebProgress("");
       replyRef.current = "";
     }).then((unsubscribe) => { if (disposed) unsubscribe(); else { stop = unsubscribe; setReady(true); } }).catch((reason: unknown) => { console.error("Chat is unavailable", reason); setError("聊天功能需要在 AI Pet 应用里使用。"); });
-    return () => { disposed = true; stop?.(); if (active.current) void chatPlatform.cancel(active.current).catch(() => {}); };
+    return () => { disposed = true; stop?.(); if (active.current) void ai.cancel(active.current).catch(() => {}); };
   }, []);
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -301,7 +302,7 @@ export function ChatPage({ packId }: { packId: string }) {
   useEffect(() => {
     const check = () => {
       // An unreadable keychain is not "ready": say so in the status line, and clear it once the key reads again.
-      chatPlatform.keyStatus()
+      ai.keyStatus()
         .then((saved) => { setKeyMissing(!saved); setFailure((last) => (last === "keychain" ? null : last)); })
         .catch((reason: unknown) => { setKeyMissing(false); const kind = classifyServiceError(String(reason)); setFailure(kind === "missing-key" ? null : kind); });
       mimoPlatform.keyStatus().then((saved) => setVoiceMissing(!saved)).catch(() => setVoiceMissing(null));
@@ -405,8 +406,8 @@ export function ChatPage({ packId }: { packId: string }) {
     active.current = id; cancelRequested.current = false; replyRef.current = ""; toolCallsRef.current = []; actionRef.current = null; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
       const context = mode ? null : chatContext(Date.now(), actionIdsRef.current, loadSavedItems());
-      await chatPlatform.start(id, outgoing, requestPreferences(packId, personaRef.current), context, mode);
-      if (cancelRequested.current && active.current === id) await chatPlatform.cancel(id);
+      await ai.start(id, outgoing, requestPreferences(packId, personaRef.current), context, mode);
+      if (cancelRequested.current && active.current === id) await ai.cancel(id);
     } catch (reason) {
       if (active.current !== id) return;
       active.current = null; setPending(false); setWebProgress("");
@@ -433,7 +434,7 @@ export function ChatPage({ packId }: { packId: string }) {
     // A click on the button would leave the focus there, where Space would stop the reply.
     input.current?.focus();
   };
-  const cancel = () => { if (active.current) { cancelRequested.current = true; void chatPlatform.cancel(active.current).catch((reason: unknown) => { console.warn("Could not stop the reply", reason); setError("没能停止回复，请稍等它说完。"); }); } };
+  const cancel = () => { if (active.current) { cancelRequested.current = true; void ai.cancel(active.current).catch((reason: unknown) => { console.warn("Could not stop the reply", reason); setError("没能停止回复，请稍等它说完。"); }); } };
   const showThread = (id: string, shown: ChatMessage[]) => {
     if (active.current) return;
     savedMessages.current = shown;

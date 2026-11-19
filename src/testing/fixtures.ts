@@ -1,5 +1,7 @@
 import { parseManifest, type PetManifest } from "../assets/Manifest";
 import type { PetRenderer } from "../renderer/PetRenderer";
+import type { ChatRequestPreferences } from "../preferences/ChatPreferences";
+import type { ChatContext } from "../ai/types";
 
 /** A small pack covering every kind of action the logic distinguishes. */
 export const MANIFEST_JSON = {
@@ -85,4 +87,14 @@ export function createMemoryStorage(initial: Record<string, string> = {}): Stora
     removeItem: (key) => void items.delete(key),
     setItem: (key, value) => void items.set(key, value),
   };
+}
+
+/** Chat preferences as `requestPreferences` returns them. */
+export function chatPreferences(overrides: Partial<ChatRequestPreferences> = {}): ChatRequestPreferences {
+  return { name: "小艾", personality: "温柔", length: "short", userName: "", model: "deepseek-flash", instructions: "", rules: {}, record: false, ...overrides };
+}
+
+/** What `chatContext` sends with a chat request. */
+export function chatRequestContext(overrides: Partial<ChatContext> = {}): ChatContext {
+  return { now: "2026-11-18 21:51 周三", timestamp: "2026-11-18T21:51:00+08:00", timeZone: "Asia/Shanghai", actions: ["wave"], reminders: [], notes: [], today: [], ...overrides };
 }

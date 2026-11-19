@@ -1,0 +1,52 @@
+import { describe, expect, it } from "vitest";
+import { callArguments, MAX_TOOL_CALLS, parseStreamData, ToolCallCollector } from "./stream";
+
+describe("parseStreamData", () => {
+  it("reads text, the end, errors and a reply cut off at the token limit", () => {
+    expect(parseStreamData(`{"choices":[{"delta":{"content":"你好"}}]}`)).toMatchObject({ kind: "chunk", text: "你好", tools: [], truncated: false });
+    expect(parseStreamData("[DONE]")).toEqual({ kind: "done" });
+    expect(parseStreamData(`{"error":{}}`)).toEqual({ kind: "error" });
+    expect(parseStreamData(`{"choices":[{"delta":{},"finish_reason":"length"}]}`)).toMatchObject({ kind: "chunk", text: "", truncated: true });
+    expect(parseStreamData(`{"choices":[{"delta":{},"finish_reason":"content_filter"}]}`)).toEqual({ kind: "refused" });
+    expect(parseStreamData("not json")).toEqual({ kind: "ignore" });
+  });
+});
+
+describe("ToolCallCollector", () => {
+  it("puts streamed tool calls back together", () => {
+    const collector = new ToolCallCollector();
+    for (const data of [
+      `{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"add_reminder","arguments":"{\\"text"}}]}}]}`,
+      `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\":\\"开会\\"}"}}]}}]}`,
+    ]) {
+      const line = parseStreamData(data);
+      if (line.kind !== "chunk") throw new Error("expected a chunk");
+      collector.add(line.tools);
+    }
+    expect(collector.calls).toEqual([{ name: "add_reminder", arguments: `{"text":"开会"}`, overflow: false }]);
+  });
+
+  it("counts the calls past the limit", () => {
+    const collector = new ToolCallCollector();
+    const delta = (index: number) => ({ index, name: "save_note", arguments: "{}" });
+    collector.add([delta(0), delta(MAX_TOOL_CALLS), delta(MAX_TOOL_CALLS + 1)]);
+    expect(collector.calls).toHaveLength(1);
+    expect(collector.droppedCount).toBe(2);
+  });
+
+  it("marks overlong arguments instead of cutting them", () => {
+    const collector = new ToolCallCollector();
+    collector.add([
+      { index: 0, name: "save_note", arguments: `{"text":"` },
+      { index: 0, name: "", arguments: "x".repeat(4_000) },
+      { index: 0, name: "", arguments: `"}` },
+    ]);
+    expect(collector.calls[0]).toEqual({ name: "save_note", arguments: "", overflow: true });
+    expect(callArguments(collector.calls[0])).toBeNull();
+  });
+
+  it("reads empty arguments as no arguments", () => {
+    expect(callArguments({ name: "list_notes", arguments: " ", overflow: false })).toEqual({});
+    expect(callArguments({ name: "list_notes", arguments: "[1]", overflow: false })).toBeNull();
+  });
+});

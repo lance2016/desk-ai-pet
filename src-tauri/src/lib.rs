@@ -1,9 +1,9 @@
 mod alert;
-mod chat;
 mod click_through;
 #[cfg(target_os = "macos")]
 mod floating_panel;
 mod holidays;
+mod llm;
 mod mail_code;
 mod mail_extract;
 mod mimo;
@@ -284,7 +284,7 @@ fn hide_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Resul
 
 fn handle_menu_event(app: &AppHandle, id: &str) {
     if id == QUIT_ID {
-        if let Some(state) = app.try_state::<std::sync::Arc<chat::ChatState>>() {
+        if let Some(state) = app.try_state::<std::sync::Arc<llm::LlmState>>() {
             state.cancel_all();
         }
         if let Some(state) = app.try_state::<std::sync::Arc<mimo::MimoSpeechState>>() {
@@ -436,26 +436,6 @@ fn set_pet_dnd(app: AppHandle, menu: State<'_, PetMenu>, enabled: bool) -> Resul
         .map_err(|error| error.to_string())?;
     app.emit(DND_EVENT, enabled)
         .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn open_deepseek_key_page() -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let status = std::process::Command::new("/usr/bin/open")
-            .arg("https://platform.deepseek.com/api_keys")
-            .status()
-            .map_err(|_| "Failed to open browser".to_string())?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err("Failed to open browser".into())
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Err("Opening this page is currently supported on macOS".into())
-    }
 }
 
 /// A rectangle in logical screen pixels.
@@ -620,8 +600,8 @@ pub fn run() {
         .manage(translation::SelectionFloat::default())
         .manage(mail_code::MailCodeState::default())
         .manage(OnTopState(AtomicBool::new(true)))
-        .manage(std::sync::Arc::new(chat::ChatState::default()))
-        .manage(std::sync::Arc::new(chat::RequestLog::default()))
+        .manage(std::sync::Arc::new(llm::LlmState::default()))
+        .manage(std::sync::Arc::new(llm::RequestLog::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
         .setup(|app| {
             // A desktop pet should not occupy a Dock slot.
@@ -711,7 +691,7 @@ pub fn run() {
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        app_handle.state::<std::sync::Arc<chat::ChatState>>().cancel_window("translation");
+                        app_handle.state::<std::sync::Arc<llm::LlmState>>().cancel_window("translation");
                         let _ = handle.emit("pet://translation-hide", ());
                         report("hide translation", handle.hide());
                     }
@@ -726,7 +706,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            open_deepseek_key_page,
             open_chat,
             open_today,
             open_notes,
@@ -743,17 +722,15 @@ pub fn run() {
             translation::close_selection_float,
             quick_chat::take_pet_keyboard,
             quick_chat::release_pet_keyboard,
-            chat::deepseek_test,
-            chat::deepseek_key_status,
-            chat::deepseek_save_key,
-            chat::deepseek_clear_key,
-            chat::deepseek_start,
-            chat::deepseek_translate,
-            chat::deepseek_preview,
-            chat::chat_request_log,
-            chat::chat_request_log_clear,
-            chat::deepseek_cancel,
-            chat::deepseek_greet,
+            llm::llm_key_status,
+            llm::llm_save_key,
+            llm::llm_clear_key,
+            llm::llm_stream,
+            llm::llm_complete,
+            llm::llm_cancel,
+            llm::llm_log_put,
+            llm::llm_log_list,
+            llm::llm_log_clear,
             holidays::fetch_holiday_year,
             mail_code::mail_account,
             mail_code::mail_save_account,

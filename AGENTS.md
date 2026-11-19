@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-一只桌面宠物：Tauri 2 做原生窗口，React + TypeScript 写逻辑和界面，PixiJS 画角色。第一阶段的交互引擎已完成；第二阶段 DeepSeek 文字聊天已接入；第三阶段正在接入 MiMo 语音输入和输出。AI 请求目前在桌面原生层处理，不部署自有后端。
+一只桌面宠物：Tauri 2 做原生窗口，React + TypeScript 写逻辑和界面，PixiJS 画角色。第一阶段的交互引擎已完成；第二阶段 DeepSeek 文字聊天已接入；第三阶段正在接入 MiMo 语音输入和输出。AI 请求由 `src/ai/` 组织，经原生层的模型通道（`llm.rs`）发出，不部署自有后端。
 
 动手前先读 `ARCHITECTURE.md`。新增动作读 `ACTIONS.md`，处理素材读 `ASSET_GUIDE.md`。
 
@@ -35,6 +35,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 8. **状态不可变。** `PetState` 的快照每次更新都生成新对象。
 9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；聊聊天、提醒、备忘是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
+11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词、工具定义、读流、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。原生的 `llm.rs` 只管钥匙串、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 
 ## 界面用词
 
@@ -76,32 +77,21 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 动效名 | `MOTION_PRESETS`（`src/types.ts`） | `src/renderer/motions.ts` |
 | 窗口权限 | `petWindow.ts` 里调用的窗口 API | `src-tauri/capabilities/default.json` |
 | 设置窗口路由 | `src-tauri/tauri.conf.json` 的 `settings` 窗口 URL | `src/main.tsx` 的 `window=settings` 路由 |
-| 性格长度上限 | `PERSONA_LIMITS.personality`（`src/types.ts`） | `MAX_PERSONALITY_CHARS`（`src-tauri/src/chat.rs`） |
-| 聊天补充要求长度上限（UTF-16） | `CHAT_INSTRUCTIONS_LIMIT`（`src/preferences/ChatInstructions.ts`） | `MAX_CHAT_INSTRUCTIONS_CHARS`（`src-tauri/src/chat.rs`） |
-| 可改写的对话规则：段名、长度上限（UTF-16） | `CHAT_RULE_IDS`、`CHAT_RULE_LIMIT`（`src/preferences/ChatRules.ts`） | `chat_sections` 里用 `editable` 的段、`MAX_CHAT_RULE_CHARS`（`chat.rs`） |
-| 开发者模式的请求记录命令和字段 | `src/platform/chat.ts` 的 `chat_request_log`、`chat_request_log_clear`、`logSchema` | `chat.rs` 的 `RequestLog`、`lib.rs` 的 `invoke_handler` 和 `.manage` |
-| 你的称呼长度上限 | `USER_PROFILE_LIMITS.nickname`（`src/preferences/UserProfile.ts`） | `MAX_USER_NAME_CHARS`（`src-tauri/src/chat.rs`） |
-| 提醒和备忘工具名、长度上限及聊天动作名格式 | `src/agenda/chatTools.ts`、`AGENDA_LIMITS.text`、`NOTE_LIMITS.text`（`src/notes/NoteStore.ts`） | `src-tauri/src/chat.rs` 的 `ADD_REMINDER_TOOL`、`SAVE_NOTE_TOOL`、`MAX_ITEM_CHARS`、`MAX_NOTE_CHARS`、`valid_action_id` |
-| 聊天查看提醒、备忘和今天的记录时带的清单：条数上限、每行长度上限 | `AGENDA_LIMITS.items`、`NOTE_LIMITS.items`、`REMINDER_LINE_LIMIT`、`TODAY_LIMITS`（`chatTools.ts`，按 UTF-16） | `chat.rs` 的 `MAX_REMINDERS`、`MAX_NOTES`、`MAX_REMINDER_LINE_CHARS`、`MAX_TODAY_LINES`、`MAX_TODAY_LINE_CHARS`（按字符；前端的上限能保证不超）。查看工具 `LOOKUP_TOOLS` 只在原生端 |
-| 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `chat.rs` 里 `add_reminder` 的 `repeat` 参数说明 |
+| 模型通道的命令名和事件名 | `src/platform/llm.ts`（`llm_*` 命令、`STREAM_EVENT`） | `src-tauri/src/llm.rs`、`lib.rs` 的 `invoke_handler` 和 `.manage` |
+| 模型供应商 ID | `DEEPSEEK.id`（`src/ai/provider.ts`） | `PROVIDERS`（`src-tauri/src/llm.rs`，同时定地址和钥匙串服务名；改服务名会丢掉用户存的 Key） |
+| 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `src/ai/tools.ts` 里 `add_reminder` 的 `repeat` 参数说明 |
 | 开机启动、备份和重启命令，登录项状态值 | `src/platform/system.ts` | `src-tauri/src/system.rs`、`lib.rs` 的 `invoke_handler` |
-| 用户动作 ID 带连字符，不能被 AI 选用 | `ID_PATTERN`（`src/actions/UserActions.ts`） | `ACTION_ID_PATTERN`（`src/agenda/chatTools.ts`）不允许连字符 |
+| 用户动作 ID 带连字符，不能被 AI 选用 | `ID_PATTERN`（`src/actions/UserActions.ts`） | `ACTION_ID`（`src/ai/tools.ts`）不允许连字符 |
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
 | 「认不出验证码？」的长度上限 | `TRY_TEXT_LIMIT`（`src/components/settings/MailCodeTester.tsx`，按 UTF-16） | `MAX_TRY_CHARS`（`src-tauri/src/mail_code.rs`，按字符；前端的上限能保证不超） |
 | 查收验证码最多等多久 | `src-tauri/src/mail_code.rs` 的 `WAIT_FOR` | `MailSettings.tsx` 脚注、`README.md` 里写的「2 分钟」 |
-| 文本处理的种类（翻译、解释、总结、润色） | `TextTask`（`src/platform/chat.ts`） | `chat.rs` 的 `translation_prompt` |
 | 划词浮钮宽度 | `tauri.conf.json` 里 `selection-float` 窗口的 `width` | `FLOAT_WIDTH`（`src-tauri/src/translation.rs`） |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
 | 提醒窗口圆角 | `tauri.conf.json` 里 `today` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |
 | 快速聊天快捷键规则（必须含 ⌃ 或 ⌘、按键名） | `recordShortcut`、`KEY_CODE`（`src/preferences/QuickChatPreferences.ts`） | `parse_shortcut`（`src-tauri/src/quick_chat.rs`） |
-| 服务报错的措辞 | `src-tauri/src/chat.rs` 的 `failure_message`、`mimo.rs`、`secrets.rs` 的 `keychain_error` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、模型名、钥匙串、余额不足、过于频繁、服务繁忙、发不出去、还在回复、网络/中断 |
-| 角色名长度上限 | `PERSONA_LIMITS.name`（`src/types.ts`） | `read_preferences` 里的 20（`src-tauri/src/chat.rs`） |
-| 发给模型的消息条数 | `CHAT_LIMITS.context`（`src/chat/ChatThreads.ts`，保存和显示的上限是另一个值 `CHAT_LIMITS.messages`） | `start_request` 里的 `items.len() > 30`（`chat.rs`） |
-| 单条消息长度 | `MAX_MESSAGE_CHARS`（`ChatThreads.ts`，按 UTF-16 长度） | `chat.rs` 的 `content.len() > 16_000`（按字节，单位不同：中文 16000 字节约 5000 字） |
-| 聊天模型 | `DEFAULT_CHAT_MODEL`、`CHAT_MODEL_PATTERN`（`src/preferences/ChatModel.ts`） | `DEFAULT_MODEL`、`valid_model`（`chat.rs`） |
-| 一次回复的工具调用上限 | `MAX_CALLS_SHOWN`（`src/agenda/chatTools.ts`） | `MAX_TOOL_CALLS`（`chat.rs`） |
+| 服务报错的措辞 | `failureMessage`（`src/ai/provider.ts`）、`src-tauri/src/llm.rs`、`mimo.rs`、`secrets.rs` 的 `keychain_error` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、模型名、钥匙串、余额不足、过于频繁、服务繁忙、发不出去、还在回复、网络/中断 |
 | MiMo 音色列表 | `MIMO_VOICES`（`src/types.ts`） | `mimo_synthesize` 里的音色名单（`mimo.rs`） |
 | 快捷键禁用名单 | `RESERVED_SHORTCUTS`（`QuickChatPreferences.ts`） | `RESERVED_SHORTCUTS`（`quick_chat.rs`） |
 | 专注阶段名 | `FocusPhase`（`src/behavior/FocusTimer.ts`） | `FOCUS_LABELS`（`lib.rs`） |
@@ -158,7 +148,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
 - 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才派发，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
-- DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。原生端在流式回复和历史中清掉（`ReplyText`、`strip_leaked`、`take_leaked_actions`，在 `chat.rs`）。正文里的调用样式只当文本处理，工具事件负责播放。
+- DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。

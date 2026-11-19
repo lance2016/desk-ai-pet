@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { ai, type ChatRequestLog as Log } from "../../ai";
 import { z } from "zod";
-import { chatPlatform, type ChatRequestLog as Log } from "../../platform/chat";
 import { ConfirmButton } from "../ConfirmButton";
 
 const bodySchema = z.object({
@@ -50,12 +50,12 @@ export function ChatRequestLog() {
   const [problem, setProblem] = useState("");
   const refresh = useCallback(() => {
     setProblem("");
-    chatPlatform.requestLog().then(setLog).catch((reason: unknown) => { console.error("Could not read the request log", reason); setProblem("读不到请求记录，请在桌面应用中重试。"); });
+    ai.requestLog().then(setLog).catch((reason: unknown) => { console.error("Could not read the request log", reason); setProblem("读不到请求记录，请在桌面应用中重试。"); });
   }, []);
   useEffect(refresh, [refresh]);
   // Chats happen in other windows: look again when settings comes back to the front.
   useEffect(() => { window.addEventListener("focus", refresh); return () => window.removeEventListener("focus", refresh); }, [refresh]);
-  const clear = () => void chatPlatform.clearRequestLog().then(refresh).catch((reason: unknown) => { console.error("Could not clear the request log", reason); setProblem("没能清空，请再试一次。"); });
+  const clear = () => void ai.clearRequestLog().then(refresh).catch((reason: unknown) => { console.error("Could not clear the request log", reason); setProblem("没能清空，请再试一次。"); });
   return <div className="ai-log">
     <div className="ai-preview__head">
       <div><strong>最近发出的请求</strong><span>只记开发者模式打开以后的聊天，最多 20 条，退出应用就清掉</span></div>

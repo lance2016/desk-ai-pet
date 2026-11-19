@@ -6,7 +6,7 @@ export const CHAT_MODELS = [
   { id: "deepseek-pro", label: "Pro", hint: "更擅长复杂问题，回复慢一些，费用也更高" },
 ] as const;
 export const DEFAULT_CHAT_MODEL = CHAT_MODELS[0].id;
-/** A model name the user types. Must match `valid_model` in `src-tauri/src/chat.rs`. */
+/** A model name the user types; it goes into the request as it is. */
 export const CHAT_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
 
 /** One model for every character: it is an account choice, not a personality. */

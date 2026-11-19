@@ -1,4 +1,5 @@
 import { loadSelectionFloat } from "./preferences/SelectionFloat";
+import { ai } from "./ai";
 import { translationPlatform } from "./platform/translation";
 import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
@@ -15,7 +16,6 @@ import { Greeter } from "./greeting/Greeter";
 import { Companion } from "./behavior/Companion";
 import { loadCompanionPreferences } from "./preferences/CompanionPreferences";
 import { loadGreetingRecord, saveGreetingRecord } from "./greeting/GreetingSchedule";
-import { chatPlatform } from "./platform/chat";
 import { loadThreads, recordThread, saveThreads } from "./chat/ChatThreads";
 import { holidayPlatform } from "./platform/holidays";
 import { requestPreferences } from "./preferences/ChatPreferences";
@@ -214,7 +214,7 @@ export default function App({ packId }: AppProps) {
   // First launch without a DeepSeek key: open settings, which shows the welcome guide.
   useEffect(() => {
     if (isOnboarded() || !petWindow.isNative) return;
-    chatPlatform.keyStatus()
+    ai.keyStatus()
       .then((saved) => { if (saved) markOnboarded(); else return petWindow.openSettings(); })
       .catch((error: unknown) => console.warn("Could not start the welcome guide", error));
   }, []);
@@ -287,7 +287,7 @@ export default function App({ packId }: AppProps) {
       loadRecord: () => loadGreetingRecord(),
       saveRecord: (record) => saveGreetingRecord(record),
       facts: (now) => collectFacts(loadAgenda(), loadFocusLog(), now),
-      compose: (kind, lines, now) => chatPlatform.greet(kind, lines, requestPreferences(packId, runtime.manifest.persona), localTimeText(now)),
+      compose: (kind, lines, now) => ai.greet(kind, lines, requestPreferences(packId, runtime.manifest.persona), localTimeText(now)),
       greet: (text) => runtime.greet(text),
     });
     const check = () => { greeter.check(Date.now()).catch((error: unknown) => console.error("Failed to greet", error)); };

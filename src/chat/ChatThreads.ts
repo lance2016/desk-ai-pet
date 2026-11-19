@@ -6,8 +6,7 @@ import { chatImageSchema } from "./ChatImage";
 
 /**
  * Messages kept and shown per thread; the latest of them sent to the model as
- * context (must match the message count check in `src-tauri/src/chat.rs`);
- * threads kept per character; title length.
+ * context; threads kept per character; title length.
  */
 export const CHAT_LIMITS = { messages: 200, context: 30, threads: 20, titleChars: 18 } as const;
 const MAX_MESSAGE_CHARS = 16000;

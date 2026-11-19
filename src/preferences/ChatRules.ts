@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-/** Must match MAX_CHAT_RULE_CHARS in chat.rs; counted in UTF-16 like the textarea. */
+/** Counted in UTF-16 like the textarea. */
 export const CHAT_RULE_LIMIT = 2000;
-/** The parts of the chat rules the user may rewrite. Must match the `editable` parts of `chat_sections` in chat.rs. */
+/** The parts of the chat rules the user may rewrite; see `chatSections` in `src/ai/prompt.ts`. */
 export const CHAT_RULE_IDS = ["memory", "lookup", "actions"] as const;
 export type ChatRuleId = (typeof CHAT_RULE_IDS)[number];
 

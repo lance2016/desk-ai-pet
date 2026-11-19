@@ -1,9 +1,9 @@
 import { TranslationShortcutSettings } from "./TranslationShortcutSettings";
+import { ai } from "../../ai";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { appendUserActions, loadUserActions } from "../../actions/UserActions";
 import { isCustomCharacter, loadCharacterPack, loadPackCatalog, type CatalogEntry } from "../../assets/PackCatalog";
 import type { AnimationEntry, PetControl, PetPersona } from "../../assets/Manifest";
-import { chatPlatform } from "../../platform/chat";
 import { petWindow } from "../../platform/petWindow";
 import { chatPictureActions, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
 import { characterPictures } from "../../appearance/characterPictures";
@@ -127,7 +127,7 @@ export function SettingsPage({ packId }: { packId: string }) {
   // First run: guide the user unless a DeepSeek key is already saved (an existing install).
   useEffect(() => {
     if (isOnboarded()) return;
-    chatPlatform.keyStatus().then((saved) => { if (saved) markOnboarded(); else setWelcome(true); }).catch(() => setWelcome(true));
+    ai.keyStatus().then((saved) => { if (saved) markOnboarded(); else setWelcome(true); }).catch(() => setWelcome(true));
   }, []);
   const current = catalog.find((entry) => entry.id === packId);
   const reloadCatalog = useCallback(() => {

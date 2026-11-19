@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { chatPlatform } from "../../platform/chat";
+import { ai } from "../../ai";
 import { loadChatModel } from "../../preferences/ChatModel";
 import { petWindow } from "../../platform/petWindow";
 import { loadQuickChatShortcut, quickChatShortcutLabel } from "../../preferences/QuickChatPreferences";
@@ -28,11 +28,11 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const card = useRef<HTMLDivElement>(null);
-  useEffect(() => { chatPlatform.keyStatus().then((saved) => setKeyWorks(saved ? true : null)).catch(() => {}); }, []);
+  useEffect(() => { ai.keyStatus().then((saved) => setKeyWorks(saved ? true : null)).catch(() => {}); }, []);
 
   /** A message belongs to the step that showed it. */
   const goTo = (next: number) => { setStatus(""); setStep(next); };
-  const openKeyPage = () => void chatPlatform.openKeyPage().catch(() => setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"));
+  const openKeyPage = () => void ai.openKeyPage().catch(() => setStatus("没能打开网页，可以自己在浏览器里打开 platform.deepseek.com。"));
   const finish = (chat: boolean) => {
     markOnboarded();
     onClose(keyWorks !== true);
@@ -48,10 +48,10 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
     event.preventDefault();
     if (!key.trim()) return;
     setBusy(true); setStatus("");
-    try { await chatPlatform.saveKey(key); setKey(""); }
+    try { await ai.saveKey(key); setKey(""); }
     catch (reason) { setStatus(deepSeekProblem(reason, "保存")); setBusy(false); return; }
     setStatus("正在试着连一下 DeepSeek…");
-    try { await chatPlatform.test(loadChatModel()); setKeyWorks(true); setStatus(""); setStep(2); }
+    try { await ai.test(loadChatModel()); setKeyWorks(true); setStatus(""); setStep(2); }
     catch (reason) { setKeyWorks(false); setStatus(deepSeekProblem(reason, "连接")); }
     finally { setBusy(false); }
   };

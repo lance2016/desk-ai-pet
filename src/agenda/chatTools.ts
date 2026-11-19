@@ -1,21 +1,16 @@
 import { z } from "zod";
+import type { ChatContext } from "../ai/types";
+import { MAX_TOOL_CALLS } from "../ai/stream";
+import { ACTION_ID, ADD_REMINDER_TOOL, SAVE_NOTE_TOOL } from "../ai/tools";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
 import { focusRounds, loadFocusLog, type FocusLog } from "../greeting/FocusLog";
 import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, reminderLabel, shownAt, sortAgenda, type AgendaItem, type NewAgendaItem } from "./AgendaStore";
 import { parseRepeat, repeatLabel } from "./Repeat";
-import type { ChatContext } from "../platform/chat";
 
-/** Tool names; must match `src-tauri/src/chat.rs`. */
-const ADD_REMINDER_TOOL = "add_reminder";
-const SAVE_NOTE_TOOL = "save_note";
-/** Action ids the native side accepts. */
-const ACTION_ID_PATTERN = /^[a-z0-9_]{1,40}$/;
-/** Must match `MAX_TOOL_CALLS` in `src-tauri/src/chat.rs`. */
-const MAX_CALLS_SHOWN = 8;
-/** Longest reminder line handed over for a lookup; must match `MAX_REMINDER_LINE_CHARS` in `src-tauri/src/chat.rs`. */
+/** Longest reminder line handed over for a lookup, so a long list stays small in the prompt. */
 const REMINDER_LINE_LIMIT = 120;
-/** Today's record for `review_today`: lines at most and characters per line; must match `MAX_TODAY_LINES` and `MAX_TODAY_LINE_CHARS` in `src-tauri/src/chat.rs`. */
+/** Today's record for `review_today`: lines at most and characters per line. */
 export const TODAY_LIMITS = { lines: 80, chars: 200 } as const;
 /** A note in today's record is cut to this, so a long one does not crowd out the rest. */
 const TODAY_NOTE_CHARS = 120;
@@ -71,7 +66,7 @@ export function chatContext(now: number, actions: readonly string[], saved: Save
     now: localTimeText(now),
     timestamp: `${localIso}${offset < 0 ? "-" : "+"}${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    actions: actions.filter((id) => ACTION_ID_PATTERN.test(id)),
+    actions: actions.filter((id) => ACTION_ID.test(id)),
     reminders: reminderLines(saved.agenda, now),
     notes: sortNotes(saved.notes).map((note) => note.text),
     today: todayLines(saved, now),
@@ -179,7 +174,7 @@ export function interpretToolCalls(payloads: readonly string[], now: number, mak
   for (const payload of payloads) {
     const call = parseArguments(callSchema, payload);
     if (!call) { outcome.failures.push("没看懂这条记录请求"); continue; }
-    if (call.dropped) { outcome.failures.push(`一次最多记 ${MAX_CALLS_SHOWN} 条，后面 ${call.dropped} 条没记上`); continue; }
+    if (call.dropped) { outcome.failures.push(`一次最多记 ${MAX_TOOL_CALLS} 条，后面 ${call.dropped} 条没记上`); continue; }
     if (call.overflow) { outcome.failures.push("内容太长"); continue; }
     if (call.name === ADD_REMINDER_TOOL) {
       const args = parseArguments(addReminderSchema, call.arguments);

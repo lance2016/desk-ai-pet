@@ -132,7 +132,7 @@ pub fn take_translation_selection(state: State<'_, Selection>) -> Value {
 fn hide_selection_float(app: &AppHandle) {
     app.state::<SelectionFloat>().expanded.store(false, Ordering::Relaxed);
     if let Ok(mut text) = app.state::<SelectionFloat>().text.lock() { *text = None; }
-    if let Some(state) = app.try_state::<std::sync::Arc<crate::chat::ChatState>>() { state.cancel_window("selection-float"); }
+    if let Some(state) = app.try_state::<std::sync::Arc<crate::llm::LlmState>>() { state.cancel_window("selection-float"); }
     if let Some(window) = app.get_webview_window("selection-float") { let _ = window.hide(); }
 }
 

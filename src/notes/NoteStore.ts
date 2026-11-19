@@ -9,7 +9,7 @@ import { readList } from "../storage/listStorage";
 const KEY = "ai-pet:notes:v1";
 
 export const NOTE_LIMITS = {
-  /** Characters of one note; must match `MAX_NOTE_CHARS` in `src-tauri/src/chat.rs`. */
+  /** Characters of one note. */
   text: 500,
   /** Notes kept at most; the least recently changed unpinned ones go first. */
   items: 200,
