@@ -4,9 +4,9 @@
 
 ## 项目是什么
 
-一只桌面宠物：Tauri 2 做原生窗口，React + TypeScript 写逻辑和界面，PixiJS 画角色。第一阶段的交互引擎已完成；第二阶段 DeepSeek 文字聊天已接入；第三阶段正在接入 MiMo 语音输入和输出。AI 请求由 `src/ai/` 组织，经原生层的模型通道（`llm.rs`）发出，不部署自有后端。
+一只桌面宠物：Tauri 2 做原生窗口，React + TypeScript 写逻辑和界面，PixiJS 画角色。定位是陪用户过完每个工作日的桌面搭子。AI 请求由 `src/ai/` 组织，经原生层的模型通道（`llm.rs`）发出，不部署自有后端。
 
-动手前先读 `ARCHITECTURE.md`。新增动作读 `ACTIONS.md`，处理素材读 `ASSET_GUIDE.md`。
+**产品方向、架构原则、做到哪一步、下一步做什么，都在 `ROADMAP.md`，开工前先读它。** 动手改代码前读 `ARCHITECTURE.md`。新增动作读 `ACTIONS.md`，处理素材读 `ASSET_GUIDE.md`。
 
 ## 命令
 
