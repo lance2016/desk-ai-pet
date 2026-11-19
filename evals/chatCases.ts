@@ -111,10 +111,10 @@ export const CHAT_CASES: ChatCase[] = [
     check: (run) => must(run.notes.length === 0, "the note should be gone"),
   },
   {
-    name: "done is not deleted",
+    name: "done is ticked off, not deleted",
     setup: { reminders: [{ text: "交周报", at: tomorrowAt(10) }] },
     say: "交周报那件事我做完了",
-    check: all(notCalls("delete_reminder"), (run) => must(run.reminders.length === 1, "the reminder should stay")),
+    check: all(notCalls("delete_reminder"), (run) => must(run.reminders.length === 1 && run.reminders[0].doneAt !== null, "the reminder should stay, ticked off")),
   },
 
   // Memory.

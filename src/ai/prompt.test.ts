@@ -24,7 +24,7 @@ describe("previewChat", () => {
     const preview = previewChat(chatPreferences({ instructions: "回答直接一些" }), chatRequestContext({ now: "2026-11-17 23:30 周二" }), CHAT_SKILLS);
     expect(preview.prompt).toContain("回答直接一些");
     const tools = preview.tools as Tool[];
-    expect(tools).toHaveLength(12);
+    expect(tools).toHaveLength(13);
     expect(tools.find((tool) => tool.function.name === PLAY_ACTION_TOOL)?.function.parameters.properties.action?.enum).toEqual(["wave"]);
   });
 
@@ -52,7 +52,7 @@ describe("previewChat", () => {
 
   it("offers no action tool when the character has none, and addresses the user by name", () => {
     const { prompt, tools } = previewChat(chatPreferences({ userName: " 阿龙 " }), chatRequestContext({ actions: [] }), CHAT_SKILLS);
-    expect(tools).toHaveLength(11);
+    expect(tools).toHaveLength(12);
     expect(prompt).toContain("称呼用户为「阿龙」。");
     expect(prompt).not.toContain(PLAY_ACTION_TOOL);
   });

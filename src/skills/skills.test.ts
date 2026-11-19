@@ -87,6 +87,23 @@ describe("changing reminders", () => {
     expect(await use(memorySkill, "delete_reminder", { ref: "r1" }, call)).toMatchObject({ lines: [{ text: "没改成：这条提醒已经不在了" }] });
   });
 
+  it("ticks a reminder off when it is done, and opens it again on undo", async () => {
+    addMeeting();
+    const outcome = await use(memorySkill, "complete_reminder", { ref: "r1" }, await listed("list_reminders"));
+    expect(loadAgenda()[0]).toMatchObject({ id: "meeting", doneAt: NOW });
+    expect(outcome).toMatchObject({ confirmation: "好，「开会」勾掉了", lines: [{ kind: "agenda", id: "meeting", text: "已完成提醒：开会" }] });
+    outcome.lines?.[0].undo?.();
+    expect(loadAgenda()[0].doneAt).toBeNull();
+  });
+
+  it("leaves a reminder that is already done alone", async () => {
+    addMeeting();
+    await use(memorySkill, "complete_reminder", { ref: "r1" }, await listed("list_reminders"));
+    const again = await use(memorySkill, "complete_reminder", { ref: "r1" }, await listed("list_reminders"));
+    expect(again).toMatchObject({ confirmation: "这条已经勾掉了" });
+    expect(again.lines).toBeUndefined();
+  });
+
   it("puts a deleted reminder back on undo", async () => {
     addMeeting();
     const outcome = await use(memorySkill, "delete_reminder", { ref: "r1" }, await listed("list_reminders"));

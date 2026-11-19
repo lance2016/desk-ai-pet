@@ -1,5 +1,5 @@
 import { failed, type EffectLine, type Skill, type Tool, type ToolCall, type ToolOutcome } from "../ai/skill";
-import { addAgendaItem, AGENDA_LIMITS, editAgendaItem, itemSummary, loadAgenda, removeAgendaItem, restoreAgendaItem, type AgendaItem } from "../agenda/AgendaStore";
+import { addAgendaItem, AGENDA_LIMITS, editAgendaItem, isDone, itemSummary, loadAgenda, removeAgendaItem, restoreAgendaItem, setAgendaItemDone, type AgendaItem } from "../agenda/AgendaStore";
 import { FALLBACK_REASONS, PAST_TOLERANCE_MS, parseLocalTime, readNoteCall, readReminderCall, readText, reminderConfirmation } from "../agenda/chatTools";
 import { parseRepeat, type Repeat } from "../agenda/Repeat";
 import { editNote, loadNotes, NOTE_LIMITS, removeNote, restoreNote, type Note } from "../notes/NoteStore";
@@ -11,6 +11,7 @@ export const ADD_REMINDER_TOOL = "add_reminder";
 export const SAVE_NOTE_TOOL = "save_note";
 export const UPDATE_REMINDER_TOOL = "update_reminder";
 export const DELETE_REMINDER_TOOL = "delete_reminder";
+export const COMPLETE_REMINDER_TOOL = "complete_reminder";
 export const UPDATE_NOTE_TOOL = "update_note";
 export const DELETE_NOTE_TOOL = "delete_note";
 
@@ -145,7 +146,7 @@ const updateReminder: Tool = {
 
 const deleteReminder: Tool = {
   name: DELETE_REMINDER_TOOL,
-  description: `删除一条已有的提醒。先用 ${LIST_REMINDERS_TOOL} 拿到编号。用户只是说做完了，不要删除。`,
+  description: `删除一条已有的提醒。先用 ${LIST_REMINDERS_TOOL} 拿到编号。用户只是说做完了，用 ${COMPLETE_REMINDER_TOOL}，不要删除。`,
   parameters: () => ({ type: "object", properties: { ref: REF(LIST_REMINDERS_TOOL) }, required: ["ref"] }),
   run: (args, call) => writing(() => {
     const before = findReminder(args, call);
@@ -156,6 +157,24 @@ const deleteReminder: Tool = {
       result: `已删除：${summary}`,
       lines: [undoLine({ kind: "agenda", text: `已删除提醒：${summary}` }, () => putBackReminder(before))],
       confirmation: `好，删掉了：${before.text}`,
+    };
+  }),
+};
+
+const completeReminder: Tool = {
+  name: COMPLETE_REMINDER_TOOL,
+  description: `用户说某条提醒的事做完了时，把它标记为完成，和在提醒面板里点「完成」一样；重复提醒只勾掉这一次。先用 ${LIST_REMINDERS_TOOL} 拿到编号。`,
+  parameters: () => ({ type: "object", properties: { ref: REF(LIST_REMINDERS_TOOL) }, required: ["ref"] }),
+  run: (args, call) => writing(() => {
+    const before = findReminder(args, call);
+    if (isOutcome(before)) return before;
+    const now = Date.now();
+    if (isDone(before, now)) return { result: `这条本来就是完成的：${before.text}`, confirmation: "这条已经勾掉了" };
+    changeReminders((items) => setAgendaItemDone(items, before.id, true, now), "chat");
+    return {
+      result: `已完成：${before.text}`,
+      lines: [undoLine({ kind: "agenda", id: before.id, text: `已完成提醒：${before.text}` }, () => putBackReminder(before))],
+      confirmation: `好，「${before.text}」勾掉了`,
     };
   }),
 };
@@ -198,6 +217,6 @@ const deleteNote: Tool = {
 export const memorySkill: Skill = {
   id: "memory",
   title: "记提醒和备忘",
-  rules: () => `用户明确要求记录或提醒时，有日期或时间用 ${ADD_REMINDER_TOOL}，无时间用 ${SAVE_NOTE_TOOL}。提醒必须在未来：只给钟点且今天已过，就用明天；只给日期就用当地当天 09:00。指定每天、每个工作日或每周几时按工具说明填写 repeat；其他重复规则如实说明无法设置，不要擅自改成一次性提醒，也不要承诺以后帮忙续上；可以问用户要不要先只设下一次。每条新记录都要实际调用工具，是否保存成功、何时提醒由应用确认。聊天里出现日期，不代表用户要记录。修改或删除已有的提醒、备忘时，先用 ${LIST_REMINDERS_TOOL} 或 ${LIST_NOTES_TOOL} 并设 synthesize=true 拿到编号，再用 ${UPDATE_REMINDER_TOOL}、${DELETE_REMINDER_TOOL}、${UPDATE_NOTE_TOOL}、${DELETE_NOTE_TOOL} 按编号处理；编号只在这次回复里有效。对不上或有几条都可能时，先问用户是哪一条，不要猜。`,
-  tools: [addReminder, saveNoteTool, updateReminder, deleteReminder, updateNote, deleteNote],
+  rules: () => `用户明确要求记录或提醒时，有日期或时间用 ${ADD_REMINDER_TOOL}，无时间用 ${SAVE_NOTE_TOOL}。提醒必须在未来：只给钟点且今天已过，就用明天；只给日期就用当地当天 09:00。指定每天、每个工作日或每周几时按工具说明填写 repeat；其他重复规则如实说明无法设置，不要擅自改成一次性提醒，也不要承诺以后帮忙续上；可以问用户要不要先只设下一次。每条新记录都要实际调用工具，是否保存成功、何时提醒由应用确认。聊天里出现日期，不代表用户要记录。修改或删除已有的提醒、备忘时，先用 ${LIST_REMINDERS_TOOL} 或 ${LIST_NOTES_TOOL} 并设 synthesize=true 拿到编号，再用 ${UPDATE_REMINDER_TOOL}、${DELETE_REMINDER_TOOL}、${UPDATE_NOTE_TOOL}、${DELETE_NOTE_TOOL} 按编号处理；用户说某件事做完了，同样先查编号，再用 ${COMPLETE_REMINDER_TOOL} 勾掉，不要删除；编号只在这次回复里有效。对不上或有几条都可能时，先问用户是哪一条，不要猜。`,
+  tools: [addReminder, saveNoteTool, updateReminder, completeReminder, deleteReminder, updateNote, deleteNote],
 };

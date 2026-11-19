@@ -75,7 +75,7 @@ src/
 │   ├── requestLog.ts        开发者模式的请求记录
 │   └── deepseek/            DeepSeek 特有：正文里泄露的格式（leaks.ts）、读网页和联网搜索（web.ts）
 ├── skills/                  宠物在聊天里能做的事，每组一个文件，`index.ts` 的 `CHAT_SKILLS` 定顺序
-│   ├── memory.ts            记提醒和备忘，按编号改、删（可撤销）
+│   ├── memory.ts            记提醒和备忘，按编号改、删、勾掉提醒（可撤销）
 │   ├── lookup.ts            查看提醒、备忘和今天的记录，给条目编号
 │   ├── remember.ts          记住、替换、忘掉关于用户的事（只能动聊天里记的，可撤销）
 │   ├── petActions.ts        让宠物做动作（回复还没写完就开始）
