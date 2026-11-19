@@ -152,6 +152,7 @@ pnpm exec tsc --noEmit && pnpm test
 - "窗口置顶"开关不能用 Tauri 的 `set_always_on_top`，它会把层级改回普通置顶，全屏上方又不显示了。用 `floating_panel::set_on_top`。
 - 托盘图标可能被 MacBook 的刘海挡住，所以右键菜单和托盘共用同一个菜单，功能要加到这个共用菜单里。
 - 应用平时是 `Accessory`（没有 Dock 图标和菜单栏）。设置窗口打开时切成 `Regular`，关掉切回（`show_settings_window`、`hide_settings_window`），这样它被挡住后能用 ⌘Tab 找回来。聊天窗口没有这样做：它常开着，怕应用长期处于 `Regular` 时宠物面板盖不到别的应用的全屏上方（未验证）。新的普通窗口要先想好走哪条。
+- 右键菜单在主线程上同步弹出，菜单开着时 AppKit 的菜单循环照样处理网页发来的命令。再右键一次会在菜单里面再弹同一个菜单，`muda` 发现菜单正被占用就直接 panic，应用闪退（`RefCell already borrowed`）。`show_pet_menu` 用 `popped_up` 挡住第二次；以后在菜单开着时可能被调用的命令，都不要去动顶层的 `menu`。
 - 应用菜单（`build_app_menu`）平时看不见，但 ⌘C、⌘V、⌘W、⌘Q 这些快捷键全靠它，删掉编辑菜单输入框就不能粘贴。退出必须用 `QUIT_ID`，否则会跳过退出前取消请求。
 
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。

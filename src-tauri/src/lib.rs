@@ -87,6 +87,10 @@ struct PetMenu {
     mail_code: MenuItem<Wry>,
     /** Whether a focus round or rest is running, so the item knows what a click means. */
     focus_running: AtomicBool,
+    /// Whether the right-click menu is open. Opening it runs AppKit's menu loop, which still
+    /// handles webview calls; a second right-click would open the same menu again inside it,
+    /// and muda panics on the menu it is already holding.
+    popped_up: AtomicBool,
     on_top: CheckMenuItem<Wry>,
     dnd: CheckMenuItem<Wry>,
     sizes: Vec<(f64, CheckMenuItem<Wry>)>,
@@ -233,7 +237,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &quit,
         ],
     )?;
-    Ok(PetMenu { menu, visibility, focus, mail_code, focus_running: AtomicBool::new(false), on_top, dnd, sizes, dock })
+    Ok(PetMenu { menu, visibility, focus, mail_code, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
 }
 
 /// The app's menu bar. It shows only while the settings window keeps the app in the Dock,
@@ -402,9 +406,13 @@ fn sync_dock_menu(app: AppHandle, menu: State<'_, PetMenu>, items: Vec<(String, 
 /// Opens the pet menu at the cursor. Called from the webview on right-click.
 #[tauri::command]
 fn show_pet_menu(window: WebviewWindow, menu: State<'_, PetMenu>) -> Result<(), String> {
-    window
-        .popup_menu(&menu.menu)
-        .map_err(|error| format!("failed to open the pet menu: {error}"))
+    if menu.popped_up.swap(true, Ordering::Relaxed) {
+        return Ok(());
+    }
+    // Returns once the menu is closed: the command is sync, so it runs on the main thread.
+    let shown = window.popup_menu(&menu.menu);
+    menu.popped_up.store(false, Ordering::Relaxed);
+    shown.map_err(|error| format!("failed to open the pet menu: {error}"))
 }
 
 #[tauri::command]
