@@ -12,6 +12,7 @@ mod quick_chat;
 mod secrets;
 mod system;
 mod translation;
+mod worklog;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
@@ -608,6 +609,13 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            // Without the work log the pet still runs; its commands then report an error.
+            let work_log = app.path().app_data_dir().map_err(|error| error.to_string()).and_then(|folder| worklog::WorkLog::open(&folder));
+            app.manage(work_log.unwrap_or_else(|error| {
+                eprintln!("failed to open the work log: {error}");
+                worklog::WorkLog::default()
+            }));
+
             let pet_menu = build_menu(app)?;
             let (app_menu, new_chat) = build_app_menu(app)?;
             app.set_menu(app_menu)?;
@@ -762,7 +770,13 @@ pub fn run() {
             show_pet,
             sync_focus_menu,
             sync_dock_menu,
-            alert::confirm_action
+            alert::confirm_action,
+            worklog::worklog_append,
+            worklog::worklog_read,
+            worklog::worklog_compact,
+            worklog::worklog_add_counts,
+            worklog::worklog_export,
+            worklog::worklog_replace
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

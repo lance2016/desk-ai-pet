@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { addAgendaItem, AGENDA_LIMITS, archiveStale, editAgendaItem, fromTimeInput, isDone, loadAgenda, reminderLabel, removeAgendaItem, restoreAgendaItem, setAgendaItemDone, shownAt, sortAgenda, subscribeAgenda, toTimeInput, updateAgenda, type AgendaItem } from "../../agenda/AgendaStore";
+import { changeReminders } from "../../worklog/store";
 import { EVERY_DAY, repeatLabel, repeatSchema, type Repeat } from "../../agenda/Repeat";
 import { holidayCalendar, lastCoveredYear } from "../../agenda/Workdays";
 import { petWindow } from "../../platform/petWindow";
@@ -219,7 +220,7 @@ export function TodayPanel() {
 
   const change = (update: (list: AgendaItem[]) => AgendaItem[]): boolean => {
     try {
-      setItems(sortAgenda(updateAgenda(update), Date.now()));
+      setItems(sortAgenda(changeReminders(update, "user"), Date.now()));
       setError("");
       return true;
     } catch (reason) {

@@ -1,8 +1,9 @@
 import { failed, type EffectLine, type Skill, type Tool, type ToolCall, type ToolOutcome } from "../ai/skill";
-import { addAgendaItem, AGENDA_LIMITS, editAgendaItem, itemSummary, loadAgenda, removeAgendaItem, restoreAgendaItem, updateAgenda, type AgendaItem } from "../agenda/AgendaStore";
+import { addAgendaItem, AGENDA_LIMITS, editAgendaItem, itemSummary, loadAgenda, removeAgendaItem, restoreAgendaItem, type AgendaItem } from "../agenda/AgendaStore";
 import { FALLBACK_REASONS, PAST_TOLERANCE_MS, parseLocalTime, readNoteCall, readReminderCall, readText, reminderConfirmation } from "../agenda/chatTools";
 import { parseRepeat, type Repeat } from "../agenda/Repeat";
-import { editNote, loadNotes, NOTE_LIMITS, removeNote, restoreNote, saveNote, updateNotes, type Note } from "../notes/NoteStore";
+import { editNote, loadNotes, NOTE_LIMITS, removeNote, restoreNote, type Note } from "../notes/NoteStore";
+import { changeNotes, changeReminders, keepNote } from "../worklog/store";
 import { itemId } from "./refs";
 import { LIST_NOTES_TOOL, LIST_REMINDERS_TOOL } from "./lookup";
 
@@ -33,13 +34,13 @@ function writing(work: () => ToolOutcome): ToolOutcome {
   }
 }
 
-/** Puts a reminder back as it was: replaced if it is still there, restored if it was removed. */
+/** Puts a reminder back as it was: replaced if it is still there, restored if it was removed. Undo is the user's own doing. */
 function putBackReminder(before: AgendaItem): void {
-  updateAgenda((items) => (items.some((item) => item.id === before.id) ? items.map((item) => (item.id === before.id ? before : item)) : restoreAgendaItem(items, before)));
+  changeReminders((items) => (items.some((item) => item.id === before.id) ? items.map((item) => (item.id === before.id ? before : item)) : restoreAgendaItem(items, before)), "user");
 }
 
 function putBackNote(before: Note): void {
-  updateNotes((notes) => (notes.some((note) => note.id === before.id) ? notes.map((note) => (note.id === before.id ? before : note)) : restoreNote(notes, before)));
+  changeNotes((notes) => (notes.some((note) => note.id === before.id) ? notes.map((note) => (note.id === before.id ? before : note)) : restoreNote(notes, before)), "user");
 }
 
 const textParameter = (description: string) => ({ type: "string", description });
@@ -60,12 +61,12 @@ const addReminder: Tool = {
     if (request.kind === "failed") return notSaved(request.reason);
     if (request.kind === "note") {
       const reason = FALLBACK_REASONS[request.note.fallback ?? "no-time"];
-      const saved = saveNote(request.note.text);
+      const saved = keepNote(request.note.text, "chat");
       const text = `${reason}：${saved.text}${request.note.trimmed ? TRIMMED : ""}`;
       return { result: text, lines: [{ kind: "note", id: saved.id, text }], confirmation: reason };
     }
     const { item } = request;
-    updateAgenda((list) => addAgendaItem(list, item, now));
+    changeReminders((list) => addAgendaItem(list, item, now), "chat");
     const marks = `${item.trimmed ? TRIMMED : ""}${item.onceOnly ? "（这种重复方式不支持，只提醒一次）" : ""}`;
     const summary = itemSummary(item, now);
     return { result: `已设提醒：${summary}`, lines: [{ kind: "agenda", id: item.id, text: `已设提醒：${summary}${marks}` }], confirmation: reminderConfirmation(item, now) };
@@ -79,7 +80,7 @@ const saveNoteTool: Tool = {
   run: (args) => writing(() => {
     const note = readNoteCall(args);
     if (!note) return notSaved("没看懂要存什么");
-    const saved = saveNote(note.text);
+    const saved = keepNote(note.text, "chat");
     return { result: `已存进备忘：${saved.text}`, lines: [{ kind: "note", id: saved.id, text: `已存进备忘：${saved.text}${note.trimmed ? TRIMMED : ""}` }], confirmation: "好，存进备忘了" };
   }),
 };
@@ -132,7 +133,7 @@ const updateReminder: Tool = {
     const repeat = changedRepeat(args.repeat, before.repeat);
     if (repeat === undefined) return notChanged("这种重复方式不支持");
     if (repeat === null && remindAt !== before.remindAt && remindAt < now - PAST_TOLERANCE_MS) return notChanged("新的时间已经过了");
-    const after = updateAgenda((items) => editAgendaItem(items, before.id, { text: text?.text ?? before.text, remindAt, repeat }, now)).find((item) => item.id === before.id) ?? before;
+    const after = changeReminders((items) => editAgendaItem(items, before.id, { text: text?.text ?? before.text, remindAt, repeat }, now), "chat").find((item) => item.id === before.id) ?? before;
     const summary = itemSummary(after, now);
     return {
       result: `已改好：${summary}`,
@@ -149,7 +150,7 @@ const deleteReminder: Tool = {
   run: (args, call) => writing(() => {
     const before = findReminder(args, call);
     if (isOutcome(before)) return before;
-    updateAgenda((items) => removeAgendaItem(items, before.id));
+    changeReminders((items) => removeAgendaItem(items, before.id), "chat");
     const summary = itemSummary(before, Date.now());
     return {
       result: `已删除：${summary}`,
@@ -168,7 +169,7 @@ const updateNote: Tool = {
     if (isOutcome(before)) return before;
     const text = typeof args.text === "string" ? readText(args.text, NOTE_LIMITS.text) : null;
     if (!text) return notChanged("没看懂要改成什么");
-    updateNotes((notes) => editNote(notes, before.id, text.text, Date.now()));
+    changeNotes((notes) => editNote(notes, before.id, text.text, Date.now()), "chat");
     return {
       result: `已改好：${text.text}`,
       lines: [undoLine({ kind: "note", id: before.id, text: `已改备忘：${text.text}${text.trimmed ? TRIMMED : ""}` }, () => putBackNote(before))],
@@ -184,7 +185,7 @@ const deleteNote: Tool = {
   run: (args, call) => writing(() => {
     const before = findNote(args, call);
     if (isOutcome(before)) return before;
-    updateNotes((notes) => removeNote(notes, before.id));
+    changeNotes((notes) => removeNote(notes, before.id), "chat");
     return {
       result: `已删除：${before.text}`,
       lines: [undoLine({ kind: "note", text: `已删除备忘：${before.text}` }, () => putBackNote(before))],

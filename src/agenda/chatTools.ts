@@ -3,7 +3,8 @@ import type { ChatContext } from "../ai/types";
 import { ACTION_ID } from "../ai/skill";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
-import { focusRounds, loadFocusLog, type FocusLog } from "../greeting/FocusLog";
+import { dayRecap } from "../worklog/recap";
+import { dateKey, type WorkLogData } from "../worklog/WorkLog";
 import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, reminderLabel, shownAt, sortAgenda, type AgendaItem, type NewAgendaItem } from "./AgendaStore";
 import { parseRepeat, repeatLabel } from "./Repeat";
 
@@ -35,11 +36,10 @@ export function localTimeText(now: number): string {
 export interface SavedItems {
   agenda: readonly AgendaItem[];
   notes: readonly Note[];
-  focusLog: FocusLog;
 }
 
 export function loadSavedItems(): SavedItems {
-  return { agenda: loadAgenda(), notes: loadNotes(), focusLog: loadFocusLog() };
+  return { agenda: loadAgenda(), notes: loadNotes() };
 }
 
 /**
@@ -61,20 +61,24 @@ export function chatContext(now: number, actions: readonly string[]): ChatContex
 
 /**
  * Today's record for a daily review: reminders ticked off today, today's ones
- * still open, focus rounds, and notes written or changed today. The focus line
- * is always there, so the model does not guess at it.
+ * still open, focus rounds, and notes written or changed today. The work log
+ * keeps what the lists no longer show (a finished reminder deleted since, a
+ * focus round stopped halfway); the lists cover what happened before the log
+ * existed. The focus line is always there, so the model does not guess at it.
  */
-export function todayLines({ agenda, notes, focusLog }: SavedItems, now: number): string[] {
+export function todayLines({ agenda, notes }: SavedItems, log: WorkLogData, now: number): string[] {
   const start = new Date(now).setHours(0, 0, 0, 0);
   const end = new Date(now).setHours(24, 0, 0, 0);
-  const done = agenda.filter((item) => item.doneAt !== null && item.doneAt >= start && item.doneAt < end);
+  const recap = dayRecap(log, dateKey(now));
+  const done = new Map([...recap.remindersDone, ...agenda.filter((item) => item.doneAt !== null && item.doneAt >= start && item.doneAt < end).map((item) => [item.id, item.text] as const)]);
   const open = agenda.filter((item) => !isDone(item, now) && shownAt(item, now) < end);
-  const rounds = focusRounds(focusLog, now);
+  const written = new Map([...recap.notesWritten, ...sortNotes(notes).filter((note) => note.updatedAt >= start).map((note) => [note.id, note.text] as const)]);
+  const stopped = recap.focusStopped > 0 ? `，中途停了 ${recap.focusStopped} 次` : "";
   const lines = [
-    ...done.map((item) => `完成了提醒：${item.text}`),
+    ...[...done.values()].map((text) => `完成了提醒：${text}`),
     ...open.map((item) => `还没处理的提醒：${reminderLabel(shownAt(item, now), now)} ${item.text}`),
-    `专注了 ${rounds} 轮，每轮 ${FOCUS_CONFIG.focusMs / 60_000} 分钟`,
-    ...sortNotes(notes).filter((note) => note.updatedAt >= start).map((note) => `今天记的备忘：${clip(note.text.replace(/\s+/g, " "), TODAY_NOTE_CHARS)}`),
+    `专注了 ${recap.focusRounds} 轮，每轮 ${FOCUS_CONFIG.focusMs / 60_000} 分钟${stopped}`,
+    ...[...written.values()].map((text) => `今天记的备忘：${clip(text.replace(/\s+/g, " "), TODAY_NOTE_CHARS)}`),
   ];
   return lines.slice(0, TODAY_LIMITS.lines).map((line) => clip(line, TODAY_LIMITS.chars));
 }

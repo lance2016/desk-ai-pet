@@ -18,7 +18,7 @@
       { "icon": "search", "color": "blue", "title": "阅读网页链接", "detail": "默认开启，可在 AI 对话设置里关闭。发链接就能概括、解释或翻译，网址和来源都能点开，读完还可以继续追问。", "how": ["打开完整聊天窗口", "贴上网页链接并发送"], "section": "ai" },
       { "icon": "search", "color": "blue", "title": "联网搜索", "detail": "查近期新闻或资料，回答下方可以展开来源。只搜索当前这条问题。", "how": ["完整聊天 › 联网", "输入问题并发送"], "section": "ai" },
       { "icon": "chat", "color": "purple", "title": "发送图片", "detail": "让宠物帮你看截图或图表。点击发送才会把图片交给 DeepSeek。", "how": ["完整聊天 › 添加图片", "也可以粘贴或拖到输入框"], "section": "ai" },
-      { "icon": "list", "color": "pink", "title": "今日回顾", "detail": "按今天的提醒、专注和备忘写成几条日报，复制就能贴。", "how": ["右键宠物 › 今日回顾", "说「帮我写今天的日报」"] },
+      { "icon": "list", "color": "pink", "title": "今日回顾", "detail": "按今天完成的提醒、专注和备忘写成几条日报，复制就能贴。宠物会记下每天做过的事，删掉的提醒也算数。", "how": ["右键宠物 › 今日回顾", "说「帮我写今天的日报」"] },
       { "icon": "timer", "color": "red", "title": "专注", "detail": "专注 25 分钟再休息 5 分钟，脚下显示倒计时，到点叫你起来活动。", "how": ["快捷按钮「专注」", "右键宠物 › 开始专注"] },
       { "icon": "text", "color": "purple", "title": "划词翻译、解释、总结、润色", "detail": "在任何应用里选中文字，点浮钮里的按钮就出结果。", "how": ["选中文字", "⌃⌥⌘ T"], "section": "tools" },
       { "icon": "mail", "color": "green", "title": "查收验证码", "detail": "从 163 邮箱找到最新的验证码，自动复制。", "how": ["右键宠物 › 查收验证码"], "section": "tools" },
@@ -28,7 +28,7 @@
   {
     "title": "陪着你",
     "features": [
-      { "icon": "sun", "color": "orange", "title": "早安和晚安", "detail": "每天第一次见面打招呼，睡前半小时道晚安，会提到今天的提醒和专注。" },
+      { "icon": "sun", "color": "orange", "title": "早安和晚安", "detail": "每天第一次见面打招呼，睡前半小时道晚安。早安会接上昨天做了什么；有没做完的提醒，气泡里点「挪到今天」就排到今天同一时间。" },
       { "icon": "heart", "color": "green", "title": "关心你", "detail": "深夜还在用电脑、连续用太久、离开后回来，它会说一句。", "section": "companion" },
       { "icon": "moon", "color": "indigo", "title": "勿扰", "detail": "勿扰时它不主动说话，到点的提醒收成脚下的小标签。", "how": ["右键宠物 › 勿扰"], "section": "companion" }
     ]
@@ -39,7 +39,7 @@
       { "icon": "user", "color": "purple", "title": "换角色、建角色", "detail": "切换内置角色，或新建一个自己的，改名字和性格。", "section": "character" },
       { "icon": "text", "color": "indigo", "title": "改对话规则", "detail": "发给 AI 的规则分段列出，记提醒、查东西、做动作这几段可以自己改写；打开开发者模式还能看每次实际发出的内容和 AI 的原始回复。", "how": ["设置 › AI 对话 › 对话规则"], "section": "ai" },
       { "icon": "paw", "color": "orange", "title": "换动作图、做新动作", "detail": "换上自己画的动作图，或新建动作放进快捷按钮。", "section": "actions" },
-      { "icon": "archive", "color": "gray", "title": "备份", "detail": "提醒、备忘、聊天记录和设置导出成一个文件，换电脑时恢复。", "section": "privacy" }
+      { "icon": "archive", "color": "gray", "title": "备份", "detail": "提醒、备忘、工作日志、聊天记录和设置导出成一个文件，换电脑时恢复。", "section": "privacy" }
     ]
   }
 ]

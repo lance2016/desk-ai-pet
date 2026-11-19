@@ -6,11 +6,14 @@ export interface GreeterDeps {
   loadQuiet(): QuietPreferences;
   loadRecord(): GreetingRecord;
   saveRecord(record: GreetingRecord): void;
-  facts(now: number): GreetingFacts;
+  facts(now: number): Promise<GreetingFacts>;
   /** Asks the model for a greeting. Rejects when it is not available. */
   compose(kind: GreetingKind, lines: string[], now: number): Promise<string>;
-  /** Shows the greeting. Returns false when the pet may not speak up now. */
-  greet(text: string): boolean;
+  /**
+   * Shows the greeting. `offerMove`: earlier reminders are still open, so the pet
+   * offers to move them to today. Returns false when the pet may not speak up now.
+   */
+  greet(text: string, offerMove: boolean): boolean;
 }
 
 /** Says good morning and good night once a day each, in the character's own words when the model is available. */
@@ -32,13 +35,14 @@ export class Greeter {
     try {
       // Claimed before asking the model, so a slow or failed request never greets twice.
       saveRecord({ ...record, [kind]: greetingDay(now, quiet.quietHours) });
-      const known = facts(now);
+      const known = await facts(now);
       const text = await compose(kind, factLines(kind, known, now), now).catch((error: unknown) => {
         console.warn("Using the template greeting", error);
         return "";
       });
+      const offerMove = kind === "morning" && known.leftovers.length > 0;
       // Held back (for example, the pet spoke up a moment ago): give the day back, so it greets later.
-      if (!greet(text.trim() || templateGreeting(kind, known, now))) saveRecord({ ...loadRecord(), [kind]: record[kind] });
+      if (!greet(text.trim() || templateGreeting(kind, known, now), offerMove)) saveRecord({ ...loadRecord(), [kind]: record[kind] });
     } finally {
       this.busy = false;
     }

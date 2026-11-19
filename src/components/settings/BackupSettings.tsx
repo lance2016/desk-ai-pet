@@ -1,12 +1,16 @@
 import { useState, type ChangeEvent } from "react";
 import { listAppearances, replaceAppearances } from "../../appearance/AppearanceStore";
 import { systemPlatform } from "../../platform/system";
-import { backupFileName, createBackup, localData, parseBackup, restoreBackup, summarizeBackup, type Backup, type BackupSummary } from "../../storage/Backup";
+import { worklogPlatform } from "../../platform/worklog";
+import { backupFileName, createBackup, localData, parseBackup, restoreBackup, summarizeBackup, type Backup, type BackupSummary, type WorkLogAccess } from "../../storage/Backup";
+import { exportWorkLog } from "../../worklog/store";
 
 /** How long to let the restored data reach the disk before restarting. */
 const FLUSH_WAIT_MS = 1_000;
 /** Pictures make backups large, but no real one comes near this. */
 const MAX_BACKUP_BYTES = 200 * 1024 * 1024;
+
+const WORK_LOG: WorkLogAccess = { exportAll: exportWorkLog, replace: (log) => worklogPlatform.replace(log) };
 
 function dateText(time: number): string {
   const date = new Date(time);
@@ -23,7 +27,7 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
     setBusy(true);
     setExported(false);
     try {
-      const backup = createBackup(localData(), await listAppearances());
+      const backup = createBackup(localData(), await listAppearances(), await exportWorkLog());
       setExported(await systemPlatform.saveBackup(JSON.stringify(backup), backupFileName()));
       onError(null);
     } catch (error) {
@@ -57,7 +61,7 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
     if (!pending) return;
     setBusy(true);
     try {
-      await restoreBackup(pending.backup, replaceAppearances);
+      await restoreBackup(pending.backup, replaceAppearances, WORK_LOG);
     } catch (error) {
       setBusy(false);
       console.error("Could not restore the backup", error);
@@ -79,7 +83,7 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
   return (
     <div className="settings-group">
       <div className="settings-row">
-        <div className="settings-row__body"><strong>导出数据</strong><span>{exported ? "已导出。换电脑或重装后，用「从备份恢复」导回来。" : "提醒、备忘、聊天记录和设置存成一个文件，不含 API Key"}</span></div>
+        <div className="settings-row__body"><strong>导出数据</strong><span>{exported ? "已导出。换电脑或重装后，用「从备份恢复」导回来。" : "提醒、备忘、工作日志、聊天记录和设置存成一个文件，不含 API Key"}</span></div>
         <button type="button" className="settings-button settings-button--small" disabled={busy} onClick={() => void exportData()}>导出…</button>
       </div>
       <div className="settings-row">
@@ -92,7 +96,7 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
         <div className="settings-row backup-confirm" role="alertdialog" aria-label="确认恢复">
           <div className="settings-row__body">
             <strong>恢复 {dateText(summary.exportedAt)} 的备份？</strong>
-            <span>备份里有提醒 {summary.reminders} 条、备忘 {summary.notes} 条{summary.pictures > 0 ? `、动作图片 ${summary.pictures} 张` : ""}。现在的数据会被替换，不能撤销。API Key 不在备份里，可能要重新填。</span>
+            <span>备份里有提醒 {summary.reminders} 条、备忘 {summary.notes} 条{summary.loggedDays > 0 ? `、${summary.loggedDays} 天的工作日志` : ""}{summary.pictures > 0 ? `、动作图片 ${summary.pictures} 张` : ""}。现在的数据会被替换，不能撤销。API Key 不在备份里，可能要重新填。</span>
           </div>
           <div className="settings-button-row">
             <button type="button" className="settings-button settings-button--small" disabled={busy} onClick={() => setPending(null)}>取消</button>

@@ -4,14 +4,15 @@ import { translationPlatform } from "./platform/translation";
 import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
-import { dueReminders, loadAgenda, markReminded, setAgendaItemDone, snoozeReminders, subscribeAgenda, updateAgenda, type AgendaItem } from "./agenda/AgendaStore";
+import { dueReminders, leftoverReminders, loadAgenda, markReminded, moveToToday, setAgendaItemDone, snoozeReminders, subscribeAgenda, type AgendaItem } from "./agenda/AgendaStore";
 import { agendaChange, hasNewId } from "./agenda/changes";
 import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
 import { loadNotes, subscribeNotes } from "./notes/NoteStore";
 import type { ReminderSource } from "./behavior/BehaviorEngine";
-import { loadFocusLog, recordFocusRound } from "./greeting/FocusLog";
-import { collectFacts } from "./greeting/GreetingContent";
+import { collectFacts, LOOK_BACK_DAYS } from "./greeting/GreetingContent";
+import { changeReminders, readWorkLog, recordWork, tidyWorkLog } from "./worklog/store";
+import { addDays, EMPTY_WORK_LOG } from "./worklog/WorkLog";
 import { Greeter } from "./greeting/Greeter";
 import { Companion } from "./behavior/Companion";
 import { loadCompanionPreferences } from "./preferences/CompanionPreferences";
@@ -69,6 +70,8 @@ const GREETING_CHECK_MS = 15_000;
 const ACTIVITY_CHECK_MS = 10_000;
 /** How often to see whether a missing year of holiday data can be downloaded; it is looked up once a day. */
 const HOLIDAY_CHECK_MS = 60 * 60_000;
+/** How often to fold old work log days into counts; the pet may run for weeks without a restart. */
+const WORKLOG_TIDY_MS = 6 * 60 * 60_000;
 
 /**
  * The agenda shared by every window, read again only after a window changed it:
@@ -85,9 +88,10 @@ function cachedAgenda(): AgendaItem[] {
   return agendaCache;
 }
 
+/** The pet's own buttons ("完成", "挪到今天") are the user's doing; marking reminders shown records nothing. */
 function changeAgenda(change: (items: AgendaItem[]) => AgendaItem[], failure: string): void {
   try {
-    agendaCache = updateAgenda(change);
+    agendaCache = changeReminders(change, "user");
   } catch (error) {
     console.error(failure, error);
   }
@@ -98,6 +102,8 @@ const REMINDERS: ReminderSource = {
   markReminded: (ids, now) => changeAgenda((items) => markReminded(items, ids, now), "Failed to save that a reminder was shown"),
   complete: (ids, now) => changeAgenda((items) => ids.reduce((list, id) => setAgendaItemDone(list, id, true, now), items), "Failed to tick off reminders"),
   snooze: (ids, until, now) => changeAgenda((items) => snoozeReminders(items, ids, now, until), "Failed to snooze reminders"),
+  leftovers: (now) => leftoverReminders(cachedAgenda(), now).map(({ id, text, remindAt }) => ({ id, text, remindAt })),
+  moveToToday: (ids, now) => changeAgenda((items) => moveToToday(items, ids, now), "Failed to move reminders to today"),
 };
 const isQuiet = (now: number) => isQuietAt(loadQuietPreferences(), now);
 /** Reminders the user timed come even in quiet hours; only "勿扰" holds them back. */
@@ -279,28 +285,47 @@ export default function App({ packId }: AppProps) {
     return petWindow.onOnTopChanged((value) => { try { saveOnTop(value); } catch (error) { console.warn("Failed to save on-top setting", error); } });
   }, []);
 
-  // Morning and evening greetings, and the focus rounds they mention.
+  // Morning and evening greetings, from the reminders and the work log.
   useEffect(() => {
     if (!runtime) return;
     const greeter = new Greeter({
       loadQuiet: () => loadQuietPreferences(),
       loadRecord: () => loadGreetingRecord(),
       saveRecord: (record) => saveGreetingRecord(record),
-      facts: (now) => collectFacts(loadAgenda(), loadFocusLog(), now),
+      facts: async (now) => {
+        const log = await readWorkLog(addDays(now, -LOOK_BACK_DAYS), now).catch((error: unknown) => {
+          console.warn("Greeting without the work log", error);
+          return EMPTY_WORK_LOG;
+        });
+        return collectFacts(loadAgenda(), log, now);
+      },
       compose: (kind, lines, now) => ai.greet(kind, lines, requestPreferences(packId, runtime.manifest.persona), localTimeText(now)),
-      greet: (text) => runtime.greet(text),
+      greet: (text, offerMove) => runtime.greet(text, false, offerMove),
     });
     const check = () => { greeter.check(Date.now()).catch((error: unknown) => console.error("Failed to greet", error)); };
     check();
     const timer = setInterval(check, GREETING_CHECK_MS);
-    const stopFocusLog = runtime.bus.on("pet.focus_completed", () => {
-      try { recordFocusRound(Date.now()); } catch (error) { console.warn("Failed to record the focus round", error); }
-    });
-    return () => {
-      clearInterval(timer);
-      stopFocusLog();
-    };
+    return () => clearInterval(timer);
   }, [runtime, packId]);
+
+  // The work log: old focus counts brought in once, and old days folded into counts now and then.
+  useEffect(() => {
+    const tidy = () => { tidyWorkLog(Date.now()).catch((error: unknown) => console.warn("Could not tidy the work log", error)); };
+    tidy();
+    const timer = setInterval(tidy, WORKLOG_TIDY_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  // A focus round that ends in a rest was finished; one that ends in nothing was stopped or interrupted.
+  useEffect(() => {
+    if (!runtime) return;
+    let phase = runtime.focus.get().phase;
+    return runtime.focus.subscribe(() => {
+      const next = runtime.focus.get().phase;
+      if (phase === "focusing" && next !== "focusing") void recordWork([{ kind: next === "resting" ? "focus_completed" : "focus_stopped", text: "", before: null, itemId: null }], "user");
+      phase = next;
+    });
+  }, [runtime]);
 
   useEffect(() => {
     if (!runtime) return;

@@ -5,22 +5,23 @@ import type { GreetingFacts } from "./GreetingContent";
 import type { GreetingRecord } from "./GreetingSchedule";
 
 const MORNING = new Date(2026, 10, 16, 9, 0).getTime();
-const FACTS: GreetingFacts = { openCount: 0, doneToday: 0, nextReminder: null, latestReminder: null, focusToday: 0, focusYesterday: 0 };
+const FACTS: GreetingFacts = { openCount: 0, doneToday: 0, nextReminder: null, latestReminder: null, focusToday: 0, lastDay: null, leftovers: [] };
 
 function setup(overrides: Partial<GreeterDeps> = {}, quiet: QuietPreferences = DEFAULT_QUIET_PREFERENCES) {
   let record: GreetingRecord = { morning: null, evening: null };
   const greeted: string[] = [];
+  const offered: boolean[] = [];
   const compose = vi.fn(async () => "早呀，今天也加油！");
   const greeter = new Greeter({
     loadQuiet: () => quiet,
     loadRecord: () => record,
     saveRecord: (next) => { record = next; },
-    facts: () => FACTS,
+    facts: async () => FACTS,
     compose,
-    greet: (text) => { greeted.push(text); return true; },
+    greet: (text, offerMove) => { greeted.push(text); offered.push(offerMove); return true; },
     ...overrides,
   });
-  return { greeter, greeted, compose, record: () => record };
+  return { greeter, greeted, offered, compose, record: () => record };
 }
 
 describe("Greeter", () => {
@@ -29,8 +30,18 @@ describe("Greeter", () => {
     await greeter.check(MORNING);
     await greeter.check(MORNING + 60_000);
     expect(greeted).toEqual(["早呀，今天也加油！"]);
-    expect(compose).toHaveBeenCalledWith("morning", ["今天要处理的提醒 0 个", "昨天专注了 0 轮，每轮 25 分钟"], MORNING);
+    expect(compose).toHaveBeenCalledWith("morning", ["今天要处理的提醒 0 个"], MORNING);
     expect(record().morning).toBe("2026-11-16");
+  });
+
+  it("offers to move earlier reminders only in the morning", async () => {
+    const facts = async () => ({ ...FACTS, leftovers: [{ text: "交周报", at: MORNING - 86_400_000 }] });
+    const morning = setup({ facts });
+    await morning.greeter.check(MORNING);
+    expect(morning.offered).toEqual([true]);
+    const evening = setup({ facts });
+    await evening.greeter.check(new Date(2026, 10, 16, 22, 40).getTime());
+    expect(evening.offered).toEqual([false]);
   });
 
   it("falls back to the template when the model fails", async () => {

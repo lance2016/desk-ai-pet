@@ -83,6 +83,17 @@ const reminderChoices = (count: number): AlertChoice[] => [
   { label: count > 1 ? "都完成" : "完成", event: "pet.reminders_done" },
 ];
 
+/** The line after the morning greeting when earlier reminders are still open. */
+const MOVE_LINES = {
+  heading: "之前没做完",
+  named: (texts: string[]) => texts.length > MAX_NAMED_REMINDERS ? `${texts.slice(0, MAX_NAMED_REMINDERS).join("、")} 等 ${texts.length} 件` : texts.join("、"),
+  moved: "挪到今天了，到点我再叫你",
+};
+const MOVE_CHOICES: AlertChoice[] = [
+  { label: "不用了", event: "pet.alert_dismissed" },
+  { label: "挪到今天", event: "pet.leftovers_moved" },
+];
+
 /** What the pet says about "查收验证码". The native side has already copied a found code. */
 const MAIL_CODE_LINES = {
   badge: "等验证码",
@@ -148,6 +159,10 @@ export interface ReminderSource {
   markReminded(ids: string[], now: number): void;
   complete(ids: string[], now: number): void;
   snooze(ids: string[], until: number, now: number): void;
+  /** One-off reminders from earlier days still open. */
+  leftovers(now: number): DueReminder[];
+  /** Moves them to the same time today, or a little later when it has passed. */
+  moveToToday(ids: string[], now: number): void;
 }
 
 interface BehaviorDeps {
@@ -188,6 +203,8 @@ export class BehaviorEngine {
   private focusNotice: string | null = null;
   /** What came of a wait for a mail code: the user asked for it, so it stays up, ahead of reminders. */
   private codeNotice: string | null = null;
+  /** Earlier reminders the morning greeting offered to move to today, until the user answers. */
+  private moveOffer: DueReminder[] = [];
   /** A question about the focus round, ahead of everything else on the standing line: the user just asked. */
   private focusPrompt: { text: string; choices: AlertChoice[]; until: number } | null = null;
   /** The edge the pet left to call the user, and when to go back behind it. */
@@ -230,6 +247,7 @@ export class BehaviorEngine {
       bus.on("pet.alert_dismissed", () => this.dismissAlert()),
       bus.on("pet.reminders_done", () => this.answerReminders("done")),
       bus.on("pet.reminders_snoozed", () => this.answerReminders("snoozed")),
+      bus.on("pet.leftovers_moved", () => this.moveLeftovers()),
       // Asked to chat from the dock or the shortcut: come to the user as for a click.
       bus.on("pet.chat_requested", () => { this.rouse(); }),
       bus.on("pet.chat_phase", ({ phase }) => this.onChatPhase(phase)),
@@ -240,10 +258,11 @@ export class BehaviorEngine {
       bus.on("pet.user_active", ({ at }) => this.onUserActive(at)),
       // A pose that ran out, or a reaction that played over it: back into the pose without a blink of idle.
       bus.on("pet.action.completed", () => this.settle(Date.now())),
-      bus.on("pet.greeting", ({ text }) => {
+      bus.on("pet.greeting", ({ text, offerMove }) => {
         const now = Date.now();
         this.callOut(now, GREET_ACTION);
         this.say(text);
+        if (offerMove) this.offerMove(now);
         if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs };
       }),
     ];
@@ -269,6 +288,7 @@ export class BehaviorEngine {
     const { state, controller } = this.deps;
     this.advanceFocus(now);
     this.advanceReminders(now);
+    this.trimMoveOffer(now);
     if (this.focusPrompt && now >= this.focusPrompt.until) this.clearFocusPrompt();
     this.showBadge(now);
     const idling = () => state.get().activity === "awake" && controller.current?.id === IDLE_ACTION;
@@ -641,7 +661,7 @@ export class BehaviorEngine {
   }
 
   private hasStandingLine(): boolean {
-    return this.focusPrompt !== null || this.codeNotice !== null || this.alerted.length > 0 || this.focusNotice !== null;
+    return this.focusPrompt !== null || this.codeNotice !== null || this.moveOffer.length > 0 || this.alerted.length > 0 || this.focusNotice !== null;
   }
 
   private advanceFocus(now: number): void {
@@ -703,6 +723,10 @@ export class BehaviorEngine {
       bus.emit("pet.alert", { text: this.codeNotice, icon: "mail" });
       return;
     }
+    if (this.moveOffer.length > 0) {
+      bus.emit("pet.alert", { heading: MOVE_LINES.heading, text: MOVE_LINES.named(this.moveOffer.map((reminder) => reminder.text)), choices: MOVE_CHOICES });
+      return;
+    }
     const shown = this.alerted;
     if (shown.length === 0) {
       bus.emit("pet.alert", this.focusNotice ? { text: this.focusNotice, icon: "timer" } : { text: null });
@@ -739,6 +763,37 @@ export class BehaviorEngine {
     if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterAlertMs };
   }
 
+  /** After the morning greeting: offers to move earlier reminders still open to today. */
+  private offerMove(now: number): void {
+    const leftovers = this.deps.reminders?.leftovers(now) ?? [];
+    if (leftovers.length === 0) return;
+    this.moveOffer = leftovers;
+    this.showAlert(now);
+  }
+
+  /** Reminders ticked off or removed elsewhere leave the offer. */
+  private trimMoveOffer(now: number): void {
+    if (this.moveOffer.length === 0 || !this.deps.reminders) return;
+    const still = new Set(this.deps.reminders.leftovers(now).map((reminder) => reminder.id));
+    const kept = this.moveOffer.filter((reminder) => still.has(reminder.id));
+    if (kept.length === this.moveOffer.length) return;
+    this.moveOffer = kept;
+    this.showAlert(now);
+  }
+
+  /** "挪到今天": only while the offer is what the line shows. */
+  private moveLeftovers(): void {
+    const { reminders, state } = this.deps;
+    if (!reminders || this.moveOffer.length === 0 || this.focusPrompt || this.codeNotice) return;
+    const now = Date.now();
+    reminders.moveToToday(this.moveOffer.map((reminder) => reminder.id), now);
+    this.moveOffer = [];
+    state.markInteraction(now);
+    this.say(MOVE_LINES.moved);
+    this.showAlert(now);
+    if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterAlertMs };
+  }
+
   /** Takes down what the standing line shows; what was waiting behind it comes up next. */
   private dismissAlert(): void {
     const now = Date.now();
@@ -748,6 +803,8 @@ export class BehaviorEngine {
     }
     if (this.codeNotice) {
       this.codeNotice = null;
+    } else if (this.moveOffer.length > 0) {
+      this.moveOffer = [];
     } else {
       if (this.alerted.length === 0 && this.focusNotice === null) return;
       if (this.alerted.length > 0) this.deps.reminders?.markReminded(this.alerted.map((reminder) => reminder.id), now);

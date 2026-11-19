@@ -141,7 +141,7 @@ export interface StatusChip {
 /** A button on the standing line. Clicking it reports `event`; the engine decides what follows. */
 export interface AlertChoice {
   label: string;
-  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled" | "pet.reminders_done" | "pet.reminders_snoozed";
+  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled" | "pet.reminders_done" | "pet.reminders_snoozed" | "pet.leftovers_moved";
   /** Throws something away, such as the running focus round. */
   destructive?: boolean;
 }
@@ -184,8 +184,11 @@ export interface PetEvents {
   "pet.focus_stopped": Record<string, never>;
   /** A focus round ran to its end. */
   "pet.focus_completed": Record<string, never>;
-  /** A greeting the pet should call out, coming out to meet the user. */
-  "pet.greeting": { text: string };
+  /**
+   * A greeting the pet should call out, coming out to meet the user.
+   * `offerMove`: earlier reminders are still open; the pet offers to move them to today.
+   */
+  "pet.greeting": { text: string; offerMove?: boolean };
   "pet.appearance.changed": Record<string, never>;
   /** The user made, changed or deleted one of their own actions. */
   "pet.actions.changed": Record<string, never>;
@@ -205,6 +208,8 @@ export interface PetEvents {
   "pet.reminders_done": Record<string, never>;
   /** "稍后提醒" on the reminder line: bring its reminders up again a little later. */
   "pet.reminders_snoozed": Record<string, never>;
+  /** "挪到今天" after the morning greeting: earlier reminders still open move to today. */
+  "pet.leftovers_moved": Record<string, never>;
   /** The status row at the pet's feet, such as a focus countdown; empty hides it. */
   "pet.badge": { chips: StatusChip[] };
   "pet.action.started": { actionId: string };

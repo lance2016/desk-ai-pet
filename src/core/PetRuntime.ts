@@ -220,10 +220,11 @@ export class PetRuntime {
   /**
    * Like `sayProactively`, but the pet also comes out to meet the user: it
    * wakes up, leaves the screen edge and cheers. For morning and evening greetings.
+   * `offerMove`: also offer to move earlier reminders still open to today.
    */
-  greet(text: string, allowQuiet = false): boolean {
+  greet(text: string, allowQuiet = false, offerMove = false): boolean {
     if (!this.allowProactive(text, allowQuiet)) return false;
-    this.bus.emit("pet.greeting", { text: text.trim() });
+    this.bus.emit("pet.greeting", { text: text.trim(), offerMove });
     return true;
   }
 

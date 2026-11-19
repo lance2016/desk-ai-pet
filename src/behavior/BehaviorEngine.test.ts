@@ -833,16 +833,20 @@ describe("focus companion", () => {
   });
 });
 
-/** Reminders kept in memory, announced once like the real agenda. */
-function fakeReminders(items: DueReminder[]): ReminderSource & { reminded: string[]; done: string[]; snoozed: Map<string, number> } {
+/** Reminders kept in memory, announced once like the real agenda. `earlier`: open ones from before today. */
+function fakeReminders(items: DueReminder[], earlier: DueReminder[] = []): ReminderSource & { reminded: string[]; done: string[]; snoozed: Map<string, number>; moved: string[] } {
   const reminded: string[] = [];
   const done: string[] = [];
+  const moved: string[] = [];
   const snoozed = new Map<string, number>();
   const asleep = (id: string, now: number) => (snoozed.get(id) ?? -Infinity) > now;
   return {
     reminded,
     done,
     snoozed,
+    moved,
+    leftovers: () => earlier.filter((item) => !done.includes(item.id) && !moved.includes(item.id)),
+    moveToToday: (ids) => moved.push(...ids),
     due: (now) => items.filter((item) => item.remindAt !== null && item.remindAt <= now && !reminded.includes(item.id) && !done.includes(item.id) && !asleep(item.id, now)),
     markReminded: (ids) => reminded.push(...ids),
     complete: (ids) => done.push(...ids),
@@ -1066,6 +1070,46 @@ describe("greetings", () => {
     expect(controller.current?.id).toBe("wake_up");
     pass(1_000);
     expect(controller.current?.id).toBe("wave");
+  });
+
+  it("offers to move earlier reminders to today after a morning greeting", () => {
+    const reminders = fakeReminders([], [{ id: "r1", text: "交周报", remindAt: 0 }]);
+    const { bus, said } = setup({ reminders });
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ heading, text, choices }) => shown.push(text === null ? null : `${heading}：${text}｜${choices?.map((choice) => choice.label).join("/")}`));
+    bus.emit("pet.greeting", { text: "早上好！", offerMove: true });
+    expect(shown).toEqual(["之前没做完：交周报｜不用了/挪到今天"]);
+    bus.emit("pet.leftovers_moved", {});
+    expect(reminders.moved).toEqual(["r1"]);
+    expect(shown[shown.length - 1]).toBeNull();
+    expect(said).toEqual(["早上好！", "挪到今天了，到点我再叫你"]);
+  });
+
+  it("drops the offer when it is turned down or the reminders are dealt with elsewhere", () => {
+    const reminders = fakeReminders([], [{ id: "r1", text: "交周报", remindAt: 0 }, { id: "r2", text: "买菜", remindAt: 0 }]);
+    const { bus, pass } = setup({ reminders });
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.emit("pet.greeting", { text: "早上好！", offerMove: true });
+    reminders.done.push("r1");
+    pass(1_000);
+    expect(shown).toEqual(["交周报、买菜", "买菜"]);
+    bus.emit("pet.alert_dismissed", {});
+    expect(shown[shown.length - 1]).toBeNull();
+    bus.emit("pet.leftovers_moved", {});
+    expect(reminders.moved).toEqual([]);
+  });
+
+  it("makes no offer without the flag or without leftovers", () => {
+    const { bus } = setup({ reminders: fakeReminders([], [{ id: "r1", text: "交周报", remindAt: 0 }]) });
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.emit("pet.greeting", { text: "晚上好～" });
+    expect(shown).toEqual([]);
+    const empty = setup({ reminders: fakeReminders([]) });
+    empty.bus.on("pet.alert", ({ text }) => shown.push(text));
+    empty.bus.emit("pet.greeting", { text: "早上好！", offerMove: true });
+    expect(shown).toEqual([]);
   });
 
   it("goes back behind the edge after a greeting", () => {

@@ -35,9 +35,29 @@ describe("chat context", () => {
         reminder({ id: "tomorrow", text: "体检", remindAt: NOW + 24 * HOUR }),
       ],
       notes: [note("买牛奶\n和鸡蛋", NOW - HOUR), note("旧备忘", NOW - 24 * HOUR)],
-      focusLog: { "2026-11-16": 3 },
+    }, {
+      events: [
+        ...["focus_completed", "focus_completed", "focus_stopped"].map((kind) => ({ at: 0, day: "2026-11-16", kind, source: "user", text: "", before: null, itemId: null })),
+        { at: 0, day: "2026-11-16", kind: "focus_completed", source: "user", text: "", before: null, itemId: null },
+        { at: 0, day: "2026-11-15", kind: "focus_completed", source: "user", text: "", before: null, itemId: null },
+      ],
+      counts: [],
     }, NOW);
-    expect(lines).toEqual(["完成了提醒：交周报", "还没处理的提醒：今天 15:03 开会", "专注了 3 轮，每轮 25 分钟", "今天记的备忘：买牛奶 和鸡蛋"]);
+    expect(lines).toEqual(["完成了提醒：交周报", "还没处理的提醒：今天 15:03 开会", "专注了 3 轮，每轮 25 分钟，中途停了 1 次", "今天记的备忘：买牛奶 和鸡蛋"]);
+  });
+
+  it("keeps what the log saw today even after the lists dropped it", () => {
+    const event = (kind: string, text: string, itemId: string) => ({ at: 0, day: "2026-11-16", kind, source: "chat", text, before: null, itemId });
+    const lines = todayLines({ agenda: [], notes: [] }, {
+      events: [
+        event("reminder_done", "交周报", "r1"), event("reminder_deleted", "交周报", "r1"),
+        event("reminder_done", "买菜", "r2"), event("reminder_undone", "买菜", "r2"),
+        event("note_added", "草稿", "n1"), event("note_edited", "定稿", "n1"),
+        event("note_added", "随手记", "n2"), event("note_deleted", "随手记", "n2"),
+      ],
+      counts: [],
+    }, NOW);
+    expect(lines).toEqual(["完成了提醒：交周报", "专注了 0 轮，每轮 25 分钟", "今天记的备忘：定稿"]);
   });
 });
 

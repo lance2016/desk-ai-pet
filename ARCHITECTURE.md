@@ -46,8 +46,12 @@ src/
 │   ├── QuickChat.ts         快速聊天用哪段对话、要发的消息、气泡里的纯文本和停留时间
 ├── notes/
 │   └── NoteStore.ts         备忘：校验、增删改、置顶、搜索、本机存储与跨窗口同步
+├── worklog/                 工作日志，见下文「工作日志」
+│   ├── WorkLog.ts           事件种类、Zod 校验、本地日期
+│   ├── listEvents.ts        写入前后的提醒、备忘相比，做了什么、改之前是什么
+│   ├── recap.ts             某一天做了什么：抵消当天撤回的操作，加上折叠后的次数
+│   └── store.ts             带日志的写入（`changeReminders`、`changeNotes`、`keepNote`）、按日期读、导入旧专注记录、折叠 30 天前的日子
 ├── greeting/
-│   ├── FocusLog.ts          每天完成的专注轮数
 │   ├── GreetingSchedule.ts  早安晚安什么时候该说、今天说过没有
 │   ├── GreetingContent.ts   问候里提到的事实、模板问候
 │   └── Greeter.ts           定时检查、请模型写问候、失败时用模板
@@ -116,7 +120,8 @@ src-tauri/src/
 ├── mail_code.rs             查收验证码：163 邮箱账号（钥匙串）、IMAP 只读登录、等邮件、复制到剪贴板
 ├── mail_extract.rs          从一封邮件里认出验证码（纯规则，不用 AI）
 ├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
-└── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
+├── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
+└── worklog.rs               工作日志的 SQLite（rusqlite）：按版本跑迁移、追加、按日期读、折叠、导出、整体替换，只开有类型的命令
 public/pets/                 内置角色：six-six（小祭司，默认）、girl-default（小糕）
 ```
 
@@ -185,11 +190,12 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.action.completed` | `{ actionId }` | `ActionController` |
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
 | `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
-| `pet.greeting` | `{ text }`，宠物出来打招呼并说这句话 | `PetRuntime.greet()` |
+| `pet.greeting` | `{ text, offerMove? }`，宠物出来打招呼并说这句话；`offerMove` 时再问要不要把之前没做完的提醒挪到今天 | `PetRuntime.greet()` |
 | `pet.alert` | `{ text \| null, heading?, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；`heading` 是事项上方或按钮旁的小字（「到点啦」「别忘了」）；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件，最后一个（非危险操作时）画成主按钮 | `BehaviorEngine` |
 | `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
 | `pet.reminders_snoozed` | 无，提醒气泡上的「10 分钟后」：过一会儿再提醒 | `PetSpeech`（气泡按钮） |
+| `pet.leftovers_moved` | 无，早安后气泡上的「挪到今天」 | `PetSpeech`（气泡按钮） |
 | `pet.badge` | `{ chips }`，角色脚下的一排状态小块（专注/休息倒计时带进度、提醒数、勿扰、等验证码），空数组表示隐藏 | `BehaviorEngine` |
 
 动作统计监听 `pet.action.started`，以实际开始的 `actionId` 为键写入 `characterKey(packId, CHARACTER_DATA.actionTriggerStats)`。该键从本次更新开始为空，不迁移旧历史；动作库手动预览会计入，跨窗口存储变化会刷新动作库计数。请求被控制器拒绝时不会产生事件，也不会计数。
@@ -268,7 +274,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 专注结束：播放 `happy`，被接受时心情 +5、亲密 +2，然后进入休息并改为显示休息倒计时。
 - 休息结束：提醒可以再来一轮，徽标隐藏。
 - 专注中再按按钮或点倒计时，不直接停，而是在常驻气泡里问（`focusPrompt`），按钮是「继续专注」（`pet.alert_dismissed`）和「停止专注」（`pet.focus_stopped`）。没有连点、没有时限；`focusPromptMs`（15 秒）没回答就按继续收起。休息中点倒计时问「继续休息 / 开始专注」。阶段一变（结束、停止、开始）问题就作废。菜单的停止项直接停；按“休息”让宠物睡觉也会停止。
-- 常驻气泡同时只显示一件事，顺序是：专注提问 → 验证码结果 → 到点提醒 → 专注完成。点掉最上面的，下一件才出来。
+- 常驻气泡同时只显示一件事，顺序是：专注提问 → 验证码结果 → 挪到今天 → 到点提醒 → 专注完成。点掉最上面的，下一件才出来。
 - 专注结束和休息结束都算一次互动，避免刚结束就因为“太久没互动”睡着。
 
 ## 提醒和备忘
@@ -323,11 +329,21 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 1. 安静时（勿扰或免打扰时段内）直接返回。
 2. `greetingDue()` 判断该不该问候。早安窗口是免打扰结束后的 4 个小时；晚安窗口是免打扰开始前 30 分钟。时段开关不影响这两个时间点。“一天”从免打扰结束时算起，所以跨午夜的晚安仍算前一天。
 3. 该问候时，先在 `ai-pet:greetings:v1` 记下今天已问候，再去生成内容，避免请求慢或失败时问两次。
-4. `collectFacts()` 从提醒和专注记录里整理事实：未完成数、今天完成数、下一个提醒、今天最近一次提醒（即路线图里的 `latest_reminder`）、今天和昨天的专注轮数。早安提今天的事和昨天的专注，晚安提今天的完成情况。
+4. `collectFacts()` 从提醒和工作日志（最近 7 天加今天）里整理事实：未完成数、今天完成数、下一个提醒、今天最近一次提醒（即路线图里的 `latest_reminder`）、今天的专注轮数、上一个有记录的日子（`lastActiveDay`，昨天就叫「昨天」，否则写日期）完成了哪些提醒和专注了几轮，以及之前没做完的一次性提醒（`leftoverReminders`：今天以前、没勾、没过期作废）。早安提今天的事、上一天和没做完的，晚安提今天的完成情况。
 5. `ai.greet`（`src/ai/completions.ts`）用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
 6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求 `happy` 并说话。到点提醒也用同一段逻辑叫宠物出来。
+7. 早安时有没做完的提醒，`pet.greeting` 带 `offerMove`。`BehaviorEngine` 通过 `ReminderSource.leftovers` 再取一次，放进常驻气泡（`moveOffer`，小字「之前没做完」），按钮是「不用了」（`pet.alert_dismissed`）和「挪到今天」（`pet.leftovers_moved`）。挪的时候 `ReminderSource.moveToToday` 调 `moveToToday`：排到今天同一时刻，已经过了就排到半小时后，清掉 `remindedAt` 让它到点再叫。气泡里的提醒在别处勾掉或删掉，下一秒就拿掉。
 
-专注记录存在全局 key `ai-pet:focus-log:v1`，按本地日期计数，保留 14 天。`BehaviorEngine` 在专注正常结束时发 `pet.focus_completed`，宠物窗口收到后记一笔。
+## 工作日志
+
+按天记用户做过的事，同时是审计记录：每条记下是谁做的、改和删之前是什么。不记聊天原文。存在应用数据目录的 `worklog.sqlite`，Rust 端 `worklog.rs` 用 `rusqlite`（`bundled`）读写，只开 `worklog_append`、`worklog_read`、`worklog_compact`、`worklog_add_counts`、`worklog_export`、`worklog_replace` 几个命令，网页不能执行 SQL。前端只经过 `platform/worklog.ts`，纯浏览器下不记、读到空。
+
+- **表。** `events`：时间、本地日期（前端算好的 `YYYY-MM-DD`）、种类、来源（`user` 手动，包括面板、宠物气泡按钮和撤销；`chat` 是聊天里的工具）、一行文字（最多 500 字，够放下一整条备忘）、改之前的文字、关联的提醒或备忘 ID。提醒的文字带时间（「今天 15:00 · 开会」）；改动的 `before` 是改之前的样子，删除的文字就是删掉的内容。`day_counts`：某天某种事件的次数。
+- **表结构版本。** `MIGRATIONS` 按顺序列出迁移脚本，`PRAGMA user_version` 记跑到第几个，每个在自己的事务里跑。发出去的脚本不能改，只能往后加。
+- **种类。** 提醒的新建、完成、取消完成、修改、删除，备忘的新建、修改、删除，专注完成和中途停止。读的一方跳过不认识的种类，以后可以加。
+- **从哪来。** 在写入的地方记，这样才知道是谁做的。提醒和备忘的改动都经过 `changeReminders`、`changeNotes`、`keepNote`（`worklog/store.ts`），它们写入前后各读一次，`agendaEvents`、`noteEvents` 比较出做了什么，带上来源写进日志。调用方：提醒面板、备忘面板、聊天里「存为备忘」和宠物气泡按钮（`user`），聊天工具（`chat`），撤销（`user`）。不记标记已提醒、稍后提醒、过期作废（`isStale`）、满了被挤掉这些整理动作，这类写入可以直接用 `updateAgenda`。聊天工具的 `effect` 目前只有提醒和备忘，已经在写入处记了，不单独记。专注：宠物窗口订阅 `FocusTimer`，专注转休息记完成，专注转关闭记中途停止（包括电脑睡着打断），来源算 `user`。
+- **读。** `dayRecap` 算一天：完成了又取消的不算，记了又删的备忘不算，再加上 `day_counts` 的次数。今日回顾（`review_today`）合并日志和当前清单（日志之前的、或日志漏掉的也在），早安读最近 7 天。
+- **保留。** 宠物窗口启动时和之后每 6 小时调 `tidyWorkLog`：30 天前的事件折叠成 `day_counts` 再删掉。旧版的 `ai-pet:focus-log:v1`（每天几轮）第一次启动时导入 `day_counts`，导入成功才删 key。
 
 ## 懂分寸
 
@@ -494,7 +510,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 ## 开机启动与备份
 
-`src-tauri/src/system.rs` 用 ServiceManagement 的 `SMAppService.mainAppService` 把 app 注册为登录项，状态有 `on`、`off`、`approval`（在系统设置里被关掉）三种；`preferences/LaunchAtLogin.ts` 让安装版第一次运行时打开一次，开发构建跳过。备份由 `storage/Backup.ts` 生成：所有 `ai-pet:` 开头的 localStorage 值加上 IndexedDB 里的外观覆盖，Zod 校验后才恢复。恢复先替换 localStorage（失败则写回原值），再在一个 IndexedDB 事务里替换外观（失败则把 localStorage 也写回），最后由原生端 `restart_app` 重启，让所有窗口重新读取。保存文件用 `tauri-plugin-dialog` 的原生保存面板，只从 Rust 调用，前端没有对应权限。
+`src-tauri/src/system.rs` 用 ServiceManagement 的 `SMAppService.mainAppService` 把 app 注册为登录项，状态有 `on`、`off`、`approval`（在系统设置里被关掉）三种；`preferences/LaunchAtLogin.ts` 让安装版第一次运行时打开一次，开发构建跳过。备份由 `storage/Backup.ts` 生成：所有 `ai-pet:` 开头的 localStorage 值、IndexedDB 里的外观覆盖，以及第 2 版起的工作日志（`workLog`，全部事件和次数），Zod 校验后才恢复。第 1 版备份没有工作日志，恢复后日志为空。恢复先导出现有日志、整体替换日志（一个事务），再替换 localStorage（失败则写回原值），再在一个 IndexedDB 事务里替换外观；后两步失败则把 localStorage 和日志都写回。最后由原生端 `restart_app` 重启，让所有窗口重新读取。保存文件用 `tauri-plugin-dialog` 的原生保存面板，只从 Rust 调用，前端没有对应权限。
 
 ## 设置搜索和功能一览
 

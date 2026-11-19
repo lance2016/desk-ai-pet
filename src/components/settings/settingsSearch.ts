@@ -54,7 +54,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "general", title: "总在最前面", keywords: "置顶 全屏" },
   { section: "general", title: "宠物大小", keywords: "缩放 变大 变小" },
   { section: "general", title: "快捷按钮停留", keywords: "收起 速度" },
-  { section: "privacy", title: "导出数据", keywords: "备份 导出" },
+  { section: "privacy", title: "导出数据", keywords: "备份 导出 工作日志" },
   { section: "privacy", title: "从备份恢复", keywords: "导入 恢复 换电脑" },
   { section: "privacy", title: "存在这台电脑上", keywords: "本机 数据 隐私" },
   { section: "privacy", title: "什么时候会连网", keywords: "隐私 联网 发送 DeepSeek" },

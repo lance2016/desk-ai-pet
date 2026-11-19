@@ -7,7 +7,8 @@ import type { PetPersona } from "../../assets/Manifest";
 import { markdownToPlain } from "../../chat/markdown";
 import { CHAT_IMAGE_TYPES, prepareChatImage, type AttachedChatImage } from "../../chat/ChatImage";
 import { containsWebAddress, webAddress, webConversationStart, webReplySchema, type WebMode, type WebReply } from "../../chat/ReadLinks";
-import { NOTE_LIMITS, saveNote } from "../../notes/NoteStore";
+import { NOTE_LIMITS } from "../../notes/NoteStore";
+import { keepNote } from "../../worklog/store";
 import { CHAT_SKILLS } from "../../skills";
 import { ControlIcon } from "../ControlIcon";
 import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
@@ -501,7 +502,7 @@ export function ChatPage({ packId }: { packId: string }) {
     const saved = notedMessages[content];
     if (saved) { openNote(saved); return; }
     try {
-      const note = saveNote(markdownToPlain(content));
+      const note = keepNote(markdownToPlain(content), "user");
       setNotedMessages((current) => ({ ...current, [content]: note.id }));
     } catch (reason) {
       console.error("Failed to save the message as a note", reason);

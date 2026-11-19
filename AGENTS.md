@@ -86,6 +86,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 「认不出验证码？」的长度上限 | `TRY_TEXT_LIMIT`（`src/components/settings/MailCodeTester.tsx`，按 UTF-16） | `MAX_TRY_CHARS`（`src-tauri/src/mail_code.rs`，按字符；前端的上限能保证不超） |
 | 查收验证码最多等多久 | `src-tauri/src/mail_code.rs` 的 `WAIT_FOR` | `MailSettings.tsx` 脚注、`README.md` 里写的「2 分钟」 |
 | 划词浮钮宽度 | `tauri.conf.json` 里 `selection-float` 窗口的 `width` | `FLOAT_WIDTH`（`src-tauri/src/translation.rs`） |
+| 工作日志的命令名、字段 | `src/platform/worklog.ts`、`workLogSchema`（`src/worklog/WorkLog.ts`，文字上限 500 字，种类和来源 `[a-z_]`） | `src-tauri/src/worklog.rs`（文字上限 1000 字）、`lib.rs` 的 `invoke_handler` |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
 | 提醒窗口圆角 | `tauri.conf.json` 里 `today` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
@@ -137,7 +138,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 「备忘」面板沿用 `TodayPanel.css` 的变量和控件，只在 `NotesPanel.css` 写不同的部分；改提醒面板的公共样式时两个面板都要看一眼。设置窗口的变量在 `SettingsPage.css` 顶部，名字和提醒面板一致。
 - 「提醒」窗口用 macOS 原生 popover 材质（`tauri.conf.json` 的 `windowEffects`，窗口必须 `transparent: true`），圆角由系统画。页面的 `html`、`body`、`#root` 背景必须透明，面板只叠一层半透明底色，否则毛玻璃被盖住。这层底色必须用和 `windowEffects.radius` 相同的圆角并 `overflow: hidden`，否则四角露出直角色块，系统还会按它画出直角阴影。样式用 `TodayPanel.css` 顶部的变量（圆角：行 8、控件 6；焦点环：强调色描边加 3px 光圈），深色模式在同一处覆盖。
 - 登录项用 `SMAppService.mainAppService`，只对 app 包里的程序有效。开发模式下注册会报错，所以默认打开只在安装版第一次运行时执行（`import.meta.env.DEV` 跳过），否则会把调试程序注册成登录项。
-- 新的本机数据要用 `ai-pet:` 开头的 key，图片放 `AppearanceStore`。备份只收这两处，放在别处的数据导出时会漏掉。
+- 新的本机数据要用 `ai-pet:` 开头的 key，图片放 `AppearanceStore`，会增长的按天记录进工作日志（SQLite）。备份只收这三处，放在别处的数据导出时会漏掉。
 - 判断宠物在哪块屏幕上不能用 `currentMonitor()`。拖到另一块屏幕松手时，它还会返回原来那块，宠物被限制回旧屏幕的边上。`readFrame` 用 `availableMonitors()` 加上宠物中心点自己算（`monitorUnderPet`）。
 - "窗口置顶"开关不能用 Tauri 的 `set_always_on_top`，它会把层级改回普通置顶，全屏上方又不显示了。用 `floating_panel::set_on_top`。
 - 托盘图标可能被 MacBook 的刘海挡住，所以右键菜单和托盘共用同一个菜单，功能要加到这个共用菜单里。
@@ -194,6 +195,7 @@ pnpm exec tsc --noEmit && pnpm test
 
 - 默认资源包在 `public/pets/girl-default/`。新增角色的步骤见 `ACTIONS.md` 的“新增一个角色”。
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
+- 用户或聊天工具改提醒、备忘，要用 `changeReminders`、`changeNotes`、`keepNote`（`src/worklog/store.ts`）并写明来源，不要直接调 `updateAgenda`、`updateNotes`、`saveNote`，否则工作日志漏记。只有不算用户操作的整理（标记已提醒、过期作废、旧数据迁移）可以直接写。工作日志的表结构只能往 `worklog.rs` 的 `MIGRATIONS` 末尾加新脚本，不能改已经发出去的。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。

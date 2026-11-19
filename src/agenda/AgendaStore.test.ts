@@ -10,6 +10,8 @@ import {
   fromTimeInput,
   isDone,
   itemSummary,
+  leftoverReminders,
+  moveToToday,
   loadAgenda,
   markReminded,
   removeAgendaItem,
@@ -329,5 +331,32 @@ describe("repeating reminders", () => {
     expect(dueReminders([daily], at(11, 21, 12))).toEqual([]);
     const once = editAgendaItem([reminded], "t", { text: "点外卖", remindAt: at(11, 21, 18), repeat: null }, at(11, 21, 12))[0];
     expect(once).toMatchObject({ remindAt: at(11, 21, 18), repeat: null, remindedAt: null });
+  });
+});
+
+describe("moving leftovers to today", () => {
+  const NOW = new Date(2026, 10, 19, 9, 10, 30).getTime();
+  const on = (day: number, hours: number, minutes = 0) => new Date(2026, 10, day, hours, minutes).getTime();
+  const item = (overrides: Partial<AgendaItem>): AgendaItem => ({ id: "a", text: "交周报", remindAt: on(18, 15), repeat: null, createdAt: 0, doneAt: null, remindedAt: on(18, 15), ...overrides });
+
+  it("finds one-off reminders from earlier days still open, but not stale or repeating ones", () => {
+    const items = [
+      item({ id: "yesterday" }),
+      item({ id: "unseen", remindAt: on(10, 9), remindedAt: null }),
+      item({ id: "stale", remindAt: on(10, 9) }),
+      item({ id: "done", doneAt: on(18, 16) }),
+      item({ id: "today", remindAt: on(19, 8) }),
+      item({ id: "daily", repeat: [0, 1, 2, 3, 4, 5, 6] }),
+    ];
+    expect(leftoverReminders(items, NOW).map((entry) => entry.id)).toEqual(["yesterday", "unseen"]);
+  });
+
+  it("moves them to the same time today, or half an hour from now when that has passed, to fire again", () => {
+    const moved = moveToToday([item({ id: "later" }), item({ id: "early", remindAt: on(18, 8) }), item({ id: "kept", remindAt: on(17, 10) })], ["later", "early"], NOW);
+    expect(moved.map((entry) => [entry.id, entry.remindAt, entry.remindedAt])).toEqual([
+      ["later", on(19, 15), null],
+      ["early", on(19, 9, 41), null],
+      ["kept", on(17, 10), on(18, 15)],
+    ]);
   });
 });

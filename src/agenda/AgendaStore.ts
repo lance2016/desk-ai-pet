@@ -49,6 +49,9 @@ export interface NewAgendaItem {
 }
 
 const DAY_MS = 86_400_000;
+const MINUTE_MS = 60_000;
+/** A leftover moved to today whose time has already passed comes up this long from now. */
+const MOVED_LATE_MS = 30 * MINUTE_MS;
 
 function startOfDay(now: number): number {
   const day = new Date(now);
@@ -82,7 +85,7 @@ function occurrenceDone(item: AgendaItem, occurrence: number): boolean {
 }
 
 /** A one-off reminder the pet showed long ago and nobody ticked off: it is over. */
-const isStale = (item: AgendaItem, now: number) => item.repeat === null && item.doneAt === null && item.remindedAt !== null && item.remindAt < now - AGENDA_LIMITS.staleDays * DAY_MS;
+export const isStale = (item: AgendaItem, now: number) => item.repeat === null && item.doneAt === null && item.remindedAt !== null && item.remindAt < now - AGENDA_LIMITS.staleDays * DAY_MS;
 
 /**
  * Ticks off one-off reminders that were shown and are days past, so they stop
@@ -155,6 +158,28 @@ export function editAgendaItem(items: readonly AgendaItem[], id: string, edit: A
     const timing = unchanged ? { remindAt, remindedAt: item.remindedAt } : { remindAt, remindedAt: null, snoozedUntil: undefined, ...(reopened ? { doneAt: null } : {}) };
     return itemSchema.parse({ ...item, text: edit.text, repeat, ...timing });
   });
+}
+
+/** One-off reminders from an earlier day, still open and not yet given up as stale: they can move to today. */
+export function leftoverReminders(items: readonly AgendaItem[], now: number): AgendaItem[] {
+  const today = startOfDay(now);
+  return items.filter((item) => item.repeat === null && item.doneAt === null && item.remindAt < today && !isStale(item, now));
+}
+
+/**
+ * Moves leftover reminders to the same time today, or `MOVED_LATE_MS` from now
+ * when that time has passed. They fire again at the new time.
+ */
+export function moveToToday(items: readonly AgendaItem[], ids: readonly string[], now: number): AgendaItem[] {
+  const moving = new Set(leftoverReminders(items, now).filter((item) => ids.includes(item.id)).map((item) => item.id));
+  return items.reduce<AgendaItem[]>((list, item) => {
+    if (!moving.has(item.id)) return list;
+    const same = new Date(now);
+    const was = new Date(item.remindAt);
+    same.setHours(was.getHours(), was.getMinutes(), 0, 0);
+    const remindAt = same.getTime() > now ? same.getTime() : Math.ceil((now + MOVED_LATE_MS) / MINUTE_MS) * MINUTE_MS;
+    return editAgendaItem(list, item.id, { text: item.text, remindAt, repeat: null }, now);
+  }, [...items]);
 }
 
 /** Puts back an item that was just removed (undo). Does nothing if it is still there or the list is full. */

@@ -3,6 +3,8 @@ import { utf8Length, utf8Prefix } from "../ai/text";
 import { sortAgenda } from "../agenda/AgendaStore";
 import { loadSavedItems, reminderLines, todayLines } from "../agenda/chatTools";
 import { sortNotes } from "../notes/NoteStore";
+import { readWorkLog } from "../worklog/store";
+import { EMPTY_WORK_LOG } from "../worklog/WorkLog";
 import { numberItems, type ItemKind } from "./refs";
 
 export const LIST_REMINDERS_TOOL = "list_reminders";
@@ -68,8 +70,13 @@ const reviewToday: Tool = {
   name: REVIEW_TODAY_TOOL,
   description: "查看用户今天的记录：今天完成了哪些提醒、今天还有哪些提醒没处理、专注了几轮、今天记了哪些备忘。用户要写日报、回顾今天做了什么时使用。",
   parameters: () => ({ type: "object", properties: { synthesize: SYNTHESIZE } }),
-  run(args) {
-    const report = todayReport(todayLines(loadSavedItems(), Date.now()));
+  async run(args) {
+    const now = Date.now();
+    const log = await readWorkLog(now, now).catch((error: unknown) => {
+      console.warn("Reviewing today without the work log", error);
+      return EMPTY_WORK_LOG;
+    });
+    const report = todayReport(todayLines(loadSavedItems(), log, now));
     return args.synthesize === true ? { result: `${report}\n${AS_DATA}`, needsModel: true } : { result: SHOWN, shown: clipShown(report) };
   },
 };

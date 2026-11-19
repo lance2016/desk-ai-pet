@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { minutesOf, type QuietPreferences } from "../preferences/QuietPreferences";
-import { dateKey } from "./FocusLog";
+import { dateKey } from "../worklog/WorkLog";
 
 /** Which greetings were given on which day. Shared by every character, so switching does not greet again. */
 const KEY = "ai-pet:greetings:v1";

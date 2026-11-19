@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { addNote, editNote, loadNotes, NOTE_LIMITS, noteTime, pushedOut, removeNote, restoreNote, searchNotes, setNotePinned, sortNotes, subscribeNotes, updateNotes, type Note } from "../../notes/NoteStore";
+import { addNote, editNote, loadNotes, NOTE_LIMITS, noteTime, pushedOut, removeNote, restoreNote, searchNotes, setNotePinned, sortNotes, subscribeNotes, type Note } from "../../notes/NoteStore";
+import { changeNotes } from "../../worklog/store";
 import { petWindow } from "../../platform/petWindow";
 import { isComposing } from "../keyboard";
 import "../today/TodayPanel.css";
@@ -134,7 +135,7 @@ export function NotesPanel() {
 
   const change = (update: (list: Note[]) => Note[]): boolean => {
     try {
-      setNotes(sortNotes(updateNotes(update)));
+      setNotes(sortNotes(changeNotes(update, "user")));
       setError("");
       return true;
     } catch (reason) {
