@@ -2,10 +2,11 @@ import type { DockSide } from "../types";
 
 /**
  * Transparent room around the pet inside its window, in CSS pixels: the sides
- * fit floating quick controls, the top a speech bubble, the bottom quick chat.
+ * keep the chat button and wide bubbles inside, the top holds a speech bubble,
+ * the bottom the bar of quick buttons or the quick chat bar.
  * Multiples of the hit-mask cell, so the drawn mask lines up with its cells.
  */
-export const STAGE_MARGIN = { side: 72, top: 76, bottom: 52 } as const;
+export const STAGE_MARGIN = { side: 72, top: 76, bottom: 76 } as const;
 
 /** Horizontal extent of a monitor, in logical screen pixels. */
 export interface MonitorSpan {

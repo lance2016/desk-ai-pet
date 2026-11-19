@@ -8,15 +8,6 @@ import { ActionThumbnail } from "./settings/actions/ActionThumbnail";
 import { ControlIconView } from "./ControlIconView";
 import "./DockButtonFace.css";
 
-/** The built-in buttons with their drawn illustration (`public/control-icons.png`) while they keep their default icon. */
-function hasIllustration(item: Extract<DockItem, { kind: "control" }>): boolean {
-  const icon = item.icon;
-  if (typeof icon !== "string") return false;
-  return (item.command === "today_open" && (icon === "checklist" || icon === "bell"))
-    || (item.command === "notes_open" && icon === "note")
-    || (item.command === "focus_toggle" && icon === "timer");
-}
-
 /** An action's own picture: the one the user put in its place, else the pack's. A custom character never shows a borrowed one. */
 function ActionFace({ packId, action, resolveAsset }: { packId: string; action: AnimationEntry; resolveAsset: (file: string) => string }) {
   /** Undefined while reading, so a borrowed picture never flashes first. */
@@ -54,6 +45,5 @@ export function DockButtonFace({ item, packId, actions, resolveAsset }: Props) {
     const action = actions.find((entry) => entry.id === item.id);
     return action ? <ActionFace packId={packId} action={action} resolveAsset={resolveAsset} /> : null;
   }
-  if (hasIllustration(item)) return <span className={`control-illustration control-illustration--${item.command}`} aria-hidden="true" />;
   return <ControlIconView icon={item.icon} resolveAsset={resolveAsset} />;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PetControl } from "../assets/Manifest";
 import { createMemoryStorage, makeManifest } from "../testing/fixtures";
 import { characterKey, CHARACTER_DATA } from "./CharacterPreferences";
-import { APP_CONTROLS, dockControls, loadDock, resetDock, saveDock, setDockAction, type DockItem } from "./DockPreferences";
+import { APP_CONTROLS, BAR_SLOTS, barLayout, dockControls, loadDock, resetDock, saveDock, setDockAction, type DockItem } from "./DockPreferences";
 
 const FOCUS: PetControl = { id: "focus", label: "专注", icon: "timer", command: "focus_toggle" };
 const actions = makeManifest().animations;
@@ -86,5 +86,23 @@ describe("dock", () => {
     saveDock("girl", [], storage);
     resetDock("girl", storage);
     expect(ids(loadDock("girl", controls, actions, storage))).toEqual(["control:today", "control:notes", "control:focus"]);
+  });
+});
+
+describe("bar layout", () => {
+  const control = (id: string): DockItem => ({ kind: "control", id, label: id, icon: "bell", command: "today_open", enabled: true });
+  const action = (id: string): DockItem => ({ kind: "action", id, enabled: true });
+  const keys = (items: DockItem[]) => items.map((item) => item.id);
+
+  it("puts every button on the bar while they fit and there are no actions", () => {
+    const all = Array.from({ length: BAR_SLOTS }, (_, index) => control(`c${index}`));
+    expect(barLayout(all)).toEqual({ bar: all, menu: [] });
+  });
+
+  it("keeps a place for the menu, which holds the actions and the buttons past the room", () => {
+    const layout = barLayout([control("a"), action("wave"), control("b"), control("c"), control("d"), control("e")]);
+    expect(keys(layout.bar)).toEqual(["a", "b", "c", "d"]);
+    expect(keys(layout.menu)).toEqual(["e", "wave"]);
+    expect(keys(barLayout(Array.from({ length: BAR_SLOTS + 1 }, (_, index) => control(`c${index}`))).menu)).toEqual(["c4", "c5"]);
   });
 });

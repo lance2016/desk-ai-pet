@@ -6,7 +6,7 @@ import { canShortcut } from "./ActionPreferences";
 import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
 
 /**
- * The floating controls around the pet: one ordered list of buttons. App
+ * The bar under the pet: one ordered list of buttons. App
  * buttons (today, notes) exist for every character; chat has its own button
  * beside the pet (`ChatLauncher`), so a saved chat button is dropped. The character's own
  * buttons come from its manifest; actions are added from the action library.
@@ -109,6 +109,20 @@ function resolve(entries: readonly Entry[], controls: readonly DockControl[], ac
   }
   const added = controls.filter((control) => !seen.has(`control:${control.id}`)).map((control): DockItem => ({ ...control, kind: "control", enabled: true }));
   return [...items, ...added];
+}
+
+/** Places on the bar under the pet; it has to fit a narrow window. */
+export const BAR_SLOTS = 5;
+
+/**
+ * Which of the shown buttons sit on the bar under the pet, in order, and which wait in the "互动" menu:
+ * every action, and the buttons past the bar's room. The menu takes a place on the bar while it has anything.
+ */
+export function barLayout(shown: readonly DockItem[]): { bar: Extract<DockItem, { kind: "control" }>[]; menu: DockItem[] } {
+  const controls = shown.filter((item): item is Extract<DockItem, { kind: "control" }> => item.kind === "control");
+  const actions = shown.filter((item) => item.kind === "action");
+  const room = actions.length === 0 && controls.length <= BAR_SLOTS ? BAR_SLOTS : BAR_SLOTS - 1;
+  return { bar: controls.slice(0, room), menu: [...controls.slice(room), ...actions] };
 }
 
 export function loadDock(packId: string, controls: readonly DockControl[], actions: readonly AnimationEntry[], storage: Storage = window.localStorage): DockItem[] {

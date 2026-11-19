@@ -31,7 +31,7 @@ import { loadCharacterPack } from "./assets/PackCatalog";
 import { loadUserActions } from "./actions/UserActions";
 import { applyLaunchAtLoginDefault } from "./preferences/LaunchAtLogin";
 import { systemPlatform } from "./platform/system";
-import { composeHitMask, drawnInsets, HIT_CELL_PX, maskToElement, type MaskRect } from "./platform/hitMask";
+import { composeHitMask, headInsets, HIT_CELL_PX, maskToElement, type MaskRect } from "./platform/hitMask";
 import { saveActiveCharacter } from "./preferences/CharacterPreferences";
 import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
@@ -144,8 +144,8 @@ export default function App({ packId }: AppProps) {
   const quickBarRef = useRef<HTMLFormElement>(null);
   const quickReplyRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
-  /** Room between the pet's resting pose and the edges of its area, so the chat button sits by the drawing itself. */
-  const [artInsets, setArtInsets] = useState({ top: 0, right: 0, bottom: 0 });
+  /** Room between the head of the pet's resting pose and the edges of its area, so the chat button sits by the head itself. */
+  const [head, setHead] = useState({ top: 0, left: 0, right: 0 });
   /** Text of the standing reminder bubble, which must take clicks while it is up. */
   const [alert, setAlert] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<PetRuntime | null>(null);
@@ -167,7 +167,9 @@ export default function App({ packId }: AppProps) {
   const launcherStyle = displayPreferences.chatLauncher;
   /** The chat button steps aside while the pet is dragged or peeks from an edge, and while the bar is open. */
   const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open;
-  const controlsVisible = useLingering(hovered, displayPreferences.controlsLingerMs) && !dragging && !quickChat.open && !dockSide;
+  /** The bar under the pet: always there, but not while dragged, peeking from an edge, or giving way to the chat bar. */
+  const barShown = !dragging && !dockSide && !quickChat.open;
+  const barAwake = useLingering(hovered, displayPreferences.controlsLingerMs);
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }
     : { width: 0, height: 0 };
@@ -557,6 +559,23 @@ export default function App({ packId }: AppProps) {
   }, [refreshInsets]);
 
   // Only the drawn pet and the visible controls take mouse input.
+  // Where the head of the resting pose is, for the chat button. Measured on that pose only, so the
+  // button does not follow every action around; again when the pictures or the size change.
+  useEffect(() => {
+    if (!runtime) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const measure = () => {
+      timer = null;
+      const drawn = runtime.currentActionId === RESTING_ACTION ? runtime.opaqueMask(HIT_CELL_PX) : null;
+      const found = drawn ? headInsets(drawn, HIT_CELL_PX) : null;
+      if (found) setHead((current) => (current.top === found.top && current.left === found.left && current.right === found.right ? current : found));
+    };
+    const schedule = () => { if (timer === null) timer = setTimeout(measure, HIT_MASK_DELAY_MS); };
+    schedule();
+    const stops = [runtime.bus.on("pet.action.started", schedule), runtime.bus.on("pet.appearance.changed", schedule)];
+    return () => { stops.forEach((stop) => stop()); if (timer !== null) clearTimeout(timer); };
+  }, [runtime, scale]);
+
   useEffect(() => {
     if (!runtime || !petWindow.isNative) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -566,34 +585,20 @@ export default function App({ packId }: AppProps) {
       timer = null;
       const columns = Math.ceil(window.innerWidth / HIT_CELL_PX);
       const rows = Math.ceil(window.innerHeight / HIT_CELL_PX);
-      const controls: MaskRect[] = [];
-      if (controlsVisible && controlsRef.current) {
-        const buttons = controlsRef.current.querySelectorAll<HTMLButtonElement>(".controls__action:not(:disabled)");
-        for (const button of buttons) {
-          const bounds = button.getBoundingClientRect();
-          const rail = button.closest(".controls__rail")?.getBoundingClientRect();
-          if (!rail) continue;
-          const left = Math.max(bounds.left, rail.left);
-          const top = Math.max(bounds.top, rail.top);
-          const right = Math.min(bounds.right, rail.right);
-          const bottom = Math.min(bounds.bottom, rail.bottom);
-          if (right > left && bottom > top) controls.push({ left, top, right, bottom });
-        }
-      }
+      // The bar always takes clicks, faint or not; so does its menu while it is open.
+      const controls: MaskRect[] = barShown && controlsRef.current
+        ? [controlsRef.current, controlsRef.current.querySelector(".pet-bar__menu")].flatMap((element) => (element ? [element.getBoundingClientRect()] : []))
+        : [];
       const standing = alertRef.current?.getBoundingClientRect();
       const badge = badgeRef.current?.getBoundingClientRect();
       const bar = quickChat.open ? quickBarRef.current?.getBoundingClientRect() : undefined;
       const answer = quickReplyShown ? quickReplyRef.current?.getBoundingClientRect() : undefined;
       const launcher = launcherShown ? launcherRef.current?.getBoundingClientRect() : undefined;
-      const drawn = runtime.opaqueMask(HIT_CELL_PX);
-      // Measured on the resting pose only, so the button does not follow every action around.
-      const resting = runtime.currentActionId === RESTING_ACTION && drawn ? drawnInsets(drawn, HIT_CELL_PX) : null;
-      if (resting) setArtInsets((current) => (current.top === resting.top && current.right === resting.right && current.bottom === resting.bottom ? current : resting));
       const cells = composeHitMask({
         cell: HIT_CELL_PX,
         columns,
         rows,
-        drawn,
+        drawn: runtime.opaqueMask(HIT_CELL_PX),
         offset: { columns: STAGE_MARGIN.side / HIT_CELL_PX, rows: STAGE_MARGIN.top / HIT_CELL_PX },
         grow: HIT_GROW_CELLS,
         rects: [...controls, standing, badge, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
@@ -629,7 +634,7 @@ export default function App({ packId }: AppProps) {
       controlsElement?.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [runtime, controlsVisible, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
+  }, [runtime, barShown, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
 
   // Without a pet there is no mask: let the error message take the mouse instead.
   useEffect(() => { if (loadError) maskToElement(loadErrorRef.current); }, [loadError]);
@@ -651,9 +656,9 @@ export default function App({ packId }: AppProps) {
     "--stage-side": `${STAGE_MARGIN.side}px`,
     "--stage-top": `${STAGE_MARGIN.top}px`,
     "--stage-bottom": `${STAGE_MARGIN.bottom}px`,
-    "--art-top": `${artInsets.top}px`,
-    "--art-right": `${artInsets.right}px`,
-    "--art-bottom": `${artInsets.bottom}px`,
+    "--head-top": `${head.top}px`,
+    "--head-left": `${head.left}px`,
+    "--head-right": `${head.right}px`,
     "--visible-left": `${insets.left}px`,
     "--visible-right": `${insets.right}px`,
     "--visible-top": `${insets.top}px`,
@@ -665,10 +670,9 @@ export default function App({ packId }: AppProps) {
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown && launcherStyle === "head" ? <ChatLauncher ref={launcherRef} style="head" hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
-      {runtime && <PetControls ref={controlsRef} runtime={runtime} visible={controlsVisible} offscreenInsets={insets} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
+      {runtime && barShown && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
-      {runtime && launcherShown && launcherStyle === "corner" && <ChatLauncher ref={launcherRef} style="corner" hinting={quickChat.copied} onClick={quickChat.launch} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}
     </main>
   );

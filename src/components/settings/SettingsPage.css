@@ -196,13 +196,14 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 /* ---------- Floating pet controls ---------- */
 .dock-preview { margin-bottom: 4px; padding: 18px 16px 12px; text-align: center; background: radial-gradient(120% 140% at 50% 0%, rgba(166, 147, 245, .3), rgba(138, 114, 224, .08) 60%, transparent), var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .dock-preview p { margin: 10px 0 0; color: var(--label-2); font-size: 11px; }
-.dock-preview__scene { display: grid; grid-template-columns: 48px minmax(88px, 120px) 48px; align-items: center; justify-content: center; gap: 12px; min-height: 116px; }
-.dock-preview__rail { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
-.dock-preview__button { flex: none; width: 34px; height: 34px; display: grid; place-items: center; color: #51467f; background: linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(233, 228, 250, .82)); border: 1px solid rgba(255, 255, 255, .9); border-radius: 50%; box-shadow: 0 3px 9px rgba(53, 43, 102, .12); }
-.dock-preview__rail:first-child .dock-preview__button:not(:first-child):not(:last-child) { transform: translateX(-8px); }
-.dock-preview__rail:last-child .dock-preview__button:not(:first-child):not(:last-child) { transform: translateX(8px); }
-.dock-preview__button .control-icon { width: 18px; height: 18px; }
-.dock-preview__pet { width: 100%; height: 116px; object-fit: contain; filter: drop-shadow(0 5px 8px rgba(58, 45, 117, .16)); }
+.dock-preview__scene { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* Drawn like the bar under the pet (App.css .pet-bar), in the settings window's colours. */
+.dock-preview__bar { display: inline-flex; padding: 4px 6px; background: rgba(255, 255, 255, .95); border: 1px solid #e3ddf5; border-radius: 18px; box-shadow: 0 3px 12px rgba(64, 54, 107, .18); }
+.dock-preview__item { position: relative; min-width: 46px; padding: 3px 6px; display: flex; flex-direction: column; align-items: center; gap: 1px; color: #5b4fae; font-size: 10.5px; line-height: 1.3; }
+.dock-preview__item + .dock-preview__item::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 1px; background: #e8e3f7; }
+.dock-preview__item .control-icon, .dock-preview__item .control-action-face { width: 20px; height: 20px; }
+.dock-preview__item > span { max-width: 52px; overflow: hidden; color: #4c437e; text-overflow: ellipsis; white-space: nowrap; }
+.dock-preview__pet { width: 120px; height: 116px; object-fit: contain; filter: drop-shadow(0 5px 8px rgba(58, 45, 117, .16)); }
 .dock-preview__pet-placeholder { display: grid; place-items: center; height: 116px; padding: 0 6px; color: var(--label-2); font-size: 12px; line-height: 1.5; text-align: center; }
 .dock-preview__empty { padding: 10px 14px; color: #8b84a8; font-size: 12px; }
 
@@ -226,10 +227,8 @@ button.dock-row__body { cursor: pointer; }
 .dock-row__remove { flex: none; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; color: #fff; background: var(--red); border: 0; border-radius: 50%; cursor: pointer; opacity: .85; }
 .dock-row__remove:hover { opacity: 1; }
 .settings-icon-tile .control-icon { width: 16px; height: 16px; }
-/* Pictures (the drawn default icons, action frames) show as they are on the pet, without the tile's tint. */
-.dock-row__face:has(.control-illustration, .control-action-face) { background: none; }
-.dock-row__face .control-illustration { width: 26px; height: 26px; }
-.dock-preview__button .control-illustration { width: 26px; height: 26px; }
+/* Action frames show as they are on the pet, without the tile's tint. */
+.dock-row__face:has(.control-action-face) { background: none; }
 
 .dock-editor { display: grid; gap: 10px; margin: 0 12px 12px 66px; padding: 12px; background: var(--fill); border-radius: var(--radius-row); }
 .dock-editor__field { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: 10px; color: var(--label-2); font-size: 12px; }
@@ -237,7 +236,6 @@ button.dock-row__body { cursor: pointer; }
 .dock-editor__icons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .icon-choice { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--label); background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
 .icon-choice .control-icon { width: 16px; height: 16px; }
-.icon-choice .control-illustration { width: 24px; height: 24px; }
 .icon-choice.is-selected { color: var(--accent-strong); box-shadow: 0 0 0 2px var(--accent); }
 @media (prefers-color-scheme: dark) { .icon-choice.is-selected { color: var(--accent); } }
 .icon-upload { position: relative; overflow: hidden; }

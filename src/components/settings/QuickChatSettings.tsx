@@ -5,7 +5,7 @@ import { moveRadioChoice } from "./radioKeys";
 import { DEFAULT_QUICK_CHAT_SHORTCUT, loadQuickChatShortcut, quickChatShortcutLabel, recordShortcut, saveQuickChatShortcut, type QuickChatShortcut } from "../../preferences/QuickChatPreferences";
 import { ShortcutField } from "./ShortcutField";
 
-const LAUNCHERS: readonly [ChatLauncher, string][] = [["corner", "右下角"], ["head", "头顶"], ["none", "不显示"]];
+const LAUNCHERS: readonly [ChatLauncher, string][] = [["left", "左侧"], ["right", "右侧"], ["none", "不显示"]];
 
 const HINTS = {
   recording: "按下新的组合键，要包含 ⌃ 或 ⌘。按 Esc 取消。",
@@ -88,7 +88,7 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
           <strong>聊天按钮</strong>
           <span>{display.chatLauncher === "none" ? "不显示时，点宠物打开输入条" : "点按钮打开输入条，点宠物只是和它玩"}</span>
         </div>
-        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="聊天按钮的位置">
+        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="聊天按钮在头的哪一侧">
           {LAUNCHERS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={display.chatLauncher === value} className={display.chatLauncher === value ? "is-selected" : ""} onClick={() => updateDisplay({ chatLauncher: value })}>{label}</button>)}
         </div>
       </div>

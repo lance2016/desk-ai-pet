@@ -1,8 +1,4 @@
 /* Dock button faces, shared by the pet window and the settings preview. */
-.control-illustration { display: block; width: 28px; height: 28px; background-image: url('/control-icons.png'); background-size: 400% 100%; background-repeat: no-repeat; }
-.control-illustration--today_open { background-position: 33.333% 50%; }
-.control-illustration--notes_open { background-position: 66.667% 50%; }
-.control-illustration--focus_toggle { background-position: 100% 50%; }
 /* An action shows its own first frame, cut to the button's circle by the button itself. */
 .control-action-face { display: block; width: 100%; height: 100%; overflow: hidden; border-radius: 50%; }
 .control-action-face canvas { display: block; width: 100%; height: 100%; transform: scale(1.35) translateY(8%); }

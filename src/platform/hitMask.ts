@@ -60,20 +60,31 @@ export function composeHitMask({ cell, columns, rows, drawn, offset = { columns:
  * drawn (a load error, a crash): otherwise the transparent window keeps
  * whatever mask it had, and the message under it cannot be clicked.
  */
-/** How far the drawn part of `mask` stays from the top, right and bottom of the view, in pixels; null when nothing is drawn. */
-export function drawnInsets(mask: OpaqueMask, cell: number): { top: number; right: number; bottom: number } | null {
-  let top = mask.rows;
+/** The top part of a drawn pose taken for its head, as a share of its height: ears to forehead, before long hair spreads. */
+const HEAD_SHARE = 0.25;
+
+/**
+ * Where the head of the drawn pose is, as room between it and the view's top, left and right edges,
+ * in pixels: the top of the drawing, and the sides of its top part. Null when nothing is drawn.
+ */
+export function headInsets(mask: OpaqueMask, cell: number): { top: number; left: number; right: number } | null {
+  const drawnRows: number[] = [];
+  for (let row = 0; row < mask.rows; row += 1) {
+    if (mask.cells.slice(row * mask.columns, (row + 1) * mask.columns).some(Boolean)) drawnRows.push(row);
+  }
+  if (drawnRows.length === 0) return null;
+  const first = drawnRows[0];
+  const headRows = Math.max(1, Math.round((drawnRows[drawnRows.length - 1] - first + 1) * HEAD_SHARE));
+  let left = mask.columns;
   let right = -1;
-  let bottom = -1;
-  mask.cells.forEach((drawn, index) => {
-    if (!drawn) return;
-    const row = Math.floor(index / mask.columns);
-    top = Math.min(top, row);
-    right = Math.max(right, index % mask.columns);
-    bottom = Math.max(bottom, row);
-  });
-  if (right < 0) return null;
-  return { top: top * cell, right: (mask.columns - 1 - right) * cell, bottom: (mask.rows - 1 - bottom) * cell };
+  for (let row = first; row < first + headRows; row += 1) {
+    for (let column = 0; column < mask.columns; column += 1) {
+      if (!mask.cells[row * mask.columns + column]) continue;
+      left = Math.min(left, column);
+      right = Math.max(right, column);
+    }
+  }
+  return { top: first * cell, left: left * cell, right: (mask.columns - 1 - right) * cell };
 }
 
 export function maskToElement(element: Element | null): void {

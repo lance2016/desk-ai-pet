@@ -34,3 +34,12 @@ export function ControlIcon({ name }: ControlIconProps) {
     </svg>
   );
 }
+
+/** "互动" on the bar under the pet: the menu of actions. Not a preset, so it cannot be picked for another button. */
+export function InteractIcon() {
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" /><path d="M8.5 14c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2M9 10h.01M15 10h.01" />
+    </svg>
+  );
+}

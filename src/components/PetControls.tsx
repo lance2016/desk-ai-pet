@@ -1,27 +1,29 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Ref } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
-import { dockControls, loadDock, subscribeDock, type DockCommand, type DockItem } from "../preferences/DockPreferences";
-import { STAGE_MARGIN, type OffscreenInsets } from "../platform/stageGeometry";
+import { barLayout, dockControls, loadDock, subscribeDock, type DockCommand, type DockItem } from "../preferences/DockPreferences";
 import { petWindow } from "../platform/petWindow";
+import { InteractIcon } from "./ControlIcon";
+import { ControlIconView } from "./ControlIconView";
 import { DockButtonFace } from "./DockButtonFace";
 
 type DockControlItem = Extract<DockItem, { kind: "control" }>;
-const DOCK_BUTTON_SIZE_PX = 36;
-const MIN_DOCK_BUTTON_SIZE_PX = 30;
-const DOCK_ICON_SIZE_RATIO = 0.5;
 const CONTROL_CLICK_GUARD_MS = 500;
-/** The character's own buttons go into the pet menu too; chat, reminders, notes and focus have menu items already. */
+/** The character's own buttons go into the pet menu too; reminders, notes and focus have menu items already. */
 const MENU_COMMANDS: ReadonlySet<DockCommand> = new Set(["feed", "wooden_fish", "sleep_toggle"]);
 
 interface PetControlsProps {
   runtime: PetRuntime;
-  visible: boolean;
-  offscreenInsets: OffscreenInsets;
-  /** The floating controls, measured button by button for the clickable area. */
+  /** The mouse is on the pet: the bar shows fully; otherwise it stays faint. */
+  awake: boolean;
+  /** The bar and its menu, measured for the clickable area. */
   ref?: Ref<HTMLDivElement>;
 }
 
-export function PetControls({ runtime, visible, offscreenInsets, ref }: PetControlsProps) {
+/**
+ * The bar under the pet: the buttons that fit, and "互动" for the actions and the rest.
+ * Only reports what was pressed; the pet decides what to do.
+ */
+export function PetControls({ runtime, awake, ref }: PetControlsProps) {
   const snapshot = useSyncExternalStore(runtime.state.subscribe, runtime.state.get);
   const packId = runtime.manifest.id;
   const [items, setItems] = useState(() => loadDock(packId, dockControls(runtime.manifest.controls), runtime.manifest.animations));
@@ -59,7 +61,7 @@ export function PetControls({ runtime, visible, offscreenInsets, ref }: PetContr
   };
 
   const enabledItems = items.filter((item) => item.enabled);
-  // The same buttons under "动作" in the pet menu, for when the mouse cannot reach the sides.
+  // The same buttons under "动作" in the pet menu, for when the mouse cannot reach the bar.
   const menuItems = enabledItems.flatMap((item): Array<[string, string]> => {
     if (item.kind === "action") {
       const action = runtime.manifest.animations.find((entry) => entry.id === item.id);
@@ -79,75 +81,43 @@ export function PetControls({ runtime, visible, offscreenInsets, ref }: PetContr
   const pressFromMenuRef = useRef(pressFromMenu);
   pressFromMenuRef.current = pressFromMenu;
   useEffect(() => petWindow.onDockMenu((key) => pressFromMenuRef.current(key)), []);
-  const leftGutter = Math.max(0, STAGE_MARGIN.side - offscreenInsets.left);
-  const rightGutter = Math.max(0, STAGE_MARGIN.side - offscreenInsets.right);
-  const canUseBothRails = leftGutter >= MIN_DOCK_BUTTON_SIZE_PX && rightGutter >= MIN_DOCK_BUTTON_SIZE_PX;
-  const singleRail = leftGutter >= rightGutter ? "left" : "right";
-  const buttonSize = canUseBothRails
-    ? Math.min(DOCK_BUTTON_SIZE_PX, leftGutter, rightGutter)
-    : Math.min(DOCK_BUTTON_SIZE_PX, singleRail === "left" ? leftGutter : rightGutter);
-  const leftItems = canUseBothRails
-    ? enabledItems.filter((_, index) => index % 2 === 0)
-    : singleRail === "left" ? enabledItems : [];
-  const rightItems = canUseBothRails
-    ? enabledItems.filter((_, index) => index % 2 === 1)
-    : singleRail === "right" ? enabledItems : [];
-  const controlStyle = {
-    "--dock-button-size": `${buttonSize}px`,
-    "--dock-icon-size": `${Math.max(12, Math.round(buttonSize * DOCK_ICON_SIZE_RATIO))}px`,
-  } as CSSProperties;
+  const shown = enabledItems.filter((item) => item.kind === "control" || runtime.registry.has(item.id));
+  const { bar, menu } = barLayout(shown);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // The menu is a quick pick: it closes once the mouse leaves the pet or the bar goes away.
+  useEffect(() => { if (!awake || !shown.length) setMenuOpen(false); }, [awake, shown.length]);
+  const pick = (run: () => void) => { setMenuOpen(false); run(); };
+  const actionLabel = (id: string) => runtime.manifest.animations.find((entry) => entry.id === id)?.label ?? id;
 
-  const renderItem = (item: DockItem, index: number, all: DockItem[], side: "left" | "right") => {
-    const position = all.length <= 1 ? 0 : index / (all.length - 1);
-    const gutter = side === "left" ? leftGutter : rightGutter;
-    const inset = Math.round(position * Math.min(18, Math.max(0, gutter - buttonSize)));
-    const style = { alignSelf: side === "left" ? "flex-end" : "flex-start", marginInline: `${inset}px` } as CSSProperties;
-    if (item.kind === "action") {
-      const action = runtime.manifest.animations.find((entry) => entry.id === item.id);
-      if (!action || !runtime.registry.has(action.id)) return null;
-      const label = action.label ?? action.id;
-      return (
-        <button key={`action:${action.id}`} className="controls__action controls__action--picture" style={style} type="button" aria-label={label} title={label} onClick={() => runtime.bus.emit("pet.action_requested", { id: action.id })}>
-          <DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} />
-        </button>
-      );
-    }
-
+  const controlButton = (item: DockControlItem) => {
     const label = labelOf(item);
     // Nothing is greyed out while the pet sleeps: the character's own buttons wake it up first.
     const active = item.command === "focus_toggle" && focusPhase === "focusing";
     return (
-      <button
-        key={item.id}
-        style={style}
-        className={`controls__action${active ? " is-active" : ""}`}
-        type="button"
-        aria-pressed={item.command === "focus_toggle" ? active : undefined}
-        aria-label={label}
-        title={label}
-        onClick={() => emitControl(item)}
-      >
-        <DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} />
+      <button key={item.id} type="button" className={`pet-bar__item${active ? " is-active" : ""}`} aria-pressed={item.command === "focus_toggle" ? active : undefined} title={label} onClick={() => pick(() => emitControl(item))}>
+        <ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} />
+        <span>{label}</span>
       </button>
     );
   };
 
   return (
-    <div className="floating-controls-area">
-      <div
-        ref={ref}
-        className={`controls${visible ? " is-visible" : ""}${canUseBothRails ? "" : ` controls--single-${singleRail}`}`}
-        style={controlStyle}
-        aria-hidden={!visible}
-        role="group"
-        aria-label="宠物快捷按钮"
-      >
-        <div className="controls__rail controls__rail--left">
-          <div className="controls__actions">{leftItems.map((item, index) => renderItem(item, index, leftItems, "left"))}</div>
-        </div>
-        <div className="controls__rail controls__rail--right">
-          <div className="controls__actions">{rightItems.map((item, index) => renderItem(item, index, rightItems, "right"))}</div>
-        </div>
+    <div className="dock-area">
+      <div ref={ref} className={`pet-bar${awake ? " is-awake" : ""}`} role="toolbar" aria-label="宠物快捷按钮">
+        {menu.length > 0 && (
+          <button type="button" className={`pet-bar__item${menuOpen ? " is-active" : ""}`} aria-haspopup="menu" aria-expanded={menuOpen} title="互动" onClick={() => setMenuOpen((open) => !open)}>
+            <InteractIcon />
+            <span>互动</span>
+          </button>
+        )}
+        {bar.map(controlButton)}
+        {menuOpen && (
+          <div className="pet-bar__menu" role="menu" aria-label="互动">
+            {menu.map((item) => item.kind === "control"
+              ? <button key={`control:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => emitControl(item))}><ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} /><span>{labelOf(item)}</span></button>
+              : <button key={`action:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => runtime.bus.emit("pet.action_requested", { id: item.id }))}><span className="pet-bar__face"><DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} /></span><span>{actionLabel(item.id)}</span></button>)}
+          </div>
+        )}
       </div>
     </div>
   );

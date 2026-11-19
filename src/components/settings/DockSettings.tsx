@@ -3,8 +3,9 @@ import type { AnimationEntry, PetControl } from "../../assets/Manifest";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import { characterPictures } from "../../appearance/characterPictures";
 import { PORTRAIT_ACTION } from "../../assets/PackCatalog";
-import { DOCK_LIMITS, dockControls, loadDock, resetDock, saveDock, setDockAction, subscribeDock, type DockCommand, type DockItem } from "../../preferences/DockPreferences";
+import { barLayout, DOCK_LIMITS, dockControls, loadDock, resetDock, saveDock, setDockAction, subscribeDock, type DockCommand, type DockItem } from "../../preferences/DockPreferences";
 import type { ControlIconPreset } from "../../types";
+import { InteractIcon } from "../ControlIcon";
 import { ControlIconView } from "../ControlIconView";
 import { DockButtonFace } from "../DockButtonFace";
 import { ConfirmButton } from "../ConfirmButton";
@@ -149,6 +150,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
   const labelOf = (item: DockItem) => (item.kind === "control" ? item.label : actionOf(item.id)?.label ?? item.id);
   const addable = actions.filter((action) => canShortcut(action) && !items.some((item) => item.kind === "action" && item.id === action.id));
   const shown = items.filter((item) => item.enabled);
+  const preview = barLayout(shown);
 
   const editor = (item: ControlItem) => {
     const key = keyOf(item);
@@ -185,26 +187,17 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
     <div className="settings-section dock-settings">
       <div className="dock-preview" aria-label="快捷按钮预览">
         <div className="dock-preview__scene">
-          <div className="dock-preview__rail" aria-label="宠物左侧快捷图标">
-            {shown.filter((_, index) => index % 2 === 0).map((item) => (
-              <span key={keyOf(item)} className="dock-preview__button" title={labelOf(item)} aria-label={labelOf(item)}>
-                <DockButtonFace item={item} packId={packId} actions={actions} resolveAsset={resolveAsset} />
-              </span>
-            ))}
-          </div>
           {portrait
             ? <img className="dock-preview__pet" src={portrait} alt="宠物预览" />
             : <span className="dock-preview__pet-placeholder">{portrait === null && <>还没有自己的图片<br />去「动作库」上传</>}</span>}
-          <div className="dock-preview__rail" aria-label="宠物右侧快捷图标">
-            {shown.filter((_, index) => index % 2 === 1).map((item) => (
-              <span key={keyOf(item)} className="dock-preview__button" title={labelOf(item)} aria-label={labelOf(item)}>
-                <DockButtonFace item={item} packId={packId} actions={actions} resolveAsset={resolveAsset} />
-              </span>
-            ))}
-          </div>
+          {shown.length > 0
+            ? <div className="dock-preview__bar">
+              {preview.menu.length > 0 && <span className="dock-preview__item"><InteractIcon /><span>互动</span></span>}
+              {preview.bar.map((item) => <span key={keyOf(item)} className="dock-preview__item"><DockButtonFace item={item} packId={packId} actions={actions} resolveAsset={resolveAsset} /><span>{labelOf(item)}</span></span>)}
+            </div>
+            : <span className="dock-preview__empty">没有显示的快捷按钮</span>}
         </div>
-        {shown.length === 0 && <span className="dock-preview__empty">没有显示的快捷按钮</span>}
-        <p>鼠标移到宠物上时出现</p>
+        <p>固定在宠物脚下，鼠标移开时变淡；动作和放不下的按钮收在「互动」里</p>
       </div>
 
       <h2 className="settings-group-title">按钮</h2>
