@@ -14,13 +14,16 @@ import { systemPlatform } from "../../platform/system";
 import { CHAT_LIMITS } from "../../chat/ChatThreads";
 import { createLocalPetStorage } from "../../storage/PetStorage";
 import { AISettings } from "./AISettings";
+import { ChatSettings } from "./ChatSettings";
+import { FactSettings } from "./FactSettings";
+import { ChatRequestLog } from "./ChatRequestLog";
+import { loadDeveloperMode } from "../../preferences/DeveloperMode";
 import { CharacterSettings } from "./CharacterSettings";
 import { VoiceSettings } from "./VoiceSettings";
 import { MailSettings } from "./MailSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
 import { DockSettings } from "./DockSettings";
 import { CompanionSettings } from "./CompanionSettings";
-import { HolidaySettings } from "./HolidaySettings";
 import { WelcomeGuide } from "./WelcomeGuide";
 import { BackupSettings } from "./BackupSettings";
 import { DiagnosticsSettings } from "./DiagnosticsSettings";
@@ -32,7 +35,7 @@ import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
-import { NAV_GROUPS, isSection, sectionLabel, type SettingsSection } from "./sections";
+import { DEVELOPER_GROUP, NAV_GROUPS, SUB_PAGES, isSection, sectionLabel, type SettingsSection } from "./sections";
 import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
 import { SETTINGS_INDEX } from "./settingsSearch";
 import { FeatureGuide } from "./FeatureGuide";
@@ -57,12 +60,16 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     companion: <><path d="M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1Z" /></>,
     dock: <><rect x="3" y="14" width="18" height="6" rx="2" /><path d="M7 17h.01M12 17h.01M17 17h.01M8 4h8v6H8z" /></>,
     actions: <><path d="M12 20c-3 0-5-1.4-5-3.8 0-2 2.3-3.6 5-3.6s5 1.6 5 3.6c0 2.4-2 3.8-5 3.8Z" /><circle cx="5.5" cy="10" r="2" /><circle cx="10" cy="6" r="2" /><circle cx="15" cy="6" r="2" /><circle cx="19" cy="10" r="2" /></>,
+    chat: <><path d="M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5Z" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
+    memory: <><path d="M7 3h10v18l-5-4-5 4V3Z" /></>,
     voice: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
     tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
     guide: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" /></>,
     about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
+    diagnostics: <><path d="M4 5h16M4 10h16M4 15h10M4 20h7" /></>,
+    developer: <><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14" /></>,
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -89,6 +96,9 @@ const ONLINE: readonly [string, string, string][] = [
   ["节假日数据", "不带个人信息", "缺数据时"],
   ["GitHub · 检查更新", "不带个人信息", "每天一次"],
 ];
+
+/** Rows of "什么时候会连网" shown before "显示全部". */
+const ONLINE_SHOWN = 4;
 
 function InfoRow({ title, detail, value }: { title: string; detail: string; value?: string }) {
   return <div className="settings-row"><div className="settings-row__body"><strong>{title}</strong><span>{detail}</span></div>{value && <span className="settings-row__value">{value}</span>}</div>;
@@ -118,6 +128,9 @@ export function SettingsPage({ packId }: { packId: string }) {
   const [baseControls, setBaseControls] = useState<PetControl[]>([]);
   const [resolveAsset, setResolveAsset] = useState<(file: string) => string>(() => (file: string) => file);
 
+  const [developer, setDeveloper] = useState(loadDeveloperMode);
+  /** "什么时候会连网" opens on its first few rows; the rest are a click away. */
+  const [allOnline, setAllOnline] = useState(false);
   const [welcome, setWelcome] = useState(false);
   // After an update, the "新功能" sheet opens by itself once; "关于" opens it again.
   const [whatsNew, setWhatsNew] = useState(() => { try { return shouldShowWhatsNew(window.localStorage); } catch { return false; } });
@@ -216,6 +229,9 @@ export function SettingsPage({ packId }: { packId: string }) {
   const name = current ? characterName(packId, current.name) : "";
   const label = sectionLabel(section);
   const title = PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
+  /** A page opened from inside another: that one stays lit in the sidebar, and the title leads back to it. */
+  const parent = SUB_PAGES[section];
+  const navGroups = developer ? [...NAV_GROUPS, DEVELOPER_GROUP] : NAV_GROUPS;
   /** The action editor has unsaved changes: the first click on another page only warns. */
   const [leaving, setLeaving] = useState<SettingsSection | null>(null);
   /** Shows page `id`; returns false when unsaved changes hold the user on this one. */
@@ -234,7 +250,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
-    ...NAV_GROUPS.flat().map(({ id, label: page }) => ({ section: id, title: page, place: "" })),
+    ...[...NAV_GROUPS.flat().map(({ id }) => id), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "" })),
     ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
     ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
   ], []);
@@ -269,10 +285,10 @@ export function SettingsPage({ packId }: { packId: string }) {
       <aside className="settings-sidebar">
         <SettingsSearch entries={searchEntries} onPick={openResult} icon={(entry) => <span className={`settings-nav__icon settings-nav__icon--${entry.section}`}><SettingsGlyph name={entry.section} /></span>}>
           <nav aria-label="设置分类">
-            {NAV_GROUPS.map((group) => (
+            {navGroups.map((group) => (
               <div key={group[0].id} className="settings-nav-group">
                 {group.map(({ id, label }) => (
-                  <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
+                  <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id || parent === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
                     <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
                     <span>{label}</span>
                   </button>
@@ -284,7 +300,10 @@ export function SettingsPage({ packId }: { packId: string }) {
       </aside>
 
       <section className="settings-content" ref={contentRef}>
-        <header className="settings-header"><h1>{title}</h1></header>
+        <header className="settings-header">
+          {parent && <div className="settings-header__back"><button type="button" className="settings-back" onClick={() => go(parent)}>‹ {sectionLabel(parent)}</button></div>}
+          <h1>{title}</h1>
+        </header>
         {error && <p className="settings-error" role="status">{error}</p>}
 
         {section === "general" && (
@@ -304,8 +323,6 @@ export function SettingsPage({ packId }: { packId: string }) {
           <div className="settings-section">
             <h2 className="settings-group-title">划词翻译</h2>
             <TranslationShortcutSettings onError={setError} />
-            <h2 className="settings-group-title">提醒</h2>
-            <HolidaySettings />
             <MailSettings />
           </div>
         )}
@@ -317,7 +334,11 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
-        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onCharacter={() => go("character")} onError={setError} />}
+        {section === "chat" && <ChatSettings onError={setError} />}
+        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onOpen={(id) => void go(id)} onDeveloperChange={setDeveloper} />}
+        {section === "memory" && <FactSettings who={name || "宠物"} />}
+        {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
+        {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}
         {section === "voice" && packInfo && <VoiceSettings key={packId} packId={packId} />}
         {section === "privacy" && (
           <div className="settings-section">
@@ -329,7 +350,8 @@ export function SettingsPage({ packId }: { packId: string }) {
             </div>
             <h2 className="settings-group-title">什么时候会连网</h2>
             <div className="settings-group">
-              {ONLINE.map(([title, detail, when]) => <InfoRow key={title} title={title} detail={detail} value={when} />)}
+              {(allOnline ? ONLINE : ONLINE.slice(0, ONLINE_SHOWN)).map(([title, detail, when]) => <InfoRow key={title} title={title} detail={detail} value={when} />)}
+              {!allOnline && <button type="button" className="settings-more" onClick={() => setAllOnline(true)}>显示全部 {ONLINE.length} 项</button>}
             </div>
           </div>
         )}
@@ -343,8 +365,9 @@ export function SettingsPage({ packId }: { packId: string }) {
               {currentNotes && <div className="settings-row"><div className="settings-row__body"><strong>{CURRENT_VERSION} 新功能</strong><span>这次更新加了 {currentNotes.features.length} 个新功能</span></div><button type="button" className="settings-button settings-button--small" onClick={() => setWhatsNew(true)}>查看</button></div>}
               <UpdateRow />
             </div>
-            <h2 className="settings-group-title">诊断</h2>
-            <DiagnosticsSettings onError={setError} />
+            <div className="settings-group">
+              <div className="settings-row"><div className="settings-row__body"><strong>日志与诊断</strong><span>出了问题看日志，或导出诊断信息发给帮你排查的人</span></div><button type="button" className="settings-button settings-button--small" onClick={() => go("diagnostics")}>打开</button></div>
+            </div>
           </div>
         )}
       </section>

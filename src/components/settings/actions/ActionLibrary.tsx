@@ -270,9 +270,10 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     return <ActionEditor initialFile={initialFile} key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} prompt={isUserAction(editing) ? usablePrompts.action : promptFor(editing)} reference={reference} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
   }
 
+  // The user's own actions come first: they are what the user is most likely to come back for.
   const descriptors = [
-    ...SCENE_GROUPS.map((group) => ({ key: group.scene ?? "other", title: group.title, note: group.note, icon: group.icon, scene: group.scene })),
     { key: "mine" as const, title: "我的动作", note: "自己创建的动作。", icon: MINE_ICON, scene: undefined },
+    ...SCENE_GROUPS.map((group) => ({ key: group.scene ?? "other", title: group.title, note: group.note, icon: group.icon, scene: group.scene })),
   ];
   const categoryCount = (key: SceneFilter) => actions.filter((action) => {
     if (key === "all") return true;
@@ -325,7 +326,6 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
           {status && <span className={`action-tile__status ${status.className}`} title={status.label}>{status.label}</span>}
         </div>
         <p title={action.description ?? action.pose ?? ""}>{action.description ?? action.pose ?? (isUserAction(action) ? "自定义动作" : "角色动作")}</p>
-        <span className="action-tile__count">实际播放 {triggerStats[action.id] ?? 0} 次</span>
         <div className="action-tile__tools">
           {/* Prompts help only while a picture is still to be drawn; a drawn one offers them in its preview and editor. */}
           {pending && <CopyButton className="action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>}
@@ -365,7 +365,13 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       <button type="button" aria-pressed={sceneFilter === "all"} className={sceneFilter === "all" ? "is-selected" : ""} onClick={() => setSceneFilter("all")}>所有场景</button>
       {descriptors.filter((group) => categoryCount(group.key as SceneFilter) > 0).map((group) => <button key={group.key} type="button" aria-pressed={sceneFilter === group.key} className={sceneFilter === group.key ? "is-selected" : ""} onClick={() => setSceneFilter(group.key as SceneFilter)}>{group.title}<span>{categoryCount(group.key as SceneFilter)}</span></button>)}
     </nav>
-    <p className="action-library__stats-note">统计动作实际开始播放的次数，从本次更新起累计；手动预览也会计入。</p>
+    {!isCustomPack && <details className="action-guide">
+      <summary><span>用 AI 画动作图</span><small>复制提示词模板，交给绘图工具</small></summary>
+      <div className="action-guide__single">
+        <p>重画动作时，在编辑页复制该动作的提示词；绘制清单外的动作时，复制模板并替换里面的 {ACTION_SLOT}。</p>
+        <PromptField copyLabel="复制动作提示词模板" copyText={usablePrompts.action} summary="查看和修改模板" value={prompts.action} fallback={DEFAULT_ART_PROMPTS.action} note="改过的模板只对当前角色生效。" onChange={(text) => changePrompt("action", text)} onMessage={setMessage} />
+      </div>
+    </details>}
 
     {isCustomPack && <details className="action-guide" open={guideOpen} onToggle={(event) => setGuideOpen(event.currentTarget.open)}>
       <summary><span>素材制作说明</span><small>{baseDrawn ? "可以逐张补动作，也可以修改提示词" : "先上传待机图，再补其他动作"}</small></summary>
@@ -387,15 +393,9 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         {group.key === "mine" && canCreate && <button type="button" className="action-library__new-link" onClick={() => setEditing(draft)}>＋ 新建</button>}
       </header>
       {group.key === "mine" && group.items.length === 0
-        ? <div className="action-library__empty-mine"><div aria-hidden="true">＋</div><p>还没有自己的动作。选一张图片，配上摇摆或跳跃动效，就能做出专属动作。</p>{canCreate && <button type="button" className="action-library__button" onClick={() => setEditing(draft)}>新建动作</button>}</div>
+        ? <p className="action-library__empty-mine">还没有自己的动作。选一张图片，配上摇摆或跳跃动效，点右上角「新建动作」就能做出专属动作。</p>
         : <div className="action-library__grid">{group.items.map(renderCard)}</div>}
     </section>) : <div className="action-library__empty-search"><span aria-hidden="true">⌕</span><strong>没有找到动作</strong><p>换个名称，或清除筛选条件。</p><button type="button" onClick={() => { setSearch(""); setAssetFilter("all"); setSceneFilter("all"); }}>清除筛选</button></div>}
-
-    <details className="action-library__prompt-guide">
-      <summary>用 AI 画动作图</summary>
-      <p>重画动作时，在编辑页复制该动作的提示词；绘制清单外的动作时，复制模板并替换里面的 {ACTION_SLOT}。</p>
-      <PromptField copyLabel="复制动作提示词模板" copyText={usablePrompts.action} summary="查看和修改模板" value={prompts.action} fallback={DEFAULT_ART_PROMPTS.action} note="改过的模板只对当前角色生效。" onChange={(text) => changePrompt("action", text)} onMessage={setMessage} />
-    </details>
 
     {previewAction && (
       <div className="action-preview" onMouseDown={(event) => { if (event.target === event.currentTarget) closePreview(); }}>
@@ -413,7 +413,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
             <aside className="action-preview__details">
               {previewStatus && <span className={`action-tile__status ${previewStatus.className}`}>{previewStatus.label}</span>}
               <p>{previewAction.description ?? previewAction.pose ?? "角色动作"}</p>
-              <span className="action-preview__meta">实际播放 {triggerStats[previewAction.id] ?? 0} 次 · 从本次更新起</span>
+              <span className="action-preview__meta">实际播放 {triggerStats[previewAction.id] ?? 0} 次 · 手动预览也算</span>
               {previewArt && previewArt.frames > 1 && <span className="action-preview__meta">{previewArt.frames} 帧 · {previewArt.fps} 帧 / 秒</span>}
               {previewAction.duration && <span className="action-preview__meta">播放时长 {`${(previewAction.duration / 1000).toFixed(1)} 秒`}</span>}
               {previewArt?.randomFlip && <span className="action-preview__meta">每次随机朝左或朝右，一张图镜像出两个方向；可在编辑图片里关掉</span>}

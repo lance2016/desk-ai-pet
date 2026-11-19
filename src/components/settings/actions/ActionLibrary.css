@@ -130,7 +130,6 @@
 .action-tile__status.is-missing { color: #8a560a; background: rgba(210, 151, 48, .14); }
 @media (prefers-color-scheme: dark) { .action-tile__status.is-missing { color: #e5bd69; background: rgba(229, 189, 105, .16); } }
 .action-tile__body > p { display: -webkit-box; min-height: 30px; margin: 4px 0 6px; overflow: hidden; color: var(--label-2); font-size: 11px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.action-tile__count { display: block; margin: -2px 0 5px; color: var(--label-3); font-size: 9px; font-variant-numeric: tabular-nums; }
 .action-tile__tools { min-height: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .action-tile__link { min-width: 0; padding: 2px 0; color: var(--accent-strong); background: transparent; border: 0; font-size: 11px; cursor: pointer; text-decoration: none; }
 .action-tile__link:hover { text-decoration: underline; }
@@ -138,15 +137,11 @@
 .action-tile__button:hover { background: var(--fill-strong); }
 .action-tile__button.is-primary { color: #fff; background: var(--accent-strong); }
 
-.action-library__empty-mine, .action-library__empty-search { display: grid; justify-items: center; gap: 7px; padding: 24px 16px; text-align: center; background: var(--group); border: 1px dashed var(--group-border); border-radius: var(--radius-row); }
-.action-library__empty-mine > div, .action-library__empty-search > span { width: 30px; height: 30px; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 19px; }
-.action-library__empty-mine p, .action-library__empty-search p { max-width: 280px; margin: 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.action-library__empty-search { display: grid; justify-items: center; gap: 7px; padding: 24px 16px; text-align: center; background: var(--group); border: 1px dashed var(--group-border); border-radius: var(--radius-row); }
+.action-library__empty-search > span { width: 30px; height: 30px; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 19px; }
+.action-library__empty-search p { max-width: 280px; margin: 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 .action-library__empty-search strong { font-size: 12px; font-weight: 550; }
 .action-library__empty-search button { margin-top: 2px; padding: 4px; color: var(--accent-strong); background: none; border: 0; font-size: 11px; cursor: pointer; }
-.action-library__prompt-guide { margin: 8px 0 4px; padding: 10px 12px; background: var(--fill); border-radius: var(--radius-row); }
-.action-library__prompt-guide summary { color: var(--label-2); font-size: 11px; cursor: pointer; }
-.action-library__prompt-guide > p { margin: 8px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
-.action-library__stats-note { margin: 8px 2px 12px; color: var(--label-3); font-size: 10px; line-height: 1.4; }
 
 .action-preview { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: var(--scrim); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .action-preview__dialog { box-sizing: border-box; width: min(680px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; background: var(--group); border: 1px solid var(--group-border); border-radius: 13px; box-shadow: 0 18px 55px rgba(0, 0, 0, .25); }
@@ -218,7 +213,7 @@
 .action-library__group-head { margin-bottom: 10px; }
 .action-library__group-icon { display: none; }
 .action-library__group-head h2 { font-size: 13px; }
-.action-library__grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; align-items: stretch; }
+.action-library__grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-items: stretch; }
 .action-tile { display: flex; flex-direction: column; border-radius: 10px; }
 .action-tile__art { aspect-ratio: 1.2; padding: 12px; background-image: none; background-color: var(--fill); }
 .action-tile.is-empty .action-tile__art { background-color: transparent; }
@@ -234,9 +229,14 @@
 /* Give the square canvas a definite box; percentage heights in a grid can overflow the tile. */
 .action-tile__art canvas { position: absolute; inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); object-fit: contain; }
 @media (max-width: 800px) {
-  .action-library__grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .action-library__grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 @media (max-width: 680px) {
-  .action-library__grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
+  .action-library__grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
   .action-progress__track { flex-basis: 60px; }
 }
+
+/* No actions of the user's own yet: one quiet line, so it does not push the character's actions down. */
+.action-library__empty-mine { margin: 0; padding: 10px 12px; color: var(--label-2); background: var(--group); border: 1px dashed var(--group-border); border-radius: var(--radius-row); font-size: 11px; line-height: 1.5; }
+.action-guide__single { padding: 0 11px 11px; border-top: 1px solid var(--separator); }
+.action-guide__single > p { margin: 9px 0 7px; color: var(--label-2); font-size: 11px; line-height: 1.45; }

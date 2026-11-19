@@ -56,6 +56,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 
 不可撤销的操作用 `ConfirmButton`：先弹系统确认框（`src-tauri/src/alert.rs`），回车确认、Esc 取消。它只能用在设置、聊天这类普通窗口里；提醒、备忘弹层不能弹框，会激活应用。宠物窗口也不能弹框：要用户确认时，由 `BehaviorEngine` 发带 `choices` 的 `pet.alert`，在气泡里放按钮（例子是停止专注）。能撤销的用撤销条。报错只给人话，原始错误用 `console.error` 记日志。
 
+设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`SettingsGlyph`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`）。
+
 ## 代码约定
 
 - 代码、注释、日志、报错、提交信息用英文。界面上给用户看的文字用中文。

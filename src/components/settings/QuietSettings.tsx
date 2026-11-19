@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { petWindow } from "../../platform/petWindow";
 import { loadQuietPreferences, saveQuietPreferences, subscribeQuietPreferences, type QuietPreferences } from "../../preferences/QuietPreferences";
 import { eveningGreetingTime } from "../../greeting/GreetingSchedule";
 
-/** Do-not-disturb and daily quiet hours. Shared by every character. */
-export function QuietSettings({ onError }: { onError: (message: string | null) => void }) {
+/** Do-not-disturb and daily quiet hours. Shared by every character. `during` adds options that only apply while quiet hours are on. */
+export function QuietSettings({ onError, during }: { onError: (message: string | null) => void; during?: (enabled: boolean) => ReactNode }) {
   const [value, setValue] = useState(loadQuietPreferences);
   useEffect(() => subscribeQuietPreferences(() => setValue(loadQuietPreferences())), []);
 
@@ -35,6 +35,7 @@ export function QuietSettings({ onError }: { onError: (message: string | null) =
         <label>到<input type="time" disabled={!hours.enabled} value={hours.end} onChange={(event) => { const end = event.currentTarget.value; if (end) update({ ...value, quietHours: { ...hours, end } }); }} /></label>
       </div>
       <p className="quiet-hours__note">{hours.end} 后道早安，{eveningGreetingTime(hours.start)} 道晚安。</p>
+      {during?.(hours.enabled)}
     </article>
   );
 }

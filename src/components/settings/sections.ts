@@ -1,13 +1,24 @@
 /** The pages of the settings window. */
-export const SECTIONS = ["character", "general", "companion", "dock", "actions", "ai", "voice", "tools", "privacy", "guide", "about"] as const;
+export const SECTIONS = ["character", "general", "companion", "dock", "actions", "chat", "ai", "memory", "voice", "tools", "privacy", "guide", "about", "diagnostics", "developer"] as const;
 export type SettingsSection = (typeof SECTIONS)[number];
 export const isSection = (value: string | null): value is SettingsSection => SECTIONS.some((section) => section === value);
 
+const LABELS: Record<SettingsSection, string> = {
+  character: "角色", actions: "动作库", dock: "快捷按钮",
+  chat: "聊天", ai: "AI 对话", memory: "记忆", voice: "语音", companion: "陪伴与勿扰", tools: "小工具",
+  general: "通用", privacy: "隐私与数据", guide: "功能一览", about: "关于",
+  diagnostics: "日志与诊断", developer: "开发者",
+};
+const group = (...ids: SettingsSection[]) => ids.map((id) => ({ id, label: LABELS[id] }));
+
 /** Sidebar entries in order, in groups: the character, what the pet does, the app. Each gets its own tile colour, as in System Settings. */
 export const NAV_GROUPS: readonly (readonly { id: SettingsSection; label: string }[])[] = [
-  [{ id: "character", label: "角色" }, { id: "actions", label: "动作库" }, { id: "dock", label: "快捷按钮" }],
-  [{ id: "ai", label: "AI 对话" }, { id: "voice", label: "语音" }, { id: "companion", label: "陪伴与勿扰" }, { id: "tools", label: "小工具" }],
-  [{ id: "general", label: "通用" }, { id: "privacy", label: "隐私与数据" }, { id: "guide", label: "功能一览" }, { id: "about", label: "关于" }],
+  group("character", "actions", "dock"),
+  group("chat", "ai", "memory", "voice", "companion", "tools"),
+  group("general", "privacy", "guide", "about"),
 ];
-export const NAV = NAV_GROUPS.flat();
-export const sectionLabel = (section: SettingsSection): string => NAV.find((item) => item.id === section)?.label ?? "";
+/** Shown at the bottom of the sidebar only while developer mode is on. */
+export const DEVELOPER_GROUP = group("developer");
+/** Pages opened from inside another page; the sidebar keeps that page lit and the title offers a way back. */
+export const SUB_PAGES: Partial<Record<SettingsSection, SettingsSection>> = { diagnostics: "about" };
+export const sectionLabel = (section: SettingsSection): string => LABELS[section];

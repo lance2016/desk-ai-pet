@@ -22,7 +22,7 @@ function useBriefly(): [boolean, () => void] {
   return [on, () => setOn(true)];
 }
 
-/** 「关于 → 诊断」: the app's log, to see what went wrong, and an export to send to someone. */
+/** 「关于 → 日志与诊断」: the app's log, to see what went wrong, and an export to send to someone. */
 export function DiagnosticsSettings({ onError }: { onError: (message: string | null) => void }) {
   const [entries, setEntries] = useState<LogEntry[] | null>(null);
   const [level, setLevel] = useState<LevelFilter>("all");
@@ -54,42 +54,45 @@ export function DiagnosticsSettings({ onError }: { onError: (message: string | n
   };
 
   const empty = entries !== null && entries.length === 0;
+  const errors = (entries ?? []).filter((entry) => entry.level === "ERROR").length;
   return (
-    <div className="settings-group">
-      <div className="settings-row">
-        <div className="settings-row__body"><strong>日志</strong><span>出了问题看这里。只记应用自己的运行情况，不含聊天内容和 API Key</span></div>
-        <div className="settings-button-row">
-          <button type="button" className="settings-button settings-button--small" onClick={reveal}>在访达中显示</button>
-          <ConfirmButton className="settings-button settings-button--small" disabled={empty} confirm={{ message: "清理日志？", detail: "日志文件会全部删掉，不能撤销。", action: "清理" }} onConfirm={clear}>清理…</ConfirmButton>
+    <div className="settings-section diagnostics-page">
+      <p className="settings-page-intro">出了问题看这里。日志只记应用自己的运行情况，不含聊天内容和 API Key。</p>
+      <div className="settings-group">
+        <div className="settings-row">
+          <div className="settings-row__body"><strong>导出诊断信息</strong><span>{exported ? "已导出。需要时把这个文件发给帮你排查的人。" : "版本号、系统版本和最近的日志存成一个文件，应用不会自动上传"}</span></div>
+          <button type="button" className="settings-button settings-button--small" onClick={exportReport}>导出…</button>
         </div>
-      </div>
-      <div className="log-viewer">
-        <div className="log-viewer__bar">
-          <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="日志级别">
-            {LEVELS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={level === value} className={level === value ? "is-selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}
+        <div className="settings-row">
+          <div className="settings-row__body"><strong>日志文件</strong><span>{entries === null ? "正在读取…" : empty ? "还没有日志" : `共 ${entries.length} 条，其中错误 ${errors} 条`}</span></div>
+          <div className="settings-button-row">
+            <button type="button" className="settings-button settings-button--small" onClick={reveal}>在访达中显示</button>
+            <ConfirmButton className="settings-button settings-button--small" disabled={empty} confirm={{ message: "清理日志？", detail: "日志文件会全部删掉，不能撤销。", action: "清理" }} onConfirm={clear}>清理…</ConfirmButton>
           </div>
-          <input type="search" className="log-viewer__search" placeholder="搜索" aria-label="搜索日志" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
-          <button type="button" className="settings-button settings-button--small" onClick={refresh}>刷新</button>
-          <button type="button" className="settings-button settings-button--small" disabled={matching.length === 0} onClick={copy}>{copied ? "已复制" : "复制"}</button>
         </div>
-        {empty && <p className="log-viewer__note">还没有日志。出了问题再来这里看。</p>}
-        {!empty && entries !== null && shown.length === 0 && <p className="log-viewer__note">没有符合条件的日志。</p>}
-        {shown.length > 0 && (
-          <ol className="log-viewer__list" aria-label="日志，最新的在最上面">
-            {shown.map((entry, index) => (
-              <li key={`${entry.date}${entry.time}${index}`} className={LEVEL_CLASS[entry.level]}>
-                <span className="log-viewer__meta"><time>{when(entry, today)}</time>{entry.source}</span>
-                <span className="log-viewer__message">{entry.message}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-        {matching.length > MAX_SHOWN && <p className="log-viewer__note">只显示最新的 {MAX_SHOWN} 条，共 {matching.length} 条。「复制」会带上全部。</p>}
       </div>
-      <div className="settings-row">
-        <div className="settings-row__body"><strong>导出诊断信息</strong><span>{exported ? "已导出。需要时把这个文件发给帮你排查的人。" : "版本号、系统版本和最近的日志存成一个文件，应用不会自动上传"}</span></div>
-        <button type="button" className="settings-button settings-button--small" onClick={exportReport}>导出…</button>
+      <h2 className="settings-group-title">日志</h2>
+      <div className="log-viewer__bar">
+        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="日志级别">
+          {LEVELS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={level === value} className={level === value ? "is-selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}
+        </div>
+        <input type="search" className="log-viewer__search" placeholder="搜索" aria-label="搜索日志" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
+        <button type="button" className="settings-button settings-button--small" onClick={refresh}>刷新</button>
+        <button type="button" className="settings-button settings-button--small" disabled={matching.length === 0} onClick={copy}>{copied ? "已复制" : "复制"}</button>
       </div>
+      {empty && <p className="log-viewer__note">还没有日志。出了问题再来这里看。</p>}
+      {!empty && entries !== null && shown.length === 0 && <p className="log-viewer__note">没有符合条件的日志。</p>}
+      {shown.length > 0 && (
+        <ol className="log-viewer__list" aria-label="日志，最新的在最上面">
+          {shown.map((entry, index) => (
+            <li key={`${entry.date}${entry.time}${index}`} className={LEVEL_CLASS[entry.level]}>
+              <span className="log-viewer__meta"><time>{when(entry, today)}</time>{entry.source}</span>
+              <span className="log-viewer__message">{entry.message}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {matching.length > MAX_SHOWN && <p className="log-viewer__note">只显示最新的 {MAX_SHOWN} 条，共 {matching.length} 条。「复制」会带上全部。</p>}
     </div>
   );
 }

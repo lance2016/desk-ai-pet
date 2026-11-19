@@ -94,8 +94,8 @@ export function ChatLookSettings({ packId, actionImages, onChange }: Props) {
             ? <span className="look-row__preview look-row__preview--peek">{shown ? <PeekPicture picture={shown} className="look-row__peek" /> : "不显示"}</span>
             : <CharacterAvatar picture={shown} className="look-row__preview" />}
           <div><strong>{title}</strong><span>{hint}</span></div>
-          {value !== "hidden" && <button type="button" className="look-row__reset" onClick={() => void edit(slot, value)}>调整</button>}
-          <button type="button" className="look-row__reset" onClick={() => set(slot, DEFAULT_CHAT_APPEARANCE[slot])}>恢复默认</button>
+          {value !== "hidden" && <button type="button" className="settings-button settings-button--small" onClick={() => void edit(slot, value)}>调整</button>}
+          <button type="button" className="settings-button settings-button--small" onClick={() => set(slot, DEFAULT_CHAT_APPEARANCE[slot])}>恢复默认</button>
         </div>
         <div className="look-choices" role="group" aria-label={`更换${title}`}>
           <label className="look-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void upload(event, slot)} /><span>上传图片</span></label>

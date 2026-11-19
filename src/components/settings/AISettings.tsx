@@ -2,11 +2,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ai, type ChatPreview } from "../../ai";
 import type { PetPersona } from "../../assets/Manifest";
 import { characterName, loadChatPreferences, saveChatPreferences, type ChatPreferences } from "../../preferences/ChatPreferences";
-import { loadAutoTitles, saveAutoTitles } from "../../chat/ChatThreads";
 import { classifyServiceError, serviceErrorMessage } from "../../chat/serviceErrors";
 import { loadChatModel } from "../../preferences/ChatModel";
 import { ModelSettings } from "./ModelSettings";
-import { QuickChatSettings } from "./QuickChatSettings";
 import { ConfirmButton } from "../ConfirmButton";
 import { chatContext } from "../../agenda/chatTools";
 import { currentChatFacts } from "../../facts/FactStore";
@@ -14,11 +12,10 @@ import { CHAT_SKILLS } from "../../skills";
 import { requestPreferences } from "../../preferences/ChatPreferences";
 import { CHAT_INSTRUCTIONS_LIMIT, loadChatInstructions, saveChatInstructions } from "../../preferences/ChatInstructions";
 import { ChatRequestDetails } from "./ChatRequestDetails";
-import { ChatRequestLog } from "./ChatRequestLog";
-import { FactSettings } from "./FactSettings";
 import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
 import { loadReadLinks, saveReadLinks } from "../../preferences/ReadLinkPreferences";
 import { moveRadioChoice } from "./radioKeys";
+import type { SettingsSection } from "./sections";
 
 const LENGTHS: readonly [ChatPreferences["length"], string][] = [["short", "简短"], ["normal", "自然"]];
 
@@ -31,13 +28,12 @@ export function deepSeekProblem(reason: unknown, doing: string): string {
   return kind === "other" ? `${doing}失败，请再试一次。` : serviceErrorMessage("DeepSeek", kind);
 }
 
-export function AISettings({ packId, persona, name, actions, onCharacter, onError }: { packId: string; persona?: PetPersona; name?: string; actions: string[]; onCharacter: () => void; onError: (message: string | null) => void }) {
+export function AISettings({ packId, persona, name, actions, onOpen, onDeveloperChange }: { packId: string; persona?: PetPersona; name?: string; actions: string[]; onOpen: (section: SettingsSection) => void; onDeveloperChange: (enabled: boolean) => void }) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [key, setKey] = useState("");
   const [preferences, setPreferences] = useState(() => loadChatPreferences(packId, persona));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [autoTitles, setAutoTitles] = useState(loadAutoTitles);
   const [instructions, setInstructions] = useState(() => loadChatInstructions(packId));
   const [preview, setPreview] = useState<ChatPreview | null>(null);
   const [previewError, setPreviewError] = useState("");
@@ -45,9 +41,6 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   const [developer, setDeveloper] = useState(loadDeveloperMode);
   const [readLinks, setReadLinks] = useState(loadReadLinks);
   const who = name ?? characterName(packId, persona?.name ?? "");
-  const toggleAutoTitles = () => {
-    try { saveAutoTitles(!autoTitles); setAutoTitles(!autoTitles); } catch (reason) { console.error("Could not save the title setting", reason); setStatus("设置没能保存，请再试一次。"); }
-  };
   /** Opened without a key: the key form leads, and stays there after saving so the result does not jump away. */
   const [keyFirst, setKeyFirst] = useState(false);
   useEffect(() => { ai.keyStatus().then((saved) => { setConfigured(saved); setKeyFirst(!saved); }).catch(() => { setConfigured(false); setKeyFirst(true); setStatus("读不到钥匙串，请在 AI Pet 应用里设置。"); }); }, []);
@@ -61,7 +54,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
     catch (reason) { console.error("Could not save chat instructions", reason); setStatus("补充要求没能保存，请再试一次。"); }
   };
   const toggleDeveloper = () => {
-    try { saveDeveloperMode(!developer); setDeveloper(!developer); } catch (reason) { console.error("Could not save developer mode", reason); setStatus("设置没能保存，请再试一次。"); }
+    try { saveDeveloperMode(!developer); setDeveloper(!developer); onDeveloperChange(!developer); } catch (reason) { console.error("Could not save developer mode", reason); setStatus("设置没能保存，请再试一次。"); }
   };
   const toggleReadLinks = () => {
     try { saveReadLinks(!readLinks); setReadLinks(!readLinks); }
@@ -109,52 +102,23 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   return <div className="settings-section ai-page">
     {needsKey && <div className="ai-page__intro"><p>填上 DeepSeek API Key，{who}就能和你聊天。</p></div>}
 
-    <div className="ai-layout">
-      <div className="ai-layout__main">
-        {keyFirst && connection}
-        <section className="ai-section" aria-labelledby="ai-replies-heading">
-          <div className="ai-section__title"><h2 id="ai-replies-heading">回复方式</h2><p>只对{who}生效</p></div>
-          <div className="settings-group ai-reply-settings">
-            <div className="settings-row"><div className="settings-row__body"><strong>性格</strong><span>{preferences.personality || "还没有设置性格"}</span></div><button type="button" className="settings-button settings-button--small" onClick={onCharacter}>编辑性格</button></div>
-            <div className="settings-row"><div className="settings-row__body"><strong>回复长度</strong><span>简短适合闲聊，自然会多解释几句</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="回复长度">{LENGTHS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={preferences.length === value} className={preferences.length === value ? "is-selected" : ""} onClick={() => updatePreferences({ ...preferences, length: value })}>{label}</button>)}</div></div>
-            <div className="ai-instructions"><label htmlFor="chat-instructions">补充要求</label><textarea id="chat-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="例如：聊天时简短一些，讨论技术问题时可以详细解释。" onChange={(event) => updateInstructions(event.currentTarget.value)} /><div className="ai-instructions__foot"><span>自动保存</span><span>{instructions.length} / {CHAT_INSTRUCTIONS_LIMIT}</span></div></div>
-          </div>
-        </section>
-
-        <FactSettings who={who} />
-
-        {!keyFirst && connection}
-
-        <section className="ai-section" aria-labelledby="ai-quick-chat-heading">
-          <div className="ai-section__title"><h2 id="ai-quick-chat-heading">快速聊天</h2><p>所有角色共用</p></div>
-          <QuickChatSettings onError={onError} />
-        </section>
+    {keyFirst && connection}
+    <section className="ai-section" aria-labelledby="ai-replies-heading">
+      <div className="ai-section__title"><h2 id="ai-replies-heading">回复方式</h2><p>只对{who}生效</p></div>
+      <div className="settings-group ai-reply-settings">
+        <div className="settings-row"><div className="settings-row__body"><strong>性格</strong><span>{preferences.personality || "还没有设置性格"}</span></div><button type="button" className="settings-button settings-button--small" onClick={() => onOpen("character")}>编辑性格</button></div>
+        <div className="settings-row"><div className="settings-row__body"><strong>回复长度</strong><span>简短适合闲聊，自然会多解释几句</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="回复长度">{LENGTHS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={preferences.length === value} className={preferences.length === value ? "is-selected" : ""} onClick={() => updatePreferences({ ...preferences, length: value })}>{label}</button>)}</div></div>
+        <div className="ai-instructions"><label htmlFor="chat-instructions">补充要求</label><textarea id="chat-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="例如：聊天时简短一些，讨论技术问题时可以详细解释。" onChange={(event) => updateInstructions(event.currentTarget.value)} /><div className="ai-instructions__foot"><span>自动保存</span><span>{instructions.length} / {CHAT_INSTRUCTIONS_LIMIT}</span></div></div>
       </div>
-
-      <div className="ai-layout__aside">
-        <section className="ai-section" aria-labelledby="ai-capabilities-heading">
-          <div className="ai-section__title"><h2 id="ai-capabilities-heading">{who}能帮你做什么</h2><p>用平常的话说就行</p></div>
-          <div className="ai-capability-list">
-            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">◷</span><div><strong>创建提醒</strong><p>“每个工作日 11 点提醒我点外卖”</p><small>支持单次和重复提醒</small></div></div>
-            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">✎</span><div><strong>保存备忘</strong><p>“帮我记一下，下次买咖啡豆”</p><small>没有指定时间的内容会存进备忘</small></div></div>
-            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">⌕</span><div><strong>查提醒和备忘、写日报</strong><p>“我今天还有什么事”“帮我写今天的日报”</p><small>问到时才去看；右键宠物也有「今日回顾」</small></div></div>
-            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">♡</span><div><strong>记住你的习惯</strong><p>“记住，我不吃香菜”</p><small>记下的都在左边「记忆」里，能改能删</small></div></div>
-            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">✦</span><div><strong>做动作</strong><p>“挥挥手”</p><small>也可能根据聊天内容做出反应</small></div></div>
-          </div>
-          <p className="settings-footnote">能新建和查看，还不能修改已有的提醒和备忘</p>
-        </section>
-
-        <section className="ai-section" aria-labelledby="ai-data-heading">
-          <div className="ai-section__title"><h2 id="ai-data-heading">聊天记录</h2></div>
-          <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>自动生成聊天标题</strong><span>在本机整理开场白中的空格和标点</span></div><button type="button" role="switch" aria-label="自动生成聊天标题" aria-checked={autoTitles} className={autoTitles ? "toggle is-on" : "toggle"} onClick={toggleAutoTitles}><span /></button></div></div>
-        </section>
-      </div>
-    </div>
+    </section>
+    {!keyFirst && connection}
 
     <section className="ai-section ai-advanced" aria-labelledby="ai-advanced-heading">
       <div className="ai-section__title"><h2 id="ai-advanced-heading">发给 AI 的设定</h2><p>发出去的全部内容见「隐私与数据」</p></div>
       <div className="settings-card ai-preview"><div className="ai-preview__head"><div><strong>对话规则</strong><span>每次聊天都会带上，可以逐段修改，所有角色共用</span></div><button type="button" className="settings-button settings-button--small" onClick={() => void showPreview()}>{preview ? "刷新" : "查看和修改"}</button></div>{previewError && <p role="status">{previewError}</p>}{preview && <ChatRequestDetails preview={preview} onChanged={() => void showPreview()} onError={setPreviewError} />}</div>
-      <div className="settings-group ai-developer"><div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>记下每次聊天实际发给 AI 的内容和 AI 的原始回复</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={toggleDeveloper}><span /></button></div>{developer && <ChatRequestLog />}</div>
+      <div className="settings-group ai-developer"><div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>{developer ? "已打开：侧栏最下面的「开发者」里能看每次实际发给 AI 的内容" : "记下每次聊天实际发给 AI 的内容和 AI 的原始回复"}</span></div>{developer && <button type="button" className="settings-button settings-button--small" onClick={() => onOpen("developer")}>查看请求</button>}<button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={toggleDeveloper}><span /></button></div></div>
     </section>
+
+    <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>能帮你做什么</strong><span>{who}能记提醒和备忘、记住你的事、做动作，用平常的话说就行</span></div><button type="button" className="settings-button settings-button--small" onClick={() => onOpen("guide")}>功能一览</button></div></div>
   </div>;
 }

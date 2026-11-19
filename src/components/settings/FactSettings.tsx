@@ -12,7 +12,7 @@ const UNSAVED = "记忆没能保存，请再试一次。";
 
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-/** What the pet knows about the user: the list, adding, editing, deleting and whether chats may add to it. */
+/** 「记忆」: what the pet knows about the user: the list, adding, editing, deleting and whether chats may add to it. */
 export function FactSettings({ who }: { who: string }) {
   const [facts, setFacts] = useState(loadFacts);
   const [learning, setLearning] = useState(loadFactLearning);
@@ -60,13 +60,20 @@ export function FactSettings({ who }: { who: string }) {
   };
   const now = Date.now();
 
-  return <section className="ai-section" aria-labelledby="ai-facts-heading">
-    <div className="ai-section__title"><h2 id="ai-facts-heading">记忆</h2><p>{who}记得的关于你的事，每次聊天都会带上，所有角色共用</p></div>
-    <div className="settings-group fact-settings">
+  return <div className="settings-section">
+    <p className="settings-page-intro">{who}记得的关于你的事，每次聊天都会带上，所有角色共用。</p>
+    <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>聊天时自动记住</strong><span>{learning ? `你在聊天里说起的偏好、习惯和长期安排，${who}会记下来` : "已关闭：不再记新的，已有的照常使用"}</span></div>
         <button type="button" role="switch" aria-label="聊天时自动记住" aria-checked={learning} className={learning ? "toggle is-on" : "toggle"} onClick={toggleLearning}><span /></button>
       </div>
+    </div>
+    <div className="settings-group-head">
+      <h2 className="settings-group-title">已记住的事</h2>
+      <span className="settings-group-head__count">{facts.length} / {FACT_LIMITS.items}</span>
+      {facts.length > 0 && <ConfirmButton className="settings-button settings-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空…</ConfirmButton>}
+    </div>
+    <div className="settings-group fact-settings">
       {facts.length === 0
         ? <p className="fact-empty">还没有记忆。可以在下面写，也可以在聊天里说「记住，我不吃香菜」。</p>
         : <ul className="fact-list">{facts.map((fact) => <li key={fact.id} className="settings-row fact-row">
@@ -91,10 +98,6 @@ export function FactSettings({ who }: { who: string }) {
     </div>
     {removed && <div className="fact-undo" role="status"><span>已删除“{removed.text}”</span><button type="button" onClick={undo}>撤销</button></div>}
     {status && <p className="ai-inline-status" role="status">{status}</p>}
-    <div className="fact-foot">
-      <p className="settings-footnote">你写的以你为准，{who}不会改动；聊天里记的会随新情况更新，你改过的就算你写的。记忆会发给 DeepSeek，不要写密码、证件号。</p>
-      <span className="fact-foot__count">{facts.length} / {FACT_LIMITS.items}</span>
-      {facts.length > 0 && <ConfirmButton className="settings-button settings-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空…</ConfirmButton>}
-    </div>
-  </section>;
+    <p className="settings-footnote">你写的以你为准，{who}不会改动；聊天里记的会随新情况更新，你改过的就算你写的。记忆会发给 DeepSeek，不要写密码、证件号。</p>
+  </div>;
 }
