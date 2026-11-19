@@ -20,7 +20,7 @@ interface PetControlsProps {
 }
 
 /**
- * The bar under the pet: the buttons that fit, and "互动" for the actions and the rest.
+ * The floating controls under the pet: the buttons that fit, and "互动" for the actions and the rest.
  * Only reports what was pressed; the pet decides what to do.
  */
 export function PetControls({ runtime, awake, ref }: PetControlsProps) {
@@ -94,7 +94,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     // Nothing is greyed out while the pet sleeps: the character's own buttons wake it up first.
     const active = item.command === "focus_toggle" && focusPhase === "focusing";
     return (
-      <button key={item.id} type="button" className={`pet-bar__item${active ? " pet-bar__item--stop" : ""}`} aria-pressed={item.command === "focus_toggle" ? active : undefined} title={label} onClick={() => pick(() => emitControl(item))}>
+      <button key={item.id} type="button" className={`pet-bar__item${active ? " pet-bar__item--stop" : ""}`} aria-label={label} aria-pressed={item.command === "focus_toggle" ? active : undefined} data-label={label} title={label} onClick={() => pick(() => emitControl(item))}>
         <ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} />
         <span>{label}</span>
       </button>
@@ -105,7 +105,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     <div className="dock-area">
       <div ref={ref} className={`pet-bar${awake ? " is-awake" : ""}`} role="toolbar" aria-label="宠物快捷按钮">
         {menu.length > 0 && (
-          <button type="button" className={`pet-bar__item${menuOpen ? " is-active" : ""}`} aria-haspopup="menu" aria-expanded={menuOpen} title="互动" onClick={() => setMenuOpen((open) => !open)}>
+          <button type="button" className={`pet-bar__item${menuOpen ? " is-active" : ""}`} aria-label="互动" data-label="互动" aria-haspopup="menu" aria-expanded={menuOpen} title="互动" onClick={() => setMenuOpen((open) => !open)}>
             <InteractIcon />
             <span>互动</span>
           </button>

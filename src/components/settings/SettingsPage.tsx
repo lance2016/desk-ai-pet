@@ -250,7 +250,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
-    ...[...NAV_GROUPS.flat().map(({ id }) => id), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "" })),
+    ...[...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "" })),
     ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
     ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
   ], []);
@@ -285,9 +285,10 @@ export function SettingsPage({ packId }: { packId: string }) {
       <aside className="settings-sidebar">
         <SettingsSearch entries={searchEntries} onPick={openResult} icon={(entry) => <span className={`settings-nav__icon settings-nav__icon--${entry.section}`}><SettingsGlyph name={entry.section} /></span>}>
           <nav aria-label="设置分类">
-            {navGroups.map((group) => (
-              <div key={group[0].id} className="settings-nav-group">
-                {group.map(({ id, label }) => (
+            {navGroups.map(({ title: groupTitle, items }) => (
+              <div key={groupTitle || "developer"} className="settings-nav-group">
+                {groupTitle && <h2 className="settings-nav-group__title">{groupTitle}</h2>}
+                {items.map(({ id, label }) => (
                   <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id || parent === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
                     <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
                     <span>{label}</span>

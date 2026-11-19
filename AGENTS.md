@@ -63,6 +63,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 - 代码、注释、日志、报错、提交信息用英文。界面上给用户看的文字用中文。
 - 外部输入用 Zod 校验：清单文件和存档。
 - 数值用具名常量，放在所属模块顶部，不要散落魔法数字。
+- 共享语义色、圆角和浮层阴影放在 `src/ui/tokens.css`，由 `src/main.tsx` 统一引入；设置页、聊天页和宠物浮层优先复用这些变量，角色素材和提醒/错误等状态色保留各自表达。设置页中的预览要与桌面实际控件同步。
 - 不用 `console.log`。可恢复的问题用 `console.warn`，真正的错误用 `console.error`；这两种会写进日志文件，所以不要把聊天原文、API Key、授权码传给它们。Rust 用 `log::warn!`、`log::error!`，不用 `eprintln!`（不进日志文件）。
 - 测试文件和源码放在一起，命名 `*.test.ts`。公共夹具在 `src/testing/fixtures.ts`。
 - 时间相关的逻辑直接用 `Date.now()` 和 `setTimeout`，测试里用 Vitest 的假时钟。随机数通过参数注入。

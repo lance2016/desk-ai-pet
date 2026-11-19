@@ -197,7 +197,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
             </div>
             : <span className="dock-preview__empty">没有显示的快捷按钮</span>}
         </div>
-        <p>固定在宠物脚下，鼠标移开时变淡；动作和放不下的按钮收在「互动」里</p>
+        <p>圆形按钮轻轻浮在宠物脚下，悬停可看名称；动作和其他按钮收在「互动」里</p>
       </div>
 
       <h2 className="settings-group-title">按钮</h2>

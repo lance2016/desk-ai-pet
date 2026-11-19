@@ -11,14 +11,15 @@ const LABELS: Record<SettingsSection, string> = {
 };
 const group = (...ids: SettingsSection[]) => ids.map((id) => ({ id, label: LABELS[id] }));
 
-/** Sidebar entries in order, in groups: the character, what the pet does, the app. Each gets its own tile colour, as in System Settings. */
-export const NAV_GROUPS: readonly (readonly { id: SettingsSection; label: string }[])[] = [
-  group("character", "actions", "dock"),
-  group("chat", "ai", "memory", "voice", "companion", "tools"),
-  group("general", "privacy", "guide", "about"),
-];
+/** Sidebar entries in order, grouped by the user's task rather than implementation detail. */
+export const NAV_GROUPS = [
+  { title: "角色与外观", items: group("character", "actions", "dock") },
+  { title: "聊天与 AI", items: group("chat", "ai", "memory", "voice") },
+  { title: "陪伴与工具", items: group("companion", "tools") },
+  { title: "应用", items: group("general", "privacy", "guide", "about") },
+] as const;
 /** Shown at the bottom of the sidebar only while developer mode is on. */
-export const DEVELOPER_GROUP = group("developer");
+export const DEVELOPER_GROUP = { title: "", items: group("developer") } as const;
 /** Pages opened from inside another page; the sidebar keeps that page lit and the title offers a way back. */
 export const SUB_PAGES: Partial<Record<SettingsSection, SettingsSection>> = { diagnostics: "about" };
 export const sectionLabel = (section: SettingsSection): string => LABELS[section];
