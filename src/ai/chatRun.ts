@@ -161,7 +161,7 @@ class Reply {
   constructor(private readonly id: string, private readonly options: RunOptions) {
     const setup = options.tools;
     this.toolsByName = new Map(setup ? offeredSkills(setup.skills, setup.context).flatMap((skill) => skill.tools.map((tool) => [tool.name, tool] as const)) : []);
-    this.call = { requestId: id, context: setup?.context ?? { now: "", timestamp: "", timeZone: "", actions: [] }, memo: new Map() };
+    this.call = { requestId: id, context: setup?.context ?? { now: "", timestamp: "", timeZone: "", actions: [], facts: { mine: [], learned: [], learning: false } }, memo: new Map() };
     this.record = options.record ? new RequestRecord(id) : null;
   }
 

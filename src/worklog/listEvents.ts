@@ -1,6 +1,7 @@
 import { isDone, isStale, itemSummary, type AgendaItem } from "../agenda/AgendaStore";
 import { clip } from "../agenda/chatTools";
 import { sameRepeat } from "../agenda/Repeat";
+import type { Fact } from "../facts/FactStore";
 import type { Note } from "../notes/NoteStore";
 import { EVENT_TEXT_CHARS, type NewWorkEvent, type WorkKind } from "./WorkLog";
 
@@ -48,4 +49,16 @@ export function noteEvents(before: readonly Note[], after: readonly Note[]): New
   const added = changed.some((item) => item.kind === "note_added");
   const removed = added ? [] : before.filter((note) => !later.has(note.id)).map((note) => event("note_deleted", note.text, note.id));
   return [...changed, ...removed];
+}
+
+/** What was done to the facts about the user. A changed or deleted fact keeps what it said before. */
+export function factEvents(before: readonly Fact[], after: readonly Fact[]): NewWorkEvent[] {
+  const earlier = new Map(before.map((fact) => [fact.id, fact]));
+  const later = new Set(after.map((fact) => fact.id));
+  const changed = after.flatMap((fact) => {
+    const old = earlier.get(fact.id);
+    if (!old) return [event("fact_added", fact.text, fact.id)];
+    return old.text === fact.text ? [] : [event("fact_edited", fact.text, fact.id, old.text)];
+  });
+  return [...changed, ...before.filter((fact) => !later.has(fact.id)).map((fact) => event("fact_deleted", fact.text, fact.id))];
 }

@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { worklogPlatform } from "../platform/worklog";
 import { createMemoryStorage } from "../testing/fixtures";
 import { addAgendaItem, removeAgendaItem } from "../agenda/AgendaStore";
+import { addFact } from "../facts/FactStore";
 import { editNote } from "../notes/NoteStore";
-import { changeNotes, changeReminders, keepNote, readWorkLog, recordWork, tidyWorkLog } from "./store";
+import { changeFacts, changeNotes, changeReminders, keepNote, readWorkLog, recordWork, tidyWorkLog } from "./store";
 
 const NOW = new Date(2026, 11, 2, 9, 0).getTime();
 
@@ -59,12 +60,14 @@ describe("work log store", () => {
     changeNotes((notes) => editNote(notes, saved.id, "WiFi 密码 5678", NOW), "user", storage);
     changeReminders((items) => addAgendaItem(items, { id: "r1", text: "开会", remindAt: NOW + 3_600_000 }, NOW), "chat", storage);
     changeReminders((items) => removeAgendaItem(items, "r1"), "user", storage);
-    await vi.waitFor(() => expect(append).toHaveBeenCalledTimes(4));
+    changeFacts((facts) => addFact(facts, { id: "f1", text: "不吃香菜", source: "chat" }, NOW), "chat", storage);
+    await vi.waitFor(() => expect(append).toHaveBeenCalledTimes(5));
     expect(append.mock.calls.map(([event]) => [event.kind, event.source, event.text, event.before])).toEqual([
       ["note_added", "chat", "WiFi 密码 1234", null],
       ["note_edited", "user", "WiFi 密码 5678", "WiFi 密码 1234"],
       ["reminder_added", "chat", "今天 10:00 · 开会", null],
       ["reminder_deleted", "user", "今天 10:00 · 开会", null],
+      ["fact_added", "chat", "不吃香菜", null],
     ]);
   });
 

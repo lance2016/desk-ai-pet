@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgendaItem } from "./AgendaStore";
+import { NO_FACTS } from "../testing/fixtures";
 import { chatContext, readNoteCall, readReminderCall, reminderConfirmation, reminderLines, todayLines } from "./chatTools";
 
 const NOW = new Date(2026, 10, 16, 14, 3).getTime();
@@ -10,8 +11,8 @@ const makeId = () => `id${++ids}`;
 
 describe("chat context", () => {
   it("gives the local time with the weekday, and only action ids the model may pick", () => {
-    expect(chatContext(NOW, ["happy", "pet_reaction", "Bad-Id"])).toEqual({ now: "2026-11-16 14:03 周一", timestamp: expect.stringMatching(/^2026-11-16T14:03:00[+-]\d{2}:\d{2}$/), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, actions: ["happy", "pet_reaction"] });
-    expect(chatContext(NOW, Array.from({ length: 40 }, (_, index) => `a${index}`)).actions).toHaveLength(30);
+    expect(chatContext(NOW, ["happy", "pet_reaction", "Bad-Id"], NO_FACTS)).toEqual({ now: "2026-11-16 14:03 周一", timestamp: expect.stringMatching(/^2026-11-16T14:03:00[+-]\d{2}:\d{2}$/), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, actions: ["happy", "pet_reaction"], facts: NO_FACTS });
+    expect(chatContext(NOW, Array.from({ length: 40 }, (_, index) => `a${index}`), NO_FACTS).actions).toHaveLength(30);
   });
 
   it("lists open reminders by time with their rule, then finished one-offs", () => {

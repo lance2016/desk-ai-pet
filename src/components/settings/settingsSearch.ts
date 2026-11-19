@@ -28,6 +28,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "ai", title: "回复用的模型", keywords: "模型 flash pro 自定义" },
   { section: "ai", title: "自动阅读网页链接", keywords: "网址 网页 链接 浏览器" },
   { section: "ai", title: "回复长度", keywords: "长短 简短 详细" },
+  { section: "ai", title: "记忆", keywords: "记住 忘掉 关于我 偏好 习惯 长期记忆 memory" },
+  { section: "ai", title: "聊天时自动记住", keywords: "记忆 自动记 记住我" },
   { section: "ai", title: "快速聊天", keywords: "快捷键 输入框 Space" },
   { section: "ai", title: "聊天记录", keywords: "历史" },
   { section: "ai", title: "自动生成聊天标题", keywords: "标题" },
@@ -69,7 +71,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
  */
 export const SEARCH_SKIPPED: readonly string[] = [
   "右键我", "点我一下", "AI Pet", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
-  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "拼好的完整提示词", "最近发出的请求",
+  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "拼好的完整提示词", "最近发出的请求",
   "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "识别", "语音输入", "关心", "勿扰", "启动", "窗口",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限", "诊断",
 ];

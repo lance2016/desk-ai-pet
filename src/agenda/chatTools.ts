@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ChatContext } from "../ai/types";
+import type { ChatContext, ChatFacts } from "../ai/types";
 import { ACTION_ID } from "../ai/skill";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
@@ -46,7 +46,7 @@ export function loadSavedItems(): SavedItems {
  * What the model needs to know besides the conversation: the local time and the
  * actions it may pick. What the user saved reaches it only when it looks it up.
  */
-export function chatContext(now: number, actions: readonly string[]): ChatContext {
+export function chatContext(now: number, actions: readonly string[], facts: ChatFacts): ChatContext {
   const date = new Date(now);
   const offset = -date.getTimezoneOffset();
   const minutes = Math.abs(offset);
@@ -56,6 +56,7 @@ export function chatContext(now: number, actions: readonly string[]): ChatContex
     timestamp: `${localIso}${offset < 0 ? "-" : "+"}${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     actions: actions.filter((id) => ACTION_ID.test(id)).slice(0, MAX_ACTIONS),
+    facts,
   };
 }
 

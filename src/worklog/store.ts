@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { loadAgenda, updateAgenda, type AgendaItem } from "../agenda/AgendaStore";
+import { loadFacts, updateFacts, type Fact } from "../facts/FactStore";
 import { loadNotes, saveNote, updateNotes, type Note } from "../notes/NoteStore";
 import { worklogPlatform } from "../platform/worklog";
-import { agendaEvents, noteEvents } from "./listEvents";
+import { agendaEvents, factEvents, noteEvents } from "./listEvents";
 import { addDays, dateKey, KEEP_DAYS, workLogSchema, type NewWorkEvent, type WorkCount, type WorkLogData, type WorkSource } from "./WorkLog";
 
 /** Finished focus rounds per day, kept before the work log existed. Brought in once, then removed. */
@@ -37,6 +38,14 @@ export function changeNotes(change: (notes: Note[]) => Note[], source: WorkSourc
   const before = loadNotes(storage);
   const after = updateNotes(change, storage);
   void recordWork(noteEvents(before, after), source);
+  return after;
+}
+
+/** Changes the facts about the user and writes what was done into the work log. */
+export function changeFacts(change: (facts: Fact[]) => Fact[], source: WorkSource, storage: Storage = window.localStorage): Fact[] {
+  const before = loadFacts(storage);
+  const after = updateFacts(change, storage);
+  void recordWork(factEvents(before, after), source);
   return after;
 }
 

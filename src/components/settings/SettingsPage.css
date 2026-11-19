@@ -502,6 +502,22 @@ button.dock-row__body { cursor: pointer; }
 .ai-section__title p { margin: 3px 0 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 .ai-reply-settings .ai-instructions { margin: 0; padding: 13px 0; border-top: 1px solid var(--separator); }
 .ai-reply-settings .settings-row__body span { white-space: normal; overflow-wrap: anywhere; }
+
+/* Memory: what the pet knows about the user (FactSettings). */
+.fact-list { margin: 0; padding: 0; list-style: none; }
+.fact-list, .fact-empty, .fact-add { border-top: 1px solid var(--separator); }
+.fact-row__text { white-space: normal; overflow-wrap: anywhere; }
+.fact-empty { margin: 0; padding: 12px 0; color: var(--label-2); font-size: 12px; line-height: 1.5; }
+.fact-add, .fact-edit { gap: 6px; }
+.fact-edit { flex: 1; min-width: 0; display: flex; align-items: center; }
+.fact-add input, .fact-edit input { box-sizing: border-box; flex: 1; min-width: 0; height: 26px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.fact-add input:disabled { opacity: .45; }
+.fact-undo { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 7px 10px; border-radius: var(--radius-row); background: var(--fill); font-size: 12px; }
+.fact-undo span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fact-undo button { flex: none; padding: 0 2px; border: 0; border-radius: 4px; color: var(--accent-strong); background: none; font-weight: 600; cursor: pointer; }
+.fact-foot { display: flex; align-items: flex-start; gap: 10px; margin-top: 6px; }
+.fact-foot .settings-footnote { flex: 1; margin: 0 4px; }
+.fact-foot__count { flex: none; color: var(--label-3); font-size: 11px; line-height: 22px; font-variant-numeric: tabular-nums; }
 .ai-instructions label { font-weight: 500; }
 .ai-connection-form { padding: 13px 0; border-top: 1px solid var(--separator); }
 .ai-connection-form .ai-settings__actions { flex-wrap: wrap; }

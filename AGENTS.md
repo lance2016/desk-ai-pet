@@ -82,6 +82,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 模型供应商 ID | `DEEPSEEK.id`（`src/ai/provider.ts`） | `PROVIDERS`（`src-tauri/src/llm.rs`，同时定地址和钥匙串服务名；改服务名会丢掉用户存的 Key） |
 | 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `src/skills/memory.ts` 里 `add_reminder`、`update_reminder` 的 `repeat` 参数说明 |
 | 开机启动、备份和重启命令，登录项状态值 | `src/platform/system.ts` | `src-tauri/src/system.rs`、`lib.rs` 的 `invoke_handler` |
+| 记忆编号的写法（`m1`、`m2`…） | `REF_PREFIX`（`src/facts/FactStore.ts`） | `src/skills/remember.ts` 里 `replaces`、`ref` 参数说明的例子 |
 | 用户动作 ID 带连字符，不能被 AI 选用 | `ID_PATTERN`（`src/actions/UserActions.ts`） | `ACTION_ID`（`src/ai/skill.ts`）不允许连字符 |
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
 | 「认不出验证码？」的长度上限 | `TRY_TEXT_LIMIT`（`src/components/settings/MailCodeTester.tsx`，按 UTF-16） | `MAX_TRY_CHARS`（`src-tauri/src/mail_code.rs`，按字符；前端的上限能保证不超） |
@@ -198,6 +199,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 默认资源包在 `public/pets/girl-default/`。新增角色的步骤见 `ACTIONS.md` 的“新增一个角色”。
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
 - 用户或聊天工具改提醒、备忘，要用 `changeReminders`、`changeNotes`、`keepNote`（`src/worklog/store.ts`）并写明来源，不要直接调 `updateAgenda`、`updateNotes`、`saveNote`，否则工作日志漏记。只有不算用户操作的整理（标记已提醒、过期作废、旧数据迁移）可以直接写。数据库的表结构只能往 `database.rs` 的 `MIGRATIONS` 末尾加新脚本，不能改已经发出去的。
+- 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。

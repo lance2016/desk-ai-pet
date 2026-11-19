@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AgendaItem } from "../agenda/AgendaStore";
 import type { Note } from "../notes/NoteStore";
-import { agendaEvents, noteEvents } from "./listEvents";
+import type { Fact } from "../facts/FactStore";
+import { agendaEvents, factEvents, noteEvents } from "./listEvents";
 
 const NOW = new Date(2026, 10, 16, 14, 0).getTime();
 const DAY = 86_400_000;
@@ -54,5 +55,16 @@ describe("note events", () => {
 
   it("keeps long text short", () => {
     expect(noteEvents([], [note({ text: "长".repeat(800) })])[0].text).toHaveLength(500);
+  });
+});
+
+describe("fact events", () => {
+  const fact = (overrides: Partial<Fact>): Fact => ({ id: "f1", text: "住在深圳", source: "chat", at: 0, ...overrides });
+
+  it("tells adding, editing and deleting apart, keeping what it said before", () => {
+    expect(factEvents([], [fact({})])).toEqual([{ kind: "fact_added", text: "住在深圳", before: null, itemId: "f1" }]);
+    expect(factEvents([fact({})], [fact({ text: "住在上海" })])).toEqual([{ kind: "fact_edited", text: "住在上海", before: "住在深圳", itemId: "f1" }]);
+    expect(factEvents([fact({})], [fact({ source: "user", at: NOW })])).toEqual([]);
+    expect(factEvents([fact({})], [])).toEqual([{ kind: "fact_deleted", text: "住在深圳", before: null, itemId: "f1" }]);
   });
 });

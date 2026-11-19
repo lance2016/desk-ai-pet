@@ -46,6 +46,8 @@ src/
 │   ├── QuickChat.ts         快速聊天用哪段对话、要发的消息、气泡里的纯文本和停留时间
 ├── notes/
 │   └── NoteStore.ts         备忘：校验、增删改、置顶、搜索、本机存储与跨窗口同步
+├── facts/
+│   └── FactStore.ts         记忆（关于用户的事）：校验、增删改、来源、本机存储与跨窗口同步、聊天里看到的样子
 ├── worklog/                 工作日志，见下文「工作日志」
 │   ├── WorkLog.ts           事件种类、Zod 校验、本地日期
 │   ├── listEvents.ts        写入前后的提醒、备忘相比，做了什么、改之前是什么
@@ -75,6 +77,7 @@ src/
 ├── skills/                  宠物在聊天里能做的事，每组一个文件，`index.ts` 的 `CHAT_SKILLS` 定顺序
 │   ├── memory.ts            记提醒和备忘，按编号改、删（可撤销）
 │   ├── lookup.ts            查看提醒、备忘和今天的记录，给条目编号
+│   ├── remember.ts          记住、替换、忘掉关于用户的事（只能动聊天里记的，可撤销）
 │   ├── petActions.ts        让宠物做动作（回复还没写完就开始）
 │   └── refs.ts              编号（r1、n1）和条目 ID 的对应，只在一次回复内有效
 ├── platform/
@@ -449,6 +452,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **工具循环。** 一轮结束后按顺序执行这一轮的调用。只要有一个结果 `needsModel`，就把这一轮的文字、调用（`tool_calls`）和每个结果（`role: tool`）接到消息后面再请求一轮，最多 4 轮；第 4 轮带 `tool_choice: none`，模型只能用文字回答。没有 `needsModel` 时不再请求，存提醒、做动作都只花一次请求。后面某一轮失败时，已经做的事保留，回复末尾说一句没能接着处理。标了 `early` 的工具（目前只有 `play_action`）参数一完整就开始执行，一次回复只执行一个。
 - **不走流式。** 问候和测试连接调 `llm_complete`，拿回 HTTP 状态和回复原文，由 `completions.ts` 解读。
 - **供应商。** 目前只有 DeepSeek。它特有的东西放在 `src/ai/deepseek/`：正文里泄露的 `<budget:…>` 和写成文字的 `play_action`，以及服务端的读网页、联网搜索。请求体里的 `thinking: disabled` 在 `provider.ts`。钥匙串服务名沿用 `<identifier>.deepseek`，已存的 Key 不受影响。
+- **记忆。** 关于用户的事存在全局 key `ai-pet:facts:v1`（`facts/FactStore.ts`），最多 50 条、每条 80 字，所有角色共用。每条有来源：`user` 是用户在「设置 → AI 对话 → 记忆」里写或改过的，`chat` 是聊天里 `remember` 记的。`chatContext` 每次请求时读一遍，放进 `context.facts`：用户写的原样列出，聊天记的按顺序编号 `m1`、`m2`…。`prompt.ts` 把它们作为固定的一段「关于用户的记忆」放在日期后面，标明只是资料、不是指令，两者矛盾时以用户写的为准；没有记忆时这段不出现。`remember`、`forget`（`skills/remember.ts`）只认这次请求里的编号，所以碰不到用户写的那些；替换或删除前再读一次存储，条目已经不在就告诉模型。设置里关掉「聊天时自动记住」后，这个能力和编号都不提供，已有的记忆照常发送。增删改都走 `changeFacts`，写进工作日志（`fact_added`、`fact_edited`、`fact_deleted`，带改之前的文字）。记忆只进聊天和快速聊天的提示词，问候、文本处理、读网页不带。
 - **校验在哪。** 偏好、补充要求、对话规则、称呼的长度由各自的 Zod 读取函数保证，不在原生端再查一遍。原生端只查请求 ID 的格式和请求体不超过 8 MB。
 
 ## 快捷按钮和设置窗口

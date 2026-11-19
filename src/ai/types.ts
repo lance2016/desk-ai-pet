@@ -1,7 +1,13 @@
 import type { EffectLine } from "./skill";
 
-/** The local time and the pet actions the model may pick; see `chatContext`. */
-export interface ChatContext { now: string; timestamp: string; timeZone: string; actions: string[] }
+/**
+ * What the pet knows about the user (`src/facts/`). `mine` the user wrote and always holds;
+ * `learned` chats picked up, numbered so the tools can name one; `learning`: chats may change them.
+ */
+export interface ChatFacts { mine: string[]; learned: { ref: string; id: string; text: string }[]; learning: boolean }
+
+/** The local time, the pet actions the model may pick and what it knows about the user; see `chatContext`. */
+export interface ChatContext { now: string; timestamp: string; timeZone: string; actions: string[]; facts: ChatFacts }
 
 /** One part of the system prompt. A part with a `default` is one the user can rewrite (`ChatRules`). */
 export interface PromptSection { id: string; title: string; text: string; default: string | null }

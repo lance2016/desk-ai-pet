@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type Ref, type RefObject } from "react";
 import { ai, type EffectLine } from "../ai";
 import { chatContext } from "../agenda/chatTools";
+import { currentChatFacts } from "../facts/FactStore";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
 import { contextMessages, loadThreads, recordThread, saveThreads } from "../chat/ChatThreads";
 import { pickQuickThread, plainReply, quickHistory, replyLingerMs } from "../chat/QuickChat";
@@ -243,7 +244,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     setReply({ text: "", status: "thinking" });
     const actions = runtime.chatActionIds();
     try {
-      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions), skills: CHAT_SKILLS });
+      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts()), skills: CHAT_SKILLS });
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;

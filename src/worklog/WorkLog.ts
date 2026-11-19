@@ -11,7 +11,8 @@ import { z } from "zod";
 export type WorkKind =
   | "reminder_added" | "reminder_done" | "reminder_undone" | "reminder_edited" | "reminder_deleted"
   | "note_added" | "note_edited" | "note_deleted"
-  | "focus_completed" | "focus_stopped";
+  | "focus_completed" | "focus_stopped"
+  | "fact_added" | "fact_edited" | "fact_deleted";
 
 /** Who did it: the user by hand (panels, the pet's buttons, undo), or a tool in a chat reply. */
 export type WorkSource = "user" | "chat";

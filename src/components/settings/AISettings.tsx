@@ -9,11 +9,13 @@ import { ModelSettings } from "./ModelSettings";
 import { QuickChatSettings } from "./QuickChatSettings";
 import { ConfirmButton } from "../ConfirmButton";
 import { chatContext } from "../../agenda/chatTools";
+import { currentChatFacts } from "../../facts/FactStore";
 import { CHAT_SKILLS } from "../../skills";
 import { requestPreferences } from "../../preferences/ChatPreferences";
 import { CHAT_INSTRUCTIONS_LIMIT, loadChatInstructions, saveChatInstructions } from "../../preferences/ChatInstructions";
 import { ChatRequestDetails } from "./ChatRequestDetails";
 import { ChatRequestLog } from "./ChatRequestLog";
+import { FactSettings } from "./FactSettings";
 import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
 import { loadReadLinks, saveReadLinks } from "../../preferences/ReadLinkPreferences";
 import { moveRadioChoice } from "./radioKeys";
@@ -67,7 +69,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   };
   const showPreview = async () => {
     setPreviewError("");
-    try { setPreview(ai.preview(requestPreferences(packId, persona), chatContext(Date.now(), actions), CHAT_SKILLS)); }
+    try { setPreview(ai.preview(requestPreferences(packId, persona), chatContext(Date.now(), actions, currentChatFacts()), CHAT_SKILLS)); }
     catch (reason) { console.error("Could not preview chat request", reason); setPreviewError("没能生成预览，请在桌面应用中重试。"); }
   };
   const test = async () => {
@@ -119,6 +121,8 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
           </div>
         </section>
 
+        <FactSettings who={who} />
+
         {!keyFirst && connection}
 
         <section className="ai-section" aria-labelledby="ai-quick-chat-heading">
@@ -134,6 +138,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">◷</span><div><strong>创建提醒</strong><p>“每个工作日 11 点提醒我点外卖”</p><small>支持单次和重复提醒</small></div></div>
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">✎</span><div><strong>保存备忘</strong><p>“帮我记一下，下次买咖啡豆”</p><small>没有指定时间的内容会存进备忘</small></div></div>
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">⌕</span><div><strong>查提醒和备忘、写日报</strong><p>“我今天还有什么事”“帮我写今天的日报”</p><small>问到时才去看；右键宠物也有「今日回顾」</small></div></div>
+            <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">♡</span><div><strong>记住你的习惯</strong><p>“记住，我不吃香菜”</p><small>记下的都在左边「记忆」里，能改能删</small></div></div>
             <div className="ai-capability"><span className="ai-capability__icon" aria-hidden="true">✦</span><div><strong>做动作</strong><p>“挥挥手”</p><small>也可能根据聊天内容做出反应</small></div></div>
           </div>
           <p className="settings-footnote">能新建和查看，还不能修改已有的提醒和备忘</p>

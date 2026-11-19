@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
 import { ai, type EffectLine } from "../../ai";
 import { chatContext } from "../../agenda/chatTools";
+import { currentChatFacts } from "../../facts/FactStore";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
 import type { PetPersona } from "../../assets/Manifest";
@@ -397,7 +398,7 @@ export function ChatPage({ packId }: { packId: string }) {
     setSkipWeb(false);
     active.current = id; cancelRequested.current = false; replyRef.current = ""; linesRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
-      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current), skills: CHAT_SKILLS };
+      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current, currentChatFacts()), skills: CHAT_SKILLS };
       await ai.start(id, outgoing, requestPreferences(packId, personaRef.current), turn);
       if (cancelRequested.current && active.current === id) await ai.cancel(id);
     } catch (reason) {
