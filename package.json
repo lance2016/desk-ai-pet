@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "eval": "vitest run --config vitest.eval.config.ts",
     "tauri": "tauri",
     "icons:generate": "tauri icon src-tauri/app-icon-source.png --output src-tauri/icons",
     "install:app": "bash scripts/release.sh --local",

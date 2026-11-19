@@ -13,6 +13,8 @@ const KEY = "ai-pet:facts:v1";
 const LEARNING_KEY = "ai-pet:facts-learning:v1";
 /** Learned facts are named "m1", "m2"… in a chat, so the tools can say which one. */
 const REF_PREFIX = "m";
+/** The name of the learned fact at `index` (from 0) in a chat. */
+const factRef = (index: number) => `${REF_PREFIX}${index + 1}`;
 
 export const FACT_LIMITS = {
   /** Characters of one fact. */
@@ -98,7 +100,7 @@ export function chatFacts(facts: readonly Fact[], learning: boolean): ChatFacts 
   const learned = facts.filter((fact) => fact.source === "chat");
   return {
     mine: facts.filter((fact) => fact.source === "user").map((fact) => fact.text),
-    learned: learned.map((fact, index) => ({ ref: `${REF_PREFIX}${index + 1}`, id: fact.id, text: fact.text })),
+    learned: learned.map((fact, index) => ({ ref: factRef(index), id: fact.id, text: fact.text })),
     learning,
   };
 }

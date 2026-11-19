@@ -95,3 +95,24 @@ describe("remembering", () => {
     expect(rememberSkill.available?.(chatRequestContext({ facts: { mine: [], learned: [], learning: false } }))).toBe(false);
   });
 });
+
+describe("checking a new fact against the user's own", () => {
+  it("keeps nothing until the model has seen the user's facts and asks again", async () => {
+    keep("mine", "住在深圳", "user");
+    const call = newCall();
+    const first = await use(REMEMBER_TOOL, { text: "住在上海" }, call);
+    expect(first).toMatchObject({ needsModel: true, result: expect.stringContaining("- 住在深圳") });
+    expect(first.lines).toBeUndefined();
+    expect(texts()).toEqual(["user:住在深圳"]);
+    const second = await use(REMEMBER_TOOL, { text: "喜欢喝咖啡" }, call);
+    expect(second.needsModel).toBe(true);
+    const again = await use(REMEMBER_TOOL, { text: "喜欢喝咖啡" }, call);
+    expect(again.lines?.[0]).toMatchObject({ kind: "fact", text: "已记住：喜欢喝咖啡" });
+    expect(texts()).toEqual(["user:住在深圳", "chat:喜欢喝咖啡"]);
+  });
+
+  it("keeps a fact at once when the user wrote none", async () => {
+    expect((await use(REMEMBER_TOOL, { text: "是前端工程师" })).needsModel).toBeFalsy();
+    expect(texts()).toEqual(["chat:是前端工程师"]);
+  });
+});

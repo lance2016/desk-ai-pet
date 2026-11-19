@@ -17,6 +17,7 @@
 | `pnpm exec tsc --noEmit` | 类型检查 |
 | `pnpm test` | 单元测试 |
 | `pnpm test:coverage` | 测试加覆盖率 |
+| `pnpm eval` | 模型行为回归集：用真实的 DeepSeek 跑 `evals/chatCases.ts` 里的句子，检查调了哪些工具、结果对不对。要花一点钱，只在本机手动跑 |
 | `cargo check`（在 `src-tauri/` 下） | 检查 Rust 代码 |
 | `pnpm tauri build --bundles app` | 打包成 `AI Pet.app`（临时签名，钥匙串每次都会重新询问） |
 | `pnpm install:app` | 用本机 Apple Development 证书签名、打包、装到 `/Applications` 并重启 |
@@ -82,6 +83,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 模型供应商 ID | `DEEPSEEK.id`（`src/ai/provider.ts`） | `PROVIDERS`（`src-tauri/src/llm.rs`，同时定地址和钥匙串服务名；改服务名会丢掉用户存的 Key） |
 | 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `src/skills/memory.ts` 里 `add_reminder`、`update_reminder` 的 `repeat` 参数说明 |
 | 开机启动、备份和重启命令，登录项状态值 | `src/platform/system.ts` | `src-tauri/src/system.rs`、`lib.rs` 的 `invoke_handler` |
+| 回归集用的接口地址、钥匙串名、工具轮数 | `ENDPOINT`、`KEYCHAIN_SERVICE`、`MAX_ROUNDS`（`evals/runChat.ts`） | `PROVIDERS`（`llm.rs`）、`tauri.conf.json` 的 `identifier`、`secrets.rs` 的 `ACCOUNT`、`MAX_ROUNDS`（`src/ai/chatRun.ts`） |
 | 记忆编号的写法（`m1`、`m2`…） | `REF_PREFIX`（`src/facts/FactStore.ts`） | `src/skills/remember.ts` 里 `replaces`、`ref` 参数说明的例子 |
 | 用户动作 ID 带连字符，不能被 AI 选用 | `ID_PATTERN`（`src/actions/UserActions.ts`） | `ACTION_ID`（`src/ai/skill.ts`）不允许连字符 |
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
@@ -115,6 +117,8 @@ pnpm exec tsc --noEmit && pnpm test
 ```
 
 改了 Rust 再跑 `cargo check`。
+
+改了 `src/skills/` 的规则文字、工具说明或 `src/ai/prompt.ts` 的提示词，再跑一次 `pnpm eval`。Key 默认从钥匙串读，第一次 macOS 会弹窗问是否允许 `security` 读取；也可以用 `DEEPSEEK_API_KEY=… pnpm eval` 直接给。用例分两种：默认的必须每次都对；标了 `soft` 的漏了也无害（顺口提到的事没记上之类），只打印几次里对了几次，不算失败。会造成损害的（删错、照着递进来的内容做事、动用户写的记忆）不能标 `soft`。`-t 关键词` 只跑名字匹配的用例，`EVAL_RUNS=3` 每句跑三次（三次都对才算过），`EVAL_MODEL` 换模型。工具在内存里的假存储上执行，不碰本机数据。模型在实际使用中做错了什么，就把那句话加成一条用例。
 
 **开发模式通过不代表安装包可用。** 涉及资源加载、窗口行为、原生调用的改动，必须打包后启动 `AI Pet.app` 再确认一次。
 

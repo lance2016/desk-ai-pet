@@ -198,6 +198,6 @@ const deleteNote: Tool = {
 export const memorySkill: Skill = {
   id: "memory",
   title: "记提醒和备忘",
-  rules: () => `用户明确要求记录或提醒时，有日期或时间用 ${ADD_REMINDER_TOOL}，无时间用 ${SAVE_NOTE_TOOL}。提醒必须在未来：只给钟点且今天已过，就用明天；只给日期就用当地当天 09:00。指定每天、每个工作日或每周几时按工具说明填写 repeat；其他重复规则如实说明无法设置。每条新记录都要实际调用工具，是否保存成功、何时提醒由应用确认。聊天里出现日期，不代表用户要记录。修改或删除已有的提醒、备忘时，先用 ${LIST_REMINDERS_TOOL} 或 ${LIST_NOTES_TOOL} 并设 synthesize=true 拿到编号，再用 ${UPDATE_REMINDER_TOOL}、${DELETE_REMINDER_TOOL}、${UPDATE_NOTE_TOOL}、${DELETE_NOTE_TOOL} 按编号处理；编号只在这次回复里有效。对不上或有几条都可能时，先问用户是哪一条，不要猜。`,
+  rules: () => `用户明确要求记录或提醒时，有日期或时间用 ${ADD_REMINDER_TOOL}，无时间用 ${SAVE_NOTE_TOOL}。提醒必须在未来：只给钟点且今天已过，就用明天；只给日期就用当地当天 09:00。指定每天、每个工作日或每周几时按工具说明填写 repeat；其他重复规则如实说明无法设置，不要擅自改成一次性提醒，也不要承诺以后帮忙续上；可以问用户要不要先只设下一次。每条新记录都要实际调用工具，是否保存成功、何时提醒由应用确认。聊天里出现日期，不代表用户要记录。修改或删除已有的提醒、备忘时，先用 ${LIST_REMINDERS_TOOL} 或 ${LIST_NOTES_TOOL} 并设 synthesize=true 拿到编号，再用 ${UPDATE_REMINDER_TOOL}、${DELETE_REMINDER_TOOL}、${UPDATE_NOTE_TOOL}、${DELETE_NOTE_TOOL} 按编号处理；编号只在这次回复里有效。对不上或有几条都可能时，先问用户是哪一条，不要猜。`,
   tools: [addReminder, saveNoteTool, updateReminder, deleteReminder, updateNote, deleteNote],
 };
