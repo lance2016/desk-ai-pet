@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
-import { ai } from "../../ai";
-import { chatContext, loadSavedItems } from "../../agenda/chatTools";
+import { ai, type EffectLine } from "../../ai";
+import { chatContext } from "../../agenda/chatTools";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
 import type { PetPersona } from "../../assets/Manifest";
-import { applyToolCalls, dispatchChatAction, saveNote, type SavedLine, type ToolEffects } from "../../chat/toolEffects";
 import { markdownToPlain } from "../../chat/markdown";
 import { CHAT_IMAGE_TYPES, prepareChatImage, type AttachedChatImage } from "../../chat/ChatImage";
 import { containsWebAddress, webAddress, webConversationStart, webReplySchema, type WebMode, type WebReply } from "../../chat/ReadLinks";
-import { NOTE_LIMITS } from "../../notes/NoteStore";
+import { NOTE_LIMITS, saveNote } from "../../notes/NoteStore";
+import { CHAT_SKILLS } from "../../skills";
 import { ControlIcon } from "../ControlIcon";
 import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
 import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
@@ -99,8 +99,8 @@ export function ChatPage({ packId }: { packId: string }) {
   const personaRef = useRef<PetPersona | undefined>(undefined);
   /** Actions the model may ask the pet to play. */
   const actionIdsRef = useRef<string[]>([]);
-  const toolCallsRef = useRef<string[]>([]);
-  const actionRef = useRef<Promise<ToolEffects> | null>(null);
+  /** Lines for what the reply's tools did, shown under it once it ends. */
+  const linesRef = useRef<EffectLine[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>(initial.threads);
   const [threadId, setThreadId] = useState(() => initial.threads[0]?.id ?? newId());
   const [messages, setMessages] = useState<ChatMessage[]>(() => initial.threads[0]?.messages ?? []);
@@ -141,7 +141,7 @@ export function ChatPage({ packId }: { packId: string }) {
   /** Where the user fixes the error on show: a settings section, or the system's microphone permission. */
   const [errorFix, setErrorFix] = useState<"ai" | "voice" | "microphone" | null>(null);
   /** What the last reply saved, as the AI understood it with a way to correct it, and what it could not save. */
-  const [savedLines, setSavedLines] = useState<SavedLine[]>([]);
+  const [savedLines, setSavedLines] = useState<EffectLine[]>([]);
   /** Replies the user saved as notes in this window, by text, with the note they became. */
   const [notedMessages, setNotedMessages] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<number | null>(null);
@@ -247,8 +247,7 @@ export function ChatPage({ packId }: { packId: string }) {
     ai.subscribe(async (event) => {
       if (event.id !== active.current) return;
       if (event.kind === "delta") { replyRef.current += event.text; setReply(replyRef.current); return; }
-      if (event.kind === "tool") { toolCallsRef.current.push(event.text); return; }
-      if (event.kind === "action") { actionRef.current ??= dispatchChatAction(event.text, event.id); return; }
+      if (event.kind === "effect") { linesRef.current = [...linesRef.current, event.line]; return; }
       if (event.kind === "web-progress") { setWebProgress(WEB_PROGRESS[event.text] ?? ""); return; }
       if (event.kind === "web-result") {
         try {
@@ -258,19 +257,11 @@ export function ChatPage({ packId }: { packId: string }) {
         catch (reason) { console.warn("Invalid link reading result", reason); }
         return;
       }
-      const action = event.kind === "done" && actionRef.current ? await actionRef.current : null;
       if (disposed || event.id !== active.current) return;
       active.current = null; setPending(false);
-      const toolCalls = toolCallsRef.current;
-      toolCallsRef.current = [];
-      if (event.kind === "done") {
-        try {
-          const saved = applyToolCalls(toolCalls);
-          setSavedLines([...saved.lines, ...(action?.lines ?? [])]);
-          if (!replyRef.current.trim()) replyRef.current = saved.confirmation || action?.confirmation || "";
-        }
-        catch (reason) { console.error("Failed to save the reminder or note", reason); setError("提醒或备忘没能保存，删掉几条旧的提醒或备忘再试。"); }
-      }
+      // What the tools did happened even when the reply then failed or was stopped.
+      setSavedLines(linesRef.current);
+      linesRef.current = [];
       // A reply the user stopped is kept as far as it got; one that failed is dropped.
       const partial = event.kind === "cancelled" && replyRef.current.trim() ? `${replyRef.current.trimEnd()}\n\n${STOPPED_MARK}` : "";
       const web = event.kind === "done" ? webReplyRef.current : undefined;
@@ -403,10 +394,10 @@ export function ChatPage({ packId }: { packId: string }) {
     setSearch(false);
     if (mode === "image") { setSentImage(attachment); setDraftImage(null); }
     setSkipWeb(false);
-    active.current = id; cancelRequested.current = false; replyRef.current = ""; toolCallsRef.current = []; actionRef.current = null; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
+    active.current = id; cancelRequested.current = false; replyRef.current = ""; linesRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
-      const context = mode ? null : chatContext(Date.now(), actionIdsRef.current, loadSavedItems());
-      await ai.start(id, outgoing, requestPreferences(packId, personaRef.current), context, mode);
+      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current), skills: CHAT_SKILLS };
+      await ai.start(id, outgoing, requestPreferences(packId, personaRef.current), turn);
       if (cancelRequested.current && active.current === id) await ai.cancel(id);
     } catch (reason) {
       if (active.current !== id) return;
@@ -500,6 +491,12 @@ export function ChatPage({ packId }: { packId: string }) {
   const peek = personaReady ? pictureFor(look.peek, images) : null;
   const openNote = (id: string) => void petWindow.openNotes(id).catch((reason: unknown) => { console.error("Could not open notes", reason); setError("没能打开备忘，请从宠物的快捷按钮打开。"); });
   const openReminder = (id: string) => void petWindow.openToday(id).catch((reason: unknown) => { console.error("Could not open reminders", reason); setError("没能打开提醒，请从宠物的快捷按钮打开。"); });
+  const undoLine = (index: number) => {
+    const line = savedLines[index];
+    try { line?.undo?.(); }
+    catch (reason) { console.error("Could not undo what the reply did", reason); setError("没能撤销，请到提醒或备忘面板里处理。"); return; }
+    setSavedLines((lines) => lines.map((item, at) => (at === index ? { kind: item.kind, text: "已撤销" } : item)));
+  };
   const noteMessage = (content: string) => {
     const saved = notedMessages[content];
     if (saved) { openNote(saved); return; }
@@ -612,10 +609,11 @@ export function ChatPage({ packId }: { packId: string }) {
         </div>
       </div>)}
       {(pending || reply) && assistantRow(reply || (webProgress ? "" : "正在想…"))}
-      {savedLines.length > 0 && !pending && <div className="chat-saved">{savedLines.map((line, index) => <div key={line.id ?? `failed-${index}`} className={line.kind === "failed" ? "chat-saved__item is-failed" : "chat-saved__item"}>
+      {savedLines.length > 0 && !pending && <div className="chat-saved">{savedLines.map((line, index) => <div key={`${index}-${line.id ?? line.kind}`} className={line.kind === "failed" ? "chat-saved__item is-failed" : "chat-saved__item"}>
         <span className={line.kind === "note" ? "chat-saved__note" : undefined}>{line.text}</span>
         {line.kind === "agenda" && line.id && <button type="button" onClick={() => openReminder(line.id as string)}>修改</button>}
         {line.kind === "note" && line.id && <button type="button" onClick={() => openNote(line.id as string)}>查看</button>}
+        {line.undo && <button type="button" onClick={() => undoLine(index)}>撤销</button>}
       </div>)}</div>}
       {notice && !error && <div className="chat-notice" role="status">{notice}</div>}
       {error && <div className="chat-error" role="alert">{error}

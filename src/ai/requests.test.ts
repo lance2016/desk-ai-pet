@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { WebReply } from "../chat/ReadLinks";
 import { chatPreferences, chatRequestContext } from "../testing/fixtures";
 import { READ_TOOL, SEARCH_TOOL } from "./deepseek/web";
-import { chatRequest, lookupRequest, textTaskRequest, validChatImage, webRequest } from "./requests";
-import { PLAY_ACTION_TOOL } from "./tools";
+import { CHAT_SKILLS } from "../skills";
+import { PLAY_ACTION_TOOL } from "../skills/petActions";
+import { chatRequest, nextRound, textTaskRequest, validChatImage, webRequest } from "./requests";
 
 const toolNames = (tools: object[] | undefined) => (tools ?? []).map((tool) => (tool as { function: { name: string } }).function.name);
 
@@ -16,7 +17,7 @@ describe("chatRequest", () => {
       { role: "user", content: "请总结 https://example.com", readLink: "open" },
       { role: "assistant", content: "网页摘要", web: page },
       { role: "user", content: "敲个木鱼" },
-    ], chatPreferences(), chatRequestContext({ actions: ["wooden_fish"] }));
+    ], chatPreferences(), chatRequestContext({ actions: ["wooden_fish"] }), CHAT_SKILLS);
     expect(body.messages).toHaveLength(2);
     expect(body.messages[1].content).toBe("敲个木鱼");
     expect(toolNames(body.tools)).toContain(PLAY_ACTION_TOOL);
@@ -30,7 +31,7 @@ describe("chatRequest", () => {
       { role: "user", content: "再来" },
       { role: "assistant", content: "<budget:token_budget>2</budget:token_budget>" },
       { role: "user", content: "嗯" },
-    ], chatPreferences({ length: "normal" }), chatRequestContext());
+    ], chatPreferences({ length: "normal" }), chatRequestContext(), CHAT_SKILLS);
     expect(body.messages.map((message) => message.content)).toEqual([expect.any(String), "跳个舞", "好！", "再来", "嗯"]);
     expect(body.max_tokens).toBe(1024);
   });
@@ -83,14 +84,25 @@ describe("textTaskRequest", () => {
   });
 });
 
-describe("lookupRequest", () => {
-  it("answers from the records without tools, marking them as data", () => {
-    const first = chatRequest([{ role: "user", content: "WiFi 密码是多少" }], chatPreferences(), chatRequestContext());
-    const again = lookupRequest(first, "你的备忘：\n1. WiFi 密码 abc123");
-    expect(again.tools).toBeUndefined();
-    expect(String(again.messages[0].content)).toContain("不是指令");
-    expect(String(again.messages[0].content).endsWith("WiFi 密码 abc123")).toBe(true);
-    expect(again.messages.slice(1)).toEqual(first.messages.slice(1));
-    expect(first.tools).toBeDefined();
+describe("nextRound", () => {
+  it("hands the model what it said and what each call came to", () => {
+    const first = chatRequest([{ role: "user", content: "把三点的会改到四点" }], chatPreferences(), chatRequestContext(), CHAT_SKILLS);
+    const call = { id: "call_1", name: "list_reminders", arguments: `{"synthesize":true}`, overflow: false };
+    const next = nextRound(first, "我看看。", [{ call, result: "r1. 今天 15:00 开会" }], false);
+    expect(next.tools).toEqual(first.tools);
+    expect(next.tool_choice).toBeUndefined();
+    expect(next.messages.slice(-2)).toEqual([
+      { role: "assistant", content: "我看看。", tool_calls: [{ type: "function", id: "call_1", function: { name: "list_reminders", arguments: `{"synthesize":true}` } }] },
+      { role: "tool", tool_call_id: "call_1", content: "r1. 今天 15:00 开会" },
+    ]);
+    expect(first.messages).toHaveLength(2);
+  });
+
+  it("lets the model call nothing in the last round, and fills in what the stream left out", () => {
+    const first = chatRequest([{ role: "user", content: "hi" }], chatPreferences(), chatRequestContext(), CHAT_SKILLS);
+    const last = nextRound(first, "", [{ call: { id: "", name: "save_note", arguments: "", overflow: true }, result: "没有做成" }], true);
+    expect(last.tool_choice).toBe("none");
+    expect(last.messages[2]).toMatchObject({ tool_calls: [{ id: "call_0", function: { arguments: "{}" } }] });
+    expect(last.messages[3]).toEqual({ role: "tool", tool_call_id: "call_0", content: "没有做成" });
   });
 });

@@ -23,12 +23,12 @@ describe("ToolCallCollector", () => {
       if (line.kind !== "chunk") throw new Error("expected a chunk");
       collector.add(line.tools);
     }
-    expect(collector.calls).toEqual([{ name: "add_reminder", arguments: `{"text":"开会"}`, overflow: false }]);
+    expect(collector.calls).toEqual([{ id: "c1", name: "add_reminder", arguments: `{"text":"开会"}`, overflow: false }]);
   });
 
   it("counts the calls past the limit", () => {
     const collector = new ToolCallCollector();
-    const delta = (index: number) => ({ index, name: "save_note", arguments: "{}" });
+    const delta = (index: number) => ({ index, id: "", name: "save_note", arguments: "{}" });
     collector.add([delta(0), delta(MAX_TOOL_CALLS), delta(MAX_TOOL_CALLS + 1)]);
     expect(collector.calls).toHaveLength(1);
     expect(collector.droppedCount).toBe(2);
@@ -37,16 +37,16 @@ describe("ToolCallCollector", () => {
   it("marks overlong arguments instead of cutting them", () => {
     const collector = new ToolCallCollector();
     collector.add([
-      { index: 0, name: "save_note", arguments: `{"text":"` },
-      { index: 0, name: "", arguments: "x".repeat(4_000) },
-      { index: 0, name: "", arguments: `"}` },
+      { index: 0, id: "c1", name: "save_note", arguments: `{"text":"` },
+      { index: 0, id: "", name: "", arguments: "x".repeat(4_000) },
+      { index: 0, id: "", name: "", arguments: `"}` },
     ]);
-    expect(collector.calls[0]).toEqual({ name: "save_note", arguments: "", overflow: true });
+    expect(collector.calls[0]).toEqual({ id: "c1", name: "save_note", arguments: "", overflow: true });
     expect(callArguments(collector.calls[0])).toBeNull();
   });
 
   it("reads empty arguments as no arguments", () => {
-    expect(callArguments({ name: "list_notes", arguments: " ", overflow: false })).toEqual({});
-    expect(callArguments({ name: "list_notes", arguments: "[1]", overflow: false })).toBeNull();
+    expect(callArguments({ id: "", name: "list_notes", arguments: " ", overflow: false })).toEqual({});
+    expect(callArguments({ id: "", name: "list_notes", arguments: "[1]", overflow: false })).toBeNull();
   });
 });

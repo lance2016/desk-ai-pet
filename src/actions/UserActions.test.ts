@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatContext, NOTHING_SAVED } from "../agenda/chatTools";
+import { chatContext } from "../agenda/chatTools";
 import { createMemoryStorage, makeManifest } from "../testing/fixtures";
 import { canShortcut } from "../preferences/ActionPreferences";
 import { deleteUserAction, draftUserAction, loadUserActions, newUserActionId, saveUserAction, USER_ACTION_LIMITS, withUserActions } from "./UserActions";
@@ -43,7 +43,7 @@ describe("UserActions", () => {
     const entry = merged.animations.slice(-1)[0];
     expect(entry).toMatchObject({ id, label: "转圈", file: "a/idle.png", duration: 1500, loop: false });
     expect(canShortcut(entry)).toBe(true);
-    expect(chatContext(0, merged.animations.map((action) => action.id), NOTHING_SAVED).actions).not.toContain(id);
+    expect(chatContext(0, merged.animations.map((action) => action.id)).actions).not.toContain(id);
     expect(withUserActions(manifest, [])).toBe(manifest);
   });
 

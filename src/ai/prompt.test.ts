@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { chatPreferences, chatRequestContext } from "../testing/fixtures";
 import { previewChat, textTaskPrompt, upcomingDays } from "./prompt";
-import { ACTION_DESCRIPTION, LIST_NOTES_TOOL, PLAY_ACTION_TOOL } from "./tools";
+import { CHAT_SKILLS } from "../skills";
+import { REVIEW_TODAY_TOOL } from "../skills/lookup";
+import { PLAY_ACTION_TOOL } from "../skills/petActions";
 
 type Tool = { function: { name: string; description: string; parameters: { properties: { action?: { enum: string[] } } } } };
 
@@ -18,39 +20,39 @@ describe("upcomingDays", () => {
 
 describe("previewChat", () => {
   it("includes the user's preferences and the real tools", () => {
-    const preview = previewChat(chatPreferences({ instructions: "回答直接一些" }), chatRequestContext({ now: "2026-11-17 23:30 周二" }));
+    const preview = previewChat(chatPreferences({ instructions: "回答直接一些" }), chatRequestContext({ now: "2026-11-17 23:30 周二" }), CHAT_SKILLS);
     expect(preview.prompt).toContain("回答直接一些");
     const tools = preview.tools as Tool[];
-    expect(tools).toHaveLength(6);
-    expect(tools[5].function.parameters.properties.action?.enum).toEqual(["wave"]);
+    expect(tools).toHaveLength(10);
+    expect(tools[9].function.parameters.properties.action?.enum).toEqual(["wave"]);
   });
 
   it("lets the user rewrite or drop the editable parts", () => {
-    const original = previewChat(chatPreferences(), chatRequestContext());
+    const original = previewChat(chatPreferences(), chatRequestContext(), CHAT_SKILLS);
     expect(original.sections.map((section) => section.id)).toEqual(["persona", "date", "memory", "lookup", "actions"]);
     expect(original.sections[0].default).toBeNull();
     expect(original.sections[4].text).toBe(original.sections[4].default);
-    const rewritten = previewChat(chatPreferences({ rules: { actions: "  只在用户要求时做动作。 ", lookup: "" } }), chatRequestContext());
+    const rewritten = previewChat(chatPreferences({ rules: { actions: "  只在用户要求时做动作。 ", lookup: "" } }), chatRequestContext(), CHAT_SKILLS);
     expect(rewritten.prompt.endsWith("\n只在用户要求时做动作。")).toBe(true);
-    expect(rewritten.prompt).not.toContain(LIST_NOTES_TOOL);
+    expect(rewritten.prompt).not.toContain(REVIEW_TODAY_TOOL);
     expect(rewritten.prompt).not.toContain("\n\n");
     expect(rewritten.sections[3].text).toBe("");
     expect(rewritten.sections[4].default).toContain(PLAY_ACTION_TOOL);
   });
 
   it("uses only the action examples on offer and the local clock", () => {
-    const { prompt, tools } = previewChat(chatPreferences(), chatRequestContext({ actions: ["wooden_fish"] }));
+    const { prompt, tools } = previewChat(chatPreferences(), chatRequestContext({ actions: ["wooden_fish"] }), CHAT_SKILLS);
     expect(prompt).toContain("当前时间：2026-11-18T21:51:00+08:00\n时区：Asia/Shanghai");
     expect(prompt).toContain("「敲个木鱼」→ wooden_fish");
     expect(prompt).not.toContain("→ wave");
-    const action = (tools as Tool[])[5].function;
-    expect(action.description).toBe(ACTION_DESCRIPTION);
+    const action = (tools as Tool[])[9].function;
+    expect(action.name).toBe(PLAY_ACTION_TOOL);
     expect(action.parameters.properties.action?.enum).toEqual(["wooden_fish"]);
   });
 
   it("offers no action tool when the character has none, and addresses the user by name", () => {
-    const { prompt, tools } = previewChat(chatPreferences({ userName: " 阿龙 " }), chatRequestContext({ actions: [] }));
-    expect(tools).toHaveLength(5);
+    const { prompt, tools } = previewChat(chatPreferences({ userName: " 阿龙 " }), chatRequestContext({ actions: [] }), CHAT_SKILLS);
+    expect(tools).toHaveLength(9);
     expect(prompt).toContain("称呼用户为「阿龙」。");
     expect(prompt).not.toContain(PLAY_ACTION_TOOL);
   });

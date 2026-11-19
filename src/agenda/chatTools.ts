@@ -1,37 +1,30 @@
 import { z } from "zod";
 import type { ChatContext } from "../ai/types";
-import { MAX_TOOL_CALLS } from "../ai/stream";
-import { ACTION_ID, ADD_REMINDER_TOOL, SAVE_NOTE_TOOL } from "../ai/tools";
+import { ACTION_ID } from "../ai/skill";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
 import { focusRounds, loadFocusLog, type FocusLog } from "../greeting/FocusLog";
 import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, reminderLabel, shownAt, sortAgenda, type AgendaItem, type NewAgendaItem } from "./AgendaStore";
 import { parseRepeat, repeatLabel } from "./Repeat";
 
-/** Longest reminder line handed over for a lookup, so a long list stays small in the prompt. */
+/** Longest reminder line in a lookup, so a long list stays small in the prompt. */
 const REMINDER_LINE_LIMIT = 120;
 /** Today's record for `review_today`: lines at most and characters per line. */
 export const TODAY_LIMITS = { lines: 80, chars: 200 } as const;
 /** A note in today's record is cut to this, so a long one does not crowd out the rest. */
 const TODAY_NOTE_CHARS = 120;
 /** A reminder set further in the past than this is kept as a note instead of firing at once. */
-const PAST_TOLERANCE_MS = 60_000;
+export const PAST_TOLERANCE_MS = 60_000;
+/** Pet actions offered to the model at most. */
+const MAX_ACTIONS = 30;
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
-const callSchema = z.object({
-  name: z.string(),
-  arguments: z.string(),
-  /** The native side dropped arguments that grew too long. */
-  overflow: z.boolean().optional(),
-  /** Calls past the native side's limit, reported once per reply. */
-  dropped: z.number().int().positive().optional(),
-});
 const addReminderSchema = z.object({ text: z.string(), remind_at: z.string().optional(), repeat: z.string().optional() });
 const saveNoteSchema = z.object({ text: z.string() });
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
-/** Local time as the native side expects it: "2026-11-16 14:03 周一". */
+/** Local time as the prompt gives it: "2026-11-16 14:03 周一". */
 export function localTimeText(now: number): string {
   const date = new Date(now);
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -45,19 +38,15 @@ export interface SavedItems {
   focusLog: FocusLog;
 }
 
-/** For a request that never looks anything up, such as the prompt preview. */
-export const NOTHING_SAVED: SavedItems = { agenda: [], notes: [], focusLog: {} };
-
 export function loadSavedItems(): SavedItems {
   return { agenda: loadAgenda(), notes: loadNotes(), focusLog: loadFocusLog() };
 }
 
 /**
- * What the model needs to know besides the conversation: the local time, the
- * actions it may pick, and what the user saved. The native side shows the
- * model the saved lists only when it looks them up.
+ * What the model needs to know besides the conversation: the local time and the
+ * actions it may pick. What the user saved reaches it only when it looks it up.
  */
-export function chatContext(now: number, actions: readonly string[], saved: SavedItems): ChatContext {
+export function chatContext(now: number, actions: readonly string[]): ChatContext {
   const date = new Date(now);
   const offset = -date.getTimezoneOffset();
   const minutes = Math.abs(offset);
@@ -66,10 +55,7 @@ export function chatContext(now: number, actions: readonly string[], saved: Save
     now: localTimeText(now),
     timestamp: `${localIso}${offset < 0 ? "-" : "+"}${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    actions: actions.filter((id) => ACTION_ID.test(id)),
-    reminders: reminderLines(saved.agenda, now),
-    notes: sortNotes(saved.notes).map((note) => note.text),
-    today: todayLines(saved, now),
+    actions: actions.filter((id) => ACTION_ID.test(id)).slice(0, MAX_ACTIONS),
   };
 }
 
@@ -116,17 +102,8 @@ export function parseLocalTime(value: string): number | null {
   return exact ? date.getTime() : null;
 }
 
-function parseArguments<T>(schema: z.ZodType<T>, raw: string): T | null {
-  try {
-    return schema.parse(JSON.parse(raw));
-  } catch (error) {
-    console.warn("Ignoring invalid tool arguments", error);
-    return null;
-  }
-}
-
 /** Cuts `text` to `limit` UTF-16 units without splitting a character. */
-function clip(text: string, limit: number): string {
+export function clip(text: string, limit: number): string {
   let kept = "";
   for (const char of text) {
     if (kept.length + char.length > limit) break;
@@ -148,58 +125,44 @@ export interface ToolNote {
   fallback?: "past" | "no-time";
 }
 
-export interface ToolOutcome {
-  items: ToolReminder[];
-  notes: ToolNote[];
-  /** Why each call that could not be saved was rejected, in words for the user. */
-  failures: string[];
-}
-
 /** The text of a reminder or note, cut to `limit`; null when there is none. */
-function readText(raw: string, limit: number): { text: string; trimmed: boolean } | null {
+export function readText(raw: string, limit: number): { text: string; trimmed: boolean } | null {
   const text = raw.trim();
   if (!text) return null;
   const kept = clip(text, limit).trim();
   return { text: kept, trimmed: kept !== text };
 }
 
+/** What one `add_reminder` call asks for: a reminder, or a note when it has no usable time, or nothing it can keep. */
+export type ReminderRequest =
+  | { kind: "reminder"; item: ToolReminder }
+  | { kind: "note"; note: ToolNote }
+  | { kind: "failed"; reason: string };
+
 /**
- * Turns the tool calls of one reply into reminders and notes.
- * Nothing is dropped silently: overlong text is cut and marked, a reminder
- * without a usable time becomes a note with the reason, and calls that cannot
- * be saved at all come back as failures to show the user.
+ * Reads one `add_reminder` call. Nothing is dropped silently: overlong text is cut and marked,
+ * and a reminder without a usable time becomes a note with the reason.
  */
-export function interpretToolCalls(payloads: readonly string[], now: number, makeId: () => string): ToolOutcome {
-  const outcome: ToolOutcome = { items: [], notes: [], failures: [] };
-  for (const payload of payloads) {
-    const call = parseArguments(callSchema, payload);
-    if (!call) { outcome.failures.push("没看懂这条记录请求"); continue; }
-    if (call.dropped) { outcome.failures.push(`一次最多记 ${MAX_TOOL_CALLS} 条，后面 ${call.dropped} 条没记上`); continue; }
-    if (call.overflow) { outcome.failures.push("内容太长"); continue; }
-    if (call.name === ADD_REMINDER_TOOL) {
-      const args = parseArguments(addReminderSchema, call.arguments);
-      const text = args && readText(args.text, AGENDA_LIMITS.text);
-      if (!args || !text) { outcome.failures.push("没看懂要提醒什么"); continue; }
-      const remindAt = args.remind_at ? parseLocalTime(args.remind_at) : null;
-      const rule = args.repeat?.trim() ? args.repeat : undefined;
-      const repeat = rule ? parseRepeat(rule) : null;
-      // A repeating reminder only takes the time of day, so a past date does not matter.
-      if (remindAt !== null && (repeat !== null || remindAt >= now - PAST_TOLERANCE_MS)) {
-        outcome.items.push({ id: makeId(), text: text.text, remindAt, repeat, trimmed: text.trimmed, onceOnly: rule !== undefined && repeat === null });
-      } else {
-        const note = readText(args.text, NOTE_LIMITS.text);
-        if (note) outcome.notes.push({ ...note, fallback: remindAt === null ? "no-time" : "past" });
-      }
-    } else if (call.name === SAVE_NOTE_TOOL) {
-      const args = parseArguments(saveNoteSchema, call.arguments);
-      const text = args && readText(args.text, NOTE_LIMITS.text);
-      if (text) outcome.notes.push(text);
-      else outcome.failures.push("没看懂要存什么");
-    } else {
-      outcome.failures.push("没看懂这条记录请求");
-    }
+export function readReminderCall(args: unknown, now: number, makeId: () => string): ReminderRequest {
+  const parsed = addReminderSchema.safeParse(args);
+  const text = parsed.success ? readText(parsed.data.text, AGENDA_LIMITS.text) : null;
+  if (!parsed.success || !text) return { kind: "failed", reason: "没看懂要提醒什么" };
+  const { remind_at: when, repeat: rule } = parsed.data;
+  const remindAt = when ? parseLocalTime(when) : null;
+  const repeatRule = rule?.trim() ? rule : undefined;
+  const repeat = repeatRule ? parseRepeat(repeatRule) : null;
+  // A repeating reminder only takes the time of day, so a past date does not matter.
+  if (remindAt !== null && (repeat !== null || remindAt >= now - PAST_TOLERANCE_MS)) {
+    return { kind: "reminder", item: { id: makeId(), text: text.text, remindAt, repeat, trimmed: text.trimmed, onceOnly: repeatRule !== undefined && repeat === null } };
   }
-  return outcome;
+  const note = readText(parsed.data.text, NOTE_LIMITS.text);
+  return note ? { kind: "note", note: { ...note, fallback: remindAt === null ? "no-time" : "past" } } : { kind: "failed", reason: "没看懂要提醒什么" };
+}
+
+/** Reads one `save_note` call; null when it has no text. */
+export function readNoteCall(args: unknown): ToolNote | null {
+  const parsed = saveNoteSchema.safeParse(args);
+  return parsed.success ? readText(parsed.data.text, NOTE_LIMITS.text) : null;
 }
 
 /** Why a reminder became a note, in words for the user. */
@@ -208,15 +171,9 @@ export const FALLBACK_REASONS: Record<NonNullable<ToolNote["fallback"]>, string>
   "no-time": "没听懂时间，先存进备忘了",
 };
 
-/** A reply for when the model only called tools and said nothing. */
-export function confirmationFor(items: readonly NewAgendaItem[], now: number, notes: readonly ToolNote[] = [], failures: readonly string[] = []): string {
-  const fallbacks = [...new Set(notes.flatMap((note) => (note.fallback ? [FALLBACK_REASONS[note.fallback]] : [])))];
-  return [
-    ...items.map((item) => (item.repeat
-      ? `好，以后${repeatLabel(item.repeat)} ${clockLabel(item.remindAt)} 都提醒你：${item.text}`
-      : `好，${formatReminderTime(item.remindAt, now)} 提醒你：${item.text}`)),
-    ...(notes.some((note) => !note.fallback) ? ["好，存进备忘了"] : []),
-    ...fallbacks,
-    ...(failures.length > 0 ? ["有的没记上，看下面的说明"] : []),
-  ].join("。");
+/** What the pet says for a reminder it set when the model said nothing. */
+export function reminderConfirmation(item: NewAgendaItem, now: number): string {
+  return item.repeat
+    ? `好，以后${repeatLabel(item.repeat)} ${clockLabel(item.remindAt)} 都提醒你：${item.text}`
+    : `好，${formatReminderTime(item.remindAt, now)} 提醒你：${item.text}`;
 }

@@ -1,14 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type Ref, type RefObject } from "react";
-import { ai } from "../ai";
-import { chatContext, loadSavedItems } from "../agenda/chatTools";
+import { ai, type EffectLine } from "../ai";
+import { chatContext } from "../agenda/chatTools";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
 import { contextMessages, loadThreads, recordThread, saveThreads } from "../chat/ChatThreads";
 import { pickQuickThread, plainReply, quickHistory, replyLingerMs } from "../chat/QuickChat";
-import { applyToolCalls, dispatchChatAction, type SavedLine, type ToolEffects } from "../chat/toolEffects";
 import type { PetRuntime } from "../core/PetRuntime";
 import type { ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
+import { CHAT_SKILLS } from "../skills";
 import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 
@@ -25,7 +25,7 @@ export interface QuickReply {
   status: "thinking" | "streaming" | "done" | "error";
   fix?: "settings" | "chat";
   /** Reminders and memos the reply saved, as the AI understood them, and what it could not save. */
-  saved?: SavedLine[];
+  saved?: EffectLine[];
   /** A small line under the reply, e.g. that it could not be kept in the chat history. */
   note?: string;
 }
@@ -46,7 +46,8 @@ interface Request {
   history: ChatMessage[];
   /** What the user typed, to put back if the reply fails. */
   typed: string;
-  action?: Promise<ToolEffects>;
+  /** What the reply's tools did. */
+  lines: EffectLine[];
 }
 
 export interface QuickChat {
@@ -65,7 +66,9 @@ export interface QuickChat {
   expand: () => void;
   openReply: () => void;
   /** Opens a saved reminder in the reminders panel, or a saved note in the notes panel. */
-  openSaved: (item: SavedLine) => void;
+  openSaved: (item: EffectLine) => void;
+  /** Puts back what the reply changed or removed. */
+  undoSaved: (item: EffectLine) => void;
   /** Says so when a paste was cut at the input limit. */
   onPaste: (event: ClipboardEvent<HTMLInputElement>) => void;
 }
@@ -108,7 +111,6 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   openRef.current = open;
   const request = useRef<Request | null>(null);
   const replyText = useRef("");
-  const toolCalls = useRef<string[]>([]);
   /** The thread the bar last wrote to, for "open in the chat window". */
   const lastThread = useRef<string | null>(null);
   /** The thread written to since the bar last opened; each opening starts a new conversation. */
@@ -186,15 +188,13 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
       const current = request.current;
       if (!current || event.id !== current.id) return;
       if (event.kind === "delta") { replyText.current += event.text; setReply({ text: replyText.current, status: "streaming" }); return; }
-      if (event.kind === "tool") { toolCalls.current = [...toolCalls.current, event.text]; return; }
-      if (event.kind === "action") { current.action ??= dispatchChatAction(event.text, event.id); return; }
-      const action = event.kind === "done" && current.action ? await current.action : null;
+      if (event.kind === "effect") { current.lines = [...current.lines, event.line]; return; }
       if (disposed || request.current !== current) return;
       request.current = null;
       setPending(false);
       if (event.kind === "cancelled" || event.kind === "error") {
-        // A dispatched action is a side effect; leave its request in history on interruption.
-        if (!current.action) {
+        // What the tools did is a side effect; leave its request in history on interruption.
+        if (current.lines.length === 0) {
           try { dropUnanswered(packId, current); } catch (error) { console.error("Could not take the unanswered line back", error); }
           setDraft((draft) => draft || current.typed);
         }
@@ -202,14 +202,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
         if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
         return;
       }
-      let saved: ReturnType<typeof applyToolCalls> = { lines: [], confirmation: "" };
-      try { saved = applyToolCalls(toolCalls.current); } catch (error) {
-        console.error("Failed to save the reminder or note", error);
-        saved = { lines: [{ kind: "failed", text: "提醒或备忘没能保存，删掉几条旧的提醒或备忘再试" }], confirmation: "" };
-      }
-      if (action) saved.lines.push(...action.lines);
-      const said = replyText.current.trim() || saved.confirmation || action?.confirmation;
-      if (!said) { setReply({ text: "没有收到回复，再说一次试试。", status: "error", saved: saved.lines }); return; }
+      const said = replyText.current.trim();
+      if (!said) { setReply({ text: "没有收到回复，再说一次试试。", status: "error", saved: current.lines }); return; }
       const text = event.text === "length" ? `${said}\n\n${CUT_OFF_MARK}` : said;
       // The reply is shown even when it cannot be kept.
       let note: string | undefined;
@@ -217,7 +211,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
         console.error("Failed to save the quick chat reply", error);
         note = `这条回复没能存进聊天记录。${STORAGE_FULL}`;
       }
-      setReply({ text, status: "done", saved: saved.lines, note });
+      setReply({ text, status: "done", saved: current.lines, note });
     })
       .then((unsubscribe) => { if (disposed) unsubscribe(); else stop = unsubscribe; })
       .catch((error: unknown) => console.warn("Quick chat is unavailable here", error));
@@ -242,15 +236,14 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     sessionThread.current = threadId;
     const id = newId();
     const typed = draft;
-    request.current = { id, threadId, history, typed };
+    request.current = { id, threadId, history, typed, lines: [] };
     replyText.current = "";
-    toolCalls.current = [];
     setDraft("");
     setPending(true);
     setReply({ text: "", status: "thinking" });
     const actions = runtime.chatActionIds();
     try {
-      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), chatContext(Date.now(), actions, loadSavedItems()));
+      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions), skills: CHAT_SKILLS });
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;
@@ -293,12 +286,17 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     const kept = draft.length - ((field.selectionEnd ?? 0) - (field.selectionStart ?? 0)) + pasted;
     if (kept > MAX_INPUT) setReply({ text: `内容太长，只保留了前 ${MAX_INPUT} 字。`, status: "done" });
   };
-  const openSaved = (item: SavedLine) => {
+  const openSaved = (item: EffectLine) => {
     if (!item.id) { expand(); return; }
     close(false);
     setReply(null);
     const opened = item.kind === "note" ? petWindow.openNotes(item.id) : petWindow.openToday(item.id);
     opened.catch((error: unknown) => console.error("Failed to open the saved item", error));
+  };
+  const undoSaved = (item: EffectLine) => {
+    try { item.undo?.(); }
+    catch (error) { console.error("Could not undo what the reply did", error); return; }
+    setReply((current) => current && { ...current, saved: current.saved?.map((line) => (line === item ? { kind: line.kind, text: "已撤销" } : line)) });
   };
   const openReply = () => {
     if (reply?.fix === "settings") {
@@ -310,7 +308,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   };
 
   const ownName = runtime ? runtime.manifest.persona?.name ?? runtime.manifest.name : "宠物";
-  return { open, draft, pending, keyMissing, reply, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, onPaste };
+  return { open, draft, pending, keyMissing, reply, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste };
 }
 
 function Icon({ name }: { name: "send" | "stop" | "expand" }) {
@@ -382,7 +380,9 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
         {first && (
           <span className={first.kind === "failed" ? "speech-bubble__saved is-failed" : "speech-bubble__saved"}>
             <span>{first.text}</span>
-            <button type="button" onClick={(event) => { event.stopPropagation(); chat.openSaved(first); }}>{first.kind === "note" ? "查看" : first.kind === "agenda" ? "修改" : "看详情"}</button>
+            {first.undo
+              ? <button type="button" onClick={(event) => { event.stopPropagation(); chat.undoSaved(first); }}>撤销</button>
+              : first.text !== "已撤销" && <button type="button" onClick={(event) => { event.stopPropagation(); chat.openSaved(first); }}>{first.kind === "note" ? "查看" : first.kind === "agenda" ? "修改" : "看详情"}</button>}
           </span>
         )}
         {more > 0 && <small className="speech-bubble__fix">还有 {more} 条，点开看全部</small>}

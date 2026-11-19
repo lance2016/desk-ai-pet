@@ -6,7 +6,7 @@ export const MAX_TOOL_CALLS = 8;
 const MAX_TOOL_ARGUMENT_BYTES = 4_000;
 
 /** One streamed piece of a tool call. Name and arguments arrive split over many packets. */
-export interface ToolDelta { index: number; name: string; arguments: string }
+export interface ToolDelta { index: number; id: string; name: string; arguments: string }
 
 /** One `data:` line of a streamed reply in the OpenAI chat format. */
 export type StreamLine =
@@ -25,7 +25,7 @@ function toolDeltas(delta: Record<string, unknown>): ToolDelta[] {
   return delta.tool_calls.flatMap((call): ToolDelta[] => {
     if (!isObject(call) || !Number.isSafeInteger(call.index) || (call.index as number) < 0) return [];
     const fn = isObject(call.function) ? call.function : {};
-    return [{ index: call.index as number, name: textAt(fn.name), arguments: textAt(fn.arguments) }];
+    return [{ index: call.index as number, id: textAt(call.id), name: textAt(fn.name), arguments: textAt(fn.arguments) }];
   });
 }
 
@@ -43,6 +43,8 @@ export function parseStreamData(data: string): StreamLine {
 
 /** A tool call put back together from its pieces. */
 export interface ToolCall {
+  /** The provider's id for the call; a later round answers it by this id. */
+  id: string;
   name: string;
   arguments: string;
   /** The arguments grew past the limit; they are dropped instead of cut, since a cut JSON cannot be read anyway. */
@@ -57,8 +59,9 @@ export class ToolCallCollector {
   add(deltas: readonly ToolDelta[]): void {
     for (const delta of deltas) {
       if (delta.index >= MAX_TOOL_CALLS) { this.dropped.add(delta.index); continue; }
-      while (this.calls.length <= delta.index) this.calls.push({ name: "", arguments: "", overflow: false });
+      while (this.calls.length <= delta.index) this.calls.push({ id: "", name: "", arguments: "", overflow: false });
       const call = this.calls[delta.index];
+      call.id ||= delta.id;
       call.name += delta.name;
       if (call.overflow) continue;
       if (utf8Length(call.arguments) + utf8Length(delta.arguments) <= MAX_TOOL_ARGUMENT_BYTES) call.arguments += delta.arguments;

@@ -96,5 +96,5 @@ export function chatPreferences(overrides: Partial<ChatRequestPreferences> = {})
 
 /** What `chatContext` sends with a chat request. */
 export function chatRequestContext(overrides: Partial<ChatContext> = {}): ChatContext {
-  return { now: "2026-11-18 21:51 周三", timestamp: "2026-11-18T21:51:00+08:00", timeZone: "Asia/Shanghai", actions: ["wave"], reminders: [], notes: [], today: [], ...overrides };
+  return { now: "2026-11-18 21:51 周三", timestamp: "2026-11-18T21:51:00+08:00", timeZone: "Asia/Shanghai", actions: ["wave"], ...overrides };
 }

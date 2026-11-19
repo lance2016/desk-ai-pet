@@ -1,24 +1,23 @@
 import type { WebMode } from "../chat/ReadLinks";
 import { llmPlatform } from "../platform/llm";
 import { ReplyText } from "./deepseek/leaks";
-import { webDelta, WebResult } from "./deepseek/web";
-import { clipLocalLookup, lookupResults } from "./lookup";
+import { webDelta, WebResult, type WebProgress } from "./deepseek/web";
 import { DEEPSEEK, failureMessage, isSuccess } from "./provider";
 import { RequestRecord } from "./requestLog";
-import { lookupRequest, type RequestBody } from "./requests";
-import { parseStreamData, ToolCallCollector, type ToolCall } from "./stream";
-import { LOOKUP_TOOLS, PLAY_ACTION_TOOL } from "./tools";
+import { nextRound, type AnsweredCall, type RequestBody } from "./requests";
+import { failed, offeredSkills, type Skill, type Tool, type ToolCall as RunningCall, type ToolOutcome } from "./skill";
+import { callArguments, MAX_TOOL_CALLS, parseStreamData, ToolCallCollector, type ToolCall } from "./stream";
 import type { ChatContext, ChatEvent } from "./types";
 
-type Kind = ChatEvent["kind"];
-type Emit = (kind: Kind, text: string) => void;
-type Lists = Pick<ChatContext, "reminders" | "notes" | "today">;
+/** Requests one reply may make: the first, and up to three more when the model has to read what its tools found. */
+const MAX_ROUNDS = 4;
+const CANNOT_GO_ON = "查到了记录，但暂时没法接着处理。可以再说一次，或者在提醒、备忘面板里操作。";
+const NOT_DONE = "有的没做成，看下面的说明";
+const ONE_EARLY_CALL = "这次回复已经做过一个动作，没有再做。";
+
 interface RoundEnd { status: number | null; ok: boolean; cancelled: boolean }
 
-export const NO_LISTS: Lists = { reminders: [], notes: [], today: [] };
-const LOOKUP_UNAVAILABLE = "查到了记录，但暂时没法整理答案。可以在提醒或备忘面板查看。";
-
-/** The streamed requests of this window, by request id, and the windows parts listening to replies. */
+/** The streamed requests of this window, by request id, and the window parts listening to replies. */
 const consumers = new Map<string, { data: (data: string) => void; end: (end: RoundEnd) => void }>();
 const listeners = new Set<(event: ChatEvent) => void>();
 let transport: Promise<unknown> | null = null;
@@ -42,38 +41,28 @@ async function startRound(id: string, body: RequestBody, onData: (data: string) 
   return { ended };
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** The first action call whose arguments are complete and name an action on offer. */
-function readyAction(calls: readonly ToolCall[], allowed: readonly string[]): string | null {
-  for (const call of calls) {
-    if (call.name !== PLAY_ACTION_TOOL || call.overflow) continue;
-    let args: unknown;
-    try { args = JSON.parse(call.arguments); } catch { continue; }
-    if (isObject(args) && Object.keys(args).length === 1 && typeof args.action === "string" && allowed.includes(args.action)) return args.action;
-  }
-  return null;
-}
-
-/**
- * Reads one streamed reply. Text and tool calls are read independently, and one valid action is
- * handed on as soon as its arguments are complete, before the reply ends.
- */
+/** Reads one streamed round. Text and tool calls are read independently, so a tool can start before the round ends. */
 class RoundReader {
   done = false;
   responseError = false;
   refused = false;
   truncated = false;
-  /** Some text reached the window. */
+  /** Some words reached the window in this round. */
   said = false;
-  /** The reply's text exactly as the model sent it, before anything was taken out; for developer mode. */
+  /** The round's words as shown, for the next round's history. */
+  text = "";
+  /** The round's text exactly as the model sent it, before anything was taken out; for developer mode. */
   raw = "";
   readonly tools = new ToolCallCollector();
   readonly web = new WebResult();
   private readonly reply = new ReplyText();
-  private actionSent = false;
 
-  constructor(private readonly emit: Emit, private readonly allowedActions: readonly string[], private readonly webMode: boolean) {}
+  constructor(
+    private readonly show: (text: string) => void,
+    private readonly progress: (progress: WebProgress) => void,
+    private readonly webMode: boolean,
+    private readonly onTools: (calls: readonly ToolCall[]) => void,
+  ) {}
 
   read(data: string): void {
     const line = parseStreamData(data);
@@ -83,137 +72,244 @@ class RoundReader {
     if (line.kind !== "chunk" || this.done || this.responseError || this.refused) return;
     this.raw += line.text;
     this.truncated ||= line.truncated;
-    this.show(this.webMode ? line.text : this.reply.push(line.text));
+    this.emit(this.webMode ? line.text : this.reply.push(line.text));
     if (this.webMode) {
       const progress = this.web.update(webDelta(line.choice));
-      if (progress) this.emit("web-progress", progress);
+      if (progress) this.progress(progress);
       return;
     }
     if (line.tools.length === 0) return;
     this.tools.add(line.tools);
-    if (this.actionSent || this.truncated) return;
-    const action = readyAction(this.tools.calls, this.allowedActions);
-    if (action) { this.actionSent = true; this.emit("action", action); }
+    if (!this.truncated) this.onTools(this.tools.calls);
   }
 
   /** The text held back until the end, such as a possible leaked call. */
   finish(): void {
-    if (!this.refused) this.show(this.reply.finish());
+    if (!this.refused) this.emit(this.reply.finish());
   }
 
   succeeded(end: RoundEnd): boolean {
     return this.done && !this.responseError && !this.refused && end.ok;
   }
 
-  private show(text: string): void {
+  private emit(text: string): void {
     if (!text) return;
     this.said ||= text.trim() !== "";
-    this.emit("delta", text);
+    this.text += text;
+    this.show(text);
   }
 }
 
-/** What the window gets for each call it saves, so it can tell the user about the ones it could not save. */
-function toolPayloads(tools: ToolCallCollector): string[] {
-  const payloads = tools.calls
-    .filter((call) => !LOOKUP_TOOLS.includes(call.name) && call.name !== PLAY_ACTION_TOOL && (call.name !== "" || call.overflow))
-    .map((call) => JSON.stringify({ name: call.name, arguments: call.arguments, overflow: call.overflow }));
-  return tools.droppedCount > 0 ? [...payloads, JSON.stringify({ name: "", arguments: "", dropped: tools.droppedCount })] : payloads;
+/** Arguments that are already a complete JSON object, or null. */
+function completeArguments(call: ToolCall): Record<string, unknown> | null {
+  if (call.overflow || !call.arguments.trim()) return null;
+  try {
+    const value: unknown = JSON.parse(call.arguments);
+    return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
 }
 
-interface Run { cancelled: boolean; dispatched: boolean }
+interface Run {
+  cancelled: boolean;
+  /** Some words reached the window, in any round. */
+  said: boolean;
+  /** The next words start a new block of the reply: a blank line goes before them. */
+  breakBefore: boolean;
+  /** A tool that starts early has run in this reply; only one does. */
+  earlyStarted: boolean;
+  /** What each tool said for itself, for a reply in which the model said nothing. */
+  confirmations: string[];
+}
 const runs = new Map<string, Run>();
 
 function send(event: ChatEvent): void {
   for (const listener of listeners) listener(event);
 }
 
+/** The tools a chat turn offers, with the context they work in. */
+export interface ToolSetup { context: ChatContext; skills: readonly Skill[] }
+
 export interface RunOptions {
-  /** A webpage, search or picture turn. */
+  /** A webpage, search or picture turn: no local tools. */
   mode?: WebMode;
-  /** The saved lists the lookups answer from. */
-  lists: Lists;
-  /** Pet actions the reply may play. */
-  actions: readonly string[];
+  /** A chat turn with local tools. */
+  tools?: ToolSetup;
   /** Developer mode keeps the requests. */
   record: boolean;
 }
 
+/** Everything one reply needs while it runs. */
+class Reply {
+  readonly run: Run = { cancelled: false, said: false, breakBefore: false, earlyStarted: false, confirmations: [] };
+  private readonly toolsByName: Map<string, Tool>;
+  private readonly call: RunningCall;
+  private readonly record: RequestRecord | null;
+  private started = new Map<number, Promise<ToolOutcome>>();
+
+  constructor(private readonly id: string, private readonly options: RunOptions) {
+    const setup = options.tools;
+    this.toolsByName = new Map(setup ? offeredSkills(setup.skills, setup.context).flatMap((skill) => skill.tools.map((tool) => [tool.name, tool] as const)) : []);
+    this.call = { requestId: id, context: setup?.context ?? { now: "", timestamp: "", timeZone: "", actions: [] }, memo: new Map() };
+    this.record = options.record ? new RequestRecord(id) : null;
+  }
+
+  reader(): RoundReader {
+    this.started = new Map();
+    return new RoundReader((text) => this.show(text), (progress) => this.event("web-progress", progress), Boolean(this.options.mode), (calls) => this.startEarly(calls));
+  }
+
+  /** Words for the window; a new block of the reply gets a blank line before it. */
+  show(text: string): void {
+    if (this.run.cancelled || !text) return;
+    const lead = this.run.breakBefore && text.trim() ? "\n\n" : "";
+    if (text.trim()) { this.run.breakBefore = false; this.run.said = true; }
+    this.event("delta", lead + text);
+  }
+
+  event(kind: Exclude<ChatEvent["kind"], "effect">, text: string): void {
+    if (!this.run.cancelled) send({ id: this.id, kind, text });
+  }
+
+  /** The reply is over: this window may ask again. */
+  final(kind: Exclude<ChatEvent["kind"], "effect">, text: string): void {
+    runs.delete(this.id);
+    send({ id: this.id, kind, text });
+  }
+
+  private runTool(tool: Tool, args: Record<string, unknown>): Promise<ToolOutcome> {
+    return Promise.resolve()
+      .then(() => tool.run(args, this.call))
+      .catch((error: unknown) => { console.error(`The ${tool.name} tool failed`, error); return failed("这一步没做成", { confirmation: NOT_DONE }); });
+  }
+
+  /** Starts a tool marked `early` as soon as its arguments are complete; one per reply. */
+  private startEarly(calls: readonly ToolCall[]): void {
+    calls.forEach((call, index) => {
+      const tool = this.toolsByName.get(call.name);
+      if (this.run.earlyStarted || this.started.has(index) || !tool?.early) return;
+      const args = completeArguments(call);
+      if (!args || !tool.early.ready(args, this.call.context)) return;
+      this.run.earlyStarted = true;
+      this.started.set(index, this.runTool(tool, args));
+    });
+  }
+
+  private runAtEnd(call: ToolCall): Promise<ToolOutcome> {
+    if (call.overflow) return Promise.resolve(failed("这条没做成：内容太长", { confirmation: NOT_DONE }));
+    const tool = this.toolsByName.get(call.name);
+    if (!tool) return Promise.resolve(failed("没看懂这条请求", { confirmation: NOT_DONE }));
+    // Unreadable arguments go to the tool as none, so it says in its own words what is missing.
+    const args = callArguments(call) ?? {};
+    if (tool.early) {
+      if (this.run.earlyStarted) return Promise.resolve({ result: ONE_EARLY_CALL });
+      this.run.earlyStarted = true;
+    }
+    return this.runTool(tool, args);
+  }
+
+  /** Shows what a call did: lines under the reply always (it happened), a list in the reply while it runs. */
+  private report(outcome: ToolOutcome): void {
+    for (const line of outcome.lines ?? []) send({ id: this.id, kind: "effect", line });
+    if (outcome.shown) { this.run.breakBefore = this.run.said; this.show(outcome.shown); }
+    if (outcome.confirmation) this.run.confirmations.push(outcome.confirmation);
+  }
+
+  /** Runs the round's calls in order; returns them answered, and whether the model has to read the results. */
+  async runCalls(reader: RoundReader): Promise<{ answered: AnsweredCall[]; needsModel: boolean }> {
+    const answered: AnsweredCall[] = [];
+    let needsModel = false;
+    for (const [index, call] of reader.tools.calls.entries()) {
+      if (!call.name && !call.overflow) continue;
+      const outcome = await (this.started.get(index) ?? this.runAtEnd(call));
+      this.report(outcome);
+      answered.push({ call, result: outcome.result });
+      needsModel ||= outcome.needsModel === true;
+    }
+    if (reader.tools.droppedCount > 0) this.report(failed(`一次最多处理 ${MAX_TOOL_CALLS} 件，后面 ${reader.tools.droppedCount} 件没做`, { confirmation: NOT_DONE }));
+    return { answered, needsModel };
+  }
+
+  /** Reports the tools that started early in a round that then failed or was stopped: what they did still happened. */
+  async settleEarly(): Promise<void> {
+    for (const outcome of await Promise.all(this.started.values())) this.report(outcome);
+    this.started = new Map();
+  }
+
+  /** Ends a reply that worked; the tools speak for it when the model said nothing. */
+  finishReply(truncated: boolean): void {
+    if (!this.run.said && this.run.confirmations.length > 0) this.show([...new Set(this.run.confirmations)].join("。"));
+    // "length" tells the window the reply was cut off at the token limit.
+    this.final("done", truncated ? "length" : "");
+  }
+
+  addRound(body: RequestBody, reader: RoundReader, end: RoundEnd): void {
+    this.record?.add(body, reader.raw, reader.tools.calls, reader.succeeded(end), end.status);
+  }
+}
+
 /**
- * Sends a request and streams the reply to this window's listeners. Resolves once the request is on its way;
+ * Sends a request and streams the reply to this window's listeners. When the model's tools found something
+ * it has to read, the reply goes on with another request. Resolves once the first request is on its way;
  * rejects when it cannot start. Each window answers one message at a time.
  */
 export async function startRun(id: string, body: RequestBody, options: RunOptions): Promise<void> {
   if ([...runs.values()].some((run) => !run.cancelled)) throw new Error("上一条还在回复，稍等一下。");
-  const run: Run = { cancelled: false, dispatched: false };
-  const emit: Emit = (kind, text) => {
-    if (run.cancelled) return;
-    if (kind === "action") run.dispatched = true;
-    send({ id, kind, text });
-  };
-  const reader = new RoundReader(emit, options.actions, Boolean(options.mode));
-  runs.set(id, run);
+  const reply = new Reply(id, options);
+  const reader = reply.reader();
+  runs.set(id, reply.run);
   let ended: Promise<RoundEnd>;
   try { ({ ended } = await startRound(id, body, (data) => reader.read(data))); }
   catch (error) { runs.delete(id); throw error; }
   // A stop asked for while the request was starting must still stop it.
-  if (run.cancelled) void llmPlatform.cancel(id).catch(() => {});
-  const record = options.record ? new RequestRecord(id) : null;
-  void finishRun(id, run, body, reader, ended, options, record, emit)
-    .catch((error: unknown) => { console.error("The reply could not finish", error); runs.delete(id); send({ id, kind: "error", text: failureMessage(null) }); });
+  if (reply.run.cancelled) void llmPlatform.cancel(id).catch(() => {});
+  void finishRun(id, reply, body, reader, ended, options)
+    .catch((error: unknown) => { console.error("The reply could not finish", error); reply.final("error", failureMessage(null)); });
 }
 
-async function finishRun(id: string, run: Run, body: RequestBody, reader: RoundReader, ended: Promise<RoundEnd>, options: RunOptions, record: RequestRecord | null, emit: Emit): Promise<void> {
-  const end = await ended;
-  run.cancelled ||= end.cancelled;
-  reader.finish();
-  const succeeded = reader.succeeded(end);
-  record?.add(body, reader.raw, reader.tools.calls, succeeded, end.status);
-  if (!options.mode && succeeded && !run.cancelled) {
-    if (!run.dispatched && reader.tools.calls.some((call) => call.name === PLAY_ACTION_TOOL)) {
-      // A truncated, invalid or unavailable action must not become a different action.
-      emit("action", "");
-    }
-    const lookup = lookupResults(reader.tools.calls, options.lists);
-    if (lookup.local) emit("delta", `${reader.said ? "\n\n" : ""}${clipLocalLookup(lookup.local)}`);
-    if (lookup.sources) {
-      if (reader.said || lookup.local) emit("delta", "\n\n");
-      await synthesize(id, run, lookupRequest(body, lookup.sources), record, emit);
-    }
-  }
-  runs.delete(id);
-  const mode = options.mode;
-  if (run.cancelled) send({ id, kind: "cancelled", text: "" });
-  else if (reader.refused) send({ id, kind: mode ? "web-error" : "error", text: "这条内容未能通过 DeepSeek 的审核。" });
-  else if (!succeeded) send({ id, kind: "error", text: failureMessage(isSuccess(end.status) ? null : end.status) });
-  else if (mode === "open" && !reader.web.readPage()) send({ id, kind: "web-error", text: "没能读取网页，请检查链接是否能直接打开，或复制正文到聊天里。" });
-  else if (mode === "search" && !reader.web.foundSources()) send({ id, kind: "web-error", text: "没找到可引用的网页，试着换个问法再搜。" });
-  else {
-    if (mode) send({ id, kind: "web-result", text: JSON.stringify(reader.web.payload(reader.truncated)) });
-    else for (const payload of toolPayloads(reader.tools)) send({ id, kind: "tool", text: payload });
-    // "length" tells the window the reply was cut off at the token limit.
-    send({ id, kind: "done", text: reader.truncated ? "length" : "" });
-  }
-}
-
-/** A further request that answers from the looked-up records, streaming into the same reply. */
-async function synthesize(id: string, run: Run, body: RequestBody, record: RequestRecord | null, emit: Emit): Promise<void> {
-  if (run.cancelled) return;
-  const reader = new RoundReader(emit, [], false);
-  try {
-    const { ended } = await startRound(id, body, (data) => reader.read(data));
-    if (run.cancelled) void llmPlatform.cancel(id).catch(() => {});
+async function finishRun(id: string, reply: Reply, firstBody: RequestBody, firstReader: RoundReader, firstEnded: Promise<RoundEnd>, options: RunOptions): Promise<void> {
+  const { run } = reply;
+  let body = firstBody;
+  let reader = firstReader;
+  let ended = firstEnded;
+  for (let round = 1; ; round += 1) {
     const end = await ended;
     run.cancelled ||= end.cancelled;
     reader.finish();
-    record?.add(body, reader.raw, reader.tools.calls, reader.succeeded(end), end.status);
-    if (!reader.succeeded(end) || !reader.said) emit("delta", LOOKUP_UNAVAILABLE);
-  } catch (error) {
-    console.error("The lookup request could not start", error);
-    emit("delta", LOOKUP_UNAVAILABLE);
+    reply.addRound(body, reader, end);
+    if (run.cancelled || !reader.succeeded(end)) await reply.settleEarly();
+    if (run.cancelled) { reply.final("cancelled", ""); return; }
+    if (!reader.succeeded(end)) {
+      if (round > 1) { reply.show(CANNOT_GO_ON); reply.finishReply(false); return; }
+      if (reader.refused) reply.final(options.mode ? "web-error" : "error", "这条内容未能通过 DeepSeek 的审核。");
+      // A reply that broke off after a good start is an interruption, not a status problem.
+      else reply.final("error", failureMessage(isSuccess(end.status) ? null : end.status));
+      return;
+    }
+    if (options.mode) { finishWebReply(reply, reader, options.mode); return; }
+    if (round > 1 && !reader.said && reader.tools.calls.length === 0) reply.show(CANNOT_GO_ON);
+    const { answered, needsModel } = await reply.runCalls(reader);
+    if (run.cancelled) { reply.final("cancelled", ""); return; }
+    if (!needsModel || round >= MAX_ROUNDS) { reply.finishReply(reader.truncated); return; }
+    body = nextRound(body, reader.text, answered, round + 1 >= MAX_ROUNDS);
+    run.breakBefore = run.said;
+    const next = reply.reader();
+    try { ({ ended } = await startRound(id, body, (data) => next.read(data))); }
+    catch (error) { console.error("The next round could not start", error); reply.show(CANNOT_GO_ON); reply.finishReply(false); return; }
+    if (run.cancelled) void llmPlatform.cancel(id).catch(() => {});
+    reader = next;
   }
 }
 
-/** Stops a reply; the window then gets `cancelled`. */
+function finishWebReply(reply: Reply, reader: RoundReader, mode: WebMode): void {
+  if (mode === "open" && !reader.web.readPage()) { reply.final("web-error", "没能读取网页，请检查链接是否能直接打开，或复制正文到聊天里。"); return; }
+  if (mode === "search" && !reader.web.foundSources()) { reply.final("web-error", "没找到可引用的网页，试着换个问法再搜。"); return; }
+  reply.event("web-result", JSON.stringify(reader.web.payload(reader.truncated)));
+  reply.final("done", reader.truncated ? "length" : "");
+}
+
+/** Stops a reply; the window then gets `cancelled`. Lines for what the tools already did still come. */
 export async function cancelRun(id: string): Promise<void> {
   const run = runs.get(id);
   if (run) run.cancelled = true;

@@ -1,4 +1,7 @@
-import { ACTION_ID, PLAY_ACTION_TOOL } from "../tools";
+import { ACTION_ID } from "../skill";
+
+/** The tool DeepSeek has been seen writing into the text; the pet action skill offers it. */
+const PLAY_ACTION_TOOL = "play_action";
 
 /**
  * DeepSeek sometimes leaks part of its own prompt format into a reply, such as

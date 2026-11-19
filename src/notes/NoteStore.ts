@@ -110,6 +110,19 @@ export function saveNotes(notes: readonly Note[], storage: Storage = window.loca
   channel.close();
 }
 
+const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+/**
+ * Saves `text` as a note and returns the stored note: one with the same text is brought forward
+ * instead of added again. Throws when it cannot be saved.
+ */
+export function saveNote(text: string, storage: Storage = window.localStorage): Note {
+  const notes = updateNotes((list) => addNote(list, { id: newId(), text }, Date.now()), storage);
+  const saved = notes.find((note) => note.text === text.trim());
+  if (!saved) throw new Error("The note was not saved");
+  return saved;
+}
+
 /** Reads, changes and saves the list in one step. */
 export function updateNotes(change: (notes: Note[]) => Note[], storage: Storage = window.localStorage): Note[] {
   const next = change(loadNotes(storage));

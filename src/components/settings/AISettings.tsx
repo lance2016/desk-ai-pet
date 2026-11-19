@@ -8,7 +8,8 @@ import { loadChatModel } from "../../preferences/ChatModel";
 import { ModelSettings } from "./ModelSettings";
 import { QuickChatSettings } from "./QuickChatSettings";
 import { ConfirmButton } from "../ConfirmButton";
-import { chatContext, NOTHING_SAVED } from "../../agenda/chatTools";
+import { chatContext } from "../../agenda/chatTools";
+import { CHAT_SKILLS } from "../../skills";
 import { requestPreferences } from "../../preferences/ChatPreferences";
 import { CHAT_INSTRUCTIONS_LIMIT, loadChatInstructions, saveChatInstructions } from "../../preferences/ChatInstructions";
 import { ChatRequestDetails } from "./ChatRequestDetails";
@@ -66,8 +67,7 @@ export function AISettings({ packId, persona, name, actions, onCharacter, onErro
   };
   const showPreview = async () => {
     setPreviewError("");
-    // Saved items reach the model only when it looks them up, so the preview leaves them out.
-    try { setPreview(await ai.preview(requestPreferences(packId, persona), chatContext(Date.now(), actions, NOTHING_SAVED))); }
+    try { setPreview(ai.preview(requestPreferences(packId, persona), chatContext(Date.now(), actions), CHAT_SKILLS)); }
     catch (reason) { console.error("Could not preview chat request", reason); setPreviewError("没能生成预览，请在桌面应用中重试。"); }
   };
   const test = async () => {
