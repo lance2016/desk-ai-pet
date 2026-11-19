@@ -61,6 +61,7 @@ fi
 
 step "Running tests"
 pnpm test
+(cd src-tauri && cargo test --quiet)
 
 # An ad-hoc signature changes with every build, so the Keychain treats each build as a new app
 # and asks again for the saved API keys. A real certificate keeps "Always Allow" across builds.
