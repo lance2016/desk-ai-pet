@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type Ref, type RefObject } from "react";
-import { ai, type EffectLine } from "../ai";
+import { ai, type EffectLine, type Skill } from "../ai";
 import { chatContext } from "../agenda/chatTools";
 import { currentChatFacts } from "../facts/FactStore";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
@@ -10,6 +10,13 @@ import type { ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
 import { CHAT_SKILLS } from "../skills";
+import { petActionSkill } from "../skills/petActions";
+import { readText } from "../agenda/chatTools";
+import { ACTION_LABELS, ACTION_QUESTIONS, handedMessage, handover, handoverPreview, sourceLabel, suggestions, type Handover, type HandoverAction } from "../handover/Handover";
+import { handoverPlatform } from "../platform/handover";
+import { loadHandoverClipboard } from "../preferences/HandoverPreferences";
+import { loadNotes, NOTE_LIMITS, removeNote } from "../notes/NoteStore";
+import { changeNotes, keepNote } from "../worklog/store";
 import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 
@@ -19,6 +26,11 @@ const MAX_INPUT = 4000;
 const CUT_OFF_MARK = "（太长了，没说完）";
 const STORAGE_FULL = "聊天记录存满了，删掉几段旧聊天再试。";
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+/**
+ * What a button under handed text may use: the pet's actions only. Whatever the text says,
+ * it cannot change reminders, notes or what the pet remembers. Typed questions get every skill.
+ */
+const BUTTON_SKILLS: readonly Skill[] = [petActionSkill];
 
 /** What the bubble above the pet shows. `fix` is where a click takes the user to sort out an error. */
 export interface QuickReply {
@@ -47,6 +59,8 @@ interface Request {
   history: ChatMessage[];
   /** What the user typed, to put back if the reply fails. */
   typed: string;
+  /** The text handed over with it, to put back if the reply fails. */
+  handed: Handover | null;
   /** What the reply's tools did. */
   lines: EffectLine[];
 }
@@ -58,6 +72,10 @@ export interface QuickChat {
   /** True when no DeepSeek key is saved: the bar's send button opens the key settings instead. */
   keyMissing: boolean;
   reply: QuickReply | null;
+  /** Text the user handed over as the bar opened, shown above the pet until sent or put aside. */
+  handed: Handover | null;
+  /** Whether the bubble above the pet has something to show: a reply, or the handed text. */
+  bubble: boolean;
   name: string;
   inputRef: RefObject<HTMLInputElement | null>;
   setDraft: (text: string) => void;
@@ -72,6 +90,10 @@ export interface QuickChat {
   undoSaved: (item: EffectLine) => void;
   /** Says so when a paste was cut at the input limit. */
   onPaste: (event: ClipboardEvent<HTMLInputElement>) => void;
+  /** Leaves the handed text out. */
+  dismissHanded: () => void;
+  /** One of the buttons under the handed text. */
+  runAction: (action: HandoverAction) => void;
 }
 
 const reportFocus = (error: unknown) => console.warn("Could not move keyboard focus for quick chat", error);
@@ -107,6 +129,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   const [pending, setPending] = useState(false);
   const [reply, setReply] = useState<QuickReply | null>(null);
   const [keyMissing, setKeyMissing] = useState(false);
+  const [handed, setHanded] = useState<Handover | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(open);
   openRef.current = open;
@@ -121,15 +144,31 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   runtimeRef.current = runtime;
   /** Talking counts as being with the pet: it wakes up and does not doze off mid-chat. */
   const wakePet = () => runtimeRef.current?.bus.emit("pet.wake_up", {});
+  /** Reads what the user selected or just copied, now that they called the pet up. */
+  const pickUpHanded = () => {
+    handoverPlatform.take(loadHandoverClipboard())
+      .then((found) => {
+        if (!found || !openRef.current) return;
+        setHanded(handover(found));
+        // The handed text takes the bubble; a finished reply from before steps aside.
+        setReply((current) => (current !== MISSING_KEY_REPLY && (current?.status === "done" || current?.status === "error") ? null : current));
+      })
+      .catch((error: unknown) => console.warn("Could not read the handed text", error));
+  };
   const show = () => {
     // Asked again while it is open (another click on the pet): the conversation goes on.
-    if (!openRef.current) sessionThread.current = null;
+    if (!openRef.current) {
+      sessionThread.current = null;
+      setHanded(null);
+      pickUpHanded();
+    }
     setOpen(true);
     setFocusRequest((count) => count + 1);
     wakePet();
   };
   const close = (release: boolean) => {
     setOpen(false);
+    setHanded(null);
     if (release) petWindow.releaseKeyboard().catch(reportFocus);
   };
 
@@ -198,6 +237,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
         if (current.lines.length === 0) {
           try { dropUnanswered(packId, current); } catch (error) { console.error("Could not take the unanswered line back", error); }
           setDraft((draft) => draft || current.typed);
+          if (openRef.current) setHanded((now) => now ?? current.handed);
         }
         setReply(event.kind === "error" ? errorReply(event.text || "回复中断") : null);
         if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
@@ -223,7 +263,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     };
   }, [packId]);
 
-  const start = async (text: string) => {
+  const start = async (text: string, typed: string, skills: readonly Skill[], withHanded: Handover | null) => {
     if (!runtime) return;
     const now = Date.now();
     const loaded = loadThreads(packId);
@@ -236,15 +276,15 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     lastThread.current = threadId;
     sessionThread.current = threadId;
     const id = newId();
-    const typed = draft;
-    request.current = { id, threadId, history, typed, lines: [] };
+    request.current = { id, threadId, history, typed, handed: withHanded, lines: [] };
     replyText.current = "";
     setDraft("");
+    setHanded(null);
     setPending(true);
     setReply({ text: "", status: "thinking" });
     const actions = runtime.chatActionIds();
     try {
-      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts()), skills: CHAT_SKILLS });
+      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts()), skills });
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;
@@ -252,6 +292,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
       setPending(false);
       try { dropUnanswered(packId, failedRequest); } catch (error) { console.error("Could not take the unanswered line back", error); }
       setDraft((current) => current || typed);
+      if (openRef.current) setHanded((now) => now ?? withHanded);
       const failed = errorReply(String(reason));
       if (failed.fix === "settings") setKeyMissing(classifyServiceError(String(reason)) === "missing-key");
       setReply(failed);
@@ -270,7 +311,34 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
     const text = draft.trim();
     if (!text || pending) return;
     wakePet();
-    void start(text);
+    void start(handed ? handedMessage(text, handed) : text, draft, CHAT_SKILLS, handed);
+  };
+  /** Saves the handed text as a note, without the model. Undo takes back only a note it added. */
+  const keepHanded = (item: Handover) => {
+    const read = readText(item.text, NOTE_LIMITS.text);
+    if (!read) return;
+    try {
+      const known = new Set(loadNotes().map((note) => note.id));
+      const saved = keepNote(read.text, "user");
+      const undo = known.has(saved.id) ? undefined : () => void changeNotes((notes) => removeNote(notes, saved.id), "user");
+      setHanded(null);
+      setReply({
+        text: read.trimmed ? `好，存进备忘了，太长只存了前 ${NOTE_LIMITS.text} 字。` : "好，存进备忘了。",
+        status: "done",
+        saved: [{ kind: "note", id: saved.id, text: `已存进备忘：${handoverPreview(saved.text)}`, undo }],
+      });
+    } catch (error) {
+      console.error("Could not keep the handed text as a note", error);
+      setReply({ text: "备忘没能保存，删掉几条旧的备忘再试。", status: "error" });
+    }
+  };
+  const runAction = (action: HandoverAction) => {
+    if (!handed || pending) return;
+    inputRef.current?.focus();
+    if (action === "keep") { keepHanded(handed); return; }
+    if (keyMissing) { openKeySettings(); return; }
+    wakePet();
+    void start(handedMessage(ACTION_QUESTIONS[action], handed), "", BUTTON_SKILLS, handed);
   };
   const cancel = () => {
     if (request.current) void ai.cancel(request.current.id).catch((error: unknown) => console.warn("Could not stop the reply", error));
@@ -309,7 +377,9 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string): QuickC
   };
 
   const ownName = runtime ? runtime.manifest.persona?.name ?? runtime.manifest.name : "宠物";
-  return { open, draft, pending, keyMissing, reply, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste };
+  const bubble = reply !== null || (open && handed !== null);
+  const dismissHanded = () => { setHanded(null); inputRef.current?.focus(); };
+  return { open, draft, pending, keyMissing, reply, handed, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction };
 }
 
 function Icon({ name }: { name: "send" | "stop" | "expand" }) {
@@ -336,7 +406,7 @@ export function QuickChatBar({ chat, ref }: { chat: QuickChat; ref?: Ref<HTMLFor
           value={chat.draft}
           maxLength={MAX_INPUT}
           aria-label={`和${chat.name}说话`}
-          placeholder={chat.keyMissing ? "填上 DeepSeek API Key 才能聊天" : `和${chat.name}说点什么… Esc 收起`}
+          placeholder={chat.keyMissing ? "填上 DeepSeek API Key 才能聊天" : chat.handed ? "问问这段内容，或点上面的按钮" : `和${chat.name}说点什么… Esc 收起`}
           onChange={(event) => chat.setDraft(event.currentTarget.value)}
           onPaste={chat.onPaste}
           onKeyDown={onKeyDown}
@@ -362,7 +432,7 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
     const field = textRef.current;
     setClipped(field !== null && field.scrollHeight > field.clientHeight + 1);
   }, [reply]);
-  if (!reply) return null;
+  if (!reply) return chat.open && chat.handed ? <HandedCard chat={chat} handed={chat.handed} ref={ref} /> : null;
   const error = reply.status === "error";
   const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
   const hint = reply.fix === "settings" ? "去设置" : "在聊天窗口打开";
@@ -387,6 +457,26 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
           </span>
         )}
         {more > 0 && <small className="speech-bubble__fix">还有 {more} 条，点开看全部</small>}
+      </span>
+    </div>
+  );
+}
+
+/** What the user handed over, in the bubble above the pet, with what can be done with it. */
+function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; ref?: Ref<HTMLDivElement> }) {
+  const label = sourceLabel(handed);
+  return (
+    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={`递给${chat.name}的${label}`}>
+      <span className="speech-bubble__spark" aria-hidden="true">✦</span>
+      <span className="speech-bubble__body">
+        <span className="handed__main">
+          <span className="speech-bubble__text handed__text">{handoverPreview(handed.text)}</span>
+          <button type="button" className="handed__close" aria-label="不带上这段内容" title="不带上这段内容" onClick={chat.dismissHanded}>×</button>
+        </span>
+        <span className="handed__foot">
+          {suggestions(handed.text).map((action) => <button key={action} type="button" disabled={chat.pending} onClick={() => chat.runAction(action)}>{ACTION_LABELS[action]}</button>)}
+          <small className="handed__source">{label} · {[...handed.text].length}{handed.trimmed ? "+" : ""} 字</small>
+        </span>
       </span>
     </div>
   );

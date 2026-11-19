@@ -31,6 +31,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "ai", title: "记忆", keywords: "记住 忘掉 关于我 偏好 习惯 长期记忆 memory" },
   { section: "ai", title: "聊天时自动记住", keywords: "记忆 自动记 记住我" },
   { section: "ai", title: "快速聊天", keywords: "快捷键 输入框 Space" },
+  { section: "ai", title: "召唤时带上刚复制的内容", keywords: "剪贴板 复制 粘贴 选中文字 划词 递给它" },
   { section: "ai", title: "聊天记录", keywords: "历史" },
   { section: "ai", title: "自动生成聊天标题", keywords: "标题" },
   { section: "ai", title: "对话规则", keywords: "提示词 系统提示词 规则 修改提示词 补充要求 发送什么 能力" },

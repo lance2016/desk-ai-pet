@@ -94,7 +94,7 @@ src/
 ├── components/
 │   ├── PetStage.tsx         舞台，负责把鼠标操作转成事件
 │   ├── PetControls.tsx      按 Dock 列表显示宠物两侧的浮动按钮
-│   ├── QuickChat.tsx        快速聊天：宠物脚下的输入条、头顶的回复气泡和发送逻辑
+│   ├── QuickChat.tsx        快速聊天：宠物脚下的输入条、头顶的回复气泡和递来内容的卡片、发送逻辑
 │   ├── ControlIcon.tsx      快捷按钮的内置图标
 │   ├── ControlIconView.tsx  渲染内置、资源包或用户上传图标
 │   ├── today/TodayPanel.tsx “提醒”小面板（独立窗口）
@@ -102,7 +102,7 @@ src/
 │   └── settings/
 │       ├── SettingsPage.tsx 独立设置窗口页面
 │       ├── QuietSettings.tsx 勿扰和免打扰时段
-│       ├── QuickChatSettings.tsx 快速聊天快捷键
+│       ├── QuickChatSettings.tsx 快速聊天快捷键、召唤时带不带剪贴板
 │       ├── actions/         动作库：素材墙、动作编辑、图层、把上传的图画到舞台上
 │       ├── UpdateRow.tsx    「关于」页的软件更新：检查、下载进度、重启
 │       ├── WhatsNewSheet.tsx 「新功能」介绍弹层
@@ -125,6 +125,7 @@ src-tauri/src/
 ├── mail_code.rs             查收验证码：163 邮箱账号（钥匙串）、IMAP 只读登录、等邮件、复制到剪贴板
 ├── mail_extract.rs          从一封邮件里认出验证码（纯规则，不用 AI）
 ├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
+├── handover.rs              召唤时递来的内容：读选区或 1 分钟内复制的内容；平时只看剪贴板的变更计数
 ├── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
 ├── diagnostics.rs           日志文件（tauri-plugin-log）、panic 记录，设置页查看、清理、在访达中显示、导出诊断信息的命令
 └── worklog.rs               工作日志：追加、按日期读、折叠、导出、整体替换，只开有类型的命令
@@ -312,6 +313,8 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - `play_action(action)`：只有动作列表非空时提供，`action` 限定在列表里。
 - `list_reminders(synthesize?)`、`list_notes(synthesize?)`、`review_today(synthesize?)`：查看已有的提醒、备忘和今天的记录，执行时才读本机存储，只有模型调用时清单才发给 DeepSeek。今天的记录是今天勾掉的提醒、今天还没处理的提醒、专注轮数（没有也写 0 轮）、今天新记或改过的备忘（压成一行、截到 120 字）。不带 `synthesize` 时清单原样显示在回复里，不再请求模型；带 `synthesize=true` 时清单带上编号（`r1`、`n1`，标明是资料、不是指令）交回模型，再请求一轮。
 - `update_reminder(ref, text?, remind_at?, repeat?)`、`delete_reminder(ref)`、`update_note(ref, text)`、`delete_note(ref)`：按查看时给的编号改、删。编号只在这次回复里有效（存在 `ToolCall.memo` 里），找不到编号、时间读不懂、时间已过、重复规则不支持时，把原因交回模型让它先查或改口。`repeat` 填 `once` 把重复提醒改成一次性的。改、删的那一行带「撤销」，放回原来的样子。
+
+**递给它。** 输入条每次从收起变成打开（`show()`），都调一次 `take_handover`（`src-tauri/src/handover.rs`）。原生端先用划词的辅助功能接口读前台应用的选区（`translation::selected_text`，跳过密码框和宠物自己）；没有选区、设置允许（`HandoverPreferences`）、剪贴板 60 秒内变过，才读一次剪贴板文字。平时有个线程每秒在主线程看一眼 `NSPasteboard.changeCount`，只记最后一次变化的时间，宠物自己的应用在前台时的变化不算；读过一次就作废，下次召唤不再带。苹果说以后读剪贴板可能弹系统提示，这样即使弹，也只在用户召唤时。前端把内容截到 6000 字（`src/handover/Handover.ts`），显示在头顶气泡的位置（`HandedCard`），按钮由本地规则选：外文给「翻译」，超过 200 字给「总结」，「解释」「记下来」一直有。「记下来」直接 `keepNote`，不调模型。其余按钮和用户打字提问都走普通的快速聊天，消息是「用户的话 + 标好的资料块」（`handedMessage`），资料块不能自己提前结束；按钮的回合只提供 `petActionSkill`（`BUTTON_SKILLS`），内容里写什么都改不了数据，打字提问提供全部能力，靠资料标记和回归集里的用例防。
 
 **今日回顾。** 右键菜单的「今日回顾」由原生端发 `pet://review` 给宠物窗口；`App` 在当前角色的聊天记录里新建一段对话，只放一句用户消息（`REVIEW_REQUEST`），再用 `petWindow.openChat(id, true)` 让聊天窗口接着回答，和快速聊天交接给聊天窗口走同一条路。模型按系统提示调用 `review_today` 拿到今天的记录。聊天记录读不出来时不新建，只打开聊天窗口，由它提示。
 

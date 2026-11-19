@@ -157,7 +157,7 @@ export default function App({ packId }: AppProps) {
   const restoredPosition = useRef<Promise<boolean> | null>(null);
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences);
   const quickChat = useQuickChat(runtime, packId);
-  const quickReplyShown = quickChat.reply !== null;
+  const quickReplyShown = quickChat.bubble;
   const controlsVisible = useLingering(hovered, displayPreferences.controlsLingerMs) && !dragging && !quickChat.open && !dockSide;
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { petWindow } from "../../platform/petWindow";
+import { loadHandoverClipboard, saveHandoverClipboard } from "../../preferences/HandoverPreferences";
 import { DEFAULT_QUICK_CHAT_SHORTCUT, loadQuickChatShortcut, quickChatShortcutLabel, recordShortcut, saveQuickChatShortcut, type QuickChatShortcut } from "../../preferences/QuickChatPreferences";
 import { ShortcutField } from "./ShortcutField";
 
@@ -10,11 +11,16 @@ const HINTS = {
   reserved: "这个组合已经被系统占用，换一个试试。",
 } as const;
 
-/** Records the global shortcut that opens the quick chat bar under the pet. */
+/** Records the global shortcut that opens the quick chat bar under the pet, and what comes along when it opens. */
 export function QuickChatSettings({ onError }: { onError: (message: string | null) => void }) {
   const [shortcut, setShortcut] = useState(loadQuickChatShortcut);
   const [recording, setRecording] = useState(false);
   const [hint, setHint] = useState<string>(HINTS.recording);
+  const [clipboard, setClipboard] = useState(loadHandoverClipboard);
+  const toggleClipboard = () => {
+    try { saveHandoverClipboard(!clipboard); setClipboard(!clipboard); onError(null); }
+    catch (reason) { console.error("Could not save the clipboard setting", reason); onError("设置没能保存，请再试一次。"); }
+  };
 
   /** Registers `next`, saves it on success, and puts the old one back on failure. */
   const apply = async (next: QuickChatShortcut | null) => {
@@ -71,6 +77,13 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
           onClear={() => void apply(null)}
           onRestore={shortcut !== DEFAULT_QUICK_CHAT_SHORTCUT ? () => void apply(DEFAULT_QUICK_CHAT_SHORTCUT) : undefined}
         />
+      </div>
+      <div className="settings-row">
+        <div className="settings-row__body">
+          <strong>召唤时带上刚复制的内容</strong>
+          <span>没选中文字时，带上 1 分钟内复制的内容。选中的文字总会带上</span>
+        </div>
+        <button type="button" role="switch" aria-label="召唤时带上刚复制的内容" aria-checked={clipboard} className={clipboard ? "toggle is-on" : "toggle"} onClick={toggleClipboard}><span /></button>
       </div>
     </article>
   );

@@ -104,6 +104,10 @@ fn show_selection(app: &AppHandle, text: Option<String>, auto: bool, result: Opt
     }
 }
 
+/// The text selected in the app in front, when the pet may read it; never a password field or the pet's own windows.
+#[cfg(target_os = "macos")]
+pub fn selected_text() -> Option<String> { accessibility::selected() }
+
 #[tauri::command]
 pub fn selection_status() -> bool {
     #[cfg(target_os = "macos")]

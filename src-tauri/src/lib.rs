@@ -4,6 +4,7 @@ mod database;
 mod diagnostics;
 #[cfg(target_os = "macos")]
 mod floating_panel;
+mod handover;
 mod holidays;
 mod llm;
 mod mail_code;
@@ -604,6 +605,7 @@ pub fn run() {
         .manage(click_through::HitMask::default())
         .manage(quick_chat::Shortcuts::default())
         .manage(translation::Selection::default())
+        .manage(handover::Clipboard::default())
         .manage(translation::SelectionFloat::default())
         .manage(mail_code::MailCodeState::default())
         .manage(OnTopState(AtomicBool::new(true)))
@@ -718,6 +720,7 @@ pub fn run() {
                 floating_panel::apply_popover(&window)?;
             }
             translation::start_selection_monitor(app.handle().clone());
+            handover::start_watch(app.handle().clone());
             click_through::start(app.handle().clone(), MAIN_WINDOW);
             Ok(())
         })
@@ -730,6 +733,7 @@ pub fn run() {
             quick_chat::set_quick_chat_shortcut,
             quick_chat::set_translation_shortcut,
             translation::open_translation,
+            handover::take_handover,
             translation::selection_status,
             translation::take_translation_selection,
             translation::set_selection_float,
