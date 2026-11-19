@@ -25,6 +25,8 @@ type StandingAlert = PetEvents["pet.alert"] & { text: string };
 const openReminders = () => void petWindow.openToday().catch((error: unknown) => console.error("Failed to open reminders", error));
 const cancelMailCode = () => void mailCodePlatform.cancel().catch((error: unknown) => console.error("Failed to stop waiting for a mail code", error));
 
+const LOTUS = "/focus/lotus.png";
+
 const ALERT_ICONS = {
   bell: <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" />,
   mail: <path d="M3 6h18v12H3zM3 7l9 6 9-6" />,
@@ -43,10 +45,20 @@ function ProgressRing({ progress }: { progress: number }) {
 
 function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => void }) {
   switch (chip.id) {
-    case "focus":
+    case "focus": {
+      // The ring around the pet shows how far the round has come, so the pill shows a lotus and the time.
+      const [name, time] = chip.label.split(" ");
+      return (
+        <button type="button" className="status-chip status-chip--focus" title="专注中，点一下可以停止" aria-label={chip.label} onClick={onFocusClick}>
+          <img className="status-chip__lotus" src={LOTUS} alt="" />
+          <span className="status-chip__name">{name}</span>
+          <span className="status-chip__time">{time}</span>
+        </button>
+      );
+    }
     case "rest":
       return (
-        <button type="button" className={`status-chip status-chip--${chip.id}`} title={chip.id === "focus" ? "专注中，点一下可以停止" : "休息中，点一下可以提前开始"} onClick={onFocusClick}>
+        <button type="button" className="status-chip status-chip--rest" title="休息中，点一下可以提前开始" onClick={onFocusClick}>
           <ProgressRing progress={chip.progress ?? 0} />{chip.label}
         </button>
       );

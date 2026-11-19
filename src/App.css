@@ -58,6 +58,28 @@ body {
   display: block;
 }
 
+/* Above the focus glow, which sits behind the pet. */
+.stage { position: relative; z-index: 1; }
+
+/*
+ * While a focus round runs: a glass ring around the pet whose bright arc grows with the round,
+ * and ripples where it sits. Sized against the pet's area, so it follows the pet size; the ring
+ * is centred on the seated focus pose. Takes no clicks: the clickable area comes from the drawing.
+ */
+.focus-aura { position: absolute; inset: 0; z-index: 0; pointer-events: none; animation: aura-in 420ms ease-out; }
+.focus-aura img { display: block; -webkit-user-drag: none; }
+.focus-aura__ring { position: absolute; left: 50%; top: 55%; width: 108%; aspect-ratio: 1; transform: translate(-50%, -50%); }
+.focus-aura__ring img, .focus-aura__ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.focus-aura__ring svg { overflow: visible; filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 4px #a996ee); }
+.focus-aura__arc { fill: none; stroke: url(#focus-arc); stroke-width: .9; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
+.focus-aura__dot { fill: #fff; }
+.focus-aura__platform { position: absolute; left: 50%; bottom: 0; width: 128%; transform: translate(-50%, 42%); animation: aura-breathe 4.5s ease-in-out infinite; }
+@keyframes aura-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes aura-breathe {
+  0%, 100% { opacity: .82; transform: translate(-50%, 42%) scale(.97); }
+  50% { opacity: 1; transform: translate(-50%, 42%) scale(1.03); }
+}
+
 /* Overlays are laid out inside the on-screen part of the window. */
 .speech-area,
 .dock-area {
@@ -249,8 +271,8 @@ body {
   z-index: 2;
   left: max(var(--visible-left), var(--stage-side));
   right: max(var(--visible-right), var(--stage-side));
-  /* Just above the bar; at an edge the bar is gone and it drops to the bottom. */
-  bottom: calc(var(--stage-bottom) + var(--visible-bottom, 0px) + 2px);
+  /* Just above the bar, a little into the room under the pet; at an edge the bar is gone and it drops to the bottom. */
+  bottom: calc(var(--stage-bottom) + var(--visible-bottom, 0px) - 10px);
   width: max-content;
   max-width: calc(100% - var(--visible-left) - var(--visible-right) - 16px);
   margin-inline: auto;
@@ -284,7 +306,22 @@ button.status-chip:active { background: #f3f0fc; }
 .status-chip:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
 /* Only says how things are, so it does not look pressable. */
 .status-chip--label { cursor: default; color: #6c67a0; background: rgba(243, 240, 252, .92); border-color: transparent; box-shadow: none; }
-.status-chip--focus, .status-chip--rest { padding-left: 5px; }
+.status-chip--rest { padding-left: 5px; }
+/* The focus round: a larger glass pill, a lotus, then the time in bold. */
+.status-chip--focus {
+  gap: 0;
+  height: 30px;
+  padding: 0 14px 0 10px;
+  background: rgba(255, 255, 255, .86);
+  border-color: rgba(255, 255, 255, .95);
+  border-radius: 15px;
+  box-shadow: 0 4px 14px #6b5fc033, 0 0 0 .5px #d9d0f5;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.status-chip__lotus { width: 21px; height: auto; margin-right: 8px; }
+.status-chip__name { padding-left: 8px; color: #4c437e; border-left: 1px solid #ddd6f3; font-size: 12px; font-weight: 600; line-height: 14px; }
+.status-chip__time { margin-left: 6px; color: var(--ink); font-size: 16px; font-weight: 700; letter-spacing: .02em; }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
 .status-chip__ring circle { fill: none; stroke-width: 2.5; }
 .status-chip__ring-track { stroke: #ebe6fa; }
@@ -332,8 +369,15 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
 .pet-bar__item .control-icon { display: block; width: 20px; height: 20px; object-fit: contain; }
 .pet-bar__item span { max-width: 52px; overflow: hidden; color: #4c437e; text-overflow: ellipsis; white-space: nowrap; }
 .pet-bar__item:hover { background: #f3f0fc; }
-/* A running focus round, or the open menu: the button stays lit, so it reads as "on". */
+/* The open menu: the button stays lit, so it reads as "on". */
 .pet-bar__item.is-active { background: #ece7fb; }
+/* A running focus round: its button becomes the filled "停止专注" one, the bar's main action. */
+.pet-bar__item--stop { flex-direction: row; gap: 6px; margin-left: 4px; padding: 0 14px; color: #fff; background: linear-gradient(135deg, #a28ef2, #7a66d4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 2px 8px #6b5fc059; }
+.pet-bar__item--stop::before { display: none; }
+.pet-bar__item.pet-bar__item--stop span { max-width: none; color: #fff; font-size: 12px; font-weight: 600; }
+.pet-bar__item--stop:hover { background: linear-gradient(135deg, #9781ec, #6d59ca); }
+.pet-bar__item--stop:active { background: linear-gradient(135deg, #8b75e3, #6250bd); }
+.pet-bar__item.pet-bar__item--stop:focus-visible { outline-offset: 2px; }
 .pet-bar__item:focus-visible, .pet-bar__menu button:focus-visible { outline: 2px solid #8874d8; outline-offset: -2px; }
 /* "互动": the actions and the buttons that did not fit, over the pet's legs while it is open. */
 .pet-bar__menu { position: absolute; left: 0; bottom: calc(100% + 6px); min-width: 140px; max-height: 180px; overflow-y: auto; padding: 4px; display: grid; gap: 1px; background: rgba(255, 255, 255, .98); border: 1px solid #e3ddf5; border-radius: 12px; box-shadow: 0 6px 18px #40366b38; animation: speech-in 140ms ease-out; }
@@ -459,6 +503,8 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
 
 @media (prefers-reduced-motion: reduce) {
   .chat-launcher.is-hinting { animation: none; }
+  .focus-aura, .focus-aura__platform { animation: none; }
+  .focus-aura__arc { transition: none; }
   .pet-bar {
     transition: none;
   }

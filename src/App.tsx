@@ -24,6 +24,7 @@ import { isOnboarded, markOnboarded } from "./preferences/UserProfile";
 import { PetControls } from "./components/PetControls";
 import { QuickChatBar, QuickReplyBubble, useQuickChat } from "./components/QuickChat";
 import { ChatLauncher } from "./components/ChatLauncher";
+import { FocusAura } from "./components/FocusAura";
 import { PetSpeech } from "./components/PetSpeech";
 import { PetStage } from "./components/PetStage";
 import { PetRuntime } from "./core/PetRuntime";
@@ -668,6 +669,7 @@ export default function App({ packId }: AppProps) {
   return (
     <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
+        {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} />}
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
       {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}

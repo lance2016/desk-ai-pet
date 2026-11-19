@@ -94,7 +94,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     // Nothing is greyed out while the pet sleeps: the character's own buttons wake it up first.
     const active = item.command === "focus_toggle" && focusPhase === "focusing";
     return (
-      <button key={item.id} type="button" className={`pet-bar__item${active ? " is-active" : ""}`} aria-pressed={item.command === "focus_toggle" ? active : undefined} title={label} onClick={() => pick(() => emitControl(item))}>
+      <button key={item.id} type="button" className={`pet-bar__item${active ? " pet-bar__item--stop" : ""}`} aria-pressed={item.command === "focus_toggle" ? active : undefined} title={label} onClick={() => pick(() => emitControl(item))}>
         <ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} />
         <span>{label}</span>
       </button>
