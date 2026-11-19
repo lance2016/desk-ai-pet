@@ -1,6 +1,6 @@
 const KEY = "ai-pet:developer-mode:v1";
 
-/** Whether chat requests are kept (in memory, by the native side) so settings can show what was sent. */
+/** Whether chat requests are kept whole (in the app's database, by the native side) so settings can show what was sent. */
 export function loadDeveloperMode(storage: Storage = window.localStorage): boolean {
   return storage.getItem(KEY) === "true";
 }

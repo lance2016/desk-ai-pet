@@ -3,7 +3,10 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { z } from "zod";
 
-/** The model channel in `src-tauri/src/llm.rs`: keys, requests and the request log. Must match `STREAM_EVENT` there. */
+/**
+ * The model channel in `src-tauri/src/llm.rs` (keys, requests; must match `STREAM_EVENT` there)
+ * and the request records in `src-tauri/src/request_log.rs`.
+ */
 const STREAM_EVENT = "pet://llm-stream";
 
 const streamSchema = z.discriminatedUnion("kind", [
@@ -33,6 +36,8 @@ export const llmPlatform = {
   },
   /** "chat" for the chat window, "main" for the pet window's quick chat. */
   windowLabel(): string { return isTauri() ? getCurrentWindow().label : "browser"; },
+  /** The short row every request leaves; kept by `src-tauri/src/request_log.rs`. */
+  async addStat(stat: object): Promise<void> { requireNative(); await invoke("llm_stats_add", { stat }); },
   async putLogEntry(entry: object): Promise<void> { requireNative(); await invoke("llm_log_put", { entry }); },
   async logEntries(): Promise<unknown> { requireNative(); return invoke("llm_log_list"); },
   async clearLog(): Promise<void> { requireNative(); await invoke("llm_log_clear"); },

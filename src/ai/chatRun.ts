@@ -3,10 +3,10 @@ import { llmPlatform } from "../platform/llm";
 import { ReplyText } from "./deepseek/leaks";
 import { webDelta, WebResult, type WebProgress } from "./deepseek/web";
 import { DEEPSEEK, failureMessage, isSuccess } from "./provider";
-import { RequestRecord } from "./requestLog";
+import { recordStat, RequestRecord, type RequestKind } from "./requestLog";
 import { nextRound, type AnsweredCall, type RequestBody } from "./requests";
 import { failed, offeredSkills, type Skill, type Tool, type ToolCall as RunningCall, type ToolOutcome } from "./skill";
-import { callArguments, MAX_TOOL_CALLS, parseStreamData, ToolCallCollector, type ToolCall } from "./stream";
+import { callArguments, MAX_TOOL_CALLS, parseStreamData, ToolCallCollector, type ToolCall, type Usage } from "./stream";
 import type { ChatContext, ChatEvent } from "./types";
 
 /** Requests one reply may make: the first, and up to three more when the model has to read what its tools found. */
@@ -55,6 +55,12 @@ class RoundReader {
   raw = "";
   readonly tools = new ToolCallCollector();
   readonly web = new WebResult();
+  /** When the request was sent; the reader is made just before. */
+  readonly startedAt = Date.now();
+  /** When the first words or tool call came. */
+  firstTokenAt: number | null = null;
+  /** Tokens used, from the last chunk. */
+  usage: Usage | null = null;
   private readonly reply = new ReplyText();
 
   constructor(
@@ -70,6 +76,8 @@ class RoundReader {
     if (line.kind === "error") { this.responseError = true; return; }
     if (line.kind === "refused") { this.refused = true; return; }
     if (line.kind !== "chunk" || this.done || this.responseError || this.refused) return;
+    if (line.usage) this.usage = line.usage;
+    if (this.firstTokenAt === null && (line.text || line.tools.length > 0)) this.firstTokenAt = Date.now();
     this.raw += line.text;
     this.truncated ||= line.truncated;
     this.emit(this.webMode ? line.text : this.reply.push(line.text));
@@ -136,6 +144,8 @@ export interface RunOptions {
   mode?: WebMode;
   /** A chat turn with local tools. */
   tools?: ToolSetup;
+  /** What the request is for, in the request records; a webpage turn is always "web". */
+  kind: Exclude<RequestKind, "greeting" | "test">;
   /** Developer mode keeps the requests. */
   record: boolean;
 }
@@ -244,8 +254,11 @@ class Reply {
     this.final("done", truncated ? "length" : "");
   }
 
+  /** Every round leaves a short row; developer mode keeps it whole as well. */
   addRound(body: RequestBody, reader: RoundReader, end: RoundEnd): void {
-    this.record?.add(body, reader.raw, reader.tools.calls, reader.succeeded(end), end.status);
+    const outcome = { model: body.model, startedAt: reader.startedAt, ok: reader.succeeded(end), status: end.status, firstTokenAt: reader.firstTokenAt, usage: reader.usage };
+    recordStat(this.options.kind, outcome);
+    this.record?.add(body, reader.raw, reader.tools.calls, outcome);
   }
 }
 

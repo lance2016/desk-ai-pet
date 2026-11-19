@@ -73,6 +73,7 @@ const STORED: readonly [string, string][] = [
   ["按角色分开", "名字、性格、聊天记录、快捷按钮、自己做的动作"],
   ["所有角色共用", "提醒、备忘、宠物大小、勿扰和其他设置"],
   ["聊天记录", `每个角色最多留 ${CHAT_LIMITS.threads} 段，更早的自动删掉`],
+  ["请求记录", "每次请求 AI 的用时和用量留 90 天，不含内容；开发者模式另存最近 100 次的完整内容。都不进备份"],
   ["API Key 和邮箱授权码", "存在钥匙串里"],
 ];
 const ONLINE: readonly [string, string, string][] = [

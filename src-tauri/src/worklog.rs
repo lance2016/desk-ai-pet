@@ -1,36 +1,16 @@
 //! The work log: what happened each day (reminders, notes, focus rounds), who
 //! did it, and what a changed or deleted item said before. Kept in SQLite in
-//! the app data folder. The webview only gets these typed commands, never raw
-//! SQL. Must match `src/platform/worklog.ts`.
+//! the app's database (`database.rs`). The webview only gets these typed
+//! commands, never raw SQL. Must match `src/platform/worklog.ts`.
 //!
 //! Events older than the webview's cut-off are folded into per-day counts
 //! (`worklog_compact`), so the file stays small.
 
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::sync::Mutex;
 
-const FILE_NAME: &str = "worklog.sqlite";
-/// Each entry moves the schema one version up, in order; `PRAGMA user_version`
-/// says how many have run. Never edit one that shipped: add the next.
-const MIGRATIONS: &[&str] = &["CREATE TABLE events (
-        id INTEGER PRIMARY KEY,
-        at INTEGER NOT NULL,
-        day TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        source TEXT NOT NULL,
-        text TEXT NOT NULL,
-        before TEXT,
-        item_id TEXT
-    );
-    CREATE INDEX events_by_day ON events(day);
-    CREATE TABLE day_counts (
-        day TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        count INTEGER NOT NULL,
-        PRIMARY KEY (day, kind)
-    );"];
+use crate::database::Database;
+
 const MAX_TEXT_CHARS: usize = 1000;
 const MAX_KIND_CHARS: usize = 32;
 const MAX_ITEM_ID_CHARS: usize = 64;
@@ -65,38 +45,6 @@ pub struct Count {
 pub struct Log {
     pub events: Vec<Event>,
     pub counts: Vec<Count>,
-}
-
-/// The open database; None when it could not be opened.
-#[derive(Default)]
-pub struct WorkLog(Mutex<Option<Connection>>);
-
-impl WorkLog {
-    /// Opens the database in `folder`, creating both when missing.
-    pub fn open(folder: &Path) -> Result<Self, String> {
-        std::fs::create_dir_all(folder).map_err(|error| format!("Cannot create the data folder: {error}"))?;
-        let mut connection = Connection::open(folder.join(FILE_NAME)).map_err(|error| format!("Cannot open the work log: {error}"))?;
-        prepare(&mut connection).map_err(|error| format!("Cannot set up the work log: {error}"))?;
-        Ok(Self(Mutex::new(Some(connection))))
-    }
-
-    fn with<T>(&self, work: impl FnOnce(&mut Connection) -> rusqlite::Result<T>) -> Result<T, String> {
-        let mut guard = self.0.lock().map_err(|_| "Work log is unavailable".to_string())?;
-        let connection = guard.as_mut().ok_or("Work log is unavailable")?;
-        work(connection).map_err(|error| format!("Work log error: {error}"))
-    }
-}
-
-/// Runs the migrations this file has not had yet, each in its own transaction.
-fn prepare(connection: &mut Connection) -> rusqlite::Result<()> {
-    let done: usize = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    for (index, migration) in MIGRATIONS.iter().enumerate().skip(done) {
-        let transaction = connection.transaction()?;
-        transaction.execute_batch(migration)?;
-        transaction.pragma_update(None, "user_version", index + 1)?;
-        transaction.commit()?;
-    }
-    Ok(())
 }
 
 fn valid_day(day: &str) -> bool {
@@ -185,13 +133,13 @@ fn replace(connection: &mut Connection, log: &Log) -> rusqlite::Result<()> {
 }
 
 #[tauri::command]
-pub fn worklog_append(state: tauri::State<'_, WorkLog>, event: Event) -> Result<(), String> {
+pub fn worklog_append(state: tauri::State<'_, Database>, event: Event) -> Result<(), String> {
     check_event(&event)?;
     state.with(|connection| insert_event(connection, &event))
 }
 
 #[tauri::command]
-pub fn worklog_read(state: tauri::State<'_, WorkLog>, from: String, to: String) -> Result<Log, String> {
+pub fn worklog_read(state: tauri::State<'_, Database>, from: String, to: String) -> Result<Log, String> {
     if !valid_day(&from) || !valid_day(&to) {
         return Err("Invalid day".into());
     }
@@ -199,7 +147,7 @@ pub fn worklog_read(state: tauri::State<'_, WorkLog>, from: String, to: String) 
 }
 
 #[tauri::command]
-pub fn worklog_compact(state: tauri::State<'_, WorkLog>, before: String) -> Result<(), String> {
+pub fn worklog_compact(state: tauri::State<'_, Database>, before: String) -> Result<(), String> {
     if !valid_day(&before) {
         return Err("Invalid day".into());
     }
@@ -208,7 +156,7 @@ pub fn worklog_compact(state: tauri::State<'_, WorkLog>, before: String) -> Resu
 
 /// Adds to the counts of whole days, as when older records are brought in.
 #[tauri::command]
-pub fn worklog_add_counts(state: tauri::State<'_, WorkLog>, counts: Vec<Count>) -> Result<(), String> {
+pub fn worklog_add_counts(state: tauri::State<'_, Database>, counts: Vec<Count>) -> Result<(), String> {
     counts.iter().try_for_each(check_count)?;
     state.with(|connection| {
         let transaction = connection.transaction()?;
@@ -220,13 +168,13 @@ pub fn worklog_add_counts(state: tauri::State<'_, WorkLog>, counts: Vec<Count>) 
 }
 
 #[tauri::command]
-pub fn worklog_export(state: tauri::State<'_, WorkLog>) -> Result<Log, String> {
+pub fn worklog_export(state: tauri::State<'_, Database>) -> Result<Log, String> {
     state.with(|connection| read(connection, "0000-00-00", "9999-99-99"))
 }
 
 /// Restoring a backup: the whole log is replaced.
 #[tauri::command]
-pub fn worklog_replace(state: tauri::State<'_, WorkLog>, log: Log) -> Result<(), String> {
+pub fn worklog_replace(state: tauri::State<'_, Database>, log: Log) -> Result<(), String> {
     if log.events.len() + log.counts.len() > MAX_ROWS {
         return Err("Work log is too large".into());
     }
@@ -239,11 +187,7 @@ pub fn worklog_replace(state: tauri::State<'_, WorkLog>, log: Log) -> Result<(),
 mod tests {
     use super::*;
 
-    fn memory() -> Connection {
-        let mut connection = Connection::open_in_memory().unwrap();
-        prepare(&mut connection).unwrap();
-        connection
-    }
+    use crate::database::memory;
 
     fn event(at: i64, day: &str, kind: &str) -> Event {
         Event { at, day: day.into(), kind: kind.into(), source: "user".into(), text: "开会".into(), before: None, item_id: Some("a".into()) }
@@ -279,17 +223,6 @@ mod tests {
         let backup = Log { events: vec![event(9, "2026-11-01", "reminder_added")], counts: vec![Count { day: "2026-09-01".into(), kind: "reminder_done".into(), count: 3 }] };
         replace(&mut connection, &backup).unwrap();
         assert_eq!(read(&connection, "0000-00-00", "9999-99-99").unwrap(), backup);
-    }
-
-    #[test]
-    fn preparing_again_runs_no_migration_twice() {
-        let mut connection = memory();
-        let changed = Event { kind: "note_edited".into(), source: "chat".into(), before: Some("旧的".into()), ..event(1, "2026-11-18", "note_edited") };
-        insert_event(&connection, &changed).unwrap();
-        prepare(&mut connection).unwrap();
-        let version: usize = connection.query_row("PRAGMA user_version", [], |row| row.get(0)).unwrap();
-        assert_eq!(version, MIGRATIONS.len());
-        assert_eq!(read(&connection, "2026-11-18", "2026-11-18").unwrap().events, vec![changed]);
     }
 
     #[test]

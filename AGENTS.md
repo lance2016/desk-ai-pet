@@ -77,7 +77,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 动效名 | `MOTION_PRESETS`（`src/types.ts`） | `src/renderer/motions.ts` |
 | 窗口权限 | `petWindow.ts` 里调用的窗口 API | `src-tauri/capabilities/default.json` |
 | 设置窗口路由 | `src-tauri/tauri.conf.json` 的 `settings` 窗口 URL | `src/main.tsx` 的 `window=settings` 路由 |
-| 模型通道的命令名和事件名 | `src/platform/llm.ts`（`llm_*` 命令、`STREAM_EVENT`） | `src-tauri/src/llm.rs`、`lib.rs` 的 `invoke_handler` 和 `.manage` |
+| 模型通道的命令名和事件名 | `src/platform/llm.ts`（`llm_*` 命令、`STREAM_EVENT`） | `src-tauri/src/llm.rs`、`request_log.rs`（`llm_log_*`、`llm_stats_add`）、`lib.rs` 的 `invoke_handler` 和 `.manage` |
+| 请求记录的字段 | `recordStat`、`roundSchema`（`src/ai/requestLog.ts`） | `RequestStat`（`src-tauri/src/request_log.rs`）、`database.rs` 第 2 个迁移的表 |
 | 模型供应商 ID | `DEEPSEEK.id`（`src/ai/provider.ts`） | `PROVIDERS`（`src-tauri/src/llm.rs`，同时定地址和钥匙串服务名；改服务名会丢掉用户存的 Key） |
 | 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `src/skills/memory.ts` 里 `add_reminder`、`update_reminder` 的 `repeat` 参数说明 |
 | 开机启动、备份和重启命令，登录项状态值 | `src/platform/system.ts` | `src-tauri/src/system.rs`、`lib.rs` 的 `invoke_handler` |
@@ -196,7 +197,7 @@ pnpm exec tsc --noEmit && pnpm test
 
 - 默认资源包在 `public/pets/girl-default/`。新增角色的步骤见 `ACTIONS.md` 的“新增一个角色”。
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
-- 用户或聊天工具改提醒、备忘，要用 `changeReminders`、`changeNotes`、`keepNote`（`src/worklog/store.ts`）并写明来源，不要直接调 `updateAgenda`、`updateNotes`、`saveNote`，否则工作日志漏记。只有不算用户操作的整理（标记已提醒、过期作废、旧数据迁移）可以直接写。工作日志的表结构只能往 `worklog.rs` 的 `MIGRATIONS` 末尾加新脚本，不能改已经发出去的。
+- 用户或聊天工具改提醒、备忘，要用 `changeReminders`、`changeNotes`、`keepNote`（`src/worklog/store.ts`）并写明来源，不要直接调 `updateAgenda`、`updateNotes`、`saveNote`，否则工作日志漏记。只有不算用户操作的整理（标记已提醒、过期作废、旧数据迁移）可以直接写。数据库的表结构只能往 `database.rs` 的 `MIGRATIONS` 末尾加新脚本，不能改已经发出去的。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。

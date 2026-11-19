@@ -1,5 +1,6 @@
 mod alert;
 mod click_through;
+mod database;
 mod diagnostics;
 #[cfg(target_os = "macos")]
 mod floating_panel;
@@ -10,6 +11,7 @@ mod mail_extract;
 mod mimo;
 mod proxy;
 mod quick_chat;
+mod request_log;
 mod secrets;
 mod system;
 mod translation;
@@ -606,7 +608,6 @@ pub fn run() {
         .manage(mail_code::MailCodeState::default())
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(llm::LlmState::default()))
-        .manage(std::sync::Arc::new(llm::RequestLog::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
         .setup(|app| {
             // A desktop pet should not occupy a Dock slot.
@@ -616,11 +617,11 @@ pub fn run() {
             // Marks each launch in the log, so a problem can be placed before or after a restart.
             log::info!("AI Pet {} started", app.package_info().version);
 
-            // Without the work log the pet still runs; its commands then report an error.
-            let work_log = app.path().app_data_dir().map_err(|error| error.to_string()).and_then(|folder| worklog::WorkLog::open(&folder));
-            app.manage(work_log.unwrap_or_else(|error| {
-                log::warn!("failed to open the work log: {error}");
-                worklog::WorkLog::default()
+            // Without the database the pet still runs; the work log and request records then report an error.
+            let database = app.path().app_data_dir().map_err(|error| error.to_string()).and_then(|folder| database::Database::open(&folder));
+            app.manage(database.unwrap_or_else(|error| {
+                log::warn!("failed to open the database: {error}");
+                database::Database::default()
             }));
 
             let pet_menu = build_menu(app)?;
@@ -743,9 +744,10 @@ pub fn run() {
             llm::llm_stream,
             llm::llm_complete,
             llm::llm_cancel,
-            llm::llm_log_put,
-            llm::llm_log_list,
-            llm::llm_log_clear,
+            request_log::llm_log_put,
+            request_log::llm_log_list,
+            request_log::llm_log_clear,
+            request_log::llm_stats_add,
             holidays::fetch_holiday_year,
             mail_code::mail_account,
             mail_code::mail_save_account,

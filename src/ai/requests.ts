@@ -14,7 +14,7 @@ import type { ChatContext, TextTask } from "./types";
 export type OutgoingMessage = ChatMessage & { imageData?: string };
 type Message = { role: string; content: unknown; server_tool_calls?: unknown[]; tool_calls?: object[]; tool_call_id?: string };
 /** A chat completion request in the OpenAI format. */
-export type RequestBody = { model: string; messages: Message[]; stream: boolean; max_tokens: number; tools?: object[]; tool_choice?: "none" } & typeof THINKING_OFF;
+export type RequestBody = { model: string; messages: Message[]; stream: boolean; stream_options?: { include_usage: boolean }; max_tokens: number; tools?: object[]; tool_choice?: "none" } & typeof THINKING_OFF;
 
 const MAX_WEB_OUTPUT_TOKENS = 2048;
 const MAX_TEXT_TASK_TOKENS = 4096;
@@ -23,7 +23,8 @@ const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const WEB_TURNS: ReadonlySet<string> = new Set(["open", "follow", "search", "image"]);
 
 const body = (model: string, messages: Message[], maxTokens: number, tools?: object[]): RequestBody =>
-  ({ model, messages, stream: true, max_tokens: maxTokens, ...THINKING_OFF, ...(tools ? { tools } : {}) });
+  // The last chunk then carries the tokens used, for the request records.
+  ({ model, messages, stream: true, stream_options: { include_usage: true }, max_tokens: maxTokens, ...THINKING_OFF, ...(tools ? { tools } : {}) });
 
 /**
  * An ordinary chat turn: the character's rules, the conversation, and the local tools.

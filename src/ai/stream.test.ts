@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { callArguments, MAX_TOOL_CALLS, parseStreamData, ToolCallCollector } from "./stream";
+import { callArguments, MAX_TOOL_CALLS, parseStreamData, readUsage, ToolCallCollector } from "./stream";
 
 describe("parseStreamData", () => {
+  it("reads the tokens used from the last chunk, which has no choices", () => {
+    const last = parseStreamData(`{"choices":[],"usage":{"prompt_tokens":900,"completion_tokens":12,"total_tokens":912,"prompt_cache_hit_tokens":640,"prompt_cache_miss_tokens":260}}`);
+    expect(last).toMatchObject({ kind: "chunk", text: "", tools: [], usage: { promptTokens: 900, completionTokens: 12, cacheHitTokens: 640 } });
+    expect(parseStreamData(`{"choices":[{"delta":{"content":"a"}}],"usage":null}`)).toMatchObject({ usage: null });
+    expect(readUsage({ prompt_tokens: 5, completion_tokens: 1 })).toEqual({ promptTokens: 5, completionTokens: 1, cacheHitTokens: null });
+    expect(readUsage({ prompt_tokens: -1, completion_tokens: 1 })).toBeNull();
+    expect(readUsage("x")).toBeNull();
+  });
+
   it("reads text, the end, errors and a reply cut off at the token limit", () => {
     expect(parseStreamData(`{"choices":[{"delta":{"content":"你好"}}]}`)).toMatchObject({ kind: "chunk", text: "你好", tools: [], truncated: false });
     expect(parseStreamData("[DONE]")).toEqual({ kind: "done" });

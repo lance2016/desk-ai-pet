@@ -37,12 +37,12 @@ export const ai = {
   preview: previewChat,
   /** Starts a chat reply; it streams to `subscribe`, with a line for each thing its tools did. */
   async start(id: string, messages: readonly OutgoingMessage[], preferences: ChatRequestPreferences, turn: ChatTurn): Promise<void> {
-    if ("mode" in turn) return startRun(id, webRequest(messages, turn.mode), { mode: turn.mode, record: preferences.record });
-    return startRun(id, chatRequest(messages, preferences, turn.context, turn.skills), { tools: turn, record: preferences.record });
+    if ("mode" in turn) return startRun(id, webRequest(messages, turn.mode), { kind: "web", mode: turn.mode, record: preferences.record });
+    return startRun(id, chatRequest(messages, preferences, turn.context, turn.skills), { kind: "chat", tools: turn, record: preferences.record });
   },
   /** Runs one text task on text the user handed over; the result streams to `subscribe`. */
   translate: async (id: string, text: string, task: TextTask, model: string): Promise<void> =>
-    startRun(id, textTaskRequest(text, task, model), { record: false }),
+    startRun(id, textTaskRequest(text, task, model), { kind: "text", record: false }),
   cancel: cancelRun,
   subscribe: subscribeRuns,
   requestLog: readRequestLog,

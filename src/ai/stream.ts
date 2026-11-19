@@ -8,17 +8,33 @@ const MAX_TOOL_ARGUMENT_BYTES = 4_000;
 /** One streamed piece of a tool call. Name and arguments arrive split over many packets. */
 export interface ToolDelta { index: number; id: string; name: string; arguments: string }
 
+/** Tokens one request used. `cacheHitTokens`: the part of the prompt DeepSeek had cached, which costs less. */
+export interface Usage { promptTokens: number; completionTokens: number; cacheHitTokens: number | null }
+
 /** One `data:` line of a streamed reply in the OpenAI chat format. */
 export type StreamLine =
   | { kind: "ignore" }
-  /** `truncated`: the reply stopped at `max_tokens`. `choice` keeps provider extras such as DeepSeek's webpage tools. */
-  | { kind: "chunk"; text: string; tools: ToolDelta[]; truncated: boolean; choice: Record<string, unknown> }
+  /**
+   * `truncated`: the reply stopped at `max_tokens`. `choice` keeps provider extras such as DeepSeek's webpage tools.
+   * `usage`: on the last chunk only, when the request asked for it (`stream_options.include_usage`).
+   */
+  | { kind: "chunk"; text: string; tools: ToolDelta[]; truncated: boolean; choice: Record<string, unknown>; usage: Usage | null }
   | { kind: "refused" }
   | { kind: "error" }
   | { kind: "done" };
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const textAt = (value: unknown): string => (typeof value === "string" ? value : "");
+const countAt = (value: unknown): number | null => (Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : null);
+
+/** The `usage` object of a reply or its last chunk, or null when it has none. */
+export function readUsage(value: unknown): Usage | null {
+  if (!isObject(value)) return null;
+  const promptTokens = countAt(value.prompt_tokens);
+  const completionTokens = countAt(value.completion_tokens);
+  if (promptTokens === null || completionTokens === null) return null;
+  return { promptTokens, completionTokens, cacheHitTokens: countAt(value.prompt_cache_hit_tokens) };
+}
 
 function toolDeltas(delta: Record<string, unknown>): ToolDelta[] {
   if (!Array.isArray(delta.tool_calls)) return [];
@@ -38,7 +54,7 @@ export function parseStreamData(data: string): StreamLine {
   const choice = Array.isArray(packet.choices) && isObject(packet.choices[0]) ? packet.choices[0] : {};
   if (choice.finish_reason === "content_filter") return { kind: "refused" };
   const delta = isObject(choice.delta) ? choice.delta : {};
-  return { kind: "chunk", text: textAt(delta.content), tools: toolDeltas(delta), truncated: choice.finish_reason === "length", choice };
+  return { kind: "chunk", text: textAt(delta.content), tools: toolDeltas(delta), truncated: choice.finish_reason === "length", choice, usage: readUsage(packet.usage) };
 }
 
 /** A tool call put back together from its pieces. */

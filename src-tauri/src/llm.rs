@@ -4,7 +4,7 @@
 
 use serde_json::{Value, json};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     io::{BufRead, BufReader, Read, Write},
     process::{Child, ChildStderr, Command, Stdio},
     sync::{
@@ -293,51 +293,6 @@ fn split_status(output: &str) -> (String, Option<u16>) {
     }
 }
 
-/// How many requests developer mode keeps. Only in memory: they are gone when the app quits.
-const MAX_LOGGED_REQUESTS: usize = 20;
-const MAX_LOG_ENTRY_BYTES: usize = 2 * 1024 * 1024;
-
-/// Recent requests as developer mode recorded them, newest first. The webview writes the
-/// entries (`src/ai/requestLog.ts`); they are kept here so every window can read them.
-#[derive(Default)]
-pub struct RequestLog(Mutex<VecDeque<Value>>);
-
-impl RequestLog {
-    /// Replaces the entry with the same id, or adds it as the newest.
-    fn put(&self, entry: Value) -> Result<(), String> {
-        let id = entry.get("id").and_then(Value::as_str).ok_or("Invalid log entry")?.to_owned();
-        if entry.to_string().len() > MAX_LOG_ENTRY_BYTES {
-            return Err("Log entry too large".into());
-        }
-        let mut entries = self.0.lock().map_err(|_| "Request log unavailable")?;
-        match entries.iter_mut().find(|kept| kept["id"] == id.as_str()) {
-            Some(kept) => *kept = entry,
-            None => {
-                entries.push_front(entry);
-                entries.truncate(MAX_LOGGED_REQUESTS);
-            }
-        }
-        Ok(())
-    }
-}
-
-#[tauri::command]
-pub fn llm_log_put(log: State<'_, Arc<RequestLog>>, entry: Value) -> Result<(), String> {
-    log.put(entry)
-}
-
-#[tauri::command]
-pub fn llm_log_list(log: State<'_, Arc<RequestLog>>) -> Result<Value, String> {
-    let entries = log.0.lock().map_err(|_| "Request log unavailable")?;
-    Ok(Value::Array(entries.iter().cloned().collect()))
-}
-
-#[tauri::command]
-pub fn llm_log_clear(log: State<'_, Arc<RequestLog>>) -> Result<(), String> {
-    log.0.lock().map_err(|_| "Request log unavailable")?.clear();
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,18 +334,5 @@ mod tests {
     #[test]
     fn escapes_config_metacharacters() {
         assert_eq!(config_quote("a\"b\\c\n"), "a\\\"b\\\\c\\n");
-    }
-
-    #[test]
-    fn keeps_the_newest_entries_and_updates_in_place() {
-        let log = RequestLog::default();
-        for index in 0..MAX_LOGGED_REQUESTS + 2 {
-            log.put(json!({"id": format!("r{index}"), "rounds": []})).unwrap();
-        }
-        log.put(json!({"id": "r21", "rounds": [1]})).unwrap();
-        let entries = log.0.lock().unwrap();
-        assert_eq!(entries.len(), MAX_LOGGED_REQUESTS);
-        assert_eq!(entries[0], json!({"id": "r21", "rounds": [1]}));
-        assert!(RequestLog::default().put(json!({"rounds": []})).is_err());
     }
 }

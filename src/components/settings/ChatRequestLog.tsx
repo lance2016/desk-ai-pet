@@ -16,12 +16,26 @@ const time = (at: number) => new Date(at).toLocaleTimeString("zh-CN", { hour: "2
 type Entry = Log[number];
 type Round = Entry["rounds"][number];
 
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} 秒`;
+
+/** "用时 3.2 秒，首字 0.8 秒，输入 900 token（缓存命中 640），输出 12 token". */
+function costText(round: Round): string {
+  const parts = [`用时 ${seconds(round.durationMs)}`];
+  if (round.firstTokenMs !== null) parts.push(`首字 ${seconds(round.firstTokenMs)}`);
+  if (round.usage) {
+    const cached = round.usage.cacheHitTokens ? `（缓存命中 ${round.usage.cacheHitTokens}）` : "";
+    parts.push(`输入 ${round.usage.promptTokens} token${cached}`, `输出 ${round.usage.completionTokens} token`);
+  }
+  return parts.join("，");
+}
+
 /** One request as sent, and what came back for it. */
 function RoundView({ round, index }: { round: Round; index: number }) {
   const body = bodySchema.safeParse(round.request);
   const outcome = round.ok ? "成功" : round.status ? `失败（HTTP ${round.status}）` : "失败";
   return <section className="ai-log-round">
     <h4>第 {index + 1} 次请求<span>{body.success ? body.data.model : ""} {outcome}</span></h4>
+    <p className="ai-log-cost">{costText(round)}</p>
     {body.success ? <>
       {body.data.messages.map((message, at) => <div key={at} className="ai-log-message"><span>{ROLES[message.role] ?? message.role}</span><pre>{message.content}</pre></div>)}
       <p className="ai-log-tools">可用工具：{body.data.tools?.map((tool) => tool.function.name).join("、") || "无"}</p>
@@ -58,7 +72,7 @@ export function ChatRequestLog() {
   const clear = () => void ai.clearRequestLog().then(refresh).catch((reason: unknown) => { console.error("Could not clear the request log", reason); setProblem("没能清空，请再试一次。"); });
   return <div className="ai-log">
     <div className="ai-preview__head">
-      <div><strong>最近发出的请求</strong><span>只记开发者模式打开以后的聊天，最多 20 条，退出应用就清掉</span></div>
+      <div><strong>最近发出的请求</strong><span>只记开发者模式打开以后的聊天，保留最近 100 条，退出应用后还在</span></div>
       <button type="button" className="settings-button settings-button--small" onClick={refresh}>刷新</button>
       <ConfirmButton className="settings-button settings-button--small" disabled={!log?.length} confirm={{ message: "清空请求记录？", detail: "已记下的请求会全部删掉，不能撤销。", action: "清空" }} onConfirm={clear}>清空</ConfirmButton>
     </div>

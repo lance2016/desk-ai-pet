@@ -806,3 +806,4 @@ button.dock-row__body { cursor: pointer; }
 .log-viewer__list li.is-error .log-viewer__message { color: var(--red); }
 .log-viewer__list li.is-warn { box-shadow: inset 2px 0 0 var(--orange); }
 .log-viewer + .settings-row { border-top: 1px solid var(--separator); }
+.ai-log-cost { margin: -4px 0 8px; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }

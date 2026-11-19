@@ -20,6 +20,7 @@ const platform = vi.hoisted(() => {
       cancel: vi.fn(async (_id: string) => {}),
       windowLabel: () => "chat",
       putLogEntry: vi.fn(async (_entry: object) => {}),
+      addStat: vi.fn(async (_stat: object) => {}),
     },
     requestChatAction: vi.fn(async (id: string, _requestId: string): Promise<ActionResult> => ({ accepted: true, actionId: id })),
   };
@@ -242,14 +243,29 @@ describe("chat replies", () => {
 
   it("records each request in developer mode, without picture bytes", async () => {
     platform.llmPlatform.putLogEntry.mockClear();
-    await run((id) => ai.start(id, [{ role: "user", content: "看图", imageData: "data:image/png;base64,aGVsbG8=" }], chatPreferences({ record: true }), { mode: "image" }), (id) => feed(id, [chunk("是只猫。", [], "stop")]));
+    const usage = { prompt_tokens: 900, completion_tokens: 12, total_tokens: 912, prompt_cache_hit_tokens: 640, prompt_cache_miss_tokens: 260 };
+    await run((id) => ai.start(id, [{ role: "user", content: "看图", imageData: "data:image/png;base64,aGVsbG8=" }], chatPreferences({ record: true }), { mode: "image" }), (id) => feed(id, [chunk("是只猫。", [], "stop"), { choices: [], usage }]));
     const logged = platform.llmPlatform.putLogEntry.mock.calls;
     const entry = logged[logged.length - 1][0] as { window: string; rounds: Array<{ request: unknown; reply: string; ok: boolean }> };
     expect(entry.window).toBe("chat");
     expect(entry.rounds).toHaveLength(1);
-    expect(entry.rounds[0]).toMatchObject({ reply: "是只猫。", ok: true });
+    expect(entry.rounds[0]).toMatchObject({ reply: "是只猫。", ok: true, durationMs: expect.any(Number), firstTokenMs: expect.any(Number), usage: { promptTokens: 900, completionTokens: 12, cacheHitTokens: 640 } });
     expect(JSON.stringify(entry.rounds[0].request)).toContain("[Image omitted]");
     expect(JSON.stringify(entry.rounds[0].request)).not.toContain("aGVsbG8=");
+  });
+});
+
+describe("request records", () => {
+  it("leaves a short row for every request, without content, also outside developer mode", async () => {
+    platform.llmPlatform.addStat.mockClear();
+    platform.llmPlatform.putLogEntry.mockClear();
+    await run((id) => ai.translate(id, "hello", "zh", "deepseek-chat"), (id) => feed(id, [chunk("你好", [], "stop"), { choices: [], usage: { prompt_tokens: 30, completion_tokens: 2 } }]));
+    expect(platform.llmPlatform.putLogEntry).not.toHaveBeenCalled();
+    expect(platform.llmPlatform.addStat).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "text", window: "chat", model: "deepseek-chat", ok: true, status: 200,
+      durationMs: expect.any(Number), firstTokenMs: expect.any(Number), promptTokens: 30, completionTokens: 2, cacheHitTokens: null,
+    }));
+    expect(JSON.stringify(platform.llmPlatform.addStat.mock.calls)).not.toContain("hello");
   });
 });
 

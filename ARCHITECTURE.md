@@ -78,7 +78,7 @@ src/
 │   ├── petActions.ts        让宠物做动作（回复还没写完就开始）
 │   └── refs.ts              编号（r1、n1）和条目 ID 的对应，只在一次回复内有效
 ├── platform/
-│   ├── llm.ts               模型通道：Key、发请求、取消、请求记录（原生端 `llm.rs`）
+│   ├── llm.ts               模型通道：Key、发请求、取消（原生端 `llm.rs`），请求记录（原生端 `request_log.rs`）
 │   ├── petWindow.ts         原生窗口操作：移动、贴边、改大小、弹菜单、可点击区域
 │   ├── holidays.ts          下载某一年的法定节假日数据（原生端 `holidays.rs`）
 │   ├── mailCode.ts          邮箱设置的保存、移除，接收「查收验证码」的进展（原生端 `mail_code.rs`）
@@ -114,7 +114,9 @@ src/
 src-tauri/src/
 ├── lib.rs                   托盘、右键菜单、应用菜单；平时隐藏 Dock 图标，设置窗口打开时显示
 ├── alert.rs                 不可撤销操作前的原生确认框（NSAlert）
-├── llm.rs                   模型通道：钥匙串里的 Key、供应商地址白名单、curl、按行转发流、取消、请求记录的内存存储
+├── llm.rs                   模型通道：钥匙串里的 Key、供应商地址白名单、curl、按行转发流、取消
+├── database.rs              应用的 SQLite（rusqlite）：打开 `worklog.sqlite`、按版本顺序跑 `MIGRATIONS`
+├── request_log.rs           请求记录：每次请求一行概要（耗时、token，不含内容，留 90 天），开发者模式另存完整内容（留 100 条）
 ├── floating_panel.rs        把窗口变成浮动面板，能盖在全屏应用上；快速聊天时拿键盘、还键盘（仅 macOS）
 ├── proxy.rs                 读系统代理，交给 curl
 ├── mail_code.rs             查收验证码：163 邮箱账号（钥匙串）、IMAP 只读登录、等邮件、复制到剪贴板
@@ -122,7 +124,7 @@ src-tauri/src/
 ├── quick_chat.rs            快速聊天的全局快捷键，以及拿键盘、还键盘的命令
 ├── click_through.rs         鼠标穿透：按可点击区域表切换窗口是否接收鼠标
 ├── diagnostics.rs           日志文件（tauri-plugin-log）、panic 记录，设置页查看、清理、在访达中显示、导出诊断信息的命令
-└── worklog.rs               工作日志的 SQLite（rusqlite）：按版本跑迁移、追加、按日期读、折叠、导出、整体替换，只开有类型的命令
+└── worklog.rs               工作日志：追加、按日期读、折叠、导出、整体替换，只开有类型的命令
 public/pets/                 内置角色：six-six（小祭司，默认）、girl-default（小糕）
 ```
 
@@ -345,10 +347,10 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 ## 工作日志
 
-按天记用户做过的事，同时是审计记录：每条记下是谁做的、改和删之前是什么。不记聊天原文。存在应用数据目录的 `worklog.sqlite`，Rust 端 `worklog.rs` 用 `rusqlite`（`bundled`）读写，只开 `worklog_append`、`worklog_read`、`worklog_compact`、`worklog_add_counts`、`worklog_export`、`worklog_replace` 几个命令，网页不能执行 SQL。前端只经过 `platform/worklog.ts`，纯浏览器下不记、读到空。
+按天记用户做过的事，同时是审计记录：每条记下是谁做的、改和删之前是什么。不记聊天原文。存在应用数据目录的 `worklog.sqlite`（`database.rs` 打开，`rusqlite` 的 `bundled`），Rust 端 `worklog.rs` 读写，只开 `worklog_append`、`worklog_read`、`worklog_compact`、`worklog_add_counts`、`worklog_export`、`worklog_replace` 几个命令，网页不能执行 SQL。前端只经过 `platform/worklog.ts`，纯浏览器下不记、读到空。
 
 - **表。** `events`：时间、本地日期（前端算好的 `YYYY-MM-DD`）、种类、来源（`user` 手动，包括面板、宠物气泡按钮和撤销；`chat` 是聊天里的工具）、一行文字（最多 500 字，够放下一整条备忘）、改之前的文字、关联的提醒或备忘 ID。提醒的文字带时间（「今天 15:00 · 开会」）；改动的 `before` 是改之前的样子，删除的文字就是删掉的内容。`day_counts`：某天某种事件的次数。
-- **表结构版本。** `MIGRATIONS` 按顺序列出迁移脚本，`PRAGMA user_version` 记跑到第几个，每个在自己的事务里跑。发出去的脚本不能改，只能往后加。
+- **表结构版本。** `database.rs` 的 `MIGRATIONS` 按顺序列出迁移脚本（第 1 个建工作日志的表，第 2 个建请求记录的表），`PRAGMA user_version` 记跑到第几个，每个在自己的事务里跑。发出去的脚本不能改，只能往后加。
 - **种类。** 提醒的新建、完成、取消完成、修改、删除，备忘的新建、修改、删除，专注完成和中途停止。读的一方跳过不认识的种类，以后可以加。
 - **从哪来。** 在写入的地方记，这样才知道是谁做的。提醒和备忘的改动都经过 `changeReminders`、`changeNotes`、`keepNote`（`worklog/store.ts`），它们写入前后各读一次，`agendaEvents`、`noteEvents` 比较出做了什么，带上来源写进日志。调用方：提醒面板、备忘面板、聊天里「存为备忘」和宠物气泡按钮（`user`），聊天工具（`chat`），撤销（`user`）。不记标记已提醒、稍后提醒、过期作废（`isStale`）、满了被挤掉这些整理动作，这类写入可以直接用 `updateAgenda`。聊天工具的 `effect` 目前只有提醒和备忘，已经在写入处记了，不单独记。专注：宠物窗口订阅 `FocusTimer`，专注转休息记完成，专注转关闭记中途停止（包括电脑睡着打断），来源算 `user`。
 - **读。** `dayRecap` 算一天：完成了又取消的不算，记了又删的备忘不算，再加上 `day_counts` 的次数。今日回顾（`review_today`）合并日志和当前清单（日志之前的、或日志漏掉的也在），早安读最近 7 天。
@@ -439,7 +441,8 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `src/ai/`（TS） | 提示词骨架、请求体、读流、跑工具循环、DeepSeek 的毛病、报错措辞、请求记录的内容 | Key、网络；具体有哪些工具 |
 | `src/skills/`（TS） | 每组能力的提示词和工具：定义、执行、给用户看的那一行、撤销 | 怎么请求模型 |
 | `platform/llm.ts` | 调原生命令、收 `pet://llm-stream` 事件 | 任何 AI 逻辑 |
-| `llm.rs`（Rust） | 钥匙串里的 Key、供应商地址白名单（`PROVIDERS`）、请求体大小上限、curl、取消、请求记录的内存存储 | 拼提示词、解读回复 |
+| `llm.rs`（Rust） | 钥匙串里的 Key、供应商地址白名单（`PROVIDERS`）、请求体大小上限、curl、取消 | 拼提示词、解读回复 |
+| `request_log.rs`（Rust） | 把前端写来的请求记录存进数据库、按上限删旧的 | 读请求内容 |
 
 - **一次回复。** `ai.start` 组装请求体，`chatRun.ts` 调 `llm_stream`。`llm.rs` 把 SSE 的每个 `data:` 行作为 `data` 事件发给发起请求的窗口，结束时发 `end`（HTTP 状态、curl 是否正常退出、是否被取消）。`chatRun.ts` 读流后给窗口发事件：`delta`、`effect`（工具做了什么，带可选的撤销）、`web-progress`、`web-result`、`web-error`、`done`、`error`、`cancelled`。工具出了什么结果，即使回复随后失败或被停止，`effect` 也照发。
 - **能力表。** 一个 `Skill` 是系统提示里的一段规则（`id` 就是用户可改写的段名 `ChatRuleId`）加上它解释的工具，`available` 决定这次提不提供。`Tool` 自带参数说明（可按 `context` 生成，如动作枚举）和 `run`；`run` 返回 `ToolOutcome`：交给模型的 `result`、给用户看的 `lines`、模型没说话时的 `confirmation`、原样显示的 `shown`，以及 `needsModel`（模型得读结果才能回答）。加一个能力只改 `src/skills/` 下的文件，聊天窗口、宠物和 AI 模块都不用动。
@@ -544,7 +547,10 @@ AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附�
 
 当前时间、UTC 偏移、时区和未来日期由本地时钟动态提供。系统提示词由 `chatSections`（`src/ai/prompt.ts`）按段组装：`persona`、`date`、`memory`、`lookup`、`actions`（有可选动作时）、`instructions`（填了补充要求时），非空段用换行连起来。`memory`、`lookup`、`actions` 三段可被用户改写：`ChatRules`（`ai-pet:chat-rules:v1`，所有角色共用）随 `requestPreferences` 以 `rules` 发出，缺省用默认写法，空字符串表示去掉这一段。预览返回每段的 `text` 和 `default`，设置页据此显示「已修改」和「恢复默认」。
 
-开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，`src/ai/requestLog.ts` 把这次回复的每个请求体（首个请求和可能的只读归纳请求，图片换成占位）和模型原样返回的文字、工具调用写进原生端的 `RequestLog`（`llm_log_put`），最多 20 条，只在内存；设置页通过 `ai.requestLog`、`ai.clearRequestLog` 读取和清空。
+**请求记录分两层**，都由 `src/ai/requestLog.ts` 写、`request_log.rs` 存进数据库，都不进备份：
+
+- **概要，每次请求都记。** 聊天每一轮、网页、文字处理、问候、测试连接，各记一行：开始时间、种类、窗口、模型、成功与否、HTTP 状态、总耗时、首字耗时（发出请求到第一个字或第一个工具调用）、输入和输出 token、缓存命中的 token。不含任何内容。留 90 天，以后用来显示用量（产品化 D）。流式请求带 `stream_options.include_usage`，DeepSeek 在 `[DONE]` 前的最后一块（`choices` 为空）给出整次用量，`parseStreamData` 读进 `usage`；非流式请求从回复的 `usage` 读。
+- **完整内容，开发者模式才记。** 开发者模式（`ai-pet:developer-mode:v1`）打开时，`requestPreferences` 带 `record: true`，把这次回复的每个请求体（首个请求和可能的只读归纳请求，图片换成占位）、模型原样返回的文字、工具调用，以及同样的耗时和用量写进 `request_entries`（`llm_log_put`），留最近 100 条，重启后还在；设置页通过 `ai.requestLog`、`ai.clearRequestLog` 读取和清空，每一轮显示用时、首字和 token。
 
 动作图层的上飘淡出按主图指定的显示帧范围计算进度，预览与渲染器共用动效采样。文字图层先生成透明 PNG，再按普通图层保存。
 

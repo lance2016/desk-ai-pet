@@ -1,17 +1,32 @@
 import type { GreetingKind } from "../greeting/GreetingSchedule";
-import { llmPlatform } from "../platform/llm";
+import { llmPlatform, type Completion } from "../platform/llm";
 import type { ChatRequestPreferences } from "../preferences/ChatPreferences";
 import { DEEPSEEK, failureMessage, isSuccess, THINKING_OFF } from "./provider";
+import { recordStat, type RequestKind } from "./requestLog";
+import { readUsage } from "./stream";
 
 const GREETING_TOKENS = 120;
+/** A request body that is not streamed; only its model is read here. */
+type PlainBody = { model: string; [field: string]: unknown };
 const OCCASIONS: Record<GreetingKind, string> = { morning: "向用户问好，开始新的一天", evening: "跟用户道晚安，收个尾" };
 
 /** The request for a one-line morning or evening greeting in the character's voice. `now` is `localTimeText()`. */
-export function greetingRequest(kind: GreetingKind, facts: readonly string[], preferences: ChatRequestPreferences, now: string): object {
+export function greetingRequest(kind: GreetingKind, facts: readonly string[], preferences: ChatRequestPreferences, now: string): PlainBody {
   const userName = preferences.userName.trim();
   const system = `你是一位名叫${preferences.name}的中文桌面宠物。${userName ? `称呼用户为「${userName}」。` : ""}用户希望你的性格是：${preferences.personality}`;
   const user = `现在是${now}。请用一句不超过 40 个字的话${OCCASIONS[kind]}。可以自然地提到下面一两条信息，不要逐条罗列，不要加引号：\n- ${facts.join("\n- ")}`;
   return { model: preferences.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], stream: false, max_tokens: GREETING_TOKENS, ...THINKING_OFF };
+}
+
+/** A request that is not streamed, recorded like every other: its timing, and the tokens its reply reports. */
+async function complete(kind: RequestKind, body: PlainBody): Promise<Completion> {
+  const startedAt = Date.now();
+  const result = await llmPlatform.complete(DEEPSEEK.id, body);
+  const ok = result.ok && isSuccess(result.status);
+  let usage = null;
+  try { usage = readUsage((JSON.parse(result.body) as { usage?: unknown }).usage); } catch { usage = null; }
+  recordStat(kind, { model: body.model, startedAt, ok, status: result.status, firstTokenAt: null, usage });
+  return result;
 }
 
 /** The reply's text without the quotes models like to add, or null when there is none. */
@@ -28,7 +43,7 @@ export function greetingText(response: string): string | null {
 }
 
 export async function greet(kind: GreetingKind, facts: readonly string[], preferences: ChatRequestPreferences, now: string): Promise<string> {
-  const result = await llmPlatform.complete(DEEPSEEK.id, greetingRequest(kind, facts, preferences, now));
+  const result = await complete("greeting", greetingRequest(kind, facts, preferences, now));
   if (!result.ok) throw new Error("Request failed");
   const text = greetingText(result.body);
   if (!text) throw new Error("Empty reply");
@@ -37,7 +52,7 @@ export async function greet(kind: GreetingKind, facts: readonly string[], prefer
 
 /** Sends a tiny message to `model`, to check the key and the model name. */
 export async function testConnection(model: string): Promise<void> {
-  const result = await llmPlatform.complete(DEEPSEEK.id, { model, messages: [{ role: "user", content: "你好" }], stream: false, max_tokens: 1, ...THINKING_OFF });
+  const result = await complete("test", { model, messages: [{ role: "user", content: "你好" }], stream: false, max_tokens: 1, ...THINKING_OFF });
   if (result.ok && isSuccess(result.status)) return;
   // A one-word message cannot be rejected for its content: the model name is what is wrong.
   if (result.status === 400 || result.status === 404 || result.status === 422) throw new Error("模型名不可用，DeepSeek 不认识这个模型。");
