@@ -1,0 +1,57 @@
+/* Shared neutral surfaces and controls for the app's native-style windows. */
+:root {
+  --ui-window: #f5f5f4;
+  --ui-surface: #ffffff;
+  --ui-raised: #efeff1;
+  --ui-border: rgba(31, 30, 36, .08);
+  --ui-border-strong: rgba(31, 30, 36, .14);
+  --ui-text: #242329;
+  --ui-text-secondary: #5f5d66;
+  --ui-text-muted: #77757d;
+  --ui-fill: rgba(31, 30, 36, .045);
+  --ui-fill-strong: rgba(31, 30, 36, .08);
+  --ui-accent: #6958ad;
+  --ui-accent-strong: #5f4da3;
+  --ui-accent-soft: #efedf7;
+  --ui-accent-ring: rgba(105, 88, 173, .28);
+  --ui-action-bg: #5f4da3;
+  --ui-action-text: #ffffff;
+  --ui-positive: #28734f;
+  --ui-positive-soft: #e9f3ed;
+  --ui-warning: #8b5a13;
+  --ui-warning-soft: #f7f0e4;
+  --ui-danger: #b3262d;
+  --ui-danger-soft: #f8eceb;
+  --ui-radius-card: 10px;
+  --ui-radius-row: 8px;
+  --ui-radius-control: 6px;
+  --ui-shadow-popover: 0 8px 24px rgba(24, 23, 29, .12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ui-window: #222126;
+    --ui-surface: #2c2b31;
+    --ui-raised: #37363d;
+    --ui-border: rgba(255, 255, 255, .08);
+    --ui-border-strong: rgba(255, 255, 255, .14);
+    --ui-text: #efedf2;
+    --ui-text-secondary: #c2c0c9;
+    --ui-text-muted: #a6a4ae;
+    --ui-fill: rgba(255, 255, 255, .05);
+    --ui-fill-strong: rgba(255, 255, 255, .09);
+    --ui-accent: #b7a9e8;
+    --ui-accent-strong: #c5b8ef;
+    --ui-accent-soft: rgba(183, 169, 232, .15);
+    --ui-accent-ring: rgba(183, 169, 232, .34);
+    --ui-action-bg: #b7a9e8;
+    --ui-action-text: #242329;
+    --ui-positive: #78c89c;
+    --ui-positive-soft: rgba(76, 195, 138, .13);
+    --ui-warning: #e4b76f;
+    --ui-warning-soft: rgba(228, 183, 111, .13);
+    --ui-danger: #ff8580;
+    --ui-danger-soft: rgba(255, 105, 97, .13);
+    --ui-shadow-popover: 0 10px 28px rgba(0, 0, 0, .28);
+  }
+}

@@ -600,7 +600,15 @@ export function ChatPage({ packId }: { packId: string }) {
     </header>
     <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>
       {keyMissing && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={() => openSettings("ai")}>去设置</button></div>}
-      {messages.length === 0 && !keyMissing && <div className="chat-empty"><strong>今天想聊点什么？</strong><p>说说你的心情，或者让{name}帮你记件事。</p></div>}
+      {messages.length === 0 && !keyMissing && <div className="chat-empty">
+        <strong>把手边的事交给{name}</strong>
+        <p>记一件事、看看今天的安排，或者直接说说你在忙什么。</p>
+        <div className="chat-empty__suggestions" aria-label="聊天示例">
+          {["帮我记一件事", "看看今天的安排", "总结一下今天"].map((prompt) => (
+            <button key={prompt} type="button" onClick={() => { setDraft(prompt); input.current?.focus(); }}>{prompt}</button>
+          ))}
+        </div>
+      </div>}
       {messages.map((message, index) => message.role === "assistant" ? assistantRow(message.content, index, message.web) : <div key={index} className="chat-row chat-row--user">
         <div className="chat-bubble chat-bubble--user">
           {message.image && <div className="chat-sent-image">

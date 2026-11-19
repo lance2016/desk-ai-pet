@@ -12,6 +12,7 @@ import { dropTimelessAgenda, timelessAgendaTexts } from "./agenda/AgendaStore";
 import { addNote, updateNotes } from "./notes/NoteStore";
 import { forwardToLog } from "./platform/diagnostics";
 import { loadActiveCharacter, migrateLegacyCharacterData, subscribeActiveCharacter } from "./preferences/CharacterPreferences";
+import "./ui/tokens.css";
 
 const view = new URLSearchParams(window.location.search).get("window");
 if (view) document.documentElement.dataset.window = view;
