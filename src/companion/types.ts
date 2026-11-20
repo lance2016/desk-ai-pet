@@ -1,3 +1,4 @@
+import type { AgendaItem } from "../agenda/AgendaStore";
 import type { CompanionPreferences } from "../preferences/CompanionPreferences";
 import type { QuietPreferences } from "../preferences/QuietPreferences";
 import type { GreetingFacts } from "./GreetingContent";
@@ -15,6 +16,13 @@ export interface Moment {
   activeMs: number | null;
   /** True on the one check that finds the user back after a long time away. */
   returned: boolean;
+  /**
+   * When the user was last at the computer before a long time away, on the one check that finds them back;
+   * also when the computer slept through that time. Null otherwise.
+   */
+  leftAt: number | null;
+  /** The user's reminders as they are kept now. */
+  reminders: readonly AgendaItem[];
   settings: CompanionPreferences;
   quietHours: QuietPreferences["quietHours"];
   /** When each occasion was last spoken for, by occasion id. */
@@ -53,10 +61,10 @@ interface OccasionBase {
   due(moment: Moment): Cue | null;
 }
 
-/** A line that is always the same words. */
+/** A line that needs no model: always the same words, or put together from the moment. */
 export interface FixedOccasion extends OccasionBase {
   wording: "fixed";
-  line: string;
+  line: string | ((moment: Moment) => string);
 }
 
 /** A line the model writes in the character's voice. */

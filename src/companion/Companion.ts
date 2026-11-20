@@ -1,3 +1,4 @@
+import type { AgendaItem } from "../agenda/AgendaStore";
 import type { CompanionPreferences } from "../preferences/CompanionPreferences";
 import type { QuietPreferences } from "../preferences/QuietPreferences";
 import type { GreetingFacts } from "./GreetingContent";
@@ -11,6 +12,8 @@ import type { Line, Moment, Occasion } from "./types";
 export interface CompanionPorts {
   settings(): CompanionPreferences;
   quietHours(): QuietPreferences["quietHours"];
+  /** The user's reminders, from memory: asked for on every check. */
+  reminders(): readonly AgendaItem[];
   /** Where the history of what was said is kept. */
   storage: Storage;
   /** Whether a line would be shown right now. `allowQuiet`: the line is one that is said in quiet hours too. */
@@ -25,7 +28,7 @@ export interface CompanionPorts {
   show(text: string): boolean;
 }
 
-const NOT_HERE: PresenceSample = { activeMs: null, returned: false };
+const NOT_HERE: PresenceSample = { activeMs: null, returned: false, leftAt: null };
 
 /** Decides when the pet speaks up by itself and what it says: one line at a time, from the table of occasions. */
 export class Companion {
@@ -40,7 +43,7 @@ export class Companion {
     const sample = this.presence.sample(now, idleSeconds);
     if (this.writing) return;
     const history = loadHistory(this.ports.storage);
-    const moment: Moment = { now, ...sample, settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: lastSaid(history) };
+    const moment: Moment = { now, ...sample, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: lastSaid(history) };
     const pick = decide(this.occasions, moment, history, (allowQuiet) => this.ports.maySpeak(allowQuiet));
     if (!pick) return;
     this.writing = true;
@@ -62,7 +65,7 @@ export class Companion {
     if (!occasion || this.writing) return false;
     this.writing = true;
     try {
-      const moment: Moment = { now, ...NOT_HERE, settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: {} };
+      const moment: Moment = { now, ...NOT_HERE, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: {} };
       return this.ports.show((await this.compose(occasion, moment)).text);
     } finally {
       this.writing = false;
@@ -70,7 +73,7 @@ export class Companion {
   }
 
   private async compose(occasion: Occasion, moment: Moment): Promise<Omit<Line, "allowQuiet">> {
-    if (occasion.wording === "fixed") return { text: occasion.line, offerMove: false };
+    if (occasion.wording === "fixed") return { text: typeof occasion.line === "string" ? occasion.line : occasion.line(moment), offerMove: false };
     const brief = occasion.brief(moment, await this.ports.day(moment.now));
     const written = await this.ports.write(occasion.intent, brief.facts, moment.now).catch((error: unknown) => {
       console.warn(`Using the fallback line for ${occasion.id}`, error);

@@ -305,6 +305,7 @@ export default function App({ packId }: AppProps) {
     const companion = new Companion({
       settings: () => loadCompanionPreferences(),
       quietHours: () => loadQuietPreferences().quietHours,
+      reminders: () => cachedAgenda(),
       storage: window.localStorage,
       maySpeak: (allowQuiet) => runtime.maySpeakUp(passesQuiet(allowQuiet)),
       day: async (now) => {

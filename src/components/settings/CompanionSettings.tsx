@@ -4,7 +4,7 @@ import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPrefe
 import { petWindow } from "../../platform/petWindow";
 import { OCCASIONS } from "../../companion";
 
-type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet";
+type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp";
 
 /** 「陪伴」: when the pet speaks up by itself (the morning greeting, the check-ins) and when it keeps quiet. */
 export function CompanionSettings({ name, onError }: { name: string; onError: (message: string | null) => void }) {
@@ -46,6 +46,8 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
         <input type="time" aria-label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(event) => { if (event.currentTarget.value) update({ ...value, nightTime: event.currentTarget.value }); }} />)}
       {toggle("rest", "休息一下", "连续用电脑这么久，提醒你起来活动；离开 5 分钟后重新计时",
         <select aria-label="使用多久后提醒" value={value.restMinutes} disabled={!value.rest} onChange={(event) => update({ ...value, restMinutes: Number(event.currentTarget.value) })}><option value={60}>60 分钟</option><option value={90}>90 分钟</option><option value={120}>120 分钟</option></select>)}
+      {toggle("headsUp", "提醒前说一声", "一次性的提醒，到点前 10 分钟先说一声；刚设不到 1 小时的不说")}
+      {toggle("followUp", "回来问一句", "提醒响过后你离开了一阵，回来时顺着那件事问一句")}
       {toggle("welcomeBack", "回来打招呼", "离开 30 分钟以上再回来时，说声欢迎回来")}
       <div className="settings-row">
         <div className="settings-row__body"><strong>预览一句</strong><span>现在就说一次选中的这句，不占用当天的次数</span></div>
@@ -54,7 +56,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       </div>
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
     </div>
-    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容，也不调用 AI。专注时不打扰。</p>
+    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容。只有「回来问一句」会把那条提醒发给 DeepSeek 来写这句话，其余不调用 AI。专注时不打扰。</p>
     <h2 className="settings-group-title">勿扰</h2>
     {/* Only matters while quiet hours are on and night care is: greyed out otherwise, so it is still found. */}
     <QuietSettings onError={onError} during={(enabled) => <><div className="settings-divider" />{toggle("nightDuringQuiet", "定时勿扰时照样深夜关心", enabled && value.night ? "手动勿扰时仍然不打扰" : "要先打开「定时勿扰」和「深夜关心」", undefined, !enabled || !value.night)}</>} />

@@ -5,7 +5,7 @@ import { decide } from "./schedule";
 import type { Cue, Moment, Occasion } from "./types";
 
 const NOW = new Date(2026, 10, 16, 9).getTime();
-const MOMENT: Moment = { now: NOW, activeMs: 0, returned: false, settings: DEFAULT_COMPANION, quietHours: DEFAULT_QUIET_PREFERENCES.quietHours, lastSaid: {} };
+const MOMENT: Moment = { now: NOW, activeMs: 0, returned: false, leftAt: null, reminders: [], settings: DEFAULT_COMPANION, quietHours: DEFAULT_QUIET_PREFERENCES.quietHours, lastSaid: {} };
 const occasion = (id: string, cue: Cue | null): Occasion => ({ id, title: id, wording: "fixed", line: id, due: () => cue });
 const always = () => true;
 
