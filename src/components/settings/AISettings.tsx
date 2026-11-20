@@ -11,7 +11,6 @@ import { ModelSettings } from "./ModelSettings";
 import { ConfirmButton } from "../ConfirmButton";
 import { ChatRequestDetails } from "./ChatRequestDetails";
 import { loadReadLinks, saveReadLinks } from "../../preferences/ReadLinkPreferences";
-import type { SettingsSection } from "./sections";
 
 /** A failed key action in words the user can act on; the raw error goes to the log. */
 export function deepSeekProblem(reason: unknown, doing: string): string {
@@ -23,7 +22,7 @@ export function deepSeekProblem(reason: unknown, doing: string): string {
 }
 
 /** Shared AI connection, model and rules. Character-specific reply settings live with each character. */
-export function AISettings({ packId, persona, actions, onOpen }: { packId: string; persona?: PetPersona; actions: string[]; onOpen: (section: SettingsSection) => void }) {
+export function AISettings({ packId, persona, actions }: { packId: string; persona?: PetPersona; actions: string[] }) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,12 +80,11 @@ export function AISettings({ packId, persona, actions, onOpen }: { packId: strin
   </section>;
 
   return <div className="settings-section ai-page">
-    {needsKey && <div className="ai-page__intro"><p>配置一次 DeepSeek，所有角色都可以和你聊天。</p></div>}
+    {needsKey && <div className="ai-page__intro"><p>配置一次 DeepSeek，所有角色都可以和你聊天</p></div>}
     {connection}
     <section className="ai-section ai-advanced" aria-labelledby="ai-advanced-heading">
       <div className="ai-section__title"><h2 id="ai-advanced-heading">通用对话规则</h2><p>适用于所有角色；预览会带入当前角色的设定</p></div>
       <div className="settings-card ai-preview"><div className="ai-preview__head"><div><strong>规则与能力</strong><span>每次聊天都会带上，可逐段调整</span></div><button type="button" className="settings-button settings-button--small" onClick={() => void showPreview()}>{preview ? "刷新预览" : "查看和修改"}</button></div>{previewError && <p role="status">{previewError}</p>}{preview && <ChatRequestDetails preview={preview} onChanged={() => void showPreview()} onError={setPreviewError} />}</div>
     </section>
-    <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>功能一览</strong><span>查看 AI Pet 能做什么以及怎么使用</span></div><button type="button" className="settings-button settings-button--small" onClick={() => onOpen("guide")}>打开</button></div></div>
   </div>;
 }

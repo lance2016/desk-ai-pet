@@ -347,7 +347,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 3. 该问候时，先在 `ai-pet:greetings:v1` 记下今天已问候，再去生成内容，避免请求慢或失败时问两次。
 4. `collectFacts()` 从提醒和工作日志（最近 7 天加今天）里整理事实：未完成数、今天完成数、下一个提醒、今天最近一次提醒（即路线图里的 `latest_reminder`）、今天的专注轮数、上一个有记录的日子（`lastActiveDay`，昨天就叫「昨天」，否则写日期）完成了哪些提醒和专注了几轮，以及之前没做完的一次性提醒（`leftoverReminders`：今天以前、没勾、没过期作废）。早安提今天的事、上一天和没做完的，晚安提今天的完成情况。
 5. `ai.greet`（`src/ai/completions.ts`）用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
-6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求问候动作并说话。设置中的「立即验证」会请求一次问候内容，通过 `greetOnRequest()` 显示，不改每日问候记录；专注时会拒绝测试。到点提醒也用同一段逻辑叫宠物出来。
+6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求问候动作并说话。设置中的「预览」会请求一次问候内容，通过 `greetOnRequest()` 显示，不改每日问候记录；专注时会拒绝测试。到点提醒也用同一段逻辑叫宠物出来。
 7. 早安时有没做完的提醒，`pet.greeting` 带 `offerMove`。`BehaviorEngine` 通过 `ReminderSource.leftovers` 再取一次，放进常驻气泡（`moveOffer`，小字「之前没做完」），按钮是「不用了」（`pet.alert_dismissed`）和「挪到今天」（`pet.leftovers_moved`）。挪的时候 `ReminderSource.moveToToday` 调 `moveToToday`：排到今天同一时刻，已经过了就排到半小时后，清掉 `remindedAt` 让它到点再叫。气泡里的提醒在别处勾掉或删掉，下一秒就拿掉。
 
 ## 日志和诊断
@@ -356,7 +356,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 每个窗口启动时调 `forwardToLog`（`platform/diagnostics.ts`）：`console.warn`、`console.error`、没接住的错误和 Promise 拒绝都经 `diagnostics_log` 写进日志，带上窗口名。纯浏览器下不转发。
 
-「设置 → 通用 → 关于 → 日志与诊断」（`DiagnosticsSettings`，单独一页，日志用整页滚动，工具栏停在标题下）：`diagnostics_read_logs` 读所有日志文件末尾共 256 KB，`diagnostics/logEntries.ts` 解析成条目（堆栈并入上一条，来源翻成「聊天」「原生 llm」这类名字），最新的在最上面，最多画 300 条，按级别筛、搜索、复制。「清理」清空当前文件、删掉轮转出来的旧文件（当前文件被日志插件开着，只能截断）。「导出诊断信息」把版本号、系统版本、架构和同样的 256 KB 日志存成文本文件，保存面板在 Rust 里弹。
+「设置 → 关于 → 日志与诊断」（`DiagnosticsSettings`，单独一页，日志用整页滚动，工具栏停在标题下）：`diagnostics_read_logs` 读所有日志文件末尾共 256 KB，`diagnostics/logEntries.ts` 解析成条目（堆栈并入上一条，来源翻成「聊天」「原生 llm」这类名字），最新的在最上面，最多画 300 条，按级别筛、搜索、复制。「清理」清空当前文件、删掉轮转出来的旧文件（当前文件被日志插件开着，只能截断）。「导出诊断信息」把版本号、系统版本、架构和同样的 256 KB 日志存成文本文件，保存面板在 Rust 里弹。
 
 ## 工作日志
 
@@ -479,7 +479,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 应用菜单（`build_app_menu`）只在设置窗口打开、应用切成 `Regular` 时显示，但 ⌘, ⌘N ⌘W ⌘Q 和编辑快捷键一直有效。「新聊天」只在聊天窗口是 key window 时可用，发 `pet://chat-new`。⌘Q 用和菜单「退出」相同的 id，退出前会取消进行中的请求。设置页通过 `platform/petWindow.ts` 调整窗口尺寸和置顶状态，不直接依赖 Tauri API。
 - 设置窗口仿照 macOS 系统设置：侧栏最上面是当前角色的头像行（`ACCOUNT_SECTION`，像系统设置里的 Apple 账户），下面按「角色与外观」「聊天与 AI」「陪伴与工具」「应用」分组（`NAV_GROUPS`），内容是分组列表。角色页像账户页：顶部是大头像和名字（页面标题只留给读屏），点头像跳到「角色设定」里的「形象」；下面一行进「角色设定」，再往下是「全部角色」列表（当前角色打勾，点别的就切换，最后一行新建）和导入导出。「角色设定」是子页，集中管理当前角色的名字、性格、回复长度、补充要求和聊天形象。动作库和快捷按钮均按当前角色保存，动作库可直接切换角色。
 - 「AI 对话」只放所有角色共用的 DeepSeek 连接、模型、网页阅读和基础对话规则。规则预览显示当前角色组装出的实际请求，但可改写的基础规则仍全局共用；角色名、性格、回复长度和补充要求保存在角色设置中。用户称呼与记忆属于所有角色共用的用户资料，放在「记忆」页。
-- 「通用」放启动、宠物（总在最前面、宠物大小、快捷按钮停留）、开发者模式和「关于」入口；「关于」和「日志与诊断」是逐层打开的子页（`SUB_PAGES`），侧栏保持选中「通用」，子页标题上方提供返回。快速聊天设置在「聊天」，MiMo API Key 和语音识别语言在「语音」，勿扰和提醒的工作日在「陪伴与勿扰」，划词翻译和查收验证码在「划词与邮箱」。开发者模式打开后侧栏最下面多一组「开发者」，其中「请求记录」查看最近请求。所有角色共用的设置不放进按角色保存的页面（标题带角色名的那几页），快捷按钮停留因此在「通用」。
+- 「通用」放宠物（总在最前面、宠物大小、快捷按钮停留）和应用（开机时打开、开发者模式）。「关于」在侧栏「应用」组最后；「日志与诊断」是从「关于」打开的子页（`SUB_PAGES`），侧栏保持选中「关于」，子页标题上方提供返回。跳到另一页的行整行可点、右边带 ›（`Chevron`），按钮只用于马上执行的操作。快速聊天设置在「聊天」，MiMo API Key 和语音识别语言在「语音」，勿扰和提醒的工作日在「陪伴与勿扰」，划词翻译和查收验证码在「划词与邮箱」。开发者模式打开后侧栏最下面多一组「开发者」，其中「请求记录」查看最近请求。所有角色共用的设置不放进按角色保存的页面（标题带角色名的那几页），快捷按钮停留因此在「通用」。
 - 页面不往末尾无限追加：会一直变多的内容（日志、请求记录、记忆）各占一页；固定说明默认只显示前几行（「什么时候会连网」）；配好以后的设置步骤收起（查收验证码、API Key）。颜色都是 `SettingsPage.css` 顶部的语义变量，深色模式只换变量。
 
 ## 角色
@@ -554,7 +554,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 用 Tauri 更新插件（`tauri-plugin-updater`，前端权限 `updater:default`）。应用读 `tauri.conf.json` 里 `plugins.updater.endpoints` 指向的 `latest.json`（公开仓库 `desk-ai-pet` 最新 Release 里的文件，仓库必须保持公开），版本号更高时下载 `.app.tar.gz`，用 `pubkey` 校验签名后替换 `/Applications` 里的 app，再由 `restart_app` 重启。插件自带读系统代理（`system-proxy` 特性），不经过 `proxy.rs`。
 
 - 宠物窗口：`update/UpdateNotice.ts` 在启动一分钟后和之后每 24 小时查一次，发现新版本走 `sayProactively()` 说一句，说出去才把版本号记进 `ai-pet:update-announced:v1`，所以同一版本只提醒一次，被勿扰挡住的下次再说。开发模式不查。
-- 设置窗口：「通用 → 关于」页的 `UpdateRow` 负责手动检查、显示更新说明和下载进度、重启。
+- 设置窗口：「关于」页的 `UpdateRow` 负责手动检查、显示更新说明和下载进度、重启。
 - 新功能介绍：每一版的内容写在 `update/releaseNotes.json`（按版本号，`features` 每条有图标、颜色、标题、说明，`more` 一句写小改动），测试要求当前 `package.json` 版本必须有一条。`update/WhatsNew.ts` 记两个 key：`ai-pet:whats-new-seen:v1`（关掉介绍时记下版本）和 `ai-pet:whats-new-announced:v1`（宠物说过「我更新到…了」）。宠物启动时，第一次运行的新用户两个都直接记上，不弹也不说；老用户没看过这一版就走 `sayProactively()` 说一句。设置窗口打开时没看过就弹 `WhatsNewSheet`（首次引导优先，引导结束也算看过），「通用 → 关于」页可以再打开。
 - 发布：`scripts/release.sh` 从 `releaseNotes.json` 生成更新说明，Release 页面放完整列表，`latest.json` 只放标题连成的一行。只在发布模式下打开 `createUpdaterArtifacts` 并读私钥（`~/.tauri/ai-pet-updater.key`），本机安装（`--local`）不需要私钥。`latest.json` 由脚本生成，平台名按本机架构（目前只有 `darwin-aarch64`）。
 # 主动陪伴

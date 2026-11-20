@@ -22,14 +22,17 @@
   --green-wash: var(--ui-positive-soft);
   --orange: var(--ui-warning);
   --orange-wash: var(--ui-warning-soft);
-  --icon-violet: #7952a8;
-  --icon-blue: #2867ad;
-  --icon-teal: #187b75;
-  --icon-rose: #bd4d68;
-  --icon-orange: #a85c12;
-  --icon-amber: #8a6b00;
-  --icon-green: #28734f;
-  --icon-slate: #687384;
+  /* System colours for icon tiles, as System Settings uses them: sidebar, feature guide and the "新功能" sheet. */
+  --tile-orange: #ff9500;
+  --tile-yellow: #f5b400;
+  --tile-green: #34c759;
+  --tile-teal: #30b0c7;
+  --tile-blue: #007aff;
+  --tile-indigo: #5856d6;
+  --tile-purple: #af52de;
+  --tile-pink: #ff2d55;
+  --tile-red: #ff3b30;
+  --tile-gray: #8e8e93;
   --scrim: rgba(28, 24, 40, .45);
   --control-shadow: 0 .5px 1.5px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .05);
   --radius-group: 10px;
@@ -50,14 +53,16 @@
   .settings-page {
     --scrim: rgba(0, 0, 0, .55);
     --control-shadow: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
-    --icon-violet: #c1a5ef;
-    --icon-blue: #83b5ff;
-    --icon-teal: #68cec1;
-    --icon-rose: #f08ca5;
-    --icon-orange: #f0aa62;
-    --icon-amber: #e5c65f;
-    --icon-green: #78c89c;
-    --icon-slate: #b2bdcf;
+    --tile-orange: #ff9f0a;
+    --tile-yellow: #ffcc00;
+    --tile-green: #30d158;
+    --tile-teal: #40c8e0;
+    --tile-blue: #0a84ff;
+    --tile-indigo: #5e5ce6;
+    --tile-purple: #bf5af2;
+    --tile-pink: #ff375f;
+    --tile-red: #ff453a;
+    --tile-gray: #98989d;
     color-scheme: dark;
   }
 }
@@ -66,6 +71,8 @@ html.settings-window, body.settings-window, body.settings-window #root { min-wid
 body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-page button, .settings-page input, .settings-page select, .settings-page textarea { font: inherit; color: inherit; }
 .settings-page input, .settings-page textarea { user-select: text; -webkit-user-select: text; }
+/* Titles inside cards are medium unless a rule says otherwise; setting rows bring theirs down to regular. */
+.settings-page strong { font-weight: 500; }
 
 /* One focus ring for everything: accent hairline plus a 3px halo. */
 .settings-page :is(button, a, [tabindex], label):focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
@@ -77,7 +84,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-sidebar { box-sizing: border-box; flex: 0 0 228px; padding: 20px 12px 16px; overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--separator); }
 .settings-sidebar nav { display: grid; gap: 12px; }
 .settings-nav-group { display: grid; gap: 4px; }
-.settings-nav-group__title { margin: 0 8px 4px; color: var(--label-3); font-size: 10px; font-weight: 600; line-height: 16px; }
+.settings-nav-group__title { margin: 0 8px 4px; color: var(--label-3); font-size: 11px; font-weight: 600; line-height: 16px; }
 .settings-nav { box-sizing: border-box; width: 100%; min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--label-2); text-align: left; background: none; border: 0; border-radius: 8px; cursor: default; }
 .settings-nav:hover:not(.is-active) { background: var(--fill-strong); }
 .settings-nav.is-active { color: var(--accent-strong); background: var(--accent-wash); font-weight: 500; }
@@ -90,15 +97,18 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-account__text { min-width: 0; display: grid; }
 .settings-account__text strong { overflow: hidden; font-size: 14px; font-weight: 600; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .settings-account__text span { color: var(--label-2); font-size: 11px; line-height: 15px; }
-.settings-nav__icon { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--label-2); }
-.settings-nav__icon svg { width: 16px; height: 16px; }
-.settings-nav__icon--character, .settings-nav__icon--characterProfile, .settings-nav__icon--ai, .settings-nav__icon--developer { color: var(--icon-violet); }
-.settings-nav__icon--actions, .settings-nav__icon--voice, .settings-nav__icon--companion { color: var(--icon-rose); }
-.settings-nav__icon--dock, .settings-nav__icon--chat, .settings-nav__icon--diagnostics { color: var(--icon-blue); }
-.settings-nav__icon--memory, .settings-nav__icon--guide { color: var(--icon-amber); }
-.settings-nav__icon--tools { color: var(--icon-orange); }
-.settings-nav__icon--general, .settings-nav__icon--about { color: var(--icon-slate); }
-.settings-nav__icon--privacy { color: var(--icon-green); }
+/* Each page wears a white glyph on a coloured tile, as in System Settings; the tile keeps its colour when the row is selected. */
+.settings-nav__icon { --tile: var(--tile-gray); flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 78%, #fff), var(--tile)); border-radius: 5px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
+.settings-nav__icon svg { width: 14px; height: 14px; stroke-width: 2; }
+.settings-nav__icon--character, .settings-nav__icon--characterProfile { --tile: var(--tile-purple); }
+.settings-nav__icon--actions, .settings-nav__icon--companion { --tile: var(--tile-pink); }
+.settings-nav__icon--dock { --tile: var(--tile-indigo); }
+.settings-nav__icon--chat { --tile: var(--tile-green); }
+.settings-nav__icon--ai, .settings-nav__icon--privacy { --tile: var(--tile-blue); }
+.settings-nav__icon--memory { --tile: var(--tile-orange); }
+.settings-nav__icon--voice { --tile: var(--tile-red); }
+.settings-nav__icon--tools { --tile: var(--tile-teal); }
+.settings-nav__icon--guide { --tile: var(--tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { position: relative; margin: 0 0 16px; }
 .settings-search svg { position: absolute; top: 50%; left: 8px; width: 14px; height: 14px; color: var(--label-2); transform: translateY(-50%); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
@@ -125,7 +135,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-content { flex: 1; min-width: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .settings-header { position: sticky; top: 0; z-index: 5; padding: 24px 36px 16px; background: var(--bg); }
 /* A page opened from inside another: the way back sits above its title. */
-.settings-header__back { max-width: 1048px; margin: -8px auto 6px; }
+.settings-header__back { margin: -8px auto 4px; }
 .settings-page .settings-back { display: inline-block; margin-left: -6px; padding: 2px 6px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font-size: 13px; cursor: pointer; }
 .settings-page .settings-back:hover { background: var(--fill); }
 .settings-page .settings-back:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
@@ -136,14 +146,14 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-section { box-sizing: border-box; max-width: 800px; padding: 0 36px 36px; }
 .settings-content > .settings-error { margin: 0 36px 12px; max-width: 728px; }
 
-.settings-group-title, .settings-section__intro h2 { margin: 18px 4px 6px; font-size: 13px; font-weight: 600; }
+.settings-group-title, .settings-section__intro h2 { margin: 20px 4px 8px; font-size: 13px; font-weight: 600; }
 .settings-section > .settings-group-title:first-child, .settings-section > .settings-section__intro:first-child h2 { margin-top: 4px; }
 .settings-section__intro { margin: 0; }
-.settings-section__intro p { margin: -2px 4px 8px; color: var(--label-2); font-size: 11px; }
-.settings-section__intro--spaced h2 { margin-top: 22px; }
+.settings-section__intro p { margin: -4px 4px 8px; color: var(--label-2); font-size: 11px; }
+.settings-section__intro--spaced h2 { margin-top: 24px; }
 
 .settings-group, .settings-card { box-sizing: border-box; margin: 0; padding: 0 12px; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
-.settings-row { min-height: 48px; display: flex; align-items: center; gap: 14px; padding: 7px 0; }
+.settings-row { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .settings-row + .settings-row { border-top: 1px solid var(--separator); }
 .settings-row__body { flex: 1; min-width: 0; }
 .settings-row__body strong, .settings-row__body span { display: block; }
@@ -152,10 +162,12 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-row__value { flex: none; color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .settings-row__icon { flex: none; display: grid; place-items: center; width: 26px; height: 26px; color: var(--ui-action-text); background: var(--ui-action-bg); border-radius: 6px; }
 .settings-row__icon svg { width: 15px; height: 15px; }
+/* Groups that follow each other keep one gap, whichever page they are on. */
+:is(.settings-group, .settings-card) + :is(.settings-group, .settings-card) { margin-top: 12px; }
 .settings-divider { height: 1px; background: var(--separator); }
 .settings-info p { margin: 0; color: var(--label-2); line-height: 1.6; }
 .settings-info { padding: 12px; }
-.settings-footnote { margin: 6px 4px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.settings-footnote { margin: 8px 4px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 /* Sticks under the page title, so an error from a row far down the page is still seen. */
 .settings-error { position: sticky; top: 46px; z-index: 4; margin: 0 0 12px; padding: 7px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); font-size: 12px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
@@ -169,7 +181,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 
 /* Segmented control, as NSSegmentedControl draws it. */
 .segmented, .size-options { flex: none; display: inline-flex; padding: 2px; background: var(--fill-strong); border-radius: var(--radius-control); }
-.segmented button, .size-options button { min-width: 44px; height: 20px; padding: 0 9px; background: none; border: 0; border-radius: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.segmented button, .size-options button { min-width: 44px; height: 20px; padding: 0 8px; background: none; border: 0; border-radius: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
 .segmented button.is-selected, .size-options button.is-selected { background: var(--field); box-shadow: var(--control-shadow); font-weight: 500; }
 @media (prefers-color-scheme: dark) { .segmented button.is-selected, .size-options button.is-selected { background: rgba(255, 255, 255, .2); } }
 .size-options button:disabled { opacity: .45; cursor: default; }
@@ -179,7 +191,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-button:hover:not(:disabled) { background: var(--fill-strong); }
 .settings-button:active:not(:disabled) { filter: brightness(.95); }
 .settings-button:disabled { opacity: .45; cursor: default; }
-.settings-button--small { height: 22px; padding: 0 9px; font-size: 12px; }
+.settings-button--small { height: 22px; padding: 0 8px; font-size: 12px; }
 .settings-button--danger { color: var(--ui-action-text); background: var(--red); box-shadow: none; }
 .settings-button--danger:hover:not(:disabled) { background: var(--red); filter: brightness(1.08); }
 .settings-button--primary { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
@@ -418,7 +430,7 @@ button.dock-row__body { cursor: pointer; }
 .character-hero__name { margin: 12px 0 2px; font-size: 20px; font-weight: 600; line-height: 1.25; }
 .character-hero p { margin: 0; color: var(--label-2); font-size: 12px; }
 /* A row that opens or picks something: the whole row answers, as in System Settings. */
-.settings-page .settings-link { position: relative; isolation: isolate; box-sizing: border-box; width: 100%; padding: 7px 0; color: var(--label); text-align: left; background: none; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; cursor: default; }
+.settings-page .settings-link { position: relative; isolation: isolate; box-sizing: border-box; width: 100%; padding: 8px 0; color: var(--label); text-align: left; background: none; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; cursor: default; }
 .settings-page .settings-link:first-child { border-top: 0; }
 .settings-link::before { content: ""; position: absolute; z-index: -1; inset: 3px -8px; border-radius: var(--radius-row); transition: background-color 120ms ease-out; }
 .settings-link:hover::before { background: var(--fill); }
@@ -443,7 +455,7 @@ button.dock-row__body { cursor: pointer; }
 .ai-settings__head > .ai-badge { margin-left: auto; }
 .ai-settings__head:last-child { margin-bottom: 0; }
 .ai-settings__head strong, .ai-settings__head span { display: block; }
-.ai-settings__head strong { font-weight: 600; }
+.ai-settings__head strong { font-weight: 500; }
 .ai-settings__head div span { margin-top: 2px; color: var(--label-2); font-size: 11px; }
 .ai-badge { padding: 2px 8px; color: var(--label-2); background: var(--fill-strong); border-radius: 10px; font-size: 11px; }
 .ai-badge.is-ready { color: var(--green); background: var(--green-wash); }
@@ -505,6 +517,7 @@ button.dock-row__body { cursor: pointer; }
 .ai-preview__head { display: flex; align-items: center; gap: 16px; }
 .ai-preview__head > div { flex: 1; min-width: 0; }
 .ai-preview__head strong, .ai-preview__head span { display: block; }
+.ai-preview__head strong { font-weight: 400; }
 .ai-preview__head span { margin-top: 3px; color: var(--label-2); font-size: 11px; }
 .ai-preview__body { margin-top: 12px; }
 .ai-preview__body details { border-top: 1px solid var(--separator); }
@@ -517,9 +530,9 @@ button.dock-row__body { cursor: pointer; }
 .ai-section { min-width: 0; }
 /* Sections of the AI page, one under another. */
 .ai-page { display: grid; align-content: start; gap: 24px; }
-.ai-section__title { margin: 0 3px 8px; }
+.ai-section__title { margin: 0 4px 8px; }
 .ai-section__title h2 { margin: 0; font-size: 13px; font-weight: 600; }
-.ai-section__title p { margin: 3px 0 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.ai-section__title p { margin: 4px 0 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 .ai-reply-settings .ai-instructions { margin: 0; padding: 13px 0; border-top: 1px solid var(--separator); }
 .ai-reply-settings .settings-row__body span { white-space: normal; overflow-wrap: anywhere; }
 
@@ -653,10 +666,10 @@ button.dock-row__body { cursor: pointer; }
 .shortcut-key__clear path { fill: none; stroke: var(--field); stroke-width: 1.6; stroke-linecap: round; }
 @media (prefers-color-scheme: dark) { .shortcut-key__clear path { stroke: var(--group); } }
 
-.about-card { padding: 32px 20px 26px; text-align: center; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
-.about-card__icon { display: block; width: 72px; height: 72px; margin: 0 auto 10px; }
+.about-card { padding: 24px 20px; text-align: center; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
+.about-card__icon { display: block; width: 64px; height: 64px; margin: 0 auto 8px; }
 .about-card h2 { margin: 0; font-size: 17px; }
-.about-card p { margin: 4px 0 8px; color: var(--label-2); }
+.about-card p { margin: 4px 0; color: var(--label-2); }
 .about-card span { color: var(--label-3); font-size: 11px; }
 .about-card + .settings-group { margin-top: 12px; }
 /* Release notes can run long; the row keeps to a few lines. */
@@ -718,7 +731,7 @@ button.dock-row__body { cursor: pointer; }
 .guide-feature .feature-tile { width: 30px; height: 30px; border-radius: 7px; }
 .guide-feature .feature-tile svg { width: 18px; height: 18px; }
 .guide-feature__body { flex: 1; min-width: 0; }
-.guide-feature__body strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.guide-feature__body strong { display: block; font-size: 13px; font-weight: 500; line-height: 1.35; }
 .guide-feature__body p { max-width: 60ch; margin: 2px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.5; }
 .guide-feature__how { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0 0; padding: 0; list-style: none; }
 .guide-feature__how li { padding: 2px 8px; color: var(--label); background: var(--fill-strong); border-radius: 5px; font-size: 11px; line-height: 16px; }
@@ -740,30 +753,18 @@ button.dock-row__body { cursor: pointer; }
 .whats-new__list strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
 .whats-new__list p { margin: 2px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.5; }
 /* Feature icons, as in macOS System Settings: a system color with a lighter top. Shared by the guide and the "新功能" sheet. */
-.feature-tile { --tile: #8e8e93; flex: none; display: grid; place-items: center; width: 34px; height: 34px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 78%, #fff), var(--tile)); border-radius: 8px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
+.feature-tile { --tile: var(--tile-gray); flex: none; display: grid; place-items: center; width: 34px; height: 34px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 78%, #fff), var(--tile)); border-radius: 8px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
 .feature-tile svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.feature-tile--orange { --tile: #ff9500; }
-.feature-tile--yellow { --tile: #f5b400; }
-.feature-tile--green { --tile: #34c759; }
-.feature-tile--teal { --tile: #30b0c7; }
-.feature-tile--blue { --tile: #007aff; }
-.feature-tile--indigo { --tile: #5856d6; }
-.feature-tile--purple { --tile: #af52de; }
-.feature-tile--pink { --tile: #ff2d55; }
-.feature-tile--red { --tile: #ff3b30; }
-.feature-tile--gray { --tile: #8e8e93; }
-@media (prefers-color-scheme: dark) {
-  .feature-tile--orange { --tile: #ff9f0a; }
-  .feature-tile--yellow { --tile: #ffcc00; }
-  .feature-tile--green { --tile: #30d158; }
-  .feature-tile--teal { --tile: #40c8e0; }
-  .feature-tile--blue { --tile: #0a84ff; }
-  .feature-tile--indigo { --tile: #5e5ce6; }
-  .feature-tile--purple { --tile: #bf5af2; }
-  .feature-tile--pink { --tile: #ff375f; }
-  .feature-tile--red { --tile: #ff453a; }
-  .feature-tile--gray { --tile: #98989d; }
-}
+.feature-tile--orange { --tile: var(--tile-orange); }
+.feature-tile--yellow { --tile: var(--tile-yellow); }
+.feature-tile--green { --tile: var(--tile-green); }
+.feature-tile--teal { --tile: var(--tile-teal); }
+.feature-tile--blue { --tile: var(--tile-blue); }
+.feature-tile--indigo { --tile: var(--tile-indigo); }
+.feature-tile--purple { --tile: var(--tile-purple); }
+.feature-tile--pink { --tile: var(--tile-pink); }
+.feature-tile--red { --tile: var(--tile-red); }
+.feature-tile--gray { --tile: var(--tile-gray); }
 .whats-new__more { flex: none; margin: 18px 0 0; padding-top: 14px; color: var(--label-2); border-top: 1px solid var(--separator); font-size: 11px; line-height: 1.5; }
 .whats-new .whats-new__done { flex: none; height: 32px; margin-top: 18px; color: var(--ui-action-text); background: var(--ui-action-bg); border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .whats-new .whats-new__done:hover { filter: brightness(1.08); }
@@ -771,9 +772,12 @@ button.dock-row__body { cursor: pointer; }
 
 /* Settings expand with the window; keep long paragraphs readable on wide screens. */
 .settings-content > .settings-section, .settings-content > .action-editor { margin-left: auto; margin-right: auto; width: 100%; }
-.settings-section { max-width: 1120px; }
-.settings-header h1 { max-width: 1048px; margin-left: auto; margin-right: auto; }
-.settings-content > .settings-error { box-sizing: border-box; width: calc(100% - 72px); max-width: 1048px; margin-left: auto; margin-right: auto; }
+/* Forms stay about as wide as System Settings draws them, so a label and its switch are not a screen apart. */
+.settings-page { --content-width: 680px; }
+.settings-content:has(> .action-library, > .action-editor) { --content-width: 1048px; }
+.settings-section { max-width: calc(var(--content-width) + 72px); }
+.settings-header h1, .settings-header__back { max-width: var(--content-width); margin-left: auto; margin-right: auto; }
+.settings-content > .settings-error { box-sizing: border-box; width: calc(100% - 72px); max-width: var(--content-width); margin-left: auto; margin-right: auto; }
 .settings-info p, .settings-section__intro p { max-width: 75ch; }
 .action-editor { box-sizing: border-box; max-width: 1120px; padding: 0 36px 36px; }
 .action-editor__header { position: static; margin: 0 0 18px; padding: 0 0 14px; }
@@ -810,7 +814,7 @@ button.dock-row__body { cursor: pointer; }
 .layer-editor__text input { width: 140px; }
 .layer-editor__text span { flex-basis: 100%; color: var(--label-2); font-size: 11px; }
 
-/* 通用 → 关于 → 日志与诊断: the log, newest first, read like Console.app. Errors in red, warnings marked by an orange bar. */
+/* 关于 → 日志与诊断: the log, newest first, read like Console.app. Errors in red, warnings marked by an orange bar. */
 .log-viewer__bar { display: flex; align-items: center; gap: 8px; }
 .settings-page .log-viewer__search { flex: 1; min-width: 80px; box-sizing: border-box; height: 22px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-size: 12px; }
 .settings-page .log-viewer__search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
@@ -845,6 +849,6 @@ button.dock-row__body { cursor: pointer; }
 @media (max-width: 1000px) {
   .settings-sidebar { flex-basis: 210px; padding: 18px 10px 14px; }
   .settings-header { padding: 20px 26px 14px; }
-  .settings-section { padding: 0 26px 28px; }
+  .settings-section { max-width: calc(var(--content-width) + 52px); padding: 0 26px 28px; }
   .settings-content > .settings-error { width: calc(100% - 52px); margin-left: auto; margin-right: auto; }
 }

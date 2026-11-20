@@ -8,6 +8,7 @@ import { characterPackageFileName, characterPackageText, createCharacterPackage,
 import { PERSONA_LIMITS } from "../../types";
 import { listAppearances } from "../../appearance/AppearanceStore";
 import { CharacterAvatar } from "../CharacterAvatar";
+import { Chevron } from "./Chevron";
 
 interface Props {
   packId: string;
@@ -24,10 +25,6 @@ type Area = "list" | "create" | "transfer";
 
 const kindOf = (entry: CatalogEntry) => (entry.custom ? "自建角色" : "内置角色");
 const avatarOf = (entry: CatalogEntry) => pictureFor(loadChatAppearance(entry.id).avatar, entry.actionImages);
-
-function Chevron() {
-  return <svg className="settings-link__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>;
-}
 
 /**
  * The current character, shown like the account page in System Settings: its portrait and name on

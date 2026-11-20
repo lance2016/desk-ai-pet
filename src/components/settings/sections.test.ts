@@ -7,7 +7,7 @@ describe("settings navigation", () => {
       ["角色与外观", ["actions", "dock"]],
       ["聊天与 AI", ["chat", "ai", "memory", "voice"]],
       ["陪伴与工具", ["companion", "tools"]],
-      ["应用", ["general", "privacy", "guide"]],
+      ["应用", ["general", "privacy", "guide", "about"]],
     ]);
   });
 
@@ -21,7 +21,7 @@ describe("settings navigation", () => {
     expect(DEVELOPER_GROUP.items.map(({ id }) => id)).toEqual(["developer"]);
   });
 
-  it("places character details under Characters and diagnostics under General", () => {
-    expect(SUB_PAGES).toEqual({ characterProfile: "character", about: "general", diagnostics: "about" });
+  it("places character details under Characters and diagnostics under About", () => {
+    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about" });
   });
 });

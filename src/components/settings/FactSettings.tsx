@@ -71,9 +71,8 @@ export function FactSettings({ who }: { who: string }) {
   const now = Date.now();
 
   return <div className="settings-section">
-    <div className="settings-section__intro"><h2>关于你</h2><p>称呼和记忆都会提供给所有角色</p></div>
+    <div className="settings-section__intro"><h2>关于你</h2><p>称呼和记忆每次聊天都会带上，所有角色共用</p></div>
     <article className="settings-card ai-settings"><label className="ai-preference">你的称呼<input value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} placeholder="例如：阿龙" onChange={(event) => setNickname(event.currentTarget.value)} onBlur={saveNickname} /></label>{profileStatus && <p className="ai-settings__status" role="status">{profileStatus}</p>}</article>
-    <p className="settings-page-intro">{who}记得的关于你的事，每次聊天都会带上，所有角色共用。</p>
     <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>聊天时自动记住</strong><span>{learning ? `你在聊天里说起的偏好、习惯和长期安排，${who}会记下来` : "已关闭：不再记新的，已有的照常使用"}</span></div>

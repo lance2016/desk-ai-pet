@@ -63,6 +63,6 @@ export function VoiceSettings({ packId }: { packId: string }) {
     <div className="settings-group">
       <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说就选「自动」</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
     </div>
-    <p className="settings-footnote">点聊天窗口的麦克风开始录音，每次最长 2 分钟。</p>
+    <p className="settings-footnote">点聊天窗口的麦克风开始录音，每次最长 2 分钟</p>
   </div>;
 }

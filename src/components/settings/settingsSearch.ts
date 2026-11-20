@@ -53,7 +53,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "companion", title: "早安问候", keywords: "早上好 每天问候 早安时间" },
   { section: "companion", title: "每天说早安", keywords: "早安 开启 关闭 问候" },
   { section: "companion", title: "早安时间", keywords: "早安 时钟 定时" },
-  { section: "companion", title: "问候预览", keywords: "立即验证 测试早安" },
+  { section: "companion", title: "问候预览", keywords: "预览 立即验证 测试早安" },
   { section: "companion", title: "手动勿扰", keywords: "免打扰 安静" },
   { section: "companion", title: "定时勿扰", keywords: "免打扰 睡觉 夜间 早安 晚安" },
   { section: "companion", title: "工作日", keywords: "提醒 节假日 调休 法定假日" },
@@ -67,11 +67,11 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "general", title: "总在最前面", keywords: "置顶 全屏" },
   { section: "general", title: "宠物大小", keywords: "缩放 变大 变小" },
   { section: "general", title: "快捷按钮停留", keywords: "收起 速度 显示时间 悬停 变淡" },
-  { section: "general", title: "关于本应用", keywords: "关于 AI Pet 版本 软件更新 新功能 日志 诊断" },
   { section: "privacy", title: "导出数据", keywords: "备份 导出 工作日志" },
   { section: "privacy", title: "从备份恢复", keywords: "导入 恢复 换电脑" },
   { section: "privacy", title: "存在这台电脑上", keywords: "本机 数据 隐私" },
   { section: "privacy", title: "什么时候会连网", keywords: "隐私 联网 发送 DeepSeek" },
+  { section: "about", title: "AI Pet", keywords: "关于 版本号 新功能" },
   { section: "about", title: "软件更新", keywords: "检查更新 新版本 升级 版本号" },
   { section: "about", title: "日志与诊断", keywords: "日志 诊断 报错 出错 排查" },
   { section: "diagnostics", title: "日志", keywords: "诊断 报错 出错 排查 搜索日志" },
@@ -86,9 +86,9 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
 export const SEARCH_SKIPPED: readonly string[] = [
   // Ways into a page or a form that search already finds by the page or form's own name.
   "角色设定", "新建角色…",
-  "右键我", "点我一下", "AI Pet", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
+  "右键我", "点我一下", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "拼好的完整提示词", "最近发出的请求",
-  "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "识别", "语音输入", "关心", "勿扰", "启动", "宠物", "开发者", "关于",
+  "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "识别", "语音输入", "关心", "勿扰", "应用", "宠物",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限", "诊断",
 ];
 

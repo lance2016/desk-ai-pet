@@ -18,10 +18,10 @@ export const NAV_GROUPS = [
   { title: "角色与外观", items: group("actions", "dock") },
   { title: "聊天与 AI", items: group("chat", "ai", "memory", "voice") },
   { title: "陪伴与工具", items: group("companion", "tools") },
-  { title: "应用", items: group("general", "privacy", "guide") },
+  { title: "应用", items: group("general", "privacy", "guide", "about") },
 ] as const;
 /** Shown at the bottom of the sidebar only while developer mode is on. */
 export const DEVELOPER_GROUP = { title: "开发者", items: group("developer") } as const;
 /** Pages opened from another page; the direct parent is shown above the title and the top-level ancestor stays selected. */
-export const SUB_PAGES: Partial<Record<SettingsSection, SettingsSection>> = { characterProfile: "character", about: "general", diagnostics: "about" };
+export const SUB_PAGES: Partial<Record<SettingsSection, SettingsSection>> = { characterProfile: "character", diagnostics: "about" };
 export const sectionLabel = (section: SettingsSection): string => LABELS[section];

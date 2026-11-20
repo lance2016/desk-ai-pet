@@ -39,6 +39,7 @@ import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
 import { ACCOUNT_SECTION, DEVELOPER_GROUP, NAV_GROUPS, SUB_PAGES, isSection, sectionLabel, type SettingsSection } from "./sections";
 import { CharacterAvatar } from "../CharacterAvatar";
+import { Chevron } from "./Chevron";
 import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
 import { SETTINGS_INDEX } from "./settingsSearch";
 import { FeatureGuide } from "./FeatureGuide";
@@ -255,7 +256,7 @@ export function SettingsPage({ packId }: { packId: string }) {
   const title = PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
   /** A page opened from inside another: that one stays lit in the sidebar, and the title leads back to it. */
   const parent = SUB_PAGES[section];
-  /** Nested pages keep the top-level category selected (e.g. logs stay under General → About). */
+  /** Nested pages keep the top-level category selected (e.g. logs keep About lit). */
   const activeSection = parent ? SUB_PAGES[parent] ?? parent : section;
   const navGroups = developer ? [...NAV_GROUPS, DEVELOPER_GROUP] : NAV_GROUPS;
   /** The action editor has unsaved changes: the first click on another page only warns. */
@@ -341,21 +342,16 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "general" && (
           <div className="settings-section">
-            <h2 className="settings-group-title">启动</h2>
-            <div className="settings-group"><LaunchAtLoginRow onError={setError} /></div>
             <h2 className="settings-group-title">宠物</h2>
             <div className="settings-group">
               <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
               <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
-            <h2 className="settings-group-title">开发者</h2>
+            <h2 className="settings-group-title">应用</h2>
             <div className="settings-group">
-              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>在本机保留最近 100 次实际发给 AI 的内容和回复；开启后可查看请求记录</span></div>{developer && <button type="button" className="settings-button settings-button--small" onClick={() => void go("developer")}>请求记录</button>}<button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
-            </div>
-            <h2 className="settings-group-title">关于</h2>
-            <div className="settings-group">
-              <div className="settings-row"><div className="settings-row__body"><strong>关于本应用</strong><span>版本信息、更新和问题诊断</span></div><button type="button" className="settings-button settings-button--small" onClick={() => void go("about")}>打开</button></div>
+              <LaunchAtLoginRow onError={setError} />
+              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>在本机保留最近 100 次实际发给 AI 的内容和回复，打开后侧栏多出「请求记录」</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
             </div>
           </div>
         )}
@@ -377,7 +373,7 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onOpenLook={() => openResult({ section: "characterProfile", title: "形象", place: sectionLabel("characterProfile") })} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "chat" && <ChatSettings onError={setError} />}
-        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} onOpen={(id) => void go(id)} />}
+        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
         {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
         {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}
@@ -408,7 +404,7 @@ export function SettingsPage({ packId }: { packId: string }) {
               <UpdateRow />
             </div>
             <div className="settings-group">
-              <div className="settings-row"><div className="settings-row__body"><strong>日志与诊断</strong><span>出了问题看日志，或导出诊断信息发给帮你排查的人</span></div><button type="button" className="settings-button settings-button--small" onClick={() => go("diagnostics")}>打开</button></div>
+              <button type="button" className="settings-row settings-link" onClick={() => go("diagnostics")}><span className="settings-row__body"><strong>日志与诊断</strong><span>出了问题看日志，或导出诊断信息发给帮你排查的人</span></span><Chevron /></button>
             </div>
           </div>
         )}

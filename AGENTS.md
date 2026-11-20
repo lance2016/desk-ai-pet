@@ -56,7 +56,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 
 不可撤销的操作用 `ConfirmButton`：先弹系统确认框（`src-tauri/src/alert.rs`），回车确认、Esc 取消。它只能用在设置、聊天这类普通窗口里；提醒、备忘弹层不能弹框，会激活应用。宠物窗口也不能弹框：要用户确认时，由 `BehaviorEngine` 发带 `choices` 的 `pet.alert`，在气泡里放按钮（例子是停止专注）。能撤销的用撤销条。报错只给人话，原始错误用 `console.error` 记日志。
 
-设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`SettingsGlyph`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`）。
+设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`SettingsGlyph`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`，给图标方块挑一个 `--tile-*` 系统色）。跳到另一页的行用整行加 ›（`settings-link` 加 `Chevron`），不要放「打开」按钮。
 
 ## 代码约定
 
@@ -214,7 +214,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮时读内容，平时只看变更计数和类型。
 - 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
-- 用户明确点击「立即验证」时，问候可通过 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入每日问候记录，专注时仍拒绝。
+- 用户明确点击「预览」时，问候可通过 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入每日问候记录，专注时仍拒绝。
 - 定时早安只在设定时间后的问候窗口内、检测到最近 60 秒有用户活动时触发；勿扰时段会延后早安问候。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。

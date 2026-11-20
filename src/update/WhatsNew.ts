@@ -29,7 +29,7 @@ export const SEEN_KEY = "ai-pet:whats-new-seen:v1";
 /** The version the pet has told the user it was updated to. */
 export const ANNOUNCED_KEY = "ai-pet:whats-new-announced:v1";
 
-export const updatedLine = (target: string) => `我更新到 ${target} 了，新功能在「设置 → 通用 → 关于」里`;
+export const updatedLine = (target: string) => `我更新到 ${target} 了，新功能在「设置 → 关于」里`;
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 
