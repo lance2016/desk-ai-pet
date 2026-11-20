@@ -20,7 +20,7 @@ import { ChatRequestLog } from "./ChatRequestLog";
 import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
 import { CharacterSettings } from "./CharacterSettings";
 import { CharacterProfileSettings } from "./CharacterProfileSettings";
-import { VoiceSettings } from "./VoiceSettings";
+import { HolidaySettings } from "./HolidaySettings";
 import { MailSettings } from "./MailSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
 import { DockSettings } from "./DockSettings";
@@ -55,6 +55,12 @@ const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标�
 /** Looking for a search result's title on a page that is still loading: every 100 ms, for 1.5 s. */
 const FIND_INTERVAL_MS = 100;
 const FIND_TRIES = 15;
+/** Other words people look a page up by, old names included. */
+const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
+  ai: "AI 对话 DeepSeek MiMo API Key 模型 语音",
+  companion: "早安 问候 关心 勿扰 免打扰",
+  tools: "划词 翻译 邮箱 邮件 验证码",
+};
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "actions"];
 
@@ -69,7 +75,6 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     chat: <><path d="M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5Z" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
     memory: <><path d="M7 3h10v18l-5-4-5 4V3Z" /></>,
-    voice: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
     tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
     guide: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" /></>,
@@ -277,7 +282,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
-    ...[ACCOUNT_SECTION, ...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "", ...(id === "tools" ? { keywords: "小工具 邮箱 邮件 验证码" } : {}) })),
+    ...[ACCOUNT_SECTION, ...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "", keywords: PAGE_KEYWORDS[id] })),
     ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
     ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
   ], [developer]);
@@ -348,6 +353,8 @@ export function SettingsPage({ packId }: { packId: string }) {
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
               <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
+            <h2 className="settings-group-title">提醒</h2>
+            <HolidaySettings />
             <h2 className="settings-group-title">应用</h2>
             <div className="settings-group">
               <LaunchAtLoginRow onError={setError} />
@@ -372,12 +379,11 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onOpenLook={() => openResult({ section: "characterProfile", title: "形象", place: sectionLabel("characterProfile") })} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
-        {section === "chat" && <ChatSettings onError={setError} />}
-        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} />}
+        {section === "chat" && packInfo && <ChatSettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} onError={setError} />}
+        {section === "ai" && <AISettings />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
         {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
         {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}
-        {section === "voice" && packInfo && <VoiceSettings key={packId} packId={packId} />}
         {section === "privacy" && (
           <div className="settings-section">
             <h2 className="settings-group-title">备份</h2>

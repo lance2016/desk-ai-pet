@@ -71,7 +71,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
 
   return <div className="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" onKeyDown={onKeyDown}>
     <div ref={card} className="welcome__card">
-      {step < 2 && <button type="button" className="welcome__skip" onClick={() => finish(false)} title="之后可以在「设置 → AI 对话」里填 API Key">跳过</button>}
+      {step < 2 && <button type="button" className="welcome__skip" onClick={() => finish(false)} title="之后可以在「设置 → AI 服务」里填 API Key">跳过</button>}
       <CharacterAvatar picture={avatar} className="welcome__avatar" />
       <ol className="welcome__steps" aria-label="引导步骤">{STEPS.map((label, index) => <li key={label} className={index === step ? "is-current" : index < step ? "is-done" : undefined}>{label}</li>)}</ol>
 

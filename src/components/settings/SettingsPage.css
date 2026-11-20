@@ -106,7 +106,6 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-nav__icon--chat { --tile: var(--tile-green); }
 .settings-nav__icon--ai, .settings-nav__icon--privacy { --tile: var(--tile-blue); }
 .settings-nav__icon--memory { --tile: var(--tile-orange); }
-.settings-nav__icon--voice { --tile: var(--tile-red); }
 .settings-nav__icon--tools { --tile: var(--tile-teal); }
 .settings-nav__icon--guide { --tile: var(--tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */

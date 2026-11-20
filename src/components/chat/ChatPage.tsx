@@ -478,15 +478,16 @@ export function ChatPage({ packId }: { packId: string }) {
     catch (reason) { console.error("Could not clear the chats", reason); setError("没能清除聊天记录，请再试一次。"); }
   };
   const status = chatStatus({ keyMissing, pending, recording, transcribing, failure });
-  const openSettings = (section: "ai" | "voice") => void petWindow.openSettings(section).catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
+  // Both API keys, DeepSeek and MiMo, are on the "AI 服务" page.
+  const openSettings = () => void petWindow.openSettings("ai").catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
   const toggleRecording = () => {
     // Without a MiMo key, recording would only fail afterwards: go to the setup instead.
-    if (voiceMissing && voice.phase === "idle") { openSettings("voice"); return; }
+    if (voiceMissing && voice.phase === "idle") { openSettings(); return; }
     voice.toggle();
   };
   const fixError = () => {
     if (errorFix === "microphone") void systemPlatform.openMicrophoneSettings().catch((reason: unknown) => console.error("Could not open microphone settings", reason));
-    else if (errorFix) openSettings(errorFix);
+    else if (errorFix) openSettings();
   };
   // Nothing until the character loads, so the default picture does not flash before a custom one.
   const avatar = personaReady ? pictureFor(look.avatar, images) : null;
@@ -599,7 +600,7 @@ export function ChatPage({ packId }: { packId: string }) {
       {historyOpen && <ChatHistory threads={threads} currentId={threadId} removed={removedThread} onOpen={(thread) => showThread(thread.id, thread.messages)} onDelete={deleteThread} onUndo={undoDelete} onRename={renameThread} onClose={closeHistory} />}
     </header>
     <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>
-      {keyMissing && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={() => openSettings("ai")}>去设置</button></div>}
+      {keyMissing && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={openSettings}>去设置</button></div>}
       {messages.length === 0 && !keyMissing && <div className="chat-empty">
         <strong>把手边的事交给{name}</strong>
         <p>记一件事、看看今天的安排，或者直接说说你在忙什么。</p>

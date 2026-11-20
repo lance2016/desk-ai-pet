@@ -4,7 +4,7 @@ import { classifyServiceError, serviceErrorMessage } from "./serviceErrors";
 describe("classifyServiceError", () => {
   it("tells a missing key from a rejected one", () => {
     expect(classifyServiceError("API key is not configured")).toBe("missing-key");
-    expect(classifyServiceError("请先在设置 → 语音中配置 MiMo API Key")).toBe("missing-key");
+    expect(classifyServiceError("请先在设置 → AI 服务中配置 MiMo API Key")).toBe("missing-key");
     expect(classifyServiceError("API Key 无效，请在设置中检查。")).toBe("bad-key");
     expect(classifyServiceError("模型名不可用，DeepSeek 不认识这个模型。")).toBe("model");
     expect(classifyServiceError("MiMo API Key 无效，请在设置中检查。")).toBe("bad-key");

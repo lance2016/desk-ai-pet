@@ -89,7 +89,7 @@ pub fn mimo_clear_key(app: AppHandle) -> Result<(), String> {
 /// Sends one request and waits for the answer. It is registered in `state`
 /// under `TRANSCRIBE_ID`, so the user can cancel it.
 fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Value, String> {
-    let key = crate::api_keys::store(app)?.load(PROVIDER)?.ok_or("请先在设置 → 语音中配置 MiMo API Key")?;
+    let key = crate::api_keys::store(app)?.load(PROVIDER)?.ok_or("请先在设置 → AI 服务中配置 MiMo API Key")?;
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",
@@ -251,7 +251,7 @@ fn stream_synthesis(
     body: Value,
 ) -> Result<(), String> {
     let key =
-        crate::api_keys::store(&app)?.load(PROVIDER)?.ok_or("请先在设置 → 语音中配置 MiMo API Key")?;
+        crate::api_keys::store(&app)?.load(PROVIDER)?.ok_or("请先在设置 → AI 服务中配置 MiMo API Key")?;
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",
