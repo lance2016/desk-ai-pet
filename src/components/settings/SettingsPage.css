@@ -1,17 +1,25 @@
-/* The settings window uses the same neutral surfaces and accent as the chat window. */
+/*
+ * The settings window is laid out like System Settings: a sidebar that takes the system's own
+ * sidebar material, and white groups on a light grey page. Greys are neutral, with no tint, so the
+ * only colour is the accent on controls and the icon tiles.
+ */
 .settings-page {
-  --bg: var(--ui-window);
-  --sidebar: var(--ui-window);
-  --group: var(--ui-surface);
-  --group-border: var(--ui-border);
-  --separator: var(--ui-border);
-  --label: var(--ui-text);
-  --label-2: var(--ui-text-secondary);
-  --label-3: var(--ui-text-muted);
-  --fill: var(--ui-fill);
-  --fill-strong: var(--ui-fill-strong);
-  --field: var(--ui-surface);
-  --field-border: var(--ui-border-strong);
+  --bg: #f3f3f3;
+  /* What the sidebar wears where the system material is not there: the browser during development. */
+  --sidebar: #e9e9e9;
+  --group: #ffffff;
+  --group-border: rgba(0, 0, 0, .06);
+  --group-shadow: 0 1px 1.5px rgba(0, 0, 0, .03);
+  --separator: rgba(0, 0, 0, .08);
+  --label: #1d1d1f;
+  --label-2: #6e6e73;
+  --label-3: #86868b;
+  --fill: rgba(0, 0, 0, .04);
+  --fill-strong: rgba(0, 0, 0, .08);
+  /* The selected page in the sidebar while the window is not in front. */
+  --selection: rgba(0, 0, 0, .1);
+  --field: #ffffff;
+  --field-border: rgba(0, 0, 0, .14);
   --accent: var(--ui-accent);
   --accent-strong: var(--ui-accent-strong);
   --accent-ring: var(--ui-accent-ring);
@@ -46,13 +54,26 @@
   height: 100%;
   min-height: 0;
   color: var(--label);
-  background: var(--bg);
   font: 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 @media (prefers-color-scheme: dark) {
   .settings-page {
+    --bg: #1e1e1e;
+    --sidebar: #272727;
+    --group: #2a2a2a;
+    --group-border: rgba(255, 255, 255, .06);
+    --group-shadow: none;
+    --separator: rgba(255, 255, 255, .08);
+    --label: #f5f5f7;
+    --label-2: #a1a1a6;
+    --label-3: #8e8e93;
+    --fill: rgba(255, 255, 255, .05);
+    --fill-strong: rgba(255, 255, 255, .1);
+    --selection: rgba(255, 255, 255, .1);
+    --field: #3a3a3c;
+    --field-border: rgba(255, 255, 255, .14);
     --scrim: rgba(0, 0, 0, .55);
     --control-shadow: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
     --popup-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%23a1a1a6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4.5 4 1.5l3 3M1 7.5l3 3 3-3'/%3E%3C/svg%3E");
@@ -70,7 +91,11 @@
   }
 }
 
-html.settings-window, body.settings-window, body.settings-window #root { min-width: 820px; min-height: 580px; width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--ui-window); }
+html.settings-window, body.settings-window, body.settings-window #root { min-width: 820px; min-height: 580px; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #e9e9e9; }
+@media (prefers-color-scheme: dark) { html.settings-window, body.settings-window, body.settings-window #root { background: #272727; } }
+/* In the app the window is see-through and the system draws its sidebar material behind the page: only the content side is painted. */
+html.settings-window.is-native, html.is-native body.settings-window, html.is-native body.settings-window #root { background: transparent; }
+html.is-native .settings-page { --sidebar: transparent; }
 body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-page button, .settings-page input, .settings-page select, .settings-page textarea { font: inherit; color: inherit; }
 .settings-page input, .settings-page textarea { user-select: text; -webkit-user-select: text; }
@@ -84,19 +109,31 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-page :is(input, select, textarea):focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-ring); }
 
 /* ---------- Sidebar ---------- */
-.settings-sidebar { box-sizing: border-box; flex: 0 0 228px; padding: 20px 12px 16px; overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--separator); }
+.settings-sidebar { box-sizing: border-box; flex: 0 0 228px; padding: 0 12px 16px; overflow-y: auto; background: var(--sidebar); -webkit-mask-image: linear-gradient(to bottom, transparent 26px, #000 38px); mask-image: linear-gradient(to bottom, transparent 26px, #000 38px); }
+/*
+ * The window has no title bar of its own: its close, minimise and zoom buttons sit over the top of
+ * the sidebar, so the list starts below them and fades out before it would scroll under them. The
+ * sidebar's empty space and the page header drag the window instead.
+ */
+.settings-sidebar::before { content: ""; display: block; height: 40px; }
 .settings-sidebar nav { display: grid; gap: 12px; }
-.settings-nav-group { display: grid; gap: 4px; }
+.settings-nav-group { display: grid; gap: 2px; }
 .settings-nav-group__title { margin: 0 8px 4px; color: var(--label-3); font-size: 11px; font-weight: 600; line-height: 16px; }
-.settings-nav { box-sizing: border-box; width: 100%; min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--label-2); text-align: left; background: none; border: 0; border-radius: 8px; cursor: default; }
-.settings-nav:hover:not(.is-active) { background: var(--fill-strong); }
-.settings-nav.is-active { color: var(--accent-strong); background: var(--accent-wash); font-weight: 500; }
+.settings-nav { box-sizing: border-box; width: 100%; min-height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--label); text-align: left; background: none; border: 0; border-radius: 8px; cursor: default; }
+.settings-nav:hover:not(.is-active) { background: var(--fill); }
+/*
+ * The selected page wears the system's accent, as the sidebar of System Settings does, and goes
+ * grey while another window is in front. The plain blue is for engines without `AccentColor`.
+ */
+/* Named with the page so they outweigh `.settings-page .settings-account` further down, which would otherwise take the fill and the white text back. */
+.settings-page .settings-nav.is-active, .settings-page .settings-account.is-active { color: #fff; background: #0a64d2; background: color-mix(in srgb, AccentColor 84%, #000); }
+.settings-page .settings-account.is-active .settings-account__text span { color: rgba(255, 255, 255, .78); }
+html.is-inactive .settings-page :is(.settings-nav, .settings-account).is-active { color: var(--label); background: var(--selection); }
+html.is-inactive .settings-page .settings-account.is-active .settings-account__text span { color: var(--label-2); }
 /* The current character, at the top of the sidebar like the account in System Settings. */
 .settings-page .settings-account { box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px 8px; color: var(--label); text-align: left; background: none; border: 0; border-radius: var(--radius-row); cursor: default; }
-.settings-account:hover:not(.is-active) { background: var(--fill-strong); }
-.settings-account.is-active { background: var(--accent-wash); }
-.settings-account.is-active strong { color: var(--accent-strong); }
-.settings-account__avatar { width: 40px; height: 40px; font-size: 16px; }
+.settings-account:hover:not(.is-active) { background: var(--fill); }
+.settings-account__avatar { width: 40px; height: 40px; font-size: 16px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .14); }
 .settings-account__text { min-width: 0; display: grid; }
 .settings-account__text strong { overflow: hidden; font-size: 14px; font-weight: 600; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .settings-account__text span { color: var(--label-2); font-size: 11px; line-height: 15px; }
@@ -134,14 +171,14 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 @media (prefers-reduced-motion: reduce) { .is-search-hit { animation-duration: 2.4s; animation-timing-function: steps(1, end); } }
 
 /* ---------- Content ---------- */
-.settings-content { flex: 1; min-width: 0; height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.settings-content { flex: 1; min-width: 0; height: 100%; background: var(--bg); box-shadow: -1px 0 0 var(--separator); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .settings-header { position: sticky; top: 0; z-index: 5; padding: 24px 36px 16px; background: var(--bg); }
 /* A page opened from inside another: the way back sits above its title. */
 .settings-header__back { margin: -8px auto 4px; }
 .settings-page .settings-back { display: inline-block; margin-left: -6px; padding: 2px 6px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font-size: 13px; cursor: pointer; }
 .settings-page .settings-back:hover { background: var(--fill); }
 .settings-page .settings-back:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
-.settings-header h1 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 650; letter-spacing: -.35px; }
+.settings-header h1 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -.35px; }
 /* The character page shows its name in the portrait card; the heading stays for VoiceOver only. */
 .settings-header--quiet { padding-bottom: 0; }
 .settings-header--quiet h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -154,21 +191,20 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-section__intro p { margin: -4px 4px 8px; color: var(--label-2); font-size: 11px; }
 .settings-section__intro--spaced h2 { margin-top: 24px; }
 
-.settings-group, .settings-card { box-sizing: border-box; margin: 0; padding: 0 12px; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
-.settings-row { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.settings-group, .settings-card { box-sizing: border-box; margin: 0; padding: 0 12px; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); box-shadow: var(--group-shadow); }
+/* A row that leads somewhere wears a tile, as the rows of System Settings do. */
+.settings-row > .settings-nav__icon { width: 26px; height: 26px; border-radius: 6px; }
+.settings-row > .settings-nav__icon svg { width: 17px; height: 17px; }
+.settings-row { box-sizing: border-box; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .settings-row + .settings-row { border-top: 1px solid var(--separator); }
 .settings-row__body { flex: 1; min-width: 0; }
 .settings-row__body strong, .settings-row__body span { display: block; }
 .settings-row__body strong { font-weight: 400; }
 .settings-row__body span { margin-top: 1px; color: var(--label-2); font-size: 11px; }
 .settings-row__value { flex: none; color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; }
-.settings-row__icon { flex: none; display: grid; place-items: center; width: 26px; height: 26px; color: var(--ui-action-text); background: var(--ui-action-bg); border-radius: 6px; }
-.settings-row__icon svg { width: 15px; height: 15px; }
 /* Groups that follow each other keep one gap, whichever page they are on. */
 :is(.settings-group, .settings-card) + :is(.settings-group, .settings-card) { margin-top: 12px; }
 .settings-divider { height: 1px; background: var(--separator); }
-.settings-info p { margin: 0; color: var(--label-2); line-height: 1.6; }
-.settings-info { padding: 12px; }
 .settings-footnote { margin: 8px 4px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 /* Sticks under the page title, so an error from a row far down the page is still seen. */
 .settings-error { position: sticky; top: 46px; z-index: 4; margin: 0 0 12px; padding: 7px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); font-size: 12px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
@@ -176,17 +212,16 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 
 /* ---------- Controls ---------- */
 .toggle { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--fill-strong); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background 150ms ease; }
-.toggle span { display: block; width: 15px; height: 15px; background: var(--ui-action-text); border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform 150ms ease; }
+.toggle span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform 150ms ease; }
 .toggle.is-on { background: var(--ui-action-bg); }
 .toggle.is-on span { transform: translateX(13px); }
 .toggle:disabled { opacity: .45; cursor: default; }
 
 /* Segmented control, as NSSegmentedControl draws it. */
-.segmented, .size-options { flex: none; display: inline-flex; padding: 2px; background: var(--fill-strong); border-radius: var(--radius-control); }
-.segmented button, .size-options button { min-width: 44px; height: 20px; padding: 0 8px; background: none; border: 0; border-radius: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
-.segmented button.is-selected, .size-options button.is-selected { background: var(--field); box-shadow: var(--control-shadow); font-weight: 500; }
-@media (prefers-color-scheme: dark) { .segmented button.is-selected, .size-options button.is-selected { background: rgba(255, 255, 255, .2); } }
-.size-options button:disabled { opacity: .45; cursor: default; }
+.segmented { flex: none; display: inline-flex; padding: 2px; background: var(--fill-strong); border-radius: var(--radius-control); }
+.segmented button { min-width: 44px; height: 20px; padding: 0 8px; background: none; border: 0; border-radius: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.segmented button.is-selected { background: var(--field); box-shadow: var(--control-shadow); font-weight: 500; }
+@media (prefers-color-scheme: dark) { .segmented button.is-selected { background: rgba(255, 255, 255, .2); } }
 
 /* Push button. */
 .settings-button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 24px; padding: 0 12px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 13px; white-space: nowrap; cursor: pointer; }
@@ -206,11 +241,15 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-field { box-sizing: border-box; height: 24px; padding: 0 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .settings-link { padding: 0; color: var(--accent-strong); background: none; border: 0; font-size: 12px; cursor: pointer; }
 @media (prefers-color-scheme: dark) { .settings-link { color: var(--accent); } }
+/* A few words that do something right there ("恢复默认"). Not `.settings-link`, which is a whole row. */
+.settings-page .text-link { flex: none; padding: 0; color: var(--accent-strong); background: none; border: 0; border-radius: 3px; box-shadow: none; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.settings-page .text-link:disabled { opacity: .45; cursor: default; }
+@media (prefers-color-scheme: dark) { .settings-page .text-link { color: var(--accent); } }
 .settings-icon-tile { flex: none; display: grid; place-items: center; width: 28px; height: 28px; color: var(--accent-strong); background: var(--accent-wash); border-radius: 7px; }
 @media (prefers-color-scheme: dark) { .settings-icon-tile { color: var(--accent); } }
 
 /* ---------- Floating pet controls ---------- */
-.dock-preview { margin-bottom: 4px; padding: 18px 16px 12px; text-align: center; background: radial-gradient(120% 140% at 50% 0%, rgba(166, 147, 245, .3), rgba(138, 114, 224, .08) 60%, transparent), var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
+.dock-preview { margin-bottom: 4px; padding: 18px 16px 12px; text-align: center; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .dock-preview p { margin: 10px 0 0; color: var(--label-2); font-size: 11px; }
 .dock-preview__scene { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 /* Preview the individual float buttons, not a continuous bar. */
@@ -256,7 +295,7 @@ button.dock-row__body { cursor: pointer; }
 @media (prefers-color-scheme: dark) { .icon-choice.is-selected { color: var(--accent); } }
 .icon-upload { position: relative; overflow: hidden; }
 .icon-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.dock-editor .settings-link { justify-self: start; margin-left: 50px; }
+.dock-editor .text-link { justify-self: start; margin-left: 50px; }
 
 .dock-row--add { padding: 8px 12px 8px 36px; }
 .dock-add { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); cursor: pointer; }
@@ -286,76 +325,9 @@ button.dock-row__body { cursor: pointer; }
 .prompt-field textarea { display: block; clear: both; box-sizing: border-box; width: 100%; height: 200px; margin-top: 8px; padding: 8px 10px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-size: 12px; line-height: 1.55; resize: vertical; }
 .prompt-field__foot { display: flex; align-items: baseline; gap: 12px; margin: 5px 0 0; }
 .prompt-field__foot span { flex: 1; min-width: 0; color: var(--label-2); font-size: 11px; line-height: 1.45; }
-/* Named twice over: `.settings-page button` resets colour and size with more weight than `.settings-link` alone. */
-.prompt-field__foot .settings-link, .action-editor .action-editor__prompt { flex: none; color: var(--accent-strong); font-size: 12px; border-radius: 3px; }
-@media (prefers-color-scheme: dark) { .prompt-field__foot .settings-link, .action-editor .action-editor__prompt { color: var(--accent); } }
-/* A custom character's drawing guide: two steps, then numbered empty slots that fill as pictures arrive. */
-.draw-guide { margin-bottom: 18px; padding: 14px 16px 6px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
-.draw-guide__head { display: flex; align-items: flex-start; gap: 16px; }
-.draw-guide__head > div { flex: 1; min-width: 0; }
-.draw-guide h3 { margin: 0; font-size: 14px; font-weight: 600; }
-.draw-guide__head p { margin: 4px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.5; }
-.draw-guide__count { flex: none; display: grid; justify-items: end; margin: 0; white-space: nowrap; color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; }
-.draw-guide__count strong { color: var(--label); font-size: 20px; font-weight: 600; }
-.draw-guide__count small { font-size: 11px; }
-.draw-guide__meter { height: 4px; margin: 10px 0 4px; overflow: hidden; background: var(--fill-strong); border-radius: 2px; }
-.draw-guide__meter span { display: block; height: 100%; background: var(--accent-strong); border-radius: 2px; transition: width 300ms ease; }
-.draw-guide__steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
-.draw-guide__steps li { position: relative; padding: 10px 0 10px 32px; counter-increment: step; }
-.draw-guide__steps li + li { border-top: 1px solid var(--separator); }
-.draw-guide__steps li::before { content: counter(step); position: absolute; top: 10px; left: 0; width: 20px; height: 20px; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 11px; font-weight: 600; }
-.draw-guide__steps li.is-done::before { content: "✓"; color: #fff; background: var(--green); }
-.draw-guide__steps li > strong { display: block; font-weight: 500; }
-.draw-guide__steps li > span { display: block; margin-top: 1px; color: var(--label-2); font-size: 12px; line-height: 1.45; }
-.action-row__step { flex: none; width: 18px; margin-left: 4px; color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
-.action-row__step.is-done { height: 18px; display: grid; place-items: center; color: #fff; background: var(--green); border-radius: 50%; }
-.action-row__step svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.action-row__art--empty { box-sizing: border-box; border: 1.5px dashed var(--label-3); }
-.action-group { margin-top: 4px; }
-.action-group + .action-group { margin-top: 18px; }
-.action-group header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 4px 6px; }
-.action-group h3 { margin: 0; font-size: 13px; font-weight: 600; }
-.action-group header span { color: var(--label-2); font-size: 11px; }
-.action-group header .action-group__add { align-self: center; margin-left: auto; }
-.action-group__note { margin: 6px 4px 0; color: var(--label-2); font-size: 11px; }
-/* The normal library groups actions by when the pet does them; each group wears a tile like the sidebar's. */
-.action-library__lead { margin: -2px 4px 14px; color: var(--label-2); font-size: 12px; line-height: 1.5; }
-.action-group--scene header { flex-wrap: nowrap; align-items: center; gap: 10px; margin-bottom: 8px; }
-.action-group--scene header p { margin: 1px 0 0; color: var(--label-2); font-size: 11px; }
-.action-group__icon { flex: none; display: grid; place-items: center; width: 26px; height: 26px; color: #fff; border-radius: 7px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
-.action-group__icon svg { width: 16px; height: 16px; fill: currentColor; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; }
-.action-group__icon--tasks svg, .action-group__icon--other svg, .action-group__icon--mine svg { fill: none; stroke-width: 2; stroke-linecap: round; }
-.action-group__icon--companion { background: linear-gradient(#8e8bff, #5856d6); }
-.action-group__icon--touch { background: linear-gradient(#ff7d98, #f2365c); }
-.action-group__icon--chat { background: linear-gradient(#5ccbf5, #1fa3d9); }
-.action-group__icon--tasks { background: linear-gradient(#5fd37a, #2fae4e); }
-.action-group__icon--play { background: linear-gradient(#ffb340, #f58f0a); }
-.action-group__icon--other { background: linear-gradient(#a1a1a7, #84848a); }
-.action-group__icon--mine { background: linear-gradient(#9b86f0, #6f58c9); }
-.action-list.action-empty { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
-.action-empty p { flex: 1; margin: 0; color: var(--label-2); font-size: 12px; line-height: 1.45; }
-.action-list { margin: 0; padding: 0; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); overflow: hidden; }
-.action-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; }
-.action-row + .action-row { border-top: 1px solid var(--separator); }
-.action-row__art { flex: none; width: 44px; height: 44px; overflow: hidden; background: var(--fill); border-radius: var(--radius-row); }
-.action-row__art canvas { display: block; width: 100%; height: 100%; }
-.action-row__detail { flex: 1; min-width: 0; }
-.action-row__detail strong { display: flex; align-items: center; gap: 6px; font-weight: 400; }
-.action-row__detail p { margin: 1px 0 0; color: var(--label-2); font-size: 11px; line-height: 1.4; }
-.action-row__detail .action-row__pose { display: -webkit-box; margin-top: 2px; overflow: hidden; color: var(--label-3); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.action-row__custom { padding: 0 6px; color: var(--accent-strong); background: var(--accent-wash); border-radius: 4px; font-size: 10px; font-weight: 500; }
-.action-row__tools { flex: none; display: flex; align-items: center; gap: 6px; }
-/* "Dock" is a check button: tinted with a tick while the action is in the dock. */
-.dock-chip { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 9px 0 7px; color: var(--label); background: var(--field); border: 0; border-radius: 11px; box-shadow: var(--control-shadow); font-size: 12px; cursor: pointer; }
-.dock-chip svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.dock-chip:hover { background: var(--fill-strong); }
-.dock-chip.is-on { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
-.action-row__auto { display: inline-flex; align-items: center; gap: 5px; padding: 0 2px; color: var(--label-2); background: none; border: 0; font-size: 12px; cursor: pointer; }
-.action-row__auto span { position: relative; width: 26px; height: 15px; background: var(--fill-strong); border-radius: 8px; transition: background 150ms ease; }
-.action-row__auto span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform 150ms ease; }
-.action-row__auto.is-on { color: var(--label); }
-.action-row__auto.is-on span { background: var(--accent-strong); }
-.action-row__auto.is-on span::after { transform: translateX(11px); }
+/* Named twice over: `.settings-page button` resets colour and size with more weight than one class alone. */
+.action-editor .action-editor__prompt { flex: none; color: var(--accent-strong); font-size: 12px; border-radius: 3px; }
+@media (prefers-color-scheme: dark) { .action-editor .action-editor__prompt { color: var(--accent); } }
 
 /* ---------- Action editor ---------- */
 .action-editor { box-sizing: border-box; max-width: 640px; padding: 0 28px 28px; }
@@ -365,7 +337,6 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__header p { margin: 0; }
 .action-editor__back { padding: 0; color: var(--accent-strong); background: none; border: 0; cursor: pointer; }
 .action-editor__preview { position: relative; height: 210px; display: grid; place-items: center; margin: 12px 0; color: var(--label-2); background: var(--fill); border-radius: var(--radius-group); }
-.action-editor__preview.is-left { justify-items: start; overflow: hidden; }
 .action-editor__preview canvas { max-width: 100%; height: 210px; }
 .action-editor__replay { position: absolute; right: 10px; bottom: 10px; height: 22px; padding: 0 9px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 12px; cursor: pointer; }
 .action-editor__group { margin: 14px 0; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
@@ -447,7 +418,7 @@ button.dock-row__body { cursor: pointer; }
 .character-choice__switch { flex: none; color: var(--accent-strong); font-size: 12px; opacity: 0; transition: opacity 120ms ease-out; }
 .character-choice:is(:hover, :focus-visible) .character-choice__switch { opacity: 1; }
 .character-choice[aria-current]:hover::before { background: none; }
-.character-profile__instructions { padding: 12px 0 2px; border-top: 1px solid var(--separator); }
+.character-profile__instructions { padding: 12px 0; border-top: 1px solid var(--separator); }
 .character-profile__instructions label { display: block; font-size: 12px; }
 .character-profile__instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 .character-profile__instructions textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; padding: 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
@@ -506,15 +477,6 @@ button.dock-row__body { cursor: pointer; }
 .mail-tester__spot mark { padding: 0 2px; color: var(--label); background: var(--green-wash); border-radius: 3px; box-shadow: inset 0 -1.5px 0 var(--green); }
 .mail-steps { margin: 12px 0 0; padding-left: 18px; color: var(--label-2); font-size: 11px; line-height: 1.6; }
 .ai-settings__status { padding: 8px 10px; background: var(--fill); border-radius: var(--radius-row); color: var(--label) !important; }
-.ai-data-details { margin-top: 10px; padding: 0 12px; }
-.ai-data-details summary { padding: 10px 0; color: var(--accent-strong); font-size: 12px; cursor: pointer; list-style: none; }
-.ai-data-details summary::-webkit-details-marker { display: none; }
-.ai-data-details summary::after { content: "⌄"; float: right; color: var(--label-2); }
-.ai-data-details[open] summary::after { content: "⌃"; }
-.ai-data-details summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
-.ai-data-details__content { padding-bottom: 10px; }
-.ai-data-details__content p { margin: 6px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.55; }
-.ai-data-details__content strong { color: var(--label); font-weight: 500; }
 .ai-instructions { margin-top: 10px; padding: 12px; }
 .ai-instructions label { display: block; margin-bottom: 6px; font-weight: 500; }
 .ai-instructions p, .ai-preview p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
@@ -526,10 +488,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-preview__head strong, .ai-preview__head span { display: block; }
 .ai-preview__head strong { font-weight: 400; }
 .ai-preview__head span { margin-top: 3px; color: var(--label-2); font-size: 11px; }
-.ai-preview__body { margin-top: 12px; }
-.ai-preview__body details { border-top: 1px solid var(--separator); }
-.ai-preview__body summary { padding: 10px 0; cursor: pointer; font-weight: 500; }
-.ai-preview__body pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
 
 /* AI settings: shared provider and rules stay separate from each character's reply style. */
 .ai-page__intro { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0; }
@@ -540,8 +498,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-section__title { margin: 0 4px 8px; }
 .ai-section__title h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .ai-section__title p { margin: 4px 0 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
-.ai-reply-settings .ai-instructions { margin: 0; padding: 13px 0; border-top: 1px solid var(--separator); }
-.ai-reply-settings .settings-row__body span { white-space: normal; overflow-wrap: anywhere; }
 
 /* Memory: what the pet knows about the user (FactSettings). */
 .fact-list { margin: 0; padding: 0; list-style: none; }
@@ -572,9 +528,9 @@ button.dock-row__body { cursor: pointer; }
 .ai-disclosure summary strong { font-weight: 500; }
 .ai-disclosure summary small { margin-top: 2px; color: var(--label-2); font-size: 11px; }
 .ai-disclosure summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); border-radius: var(--radius-control); }
-.ai-prompt-text, .ai-request-tools { padding: 0 0 12px; color: var(--label-2); font-size: 12px; line-height: 1.65; }
-.ai-prompt-text p, .ai-request-tool p { margin: 0 0 8px; overflow-wrap: anywhere; }
-.ai-prompt-text, .ai-request-tools { user-select: text; -webkit-user-select: text; }
+.ai-request-tools { padding: 0 0 12px; color: var(--label-2); font-size: 12px; line-height: 1.65; }
+.ai-request-tool p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.ai-request-tools { user-select: text; -webkit-user-select: text; }
 .ai-request-tool + .ai-request-tool { margin-top: 16px; }
 .ai-request-tool h4 { margin: 0 0 4px; color: var(--label); font-size: 12px; font-weight: 600; }
 .ai-request-tool dl { margin: 8px 0 0; }
@@ -630,21 +586,15 @@ button.dock-row__body { cursor: pointer; }
 .look-row__head strong, .look-row__head span { display: block; }
 .look-row__head strong { font-weight: 500; }
 .look-row__head span { margin-top: 1px; color: var(--label-2); font-size: 11px; }
-.look-row__preview { width: 44px; height: 44px; box-shadow: 0 0 0 2px var(--group), 0 2px 8px rgba(111, 88, 201, .2); }
+.look-row__preview { width: 44px; height: 44px; }
 .look-row__preview--peek { display: grid; place-items: end center; overflow: hidden; color: var(--label-2); background: var(--fill); border-radius: var(--radius-row); font-size: 10px; box-shadow: none; }
 .look-row__peek { width: 44px; }
-.look-choices { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-left: 56px; }
-.look-upload { position: relative; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 12px; cursor: pointer; }
+.look-row__head .look-choices { flex: none; display: flex; align-items: center; gap: 6px; }
+.look-upload { position: relative; display: inline-flex; align-items: center; height: 24px; padding: 0 12px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 13px; cursor: pointer; }
 .look-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.ai-settings .look-hide { font-size: 12px; }
+.ai-settings .look-hide { font-size: 13px; }
 .ai-settings .look-hide.is-selected { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
 
-.voice-toggle { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--separator); }
-.voice-toggle strong, .voice-toggle div span { display: block; }
-.voice-toggle strong { font-weight: 400; }
-.voice-toggle div span { margin-top: 1px; color: var(--label-2); font-size: 11px; }
-.voice-toggle--first { padding: 8px 0; border-top: 0; }
-.voice-toggle .toggle { flex: none; }
 .quiet-hours { display: flex; gap: 16px; padding: 0 0 12px; color: var(--label-2); font-size: 12px; }
 .quiet-hours label { display: flex; align-items: center; gap: 6px; }
 .quiet-hours input { height: 22px; padding: 0 6px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
@@ -660,14 +610,11 @@ button.dock-row__body { cursor: pointer; }
 
 /* Shortcut recorder: the field itself is the record button, the clear button sits inside it. */
 .shortcut-field { flex: none; display: flex; align-items: center; gap: 10px; }
-.shortcut-field .settings-link { font-size: 12px; color: var(--accent-strong); }
-.shortcut-field .settings-link:disabled { opacity: .45; cursor: default; }
-@media (prefers-color-scheme: dark) { .shortcut-field .settings-link { color: var(--accent); } }
-.shortcut-key { position: relative; display: flex; align-items: center; width: 116px; height: 24px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); }
+.shortcut-key { position: relative; flex: none; display: flex; align-items: center; width: 116px; height: 24px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); }
 .shortcut-key:hover { background: var(--fill-strong); }
 .shortcut-key:has(.shortcut-key__record:focus-visible) { box-shadow: var(--control-shadow), 0 0 0 3px var(--accent-ring); }
 .shortcut-key.is-recording { background: var(--field); box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-ring); }
-.settings-page .shortcut-key__record { flex: 1; min-width: 0; height: 100%; padding: 0 8px; background: none; border: 0; font-size: 12px; font-weight: 500; letter-spacing: .04em; font-variant-numeric: tabular-nums; text-align: center; cursor: pointer; }
+.settings-page .shortcut-key__record { flex: 1; min-width: 0; height: 100%; padding: 0 8px; background: none; border: 0; font-size: 12px; font-weight: 500; letter-spacing: .04em; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; cursor: pointer; }
 .settings-page .shortcut-key__record:focus-visible { box-shadow: none; }
 .shortcut-key:has(.shortcut-key__clear) .shortcut-key__record { padding-right: 24px; }
 .shortcut-key.is-empty .shortcut-key__record { color: var(--label-2); font-weight: 400; letter-spacing: 0; }
@@ -762,7 +709,7 @@ button.dock-row__body { cursor: pointer; }
 .whats-new__card { box-sizing: border-box; display: flex; flex-direction: column; width: min(460px, 100%); max-height: calc(100dvh - 32px); padding: 24px 28px 20px; background: var(--group); border-radius: 14px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3); animation: whats-new-in 260ms cubic-bezier(.2, .9, .3, 1.15); }
 @keyframes whats-new-in { from { opacity: 0; transform: scale(.94); } }
 .whats-new__icon { flex: none; display: block; width: 56px; height: 56px; margin: 0 auto 8px; }
-.whats-new h2 { flex: none; margin: 0 0 18px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; text-align: center; }
+.whats-new h2 { flex: none; margin: 0 0 18px; font-size: 19px; font-weight: 600; letter-spacing: -.01em; text-align: center; }
 .whats-new__list { display: grid; gap: 14px; min-height: 0; margin: 0; padding: 0 2px; overflow-y: auto; list-style: none; }
 .whats-new__list li { display: flex; align-items: flex-start; gap: 13px; }
 .whats-new__list strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
@@ -793,7 +740,7 @@ button.dock-row__body { cursor: pointer; }
 .settings-section { max-width: calc(var(--content-width) + 72px); }
 .settings-header h1, .settings-header__back { max-width: var(--content-width); margin-left: auto; margin-right: auto; }
 .settings-content > .settings-error { box-sizing: border-box; width: calc(100% - 72px); max-width: var(--content-width); margin-left: auto; margin-right: auto; }
-.settings-info p, .settings-section__intro p { max-width: 75ch; }
+.settings-section__intro p { max-width: 75ch; }
 .action-editor { box-sizing: border-box; max-width: 1120px; padding: 0 36px 36px; }
 .action-editor__header { position: static; margin: 0 0 18px; padding: 0 0 14px; }
 .settings-page .action-editor__back { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; color: var(--accent-strong); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-control); font-weight: 500; }
@@ -862,7 +809,7 @@ button.dock-row__body { cursor: pointer; }
 
 /* Keep the sidebar and readable content width usable at the window's minimum size. */
 @media (max-width: 1000px) {
-  .settings-sidebar { flex-basis: 210px; padding: 18px 10px 14px; }
+  .settings-sidebar { flex-basis: 210px; padding: 0 10px 14px; }
   .settings-header { padding: 20px 26px 14px; }
   .settings-section { max-width: calc(var(--content-width) + 52px); padding: 0 26px 28px; }
   .settings-content > .settings-error { width: calc(100% - 52px); margin-left: auto; margin-right: auto; }

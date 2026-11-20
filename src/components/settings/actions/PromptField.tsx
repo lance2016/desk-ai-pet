@@ -28,7 +28,7 @@ export function PromptField({ copyLabel, copyText, summary, value, fallback, not
       <textarea aria-label={summary} value={value} maxLength={ART_PROMPT_MAX_CHARS} spellCheck={false} onChange={(event) => onChange(event.currentTarget.value)} />
       <p className="prompt-field__foot">
         <span>{note}</span>
-        {value !== fallback && <ConfirmButton className="settings-link" confirm={{ message: "恢复默认提示词？", detail: "你改过的文字会换回自带的写法。", action: "恢复默认" }} onConfirm={() => onChange(fallback)}>恢复默认</ConfirmButton>}
+        {value !== fallback && <ConfirmButton className="text-link" confirm={{ message: "恢复默认提示词？", detail: "你改过的文字会换回自带的写法。", action: "恢复默认" }} onConfirm={() => onChange(fallback)}>恢复默认</ConfirmButton>}
       </p>
     </details>
   </div>;

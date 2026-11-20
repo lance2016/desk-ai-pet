@@ -56,7 +56,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 
 不可撤销的操作用 `ConfirmButton`：先弹系统确认框（`src-tauri/src/alert.rs`），回车确认、Esc 取消。它只能用在设置、聊天这类普通窗口里；提醒、备忘弹层不能弹框，会激活应用。宠物窗口也不能弹框：要用户确认时，由 `BehaviorEngine` 发带 `choices` 的 `pet.alert`，在气泡里放按钮（例子是停止专注）。能撤销的用撤销条。报错只给人话，原始错误用 `console.error` 记日志。
 
-设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`SettingsGlyph`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`，给图标方块挑一个 `--tile-*` 系统色）。跳到另一页的行用整行加 ›（`settings-link` 加 `Chevron`），不要放「打开」按钮。
+设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`SettingsGlyph`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`，给图标方块挑一个 `--tile-*` 系统色）。跳到另一页的行用整行加 ›（`settings-link` 加 `Chevron`），不要放「打开」按钮。行里就地执行的小文字链接（「恢复默认」）用 `text-link`，不要用 `settings-link`：后者是整行样式，带 `width: 100%`，会把同一行的控件挤扁。
 
 ## 代码约定
 
@@ -157,6 +157,10 @@ pnpm exec tsc --noEmit && pnpm test
 - 应用平时是 `Accessory`（没有 Dock 图标和菜单栏）。设置窗口打开时切成 `Regular`，关掉切回（`show_settings_window`、`hide_settings_window`），这样它被挡住后能用 ⌘Tab 找回来。聊天窗口没有这样做：它常开着，怕应用长期处于 `Regular` 时宠物面板盖不到别的应用的全屏上方（未验证）。新的普通窗口要先想好走哪条。
 - 设置窗口打开时应用是 `Regular`，宠物仍是不激活应用的面板；在其它应用的全屏空间右键菜单前，先临时切到 `Accessory`，菜单关闭后恢复 `Regular`，否则原生菜单可能被全屏空间挡住。逻辑在 `show_pet_menu_native`。
 - 右键菜单在主线程上同步弹出，菜单开着时 AppKit 的菜单循环照样处理网页发来的命令。再右键一次会在菜单里面再弹同一个菜单，`muda` 发现菜单正被占用就直接 panic，应用闪退（`RefCell already borrowed`）。`show_pet_menu` 用 `popped_up` 挡住第二次；以后在菜单开着时可能被调用的命令，都不要去动顶层的 `menu`。
+- 设置窗口没有自己的标题栏（`tauri.conf.json` 的 `titleBarStyle: "Overlay"` 加 `hiddenTitle`），红绿灯压在侧栏左上角。侧栏顶部留了 40px（`.settings-sidebar::before`），列表在它下面滚动。拖动窗口靠 `data-tauri-drag-region`：侧栏的空白处、页头和页标题，权限是 `core:window:allow-start-dragging`。这个属性只对被点中的那个元素生效，不传给子元素；在页面顶部加新元素时，别把页头整个盖住，否则窗口拖不动。
+- 设置窗口是透明窗口，侧栏用系统自己的侧栏材质（`tauri.conf.json` 的 `transparent: true` 加 `windowEffects: sidebar`，`state` 是 `active`，窗口不在最前时也保持半透明）。页面只给内容区（`.settings-content`）和弹层上色，`html`、`body`、`.settings-page`、侧栏在安装包里都必须保持透明（`html.is-native`），否则材质被盖住；浏览器里没有材质，侧栏用 `--sidebar` 的灰色顶替。新加的整窗元素要么盖满窗口并有自己的底色（弹层），要么放进内容区。
+- 设置窗口的配色：浅灰页面 `--bg`、白色分组卡片 `--group`、中性的灰（不带紫或暖色）。侧栏选中项用系统强调色（CSS 的 `AccentColor`，用户在系统设置里选什么色就是什么色）配白字，窗口不在最前时变成中性灰（`html.is-inactive`，由窗口的 focus/blur 切换）；应用自己的紫色强调色只留给开关、链接、主按钮和焦点环。不要把卡片改成比页面深的灰：试过，灰卡片叠灰底再描边，看起来像线框图。会带人去别处的行（带 ›）在行首放一个彩色图标方块（`settings-nav__icon`）。
+- 看设置窗口在安装包里的真实样子：用 `CGWindowListCopyWindowInfo` 找到本应用名为「AI Pet 设置」的窗口号，`screencapture -x -o -l <窗口号>` 只截这一个窗口。窗口没开着时截不到，也不能替用户去点菜单；可以临时把配置里它的 `visible` 改成 `true` 起一次 `pnpm tauri dev` 截图，截完改回并关掉。
 - 应用菜单（`build_app_menu`）平时看不见，但 ⌘C、⌘V、⌘W、⌘Q 这些快捷键全靠它，删掉编辑菜单输入框就不能粘贴。退出必须用 `QUIT_ID`，否则会跳过退出前取消请求。
 
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。

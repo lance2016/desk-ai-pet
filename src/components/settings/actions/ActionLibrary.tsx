@@ -291,7 +291,7 @@ export function ActionLibrary({ actions, controls, packId, catalog, onSwitchChar
     items: visibleActions.filter((action) => group.key === "mine"
       ? isUserAction(action)
       : !isUserAction(action) && (group.scene === undefined ? action.scene === undefined : action.scene === group.scene)),
-  })).filter((group) => group.items.length > 0 || (group.key === "mine" && userActions.length === 0 && !search && assetFilter === "all"));
+  })).filter((group) => group.items.length > 0);
 
   const filterOptions: { key: AssetFilter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: actions.length },
@@ -397,9 +397,7 @@ export function ActionLibrary({ actions, controls, packId, catalog, onSwitchChar
         <span className="action-library__group-count">{group.items.length}</span>
         {group.key === "mine" && canCreate && <button type="button" className="action-library__new-link" onClick={() => setEditing(draft)}>＋ 新建</button>}
       </header>
-      {group.key === "mine" && group.items.length === 0
-        ? <p className="action-library__empty-mine">还没有自己的动作。选一张图片，配上摇摆或跳跃动效，点右上角「新建动作」就能做出专属动作。</p>
-        : <div className="action-library__grid">{group.items.map(renderCard)}</div>}
+      <div className="action-library__grid">{group.items.map(renderCard)}</div>
     </section>) : <div className="action-library__empty-search"><span aria-hidden="true">⌕</span><strong>没有找到动作</strong><p>换个名称，或清除筛选条件。</p><button type="button" onClick={() => { setSearch(""); setAssetFilter("all"); setSceneFilter("all"); }}>清除筛选</button></div>}
 
     {previewAction && (

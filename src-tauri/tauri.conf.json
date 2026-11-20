@@ -30,6 +30,9 @@
       {
         "label": "settings",
         "title": "AI Pet 设置",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "windowEffects": { "effects": ["sidebar"], "state": "active" },
         "url": "index.html?window=settings",
         "width": 960,
         "height": 700,
@@ -38,7 +41,7 @@
         "visible": false,
         "resizable": true,
         "decorations": true,
-        "transparent": false,
+        "transparent": true,
         "shadow": true,
         "alwaysOnTop": false,
         "skipTaskbar": false

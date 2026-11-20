@@ -168,6 +168,12 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   useEffect(() => {
     document.documentElement.classList.add("settings-window");
+    document.documentElement.classList.toggle("is-native", petWindow.isNative);
+    // The sidebar's selection is coloured only while this window is the one in front, as in any Mac window.
+    const showFront = () => document.documentElement.classList.toggle("is-inactive", !document.hasFocus());
+    showFront();
+    window.addEventListener("focus", showFront);
+    window.addEventListener("blur", showFront);
     document.body.classList.add("settings-window");
     const stopOnTop = petWindow.onOnTopChanged(setOnTop);
     petWindow.getOnTop().then(setOnTop).catch((reason: unknown) => console.warn("Could not read the on-top setting", reason));
@@ -178,6 +184,8 @@ export function SettingsPage({ packId }: { packId: string }) {
     return () => {
       stopOnTop();
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", showFront);
+      window.removeEventListener("blur", showFront);
       document.documentElement.classList.remove("settings-window");
       document.body.classList.remove("settings-window");
     };
@@ -314,7 +322,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   return (
     <main className="settings-page">
-      <aside className="settings-sidebar">
+      <aside className="settings-sidebar" data-tauri-drag-region>
         <SettingsSearch entries={searchEntries} onPick={openResult} icon={(entry) => <span className={`settings-nav__icon settings-nav__icon--${entry.section}`}><SettingsGlyph name={entry.section} /></span>}>
           <nav aria-label="设置分类">
             {/* The current character, at the top like the account in System Settings. */}
@@ -339,9 +347,9 @@ export function SettingsPage({ packId }: { packId: string }) {
 
       <section className="settings-content" ref={contentRef}>
         {/* The character page's portrait and name are its title. */}
-        <header className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
+        <header data-tauri-drag-region className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
           {parent && <div className="settings-header__back"><button type="button" className="settings-back" onClick={() => go(parent)}>‹ {sectionLabel(parent)}</button></div>}
-          <h1>{title}</h1>
+          <h1 data-tauri-drag-region>{title}</h1>
         </header>
         {error && <p className="settings-error" role="status">{error}</p>}
 
@@ -377,7 +385,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} catalog={catalog} onSwitchCharacter={switchCharacter} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
-        {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
+        {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} profileIcon={<span className="settings-nav__icon settings-nav__icon--characterProfile"><SettingsGlyph name="characterProfile" /></span>} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "chat" && packInfo && <ChatSettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} onError={setError} />}
         {section === "ai" && <AISettings />}
@@ -410,7 +418,7 @@ export function SettingsPage({ packId }: { packId: string }) {
               <UpdateRow />
             </div>
             <div className="settings-group">
-              <button type="button" className="settings-row settings-link" onClick={() => go("diagnostics")}><span className="settings-row__body"><strong>日志与诊断</strong><span>出了问题看日志，或导出诊断信息发给帮你排查的人</span></span><Chevron /></button>
+              <button type="button" className="settings-row settings-link" onClick={() => go("diagnostics")}><span className="settings-nav__icon settings-nav__icon--diagnostics"><SettingsGlyph name="diagnostics" /></span><span className="settings-row__body"><strong>日志与诊断</strong><span>出了问题看日志，或导出诊断信息发给帮你排查的人</span></span><Chevron /></button>
             </div>
           </div>
         )}

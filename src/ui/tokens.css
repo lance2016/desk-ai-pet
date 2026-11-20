@@ -10,11 +10,11 @@
   --ui-text-muted: #77757d;
   --ui-fill: rgba(31, 30, 36, .045);
   --ui-fill-strong: rgba(31, 30, 36, .08);
-  --ui-accent: #6958ad;
-  --ui-accent-strong: #5f4da3;
-  --ui-accent-soft: #efedf7;
-  --ui-accent-ring: rgba(105, 88, 173, .28);
-  --ui-action-bg: #5f4da3;
+  --ui-accent: #6e56cf;
+  --ui-accent-strong: #5b45b8;
+  --ui-accent-soft: #efecfb;
+  --ui-accent-ring: rgba(110, 86, 207, .3);
+  --ui-action-bg: #6e56cf;
   --ui-action-text: #ffffff;
   --ui-positive: #28734f;
   --ui-positive-soft: #e9f3ed;

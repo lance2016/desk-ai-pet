@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { createCustomCharacter, DEFAULT_PACK_ID, type CatalogEntry } from "../../assets/PackCatalog";
 import { saveActiveCharacter } from "../../preferences/CharacterPreferences";
 import { characterName } from "../../preferences/ChatPreferences";
@@ -15,6 +15,8 @@ interface Props {
   packId: string;
   catalog: CatalogEntry[];
   onCatalogChange: () => void;
+  /** The tile on the row that opens the character's profile. */
+  profileIcon: ReactNode;
   onOpenProfile: () => void;
   /** The avatar changed, so other places showing it can refresh. */
   onLookChange: () => void;
@@ -31,7 +33,7 @@ const avatarOf = (entry: CatalogEntry) => pictureFor(loadChatAppearance(entry.id
  * The current character, shown like the account page in System Settings: its portrait and name on
  * top, the way into its settings, then every character to switch to, create, import or export.
  */
-export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProfile, onLookChange }: Props) {
+export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChange, onOpenProfile, onLookChange }: Props) {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [message, setMessage] = useState<{ area: Area; text: string } | null>(null);
@@ -130,6 +132,7 @@ export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProf
     {pictures.cropper}
     <div className="settings-group">
       <button type="button" className="settings-row settings-link" onClick={onOpenProfile}>
+        {profileIcon}
         <span className="settings-row__body"><strong>角色设定</strong><span>名字、性格、回复方式和聊天形象</span></span>
         <Chevron />
       </button>

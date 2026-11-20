@@ -177,7 +177,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
           </div>
         </div>
         {defaults && (item.label !== defaults.label || item.icon !== defaults.icon) && (
-          <button type="button" className="settings-link" onClick={() => update(key, { label: defaults.label, icon: defaults.icon })}>恢复这个按钮的默认名称和图标</button>
+          <button type="button" className="text-link" onClick={() => update(key, { label: defaults.label, icon: defaults.icon })}>恢复这个按钮的默认名称和图标</button>
         )}
       </div>
     );
