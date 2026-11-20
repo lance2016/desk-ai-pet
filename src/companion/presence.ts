@@ -2,6 +2,12 @@ const ACTIVE_SECONDS = 60;
 const BREAK_SECONDS = 5 * 60;
 const AWAY_SECONDS = 30 * 60;
 const MAX_SAMPLE_GAP_MS = 2 * 60_000;
+const AWAY_STEP_MINUTES = 5;
+
+/** How long the user was away, in minutes rounded for a line to mention ("大约 45 分钟"). */
+export function awayMinutes(leftAt: number, now: number): number {
+  return Math.round((now - leftAt) / 60_000 / AWAY_STEP_MINUTES) * AWAY_STEP_MINUTES;
+}
 
 export interface PresenceSample {
   /** How long the user has been active without a real break; null while they are not at the computer right now. */

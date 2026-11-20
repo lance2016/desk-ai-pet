@@ -11,8 +11,8 @@ describe("companion preferences", () => {
 
   it("keeps the switches the user turned off", () => {
     const storage = createMemoryStorage();
-    saveCompanionPreferences({ ...DEFAULT_COMPANION, headsUp: false, followUp: false }, storage);
-    expect(loadCompanionPreferences(storage)).toMatchObject({ headsUp: false, followUp: false });
+    saveCompanionPreferences({ ...DEFAULT_COMPANION, headsUp: false, followUp: false, careByModel: false }, storage);
+    expect(loadCompanionPreferences(storage)).toMatchObject({ headsUp: false, followUp: false, careByModel: false });
   });
 
   it("falls back to the defaults for unreadable settings", () => {

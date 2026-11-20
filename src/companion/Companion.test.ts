@@ -11,10 +11,16 @@ import type { Line } from "./types";
 const MINUTE = 60_000;
 const MORNING = new Date(2026, 10, 16, 9, 0).getTime();
 const FACTS: GreetingFacts = { openCount: 0, doneToday: 0, nextReminder: null, latestReminder: null, focusToday: 0, lastDay: null, leftovers: [] };
+/** At the computer, hands off the keyboard for a moment: seconds without input. */
+const HERE = 5;
+/** Care in fixed words, so a test can tell what was said. */
+const PLAIN: CompanionPreferences = { ...DEFAULT_COMPANION, careByModel: false };
 /** For the lines that are not greetings: the morning greeting would come first. */
-const NO_MORNING: CompanionPreferences = { ...DEFAULT_COMPANION, morningGreeting: false };
+const NO_MORNING: CompanionPreferences = { ...PLAIN, morningGreeting: false };
+/** Care written by the model, as a new install has it. */
+const WRITTEN: CompanionPreferences = { ...DEFAULT_COMPANION, morningGreeting: false };
 
-function setup(overrides: Partial<CompanionPorts> = {}, settings: CompanionPreferences = DEFAULT_COMPANION) {
+function setup(overrides: Partial<CompanionPorts> = {}, settings: CompanionPreferences = PLAIN) {
   const said: Line[] = [];
   const shown: string[] = [];
   const write = vi.fn(async (_intent: string, _facts: string[], _now: number) => "早呀，今天也加油！");
@@ -35,14 +41,14 @@ function setup(overrides: Partial<CompanionPorts> = {}, settings: CompanionPrefe
 
 /** The user at the computer, sampled once a minute. */
 async function use(companion: Companion, from: number, until: number) {
-  for (let time = from; time <= until; time += MINUTE) await companion.check(time, 0);
+  for (let time = from; time <= until; time += MINUTE) await companion.check(time, HERE);
 }
 
 describe("greetings", () => {
   it("greets once with the model's words and remembers the day", async () => {
     const { companion, texts, write, ports } = setup();
-    await companion.check(MORNING, 0);
-    await companion.check(MORNING + MINUTE, 0);
+    await companion.check(MORNING, HERE);
+    await companion.check(MORNING + MINUTE, HERE);
     expect(texts()).toEqual(["早呀，今天也加油！"]);
     expect(write).toHaveBeenCalledTimes(1);
     expect(write).toHaveBeenCalledWith("向用户问好，开始新的一天", ["今天要处理的提醒 0 个"], MORNING);
@@ -52,7 +58,7 @@ describe("greetings", () => {
   it("offers to move earlier reminders only in the morning", async () => {
     const day = async () => ({ ...FACTS, leftovers: [{ text: "交周报", at: MORNING - 24 * 60 * MINUTE }] });
     const morning = setup({ day });
-    await morning.companion.check(MORNING, 0);
+    await morning.companion.check(MORNING, HERE);
     expect(morning.said.map((line) => line.offerMove)).toEqual([true]);
     const evening = setup({ day });
     await evening.companion.check(new Date(2026, 10, 16, 22, 40).getTime(), null);
@@ -63,7 +69,7 @@ describe("greetings", () => {
   it("falls back to the template when the model fails", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { companion, texts } = setup({ write: async () => { throw new Error("offline"); } });
-    await companion.check(MORNING, 0);
+    await companion.check(MORNING, HERE);
     expect(texts()).toEqual(["早上好！今天也一起加油吧～"]);
     warning.mockRestore();
   });
@@ -71,28 +77,28 @@ describe("greetings", () => {
   it("does not ask the model while the pet may not speak up, and greets once it may", async () => {
     let allowed = false;
     const { companion, texts, write, ports } = setup({ maySpeak: () => allowed });
-    await companion.check(MORNING, 0);
+    await companion.check(MORNING, HERE);
     expect(write).not.toHaveBeenCalled();
     expect(loadHistory(ports.storage)).toEqual([]);
     allowed = true;
-    await companion.check(MORNING + MINUTE, 0);
+    await companion.check(MORNING + MINUTE, HERE);
     expect(texts()).toHaveLength(1);
   });
 
   it("tries again later when the line is held back at the last moment", async () => {
     let shows = false;
     const { companion, said, ports } = setup({ say: (line) => { if (shows) said.push(line); return shows; } });
-    await companion.check(MORNING, 0);
+    await companion.check(MORNING, HERE);
     expect(loadHistory(ports.storage)).toEqual([]);
     shows = true;
-    await companion.check(MORNING + MINUTE, 0);
+    await companion.check(MORNING + MINUTE, HERE);
     expect(said).toHaveLength(1);
     expect(loadHistory(ports.storage)).toHaveLength(1);
   });
 
   it("can disable the scheduled morning greeting independently", async () => {
     const { companion, said } = setup({}, NO_MORNING);
-    await companion.check(MORNING, 0);
+    await companion.check(MORNING, HERE);
     expect(said).toEqual([]);
   });
 
@@ -101,7 +107,7 @@ describe("greetings", () => {
     await companion.check(MORNING, null);
     await companion.check(MORNING + MINUTE, 600);
     expect(texts()).toEqual([]);
-    await companion.check(MORNING + 2 * MINUTE, 0);
+    await companion.check(MORNING + 2 * MINUTE, HERE);
     expect(texts()).toEqual(["早呀，今天也加油！"]);
   });
 
@@ -109,8 +115,8 @@ describe("greetings", () => {
     let finish!: (text: string) => void;
     const write = vi.fn(() => new Promise<string>((resolve) => { finish = resolve; }));
     const { companion, texts } = setup({ write });
-    const first = companion.check(MORNING, 0);
-    await companion.check(MORNING, 0);
+    const first = companion.check(MORNING, HERE);
+    await companion.check(MORNING, HERE);
     await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     finish("早！");
     await first;
@@ -138,7 +144,7 @@ describe("care", () => {
     const kept = setup({ maySpeak: quietHours });
     await use(kept.companion, start, start + 20 * MINUTE);
     expect(kept.said).toEqual([]);
-    const through = setup({ maySpeak: quietHours }, { ...DEFAULT_COMPANION, nightDuringQuiet: true });
+    const through = setup({ maySpeak: quietHours }, { ...PLAIN, nightDuringQuiet: true });
     await use(through.companion, start, start + 20 * MINUTE);
     expect(through.said).toEqual([{ text: expect.stringContaining("很晚"), allowQuiet: true, offerMove: false }]);
   });
@@ -150,14 +156,14 @@ describe("care", () => {
     await companion.check(start + 51 * MINUTE, 300);
     await use(companion, start + 52 * MINUTE, start + 141 * MINUTE);
     expect(texts()).toEqual([]);
-    await companion.check(start + 142 * MINUTE, 0);
+    await companion.check(start + 142 * MINUTE, HERE);
     expect(texts()).toEqual([expect.stringContaining("休息一下")]);
     await use(companion, start + 143 * MINUTE, start + 231 * MINUTE);
     expect(texts()).toHaveLength(1);
-    await companion.check(start + 232 * MINUTE, 0);
+    await companion.check(start + 232 * MINUTE, HERE);
     expect(texts()).toHaveLength(2);
     // A gap in the samples: how long the user has been at it is no longer known.
-    await companion.check(start + 400 * MINUTE, 0);
+    await companion.check(start + 400 * MINUTE, HERE);
     expect(texts()).toHaveLength(2);
   });
 
@@ -165,24 +171,24 @@ describe("care", () => {
     const start = new Date(2026, 10, 17, 14).getTime();
     const { companion, texts } = setup({}, NO_MORNING);
     await companion.check(start, 1800);
-    await companion.check(start + MINUTE, 0);
-    await companion.check(start + 2 * MINUTE, 0);
+    await companion.check(start + MINUTE, HERE);
+    await companion.check(start + 2 * MINUTE, HERE);
     expect(texts()).toEqual(["回来啦，欢迎回来～"]);
 
     let allowed = false;
     const focusing = setup({ maySpeak: () => allowed }, NO_MORNING);
     await focusing.companion.check(start, 1800);
-    await focusing.companion.check(start + MINUTE, 0);
+    await focusing.companion.check(start + MINUTE, HERE);
     allowed = true;
-    await focusing.companion.check(start + 2 * MINUTE, 0);
+    await focusing.companion.check(start + 2 * MINUTE, HERE);
     expect(focusing.said).toEqual([]);
   });
 
   it("says good morning, not welcome back, when the user returns in the morning", async () => {
     const { companion, texts } = setup();
     await companion.check(MORNING - MINUTE, 1800);
-    await companion.check(MORNING, 0);
-    await companion.check(MORNING + MINUTE, 0);
+    await companion.check(MORNING, HERE);
+    await companion.check(MORNING + MINUTE, HERE);
     expect(texts()).toEqual(["早呀，今天也加油！"]);
   });
 });
@@ -221,7 +227,7 @@ describe("a word ahead of a reminder", () => {
     expect(away.said).toEqual([]);
 
     const late = setup({ reminders: () => [reminder()] }, NO_MORNING);
-    await late.companion.check(AFTERNOON + 28 * MINUTE + 30_000, 0);
+    await late.companion.check(AFTERNOON + 28 * MINUTE + 30_000, HERE);
     expect(late.said).toEqual([]);
 
     const off = setup({ reminders: () => [reminder()] }, { ...NO_MORNING, headsUp: false });
@@ -232,9 +238,9 @@ describe("a word ahead of a reminder", () => {
   it("mentions it again when the reminder is moved to another time", async () => {
     let items = [reminder()];
     const { companion, texts } = setup({ reminders: () => items }, NO_MORNING);
-    await companion.check(AFTERNOON + 20 * MINUTE, 0);
+    await companion.check(AFTERNOON + 20 * MINUTE, HERE);
     items = [reminder({ remindAt: AFTERNOON + 90 * MINUTE })];
-    await companion.check(AFTERNOON + 80 * MINUTE, 0);
+    await companion.check(AFTERNOON + 80 * MINUTE, HERE);
     expect(texts()).toEqual(["还有 10 分钟：开会", "还有 10 分钟：开会"]);
   });
 });
@@ -243,14 +249,14 @@ describe("asking after what the user left for", () => {
   const lunch = (overrides: Partial<AgendaItem> = {}) => reminder({ text: "出去吃饭", remindAt: AFTERNOON, remindedAt: AFTERNOON + MINUTE, ...overrides });
   /** At the computer until five past, gone for 45 minutes, then back. */
   async function leaveAndReturn(companion: Companion) {
-    await companion.check(AFTERNOON + 5 * MINUTE, 0);
+    await companion.check(AFTERNOON + 5 * MINUTE, HERE);
     await companion.check(AFTERNOON + 50 * MINUTE, 45 * 60);
-    await companion.check(AFTERNOON + 51 * MINUTE, 0);
+    await companion.check(AFTERNOON + 51 * MINUTE, HERE);
   }
 
   it("asks about the reminder the user left for instead of the plain welcome, in the model's words", async () => {
     const write = vi.fn(async () => "回来啦，饭吃得香不香？");
-    const { companion, texts } = setup({ reminders: () => [lunch()], write }, NO_MORNING);
+    const { companion, texts } = setup({ reminders: () => [lunch()], write }, WRITTEN);
     await leaveAndReturn(companion);
     expect(texts()).toEqual(["回来啦，饭吃得香不香？"]);
     expect(write).toHaveBeenCalledWith(
@@ -262,11 +268,11 @@ describe("asking after what the user left for", () => {
 
   it("asks in its own words when the model cannot answer, and knows a reminder ticked off", async () => {
     const write = vi.fn(async () => { throw new Error("offline"); });
-    const open = setup({ reminders: () => [lunch()], write }, NO_MORNING);
+    const open = setup({ reminders: () => [lunch()], write }, WRITTEN);
     await leaveAndReturn(open.companion);
     expect(open.texts()).toEqual(["回来啦～「出去吃饭」弄好了吗？"]);
 
-    const ticked = setup({ reminders: () => [lunch({ doneAt: AFTERNOON + MINUTE })], write }, NO_MORNING);
+    const ticked = setup({ reminders: () => [lunch({ doneAt: AFTERNOON + MINUTE })], write }, WRITTEN);
     await leaveAndReturn(ticked.companion);
     expect(ticked.texts()).toEqual(["回来啦～「出去吃饭」还顺利吗？"]);
   });
@@ -274,13 +280,13 @@ describe("asking after what the user left for", () => {
   it("asks once about the same reminder, also when the user leaves again right after", async () => {
     // Ticked off ahead of its time, so both times away are close to it.
     const early = lunch({ remindAt: AFTERNOON + 60 * MINUTE, remindedAt: null, doneAt: AFTERNOON });
-    const { companion, texts } = setup({ reminders: () => [early], write: vi.fn(async () => "饭吃得怎么样？") }, { ...NO_MORNING, welcomeBack: false });
-    await companion.check(AFTERNOON + 35 * MINUTE, 0);
+    const { companion, texts } = setup({ reminders: () => [early], write: vi.fn(async () => "饭吃得怎么样？") }, { ...WRITTEN, welcomeBack: false });
+    await companion.check(AFTERNOON + 35 * MINUTE, HERE);
     await companion.check(AFTERNOON + 80 * MINUTE, 45 * 60);
-    await companion.check(AFTERNOON + 81 * MINUTE, 0);
-    await companion.check(AFTERNOON + 85 * MINUTE, 0);
+    await companion.check(AFTERNOON + 81 * MINUTE, HERE);
+    await companion.check(AFTERNOON + 85 * MINUTE, HERE);
     await companion.check(AFTERNOON + 130 * MINUTE, 45 * 60);
-    await companion.check(AFTERNOON + 131 * MINUTE, 0);
+    await companion.check(AFTERNOON + 131 * MINUTE, HERE);
     expect(texts()).toEqual(["饭吃得怎么样？"]);
   });
 
@@ -299,23 +305,102 @@ describe("asking after what the user left for", () => {
 
   it("does not ask after a whole night away", async () => {
     const { companion, texts } = setup({ reminders: () => [lunch()] }, { ...NO_MORNING, welcomeBack: false });
-    await companion.check(AFTERNOON + 5 * MINUTE, 0);
-    await companion.check(AFTERNOON + 10 * 60 * MINUTE, 0);
+    await companion.check(AFTERNOON + 5 * MINUTE, HERE);
+    await companion.check(AFTERNOON + 10 * 60 * MINUTE, HERE);
     expect(texts()).toEqual([]);
   });
 
   it("asks after the computer slept through the time away, when no welcome is said", async () => {
-    const { companion, texts } = setup({ reminders: () => [lunch()], write: vi.fn(async () => "饭吃得怎么样？") }, NO_MORNING);
-    await companion.check(AFTERNOON + 5 * MINUTE, 0);
-    await companion.check(AFTERNOON + 50 * MINUTE, 0);
+    const { companion, texts } = setup({ reminders: () => [lunch()], write: vi.fn(async () => "饭吃得怎么样？") }, WRITTEN);
+    await companion.check(AFTERNOON + 5 * MINUTE, HERE);
+    await companion.check(AFTERNOON + 50 * MINUTE, HERE);
     expect(texts()).toEqual(["饭吃得怎么样？"]);
+  });
+});
+
+describe("waiting for a pause", () => {
+  it("does not speak while the user's hands are busy, and does once they stop for a moment", async () => {
+    const { companion, texts, write } = setup();
+    for (let second = 0; second < 120; second += 10) await companion.check(MORNING + second * 1000, 0);
+    expect(texts()).toEqual([]);
+    expect(write).not.toHaveBeenCalled();
+    await companion.check(MORNING + 120_000, 3);
+    expect(texts()).toEqual(["早呀，今天也加油！"]);
+  });
+
+  it("holds the word ahead of a reminder the same way", async () => {
+    const { companion, texts } = setup({ reminders: () => [reminder()] }, NO_MORNING);
+    await companion.check(AFTERNOON + 20 * MINUTE, 0);
+    expect(texts()).toEqual([]);
+    await companion.check(AFTERNOON + 21 * MINUTE, HERE);
+    expect(texts()).toEqual(["还有 9 分钟：开会"]);
+  });
+
+  it("greets a return at once: that moment does not come again", async () => {
+    const { companion, texts } = setup({}, NO_MORNING);
+    await companion.check(AFTERNOON, 1800);
+    await companion.check(AFTERNOON + MINUTE, 0);
+    expect(texts()).toEqual(["回来啦，欢迎回来～"]);
+  });
+});
+
+describe("care in the model's words", () => {
+  const DAY: GreetingFacts = { ...FACTS, focusToday: 3, doneToday: 2, nextReminder: { text: "开会", at: AFTERNOON + 3 * 60 * MINUTE } };
+
+  it("tells the model how long the user has been at it and what the day held", async () => {
+    const write = vi.fn(async () => "都坐一个半小时啦，起来转转？");
+    const { companion, texts } = setup({ write, day: async () => DAY }, WRITTEN);
+    await use(companion, AFTERNOON, AFTERNOON + 90 * MINUTE);
+    expect(texts()).toEqual(["都坐一个半小时啦，起来转转？"]);
+    expect(write).toHaveBeenCalledWith(
+      "提醒用户起来活动一下、歇歇眼睛，像朋友随口一说，不要说教",
+      ["用户已经连续用了 90 分钟电脑", "今天专注了 3 轮", "今天完成了 2 个提醒", "下一个提醒：17:00 开会"],
+      AFTERNOON + 90 * MINUTE,
+    );
+  });
+
+  it("leaves out what did not happen today", async () => {
+    const { companion, write } = setup({}, WRITTEN);
+    await use(companion, AFTERNOON, AFTERNOON + 90 * MINUTE);
+    expect(write).toHaveBeenCalledWith(expect.any(String), ["用户已经连续用了 90 分钟电脑"], expect.any(Number));
+  });
+
+  it("tells it the hour is late, and how long the user was away", async () => {
+    const night = new Date(2026, 10, 17, 23, 30).getTime();
+    const late = setup({}, WRITTEN);
+    await use(late.companion, night, night + 15 * MINUTE);
+    expect(late.write).toHaveBeenCalledWith("劝用户早点休息，像朋友随口一说，不要说教", ["已经是深夜，用户还在用电脑"], night + 15 * MINUTE);
+
+    const back = setup({}, WRITTEN);
+    await back.companion.check(AFTERNOON, HERE);
+    await back.companion.check(AFTERNOON + 50 * MINUTE, 50 * 60);
+    await back.companion.check(AFTERNOON + 51 * MINUTE, HERE);
+    expect(back.write).toHaveBeenCalledWith("欢迎用户回到电脑前", ["用户离开了大约 50 分钟，刚回到电脑前"], AFTERNOON + 51 * MINUTE);
+  });
+
+  it("says the fixed line when the model cannot answer", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { companion, texts } = setup({ write: async () => { throw new Error("offline"); } }, WRITTEN);
+    await use(companion, AFTERNOON, AFTERNOON + 90 * MINUTE);
+    expect(texts()).toEqual(["我想伸个懒腰，你也休息一下吧。"]);
+    warning.mockRestore();
+  });
+
+  it("asks nothing of the model when the user turned that off, also on return from a reminder", async () => {
+    const lunch = reminder({ text: "出去吃饭", remindAt: AFTERNOON, remindedAt: AFTERNOON + MINUTE });
+    const { companion, texts, write } = setup({ reminders: () => [lunch] }, NO_MORNING);
+    await companion.check(AFTERNOON + 5 * MINUTE, HERE);
+    await companion.check(AFTERNOON + 50 * MINUTE, 45 * 60);
+    await companion.check(AFTERNOON + 51 * MINUTE, HERE);
+    expect(texts()).toEqual(["回来啦～「出去吃饭」弄好了吗？"]);
+    expect(write).not.toHaveBeenCalled();
   });
 });
 
 describe("trying an occasion", () => {
   it("shows the new lines with an example when there is nothing real to say them about", async () => {
     const write = vi.fn(async () => { throw new Error("offline"); });
-    const { companion, shown } = setup({ write });
+    const { companion, shown } = setup({ write }, WRITTEN);
     expect(await companion.test("heads_up", MORNING)).toBe(true);
     expect(await companion.test("follow_up", MORNING)).toBe(true);
     expect(shown).toEqual(["还有 10 分钟：开会", "回来啦～「出去吃饭」还顺利吗？"]);

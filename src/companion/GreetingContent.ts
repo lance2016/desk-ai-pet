@@ -86,6 +86,15 @@ export function factLines(kind: GreetingKind, facts: GreetingFacts, now: number)
   return [`今天完成了 ${facts.doneToday} 个提醒，还有 ${facts.openCount} 个没处理`, `今天专注了 ${facts.focusToday} 轮，${round}`, ...reminder("最近一次提醒", facts.latestReminder)];
 }
 
+/** What today held so far, for a line of care to mention: only what there is something to say about. */
+export function dayLines(facts: GreetingFacts, now: number): string[] {
+  return [
+    ...(facts.focusToday > 0 ? [`今天专注了 ${facts.focusToday} 轮`] : []),
+    ...(facts.doneToday > 0 ? [`今天完成了 ${facts.doneToday} 个提醒`] : []),
+    ...(facts.nextReminder ? [`下一个提醒：${formatReminderTime(facts.nextReminder.at, now)} ${facts.nextReminder.text}`] : []),
+  ];
+}
+
 function hello(now: number): string {
   const hour = new Date(now).getHours();
   if (hour < 11) return "早上好";

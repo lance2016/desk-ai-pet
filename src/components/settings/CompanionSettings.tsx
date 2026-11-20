@@ -4,7 +4,7 @@ import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPrefe
 import { petWindow } from "../../platform/petWindow";
 import { OCCASIONS } from "../../companion";
 
-type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp";
+type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp" | "careByModel";
 
 /** 「陪伴」: when the pet speaks up by itself (the morning greeting, the check-ins) and when it keeps quiet. */
 export function CompanionSettings({ name, onError }: { name: string; onError: (message: string | null) => void }) {
@@ -49,6 +49,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       {toggle("headsUp", "提醒前说一声", "一次性的提醒，到点前 10 分钟先说一声；刚设不到 1 小时的不说")}
       {toggle("followUp", "回来问一句", "提醒响过后你离开了一阵，回来时顺着那件事问一句")}
       {toggle("welcomeBack", "回来打招呼", "离开 30 分钟以上再回来时，说声欢迎回来")}
+      {toggle("careByModel", "关心的话由 AI 来写", "带上今天做了什么，按角色的语气说；关掉后每次都是固定的一句")}
       <div className="settings-row">
         <div className="settings-row__body"><strong>预览一句</strong><span>现在就说一次选中的这句，不占用当天的次数</span></div>
         <select aria-label="要预览的话" value={tried} disabled={testBusy} onChange={(event) => setTried(event.currentTarget.value)}>{OCCASIONS.map((occasion) => <option key={occasion.id} value={occasion.id}>{occasion.title}</option>)}</select>
@@ -56,7 +57,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       </div>
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
     </div>
-    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容。只有「回来问一句」会把那条提醒发给 DeepSeek 来写这句话，其余不调用 AI。专注时不打扰。</p>
+    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容，等你手停下来才说。由 AI 来写时，每句话说之前请求一次 DeepSeek，带上今天专注了几轮、完成了几个提醒、下一个提醒是什么，「回来问一句」还带上那条提醒；关掉后不调用 AI。专注时不打扰。</p>
     <h2 className="settings-group-title">勿扰</h2>
     {/* Only matters while quiet hours are on and night care is: greyed out otherwise, so it is still found. */}
     <QuietSettings onError={onError} during={(enabled) => <><div className="settings-divider" />{toggle("nightDuringQuiet", "定时勿扰时照样深夜关心", enabled && value.night ? "手动勿扰时仍然不打扰" : "要先打开「定时勿扰」和「深夜关心」", undefined, !enabled || !value.night)}</>} />

@@ -21,6 +21,11 @@ export interface Moment {
    * also when the computer slept through that time. Null otherwise.
    */
   leftAt: number | null;
+  /**
+   * The keyboard and mouse have been still for a few seconds, or nothing is known about them:
+   * a line said now does not cut into what the user is typing.
+   */
+  paused: boolean;
   /** The user's reminders as they are kept now. */
   reminders: readonly AgendaItem[];
   settings: CompanionPreferences;
@@ -38,11 +43,13 @@ export interface Cue {
   subject?: string;
   /** Said even in quiet hours. "勿扰" still holds it back. */
   allowQuiet?: boolean;
+  /** Said without waiting for the user's hands to stop: the moment (coming back) will not be there later. */
+  rightAway?: boolean;
 }
 
 /** What a line written by the model is made from. */
 export interface Brief {
-  /** What the pet knows, for the model to weave in. Data, never instructions. */
+  /** What the pet knows, for the model to weave in. Data, never instructions. Empty: the fallback is said without asking the model. */
   facts: string[];
   /** Said as it is when the model cannot answer. */
   fallback: string;

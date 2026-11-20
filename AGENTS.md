@@ -222,7 +222,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮时读内容，平时只看变更计数和类型。
 - 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
-- 宠物自己想说的新话（问候、关心、以后的事前预告和事后问一句）不要在 `App` 或引擎里另起定时器，写成 `src/companion/occasions/` 里的一个场合，放进 `OCCASIONS`：表里靠前的优先，同一刻只说一句。`due()` 每 10 秒跑一次，只用 `Moment` 里的数据，不读慢的东西，不调模型。请模型写的场合，给它的事实只写用户做了什么，不写应用里的说法：试过把「提醒还没标完成」写进事实，模型就去念叨「提醒还挂着呢」（`occasions/reminders.ts`）。`src/companion/` 不引用 `PetRuntime`、`src/platform/` 和 `ai`，缺什么在 `CompanionPorts` 里加一个口子，由 `App` 接。
+- 宠物自己想说的新话（问候、关心、以后的事前预告和事后问一句）不要在 `App` 或引擎里另起定时器，写成 `src/companion/occasions/` 里的一个场合，放进 `OCCASIONS`：表里靠前的优先，同一刻只说一句。`due()` 每 10 秒跑一次，只用 `Moment` 里的数据，不读慢的东西，不调模型。场合默认等用户手停下（`Moment.paused`）才说，只有「刚回来」这种过了就没有的时刻才标 `rightAway`。请模型写的场合，给它的事实只写用户做了什么，不写应用里的说法：试过把「提醒还没标完成」写进事实，模型就去念叨「提醒还挂着呢」（`occasions/reminders.ts`）。`src/companion/` 不引用 `PetRuntime`、`src/platform/` 和 `ai`，缺什么在 `CompanionPorts` 里加一个口子，由 `App` 接。
 - 宠物自己说的话能被接上，靠的是 `pet.greeting`：`PetSpeech` 让这句气泡可点，`useQuickChat` 在之后 5 分钟内把打开的输入条当成回这句话。所以要让一句话能接，就走 `PetRuntime.greet()`，不要走 `sayProactively()`。这句话存进聊天记录时标 `unprompted`，不作为对话发给模型，而是由 `openingLine()` 取出、放进提示词的「你先开口的话」；别把它改成直接发一条开头的 assistant 消息（没核实过 DeepSeek 接不接受）。
 - 用户明确点击「预览」时，通过 `Companion.test()` 和 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入说话记录，专注时仍拒绝。
 - 定时早安只在设定时间后的问候窗口内、检测到最近 60 秒有用户活动时触发；勿扰时段会延后早安问候。

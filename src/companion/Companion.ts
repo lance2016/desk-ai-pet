@@ -29,6 +29,8 @@ export interface CompanionPorts {
 }
 
 const NOT_HERE: PresenceSample = { activeMs: null, returned: false, leftAt: null };
+/** The keyboard and mouse still for this long: the user is between two thoughts, not in the middle of a word. */
+const PAUSE_SECONDS = 3;
 
 /** Decides when the pet speaks up by itself and what it says: one line at a time, from the table of occasions. */
 export class Companion {
@@ -43,7 +45,7 @@ export class Companion {
     const sample = this.presence.sample(now, idleSeconds);
     if (this.writing) return;
     const history = loadHistory(this.ports.storage);
-    const moment: Moment = { now, ...sample, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: lastSaid(history) };
+    const moment: Moment = { now, ...sample, paused: idleSeconds === null || idleSeconds >= PAUSE_SECONDS, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: lastSaid(history) };
     const pick = decide(this.occasions, moment, history, (allowQuiet) => this.ports.maySpeak(allowQuiet));
     if (!pick) return;
     this.writing = true;
@@ -65,7 +67,7 @@ export class Companion {
     if (!occasion || this.writing) return false;
     this.writing = true;
     try {
-      const moment: Moment = { now, ...NOT_HERE, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: {} };
+      const moment: Moment = { now, ...NOT_HERE, paused: true, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: {} };
       return this.ports.show((await this.compose(occasion, moment)).text);
     } finally {
       this.writing = false;
@@ -75,6 +77,7 @@ export class Companion {
   private async compose(occasion: Occasion, moment: Moment): Promise<Omit<Line, "allowQuiet">> {
     if (occasion.wording === "fixed") return { text: typeof occasion.line === "string" ? occasion.line : occasion.line(moment), offerMove: false };
     const brief = occasion.brief(moment, await this.ports.day(moment.now));
+    if (brief.facts.length === 0) return { text: brief.fallback, offerMove: false };
     const written = await this.ports.write(occasion.intent, brief.facts, moment.now).catch((error: unknown) => {
       console.warn(`Using the fallback line for ${occasion.id}`, error);
       return "";
