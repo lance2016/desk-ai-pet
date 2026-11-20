@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type PointerEvent } from "react";
 import type { AnimationEntry, PetControl } from "../../assets/Manifest";
-import type { DisplayPreferences } from "../../preferences/DisplayPreferences";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import { characterPictures } from "../../appearance/characterPictures";
 import { PORTRAIT_ACTION } from "../../assets/PackCatalog";
@@ -36,7 +35,6 @@ const ICON_NAMES: Record<ControlIconPreset, string> = {
   feed: "饭碗", carrot: "胡萝卜", gift: "礼物", wooden_fish: "木鱼", mallet: "木槌", bell: "铃铛", rest: "月亮", bed: "床",
   sun: "太阳", timer: "计时器", hourglass: "沙漏", book: "书", sparkle: "星星", chat: "对话", checklist: "清单", note: "便签", clipboard: "剪贴板",
 };
-const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
 
 type ControlItem = Extract<DockItem, { kind: "control" }>;
 const keyOf = (item: DockItem) => `${item.kind}:${item.id}`;
@@ -46,13 +44,11 @@ interface Props {
   controls: PetControl[];
   actions: AnimationEntry[];
   resolveAsset: (file: string) => string;
-  controlsLingerMs: DisplayPreferences["controlsLingerMs"];
-  onControlsLingerChange: (value: DisplayPreferences["controlsLingerMs"]) => void;
   onError: (message: string | null) => void;
 }
 
 /** Every floating pet control in one list: show or hide, drag to reorder, rename and change icons. Changes apply at once. */
-export function DockSettings({ packId, controls, actions, resolveAsset, controlsLingerMs, onControlsLingerChange, onError }: Props) {
+export function DockSettings({ packId, controls, actions, resolveAsset, onError }: Props) {
   const load = () => loadDock(packId, dockControls(controls), actions);
   const [items, setItems] = useState<DockItem[]>(load);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -202,11 +198,6 @@ export function DockSettings({ packId, controls, actions, resolveAsset, controls
             : <span className="dock-preview__empty">没有显示的快捷按钮</span>}
         </div>
         <p>圆形按钮轻轻浮在宠物脚下，悬停可看名称；动作和其他按钮收在「互动」里</p>
-      </div>
-
-      <h2 className="settings-group-title">显示</h2>
-      <div className="settings-group">
-        <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，按钮多久变淡；所有角色共用</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={controlsLingerMs === option.value} className={controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => onControlsLingerChange(option.value)}>{option.label}</button>)}</div></div>
       </div>
 
       <h2 className="settings-group-title">按钮</h2>

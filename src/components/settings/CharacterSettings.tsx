@@ -14,14 +14,26 @@ interface Props {
   catalog: CatalogEntry[];
   onCatalogChange: () => void;
   onOpenProfile: () => void;
+  /** Opens the place to change the avatar: clicking the big portrait, as in System Settings. */
+  onOpenLook: () => void;
 }
 
 const EMPTY_DRAFT = { name: "", personality: "", base: DEFAULT_PACK_ID };
 const STORAGE_FULL = "没能保存：这台电脑上给 AI Pet 的存储空间满了。删掉几张自定义图片再试。";
 type Area = "list" | "create" | "transfer";
 
-/** Select, create, import and export characters. Character-specific preferences live on the detail page. */
-export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProfile }: Props) {
+const kindOf = (entry: CatalogEntry) => (entry.custom ? "自建角色" : "内置角色");
+const avatarOf = (entry: CatalogEntry) => pictureFor(loadChatAppearance(entry.id).avatar, entry.actionImages);
+
+function Chevron() {
+  return <svg className="settings-link__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>;
+}
+
+/**
+ * The current character, shown like the account page in System Settings: its portrait and name on
+ * top, the way into its settings, then every character to switch to, create, import or export.
+ */
+export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProfile, onOpenLook }: Props) {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [message, setMessage] = useState<{ area: Area; text: string } | null>(null);
@@ -105,30 +117,44 @@ export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProf
     finally { setTransferBusy(false); }
   };
 
-  return <div className="settings-section">
-    <div className="settings-section__intro"><h2>我的角色</h2><p>切换会同步更换桌面上的角色；每个角色的设定和聊天记录分开保存</p></div>
-    {current && <div className="settings-group character-current">
-      <div className="settings-row">
-        <CharacterAvatar picture={pictureFor(loadChatAppearance(packId).avatar, current.actionImages)} className="character-current__portrait" />
-        <div className="settings-row__body"><strong>{currentName}</strong><span>正在桌面使用 · {current.custom ? "自建角色" : "内置角色"}</span></div>
-        <button type="button" className="settings-button settings-button--small" onClick={onOpenProfile}>编辑角色设定</button>
-      </div>
+  return <div className="settings-section character-page">
+    {current && <div className="settings-group character-hero">
+      <button type="button" className="character-hero__avatar" aria-label={`更换「${currentName}」的头像`} onClick={onOpenLook}>
+        <CharacterAvatar picture={avatarOf(current)} className="character-hero__portrait" />
+        <span className="character-hero__edit" aria-hidden="true">编辑</span>
+      </button>
+      <h2 className="character-hero__name">{currentName}</h2>
+      <p>{kindOf(current)}，正在桌面陪你</p>
     </div>}
-
-    <div className="character-grid">
-      {catalog.map((entry) => <button key={entry.id} type="button" className={entry.id === packId ? "character-tile is-current" : "character-tile"} aria-pressed={entry.id === packId} onClick={() => switchTo(entry.id)}>
-        <CharacterAvatar picture={pictureFor(loadChatAppearance(entry.id).avatar, entry.actionImages)} className="character-tile__portrait" />
-        <strong>{characterName(entry.id, entry.name)}</strong>
-        <small>{entry.id === packId ? "使用中" : entry.custom ? "自建角色" : "内置角色"}</small>
-      </button>)}
-      <button type="button" className={creating ? "character-tile character-tile--new is-current" : "character-tile character-tile--new"} onClick={() => { setCreating(true); setMessage(null); }}>
-        <span className="character-tile__portrait">+</span><strong>新建角色</strong><small>起名字、定性格</small>
+    <div className="settings-group">
+      <button type="button" className="settings-row settings-link" onClick={onOpenProfile}>
+        <span className="settings-row__body"><strong>角色设定</strong><span>名字、性格、回复方式和聊天形象</span></span>
+        <Chevron />
       </button>
     </div>
+
+    <h2 className="settings-group-title">全部角色</h2>
+    <div className="settings-group character-list">
+      {catalog.map((entry) => {
+        const using = entry.id === packId;
+        return <button key={entry.id} type="button" className="settings-row settings-link character-choice" aria-current={using ? "true" : undefined} onClick={() => switchTo(entry.id)}>
+          <CharacterAvatar picture={avatarOf(entry)} className="character-choice__portrait" />
+          <span className="settings-row__body"><strong>{characterName(entry.id, entry.name)}</strong><span>{kindOf(entry)}</span></span>
+          {using
+            ? <span className="character-choice__using"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>使用中</span>
+            : <span className="character-choice__switch">切换</span>}
+        </button>;
+      })}
+      <button type="button" className="settings-row settings-link character-choice" aria-expanded={creating} onClick={() => { setCreating(true); setMessage(null); }}>
+        <span className="character-choice__portrait character-choice__add" aria-hidden="true">+</span>
+        <span className="settings-row__body"><strong>新建角色…</strong><span>起名字、定性格，先借用一个现有形象</span></span>
+      </button>
+    </div>
+    <p className="settings-footnote">切换后桌面上的宠物跟着换；每个角色的设定和聊天记录分开保存</p>
     {note("list")}
 
     {creating && <>
-      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>先借用一个现有形象，之后可以在动作库换成自己的图</p></div>
+      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>之后可以在动作库换成自己的图</p></div>
       <form className="settings-card ai-settings" onSubmit={create}>
         <label className="ai-preference">名字<input value={draft.name} maxLength={PERSONA_LIMITS.name} autoFocus placeholder="例如：阿橘" onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })} /></label>
         <label className="ai-preference">性格<textarea value={draft.personality} maxLength={PERSONA_LIMITS.personality} placeholder="例如：慵懒、爱撒娇的橘猫，说话常带“喵”" onChange={(event) => setDraft({ ...draft, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {draft.personality.length} / {PERSONA_LIMITS.personality}</small></label>
@@ -139,7 +165,7 @@ export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProf
     </>}
 
     <div className="settings-section__intro settings-section__intro--spaced"><h2>导入与导出</h2><p>把自建角色带到另一台电脑</p></div>
-    <article className="settings-card ai-settings">
+    <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>导出当前角色</strong><span>{current?.custom ? "包含角色设定、动作图片和快捷按钮，不含聊天记录" : "内置角色不用导出"}</span></div>
         <button type="button" className="settings-button settings-button--small" disabled={!current?.custom || transferBusy} onClick={() => void exportCharacter()}>{transferBusy ? "处理中…" : "导出角色包"}</button>
@@ -155,6 +181,6 @@ export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProf
         <div className="settings-button-row"><button type="button" className="settings-button settings-button--small" disabled={transferBusy} onClick={() => setPendingImport(null)}>取消</button><button type="button" className="settings-button settings-button--small" disabled={transferBusy} onClick={() => void importCharacter()}>{transferBusy ? "正在导入…" : "导入并切换"}</button></div>
       </div>}
       {note("transfer")}
-    </article>
+    </div>
   </div>;
 }

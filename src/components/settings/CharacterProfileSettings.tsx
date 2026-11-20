@@ -17,13 +17,15 @@ interface Props {
   actions: AnimationEntry[];
   current?: CatalogEntry;
   onCatalogChange: () => void;
+  /** The avatar or the chat figure changed. */
+  onLookChange: () => void;
 }
 
 const LENGTHS: readonly [ChatPreferences["length"], string][] = [["short", "简短"], ["normal", "自然"]];
 const STORAGE_FULL = "没能保存：这台电脑上给 AI Pet 的存储空间满了。删掉几张自定义图片再试。";
 
 /** The selected character's conversational style and appearance. */
-export function CharacterProfileSettings({ packId, persona, actions, current, onCatalogChange }: Props) {
+export function CharacterProfileSettings({ packId, persona, actions, current, onCatalogChange, onLookChange }: Props) {
   const defaults = chatDefaults(persona);
   const [preferences, setPreferences] = useState(() => loadChatPreferences(packId, persona));
   const [instructions, setInstructions] = useState(() => loadChatInstructions(packId));
@@ -77,7 +79,7 @@ export function CharacterProfileSettings({ packId, persona, actions, current, on
     </div>
 
     <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里显示的头像和小人，只影响当前角色</p></div>
-    {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => setLookVersion((version) => version + 1)} />}
+    {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => { setLookVersion((version) => version + 1); onLookChange(); }} />}
     {isCustomCharacter(packId) && <>
       <div className="settings-section__intro settings-section__intro--spaced"><h2>角色管理</h2></div>
       <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>删除这个角色</strong><span>聊天记录、快捷按钮和动作图片会一起删除，不能恢复</span></div><ConfirmButton className="is-danger settings-button settings-button--small" confirm={{ message: "删除这个角色？", detail: "它的聊天记录、快捷按钮和动作图片会一起删掉，不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除…</ConfirmButton></div></div>

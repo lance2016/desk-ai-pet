@@ -37,7 +37,8 @@ import { saveActiveCharacter } from "../../preferences/CharacterPreferences";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
-import { DEVELOPER_GROUP, NAV_GROUPS, SUB_PAGES, isSection, sectionLabel, type SettingsSection } from "./sections";
+import { ACCOUNT_SECTION, DEVELOPER_GROUP, NAV_GROUPS, SUB_PAGES, isSection, sectionLabel, type SettingsSection } from "./sections";
+import { CharacterAvatar } from "../CharacterAvatar";
 import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
 import { SETTINGS_INDEX } from "./settingsSearch";
 import { FeatureGuide } from "./FeatureGuide";
@@ -48,6 +49,8 @@ const SCALES = [
   { value: 1, label: "标准" },
   { value: 1.3, label: "大" },
 ] as const;
+/** How long the quick buttons stay after the mouse leaves the pet. Shared by every character. */
+const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
 /** Looking for a search result's title on a page that is still loading: every 100 ms, for 1.5 s. */
 const FIND_INTERVAL_MS = 100;
 const FIND_TRIES = 15;
@@ -127,6 +130,8 @@ export function SettingsPage({ packId }: { packId: string }) {
   const [packActions, setPackActions] = useState<AnimationEntry[]>([]);
   /** Bumped when the user makes, changes or deletes one of their own actions. */
   const [userActionsRevision, setUserActionsRevision] = useState(0);
+  /** Bumped when the avatar changes, so the sidebar row shows the new one. */
+  const [, setLookRevision] = useState(0);
   const [baseControls, setBaseControls] = useState<PetControl[]>([]);
   const [resolveAsset, setResolveAsset] = useState<(file: string) => string>(() => (file: string) => file);
 
@@ -271,7 +276,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
-    ...[...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "", ...(id === "tools" ? { keywords: "小工具 邮箱 邮件 验证码" } : {}) })),
+    ...[ACCOUNT_SECTION, ...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "", ...(id === "tools" ? { keywords: "小工具 邮箱 邮件 验证码" } : {}) })),
     ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
     ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
   ], [developer]);
@@ -306,6 +311,11 @@ export function SettingsPage({ packId }: { packId: string }) {
       <aside className="settings-sidebar">
         <SettingsSearch entries={searchEntries} onPick={openResult} icon={(entry) => <span className={`settings-nav__icon settings-nav__icon--${entry.section}`}><SettingsGlyph name={entry.section} /></span>}>
           <nav aria-label="设置分类">
+            {/* The current character, at the top like the account in System Settings. */}
+            <button type="button" aria-current={activeSection === ACCOUNT_SECTION ? "page" : undefined} className={activeSection === ACCOUNT_SECTION ? "settings-account is-active" : "settings-account"} onClick={() => go(ACCOUNT_SECTION)}>
+              <CharacterAvatar picture={current ? pictureFor(loadChatAppearance(packId).avatar, current.actionImages) : null} className="settings-account__avatar" />
+              <span className="settings-account__text"><strong>{name || sectionLabel(ACCOUNT_SECTION)}</strong><span>当前角色</span></span>
+            </button>
             {navGroups.map(({ title: groupTitle, items }) => (
               <div key={groupTitle || "developer"} className="settings-nav-group">
                 {groupTitle && <h2 className="settings-nav-group__title">{groupTitle}</h2>}
@@ -322,7 +332,8 @@ export function SettingsPage({ packId }: { packId: string }) {
       </aside>
 
       <section className="settings-content" ref={contentRef}>
-        <header className="settings-header">
+        {/* The character page's portrait and name are its title. */}
+        <header className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
           {parent && <div className="settings-header__back"><button type="button" className="settings-back" onClick={() => go(parent)}>‹ {sectionLabel(parent)}</button></div>}
           <h1>{title}</h1>
         </header>
@@ -332,10 +343,11 @@ export function SettingsPage({ packId }: { packId: string }) {
           <div className="settings-section">
             <h2 className="settings-group-title">启动</h2>
             <div className="settings-group"><LaunchAtLoginRow onError={setError} /></div>
-            <h2 className="settings-group-title">窗口</h2>
+            <h2 className="settings-group-title">宠物</h2>
             <div className="settings-group">
               <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
             <h2 className="settings-group-title">开发者</h2>
             <div className="settings-group">
@@ -356,14 +368,14 @@ export function SettingsPage({ packId }: { packId: string }) {
           </div>
         )}
 
-        {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} controlsLingerMs={display.controlsLingerMs} onControlsLingerChange={updateLinger} onError={setError} />}
+        {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
 
         {section === "companion" && <CompanionSettings name={name || "宠物"} onError={setError} />}
 
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} catalog={catalog} onSwitchCharacter={switchCharacter} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
-        {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} />}
-        {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} />}
+        {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onOpenLook={() => openResult({ section: "characterProfile", title: "形象", place: sectionLabel("characterProfile") })} />}
+        {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "chat" && <ChatSettings onError={setError} />}
         {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} onOpen={(id) => void go(id)} />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}

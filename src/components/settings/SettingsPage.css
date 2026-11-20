@@ -81,6 +81,15 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-nav { box-sizing: border-box; width: 100%; min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--label-2); text-align: left; background: none; border: 0; border-radius: 8px; cursor: default; }
 .settings-nav:hover:not(.is-active) { background: var(--fill-strong); }
 .settings-nav.is-active { color: var(--accent-strong); background: var(--accent-wash); font-weight: 500; }
+/* The current character, at the top of the sidebar like the account in System Settings. */
+.settings-page .settings-account { box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px 8px; color: var(--label); text-align: left; background: none; border: 0; border-radius: var(--radius-row); cursor: default; }
+.settings-account:hover:not(.is-active) { background: var(--fill-strong); }
+.settings-account.is-active { background: var(--accent-wash); }
+.settings-account.is-active strong { color: var(--accent-strong); }
+.settings-account__avatar { width: 40px; height: 40px; font-size: 16px; }
+.settings-account__text { min-width: 0; display: grid; }
+.settings-account__text strong { overflow: hidden; font-size: 14px; font-weight: 600; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.settings-account__text span { color: var(--label-2); font-size: 11px; line-height: 15px; }
 .settings-nav__icon { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--label-2); }
 .settings-nav__icon svg { width: 16px; height: 16px; }
 .settings-nav__icon--character, .settings-nav__icon--characterProfile, .settings-nav__icon--ai, .settings-nav__icon--developer { color: var(--icon-violet); }
@@ -121,6 +130,9 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-page .settings-back:hover { background: var(--fill); }
 .settings-page .settings-back:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
 .settings-header h1 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 650; letter-spacing: -.35px; }
+/* The character page shows its name in the portrait card; the heading stays for VoiceOver only. */
+.settings-header--quiet { padding-bottom: 0; }
+.settings-header--quiet h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .settings-section { box-sizing: border-box; max-width: 800px; padding: 0 36px 36px; }
 .settings-content > .settings-error { margin: 0 36px 12px; max-width: 728px; }
 
@@ -396,17 +408,31 @@ button.dock-row__body { cursor: pointer; }
 .layer-card__fields label { display: grid; gap: 4px; color: var(--label-2); font-size: 11px; }
 
 /* ---------- Character, AI, voice, quiet hours ---------- */
-.character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
-.character-current { margin-bottom: 12px; }
-.character-current__portrait { flex: none; width: 40px; height: 40px; }
-.character-tile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px 8px 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); cursor: pointer; }
-.character-tile:hover { border-color: var(--accent-ring); }
-.character-tile.is-current { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
-.character-tile strong { max-width: 100%; overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.character-tile small { color: var(--label-2); font-size: 11px; }
-.character-tile.is-current small { color: var(--accent-strong); }
-.character-tile__portrait { width: 52px; height: 52px; margin-bottom: 4px; font-size: 22px; }
-.character-tile--new .character-tile__portrait { box-sizing: border-box; display: grid; place-items: center; color: var(--accent); background: var(--accent-wash); border: 1.5px dashed var(--accent-ring); border-radius: 50%; font-size: 26px; font-weight: 300; }
+/* The character page, laid out like the account page in System Settings: the portrait is the title. */
+.character-hero { display: flex; flex-direction: column; align-items: center; margin-bottom: 12px; padding: 24px 16px 20px; text-align: center; }
+.settings-page .character-hero__avatar { position: relative; display: block; width: 88px; height: 88px; padding: 0; overflow: hidden; background: none; border: 0; border-radius: 50%; cursor: pointer; }
+.character-hero__portrait { width: 88px; height: 88px; font-size: 32px; }
+/* Changing the picture starts from the picture: hovering shows "编辑" across its foot. */
+.character-hero__edit { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; display: grid; place-items: center; color: #fff; background: rgba(24, 23, 29, .5); font-size: 11px; opacity: 0; transition: opacity 120ms ease-out; pointer-events: none; }
+.character-hero__avatar:is(:hover, :focus-visible) .character-hero__edit { opacity: 1; }
+.character-hero__name { margin: 12px 0 2px; font-size: 20px; font-weight: 600; line-height: 1.25; }
+.character-hero p { margin: 0; color: var(--label-2); font-size: 12px; }
+/* A row that opens or picks something: the whole row answers, as in System Settings. */
+.settings-page .settings-link { position: relative; isolation: isolate; box-sizing: border-box; width: 100%; padding: 7px 0; color: var(--label); text-align: left; background: none; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; cursor: default; }
+.settings-page .settings-link:first-child { border-top: 0; }
+.settings-link::before { content: ""; position: absolute; z-index: -1; inset: 3px -8px; border-radius: var(--radius-row); transition: background-color 120ms ease-out; }
+.settings-link:hover::before { background: var(--fill); }
+.settings-link:active::before { background: var(--fill-strong); }
+.settings-page .settings-link:focus-visible { box-shadow: none; }
+.settings-link:focus-visible::before { box-shadow: 0 0 0 3px var(--accent-ring); }
+.settings-link__chevron { flex: none; width: 14px; height: 14px; color: var(--label-3); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.character-choice__portrait { width: 32px; height: 32px; font-size: 14px; }
+.character-choice__add { box-sizing: border-box; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 20px; font-weight: 300; }
+.character-choice__using { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-strong); font-size: 12px; }
+.character-choice__using svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.character-choice__switch { flex: none; color: var(--accent-strong); font-size: 12px; opacity: 0; transition: opacity 120ms ease-out; }
+.character-choice:is(:hover, :focus-visible) .character-choice__switch { opacity: 1; }
+.character-choice[aria-current]:hover::before { background: none; }
 .character-profile__instructions { padding: 12px 0 2px; border-top: 1px solid var(--separator); }
 .character-profile__instructions label { display: block; font-size: 12px; }
 .character-profile__instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }

@@ -15,7 +15,7 @@ export interface SearchEntry {
  * or in SEARCH_SKIPPED; a new setting needs a line in one of them.
  */
 export const SETTINGS_INDEX: readonly SearchEntry[] = [
-  { section: "character", title: "我的角色", keywords: "切换角色 换角色" },
+  { section: "character", title: "全部角色", keywords: "切换角色 换角色 我的角色" },
   { section: "character", title: "新建角色", keywords: "自己的角色 创建" },
   { section: "character", title: "导入角色包", keywords: "导入" },
   { section: "character", title: "导出当前角色", keywords: "导出 分享" },
@@ -66,7 +66,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "general", title: "开机时打开", keywords: "开机启动 登录项" },
   { section: "general", title: "总在最前面", keywords: "置顶 全屏" },
   { section: "general", title: "宠物大小", keywords: "缩放 变大 变小" },
-  { section: "dock", title: "快捷按钮停留", keywords: "收起 速度 显示时间 悬停" },
+  { section: "general", title: "快捷按钮停留", keywords: "收起 速度 显示时间 悬停 变淡" },
   { section: "general", title: "关于本应用", keywords: "关于 AI Pet 版本 软件更新 新功能 日志 诊断" },
   { section: "privacy", title: "导出数据", keywords: "备份 导出 工作日志" },
   { section: "privacy", title: "从备份恢复", keywords: "导入 恢复 换电脑" },
@@ -84,9 +84,11 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
  * a result inside a tool, a group already found through its rows.
  */
 export const SEARCH_SKIPPED: readonly string[] = [
+  // Ways into a page or a form that search already finds by the page or form's own name.
+  "角色设定", "新建角色…",
   "右键我", "点我一下", "AI Pet", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "拼好的完整提示词", "最近发出的请求",
-  "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "识别", "语音输入", "关心", "勿扰", "启动", "窗口", "显示", "开发者", "关于",
+  "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "识别", "语音输入", "关心", "勿扰", "启动", "宠物", "开发者", "关于",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限", "诊断",
 ];
 

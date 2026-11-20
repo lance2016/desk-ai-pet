@@ -11,9 +11,11 @@ const LABELS: Record<SettingsSection, string> = {
 };
 const group = (...ids: SettingsSection[]) => ids.map((id) => ({ id, label: LABELS[id] }));
 
-/** Sidebar entries in order, grouped by the user's task rather than implementation detail. */
+/** The current character's page: the avatar row at the top of the sidebar, like the account row in System Settings. */
+export const ACCOUNT_SECTION: SettingsSection = "character";
+/** Sidebar entries below the avatar row, in order, grouped by the user's task rather than implementation detail. */
 export const NAV_GROUPS = [
-  { title: "角色与外观", items: group("character", "actions", "dock") },
+  { title: "角色与外观", items: group("actions", "dock") },
   { title: "聊天与 AI", items: group("chat", "ai", "memory", "voice") },
   { title: "陪伴与工具", items: group("companion", "tools") },
   { title: "应用", items: group("general", "privacy", "guide") },
