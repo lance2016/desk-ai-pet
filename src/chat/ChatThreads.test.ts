@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHARACTER_DATA, characterKey } from "../preferences/CharacterPreferences";
 import { createMemoryStorage } from "../testing/fixtures";
-import { CHAT_LIMITS, cleanTitle, clearThreads, loadAutoTitles, loadThreads, recordThread, removeThread, retitleThread, saveAutoTitles, saveThreads, threadTitle, type ChatThread } from "./ChatThreads";
+import { CHAT_LIMITS, cleanTitle, clearThreads, loadAutoTitles, loadThreads, openingLine, recordThread, removeThread, retitleThread, saveAutoTitles, saveThreads, threadTitle, type ChatThread } from "./ChatThreads";
 import { containsWebAddress, findWebAddresses, LINK_CONTEXT_BUDGET, webConversationStart } from "./ReadLinks";
 import { loadReadLinks, saveReadLinks } from "../preferences/ReadLinkPreferences";
 
@@ -105,6 +105,41 @@ describe("thread storage", () => {
     saveThreads(PACK, recordThread([], "image", [message], 1), storage);
     expect(loadThreads(PACK, storage).threads[0].messages).toEqual([{ ...user("看看截图"), readLink: "image", image }]);
     expect(storage.getItem(threadsKey)).not.toContain("data:image");
+  });
+});
+
+describe("a thread the pet opened", () => {
+  const opened = [{ role: "assistant" as const, content: "已经很晚啦", unprompted: true as const }, user("马上就睡")];
+
+  it("knows the line the pet said by itself", () => {
+    expect(openingLine(opened)).toBe("已经很晚啦");
+  });
+
+  it("does not take an ordinary reply for one, even when it comes first", () => {
+    expect(openingLine([assistant("回复"), user("好")])).toBeNull();
+    expect(openingLine([user("在吗"), assistant("在")])).toBeNull();
+    expect(openingLine([])).toBeNull();
+  });
+
+  it("names the thread after the user's answer, also when the pet's line was kept first", () => {
+    const waiting = recordThread([], "a", opened.slice(0, 1), 1);
+    expect(waiting[0].title).toBe("新聊天");
+    expect(recordThread(waiting, "a", opened, 2)[0].title).toBe("马上就睡");
+  });
+
+  it("tidies the title after the first real reply, as in any other thread", () => {
+    const asked = recordThread([], "a", [opened[0], user("标题：周报怎么写？")], 1);
+    const replied = recordThread(asked, "a", [opened[0], user("标题：周报怎么写？"), assistant("这样写")], 2);
+    expect(replied[0].title).toBe("周报怎么写");
+  });
+
+  it("keeps the mark when saved and loaded", () => {
+    const storage = createMemoryStorage();
+    saveThreads(PACK, recordThread([], "a", opened, 1), storage);
+    const { threads, valid } = loadThreads(PACK, storage);
+    expect(valid).toBe(true);
+    expect(openingLine(threads[0].messages)).toBe("已经很晚啦");
+    expect(threads[0].title).toBe("马上就睡");
   });
 });
 

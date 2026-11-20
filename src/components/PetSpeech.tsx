@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
-import { SpeechQueue, speechDuration } from "../core/SpeechQueue";
+import { SpeechQueue, fitSpeech, speechDuration } from "../core/SpeechQueue";
 import { mailCodePlatform } from "../platform/mailCode";
 import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
@@ -8,7 +8,7 @@ import { speechShown } from "./speechShown";
 
 interface PetSpeechProps {
   runtime: PetRuntime;
-  /** The standing bubble while it is up, measured for the clickable area. */
+  /** The standing bubble while it is up, or a passing line that can be answered: measured for the clickable area. */
   alertRef?: Ref<HTMLDivElement>;
   /** The status row at the pet's feet, measured for the clickable area. */
   badgeRef?: Ref<HTMLDivElement>;
@@ -80,17 +80,21 @@ function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => vo
  * The speech bubble above the pet and the status row at its feet. Passing
  * lines show for a few seconds; a standing line (due reminders, a mail code, a
  * finished focus round) stays until it is clicked, and a question on it stays
- * until one of its buttons is. Each part of the status row does its own thing.
+ * until one of its buttons is. A line the pet said by itself can be clicked to
+ * answer it. Each part of the status row does its own thing.
  */
 export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge }: PetSpeechProps) {
   const [line, setLine] = useState<string | null>(null);
   const [alert, setAlert] = useState<StandingAlert | null>(null);
   const [chips, setChips] = useState<StatusChip[]>([]);
+  /** What the pet last said by itself, as the bubble shows it: a click on that line answers it. */
+  const [ownLine, setOwnLine] = useState<string | null>(null);
 
   useEffect(() => {
     const queue = new SpeechQueue(setLine);
     const stops = [
       runtime.bus.on("pet.say", ({ text }) => queue.push(text)),
+      runtime.bus.on("pet.greeting", ({ text }) => setOwnLine(fitSpeech(text))),
       runtime.bus.on("pet.alert", (next) => setAlert(next.text ? { ...next, text: next.text } : null)),
       runtime.bus.on("pet.badge", ({ chips: next }) => setChips(next)),
     ];
@@ -103,7 +107,8 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   const { line: passing, standing } = speechShown(line, alert, Boolean(reply));
   const badgeShown = chips.length > 0 && !hideBadge;
   const idleShown = Boolean(idle) && passing === null && standing === null;
-  useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, onLayoutChange]);
+  const answerable = passing !== null && passing === ownLine;
+  useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, answerable, onLayoutChange]);
 
   const dismiss = () => {
     runtime.bus.emit("pet.alert_dismissed", {});
@@ -136,7 +141,12 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
       <div className="speech-area" aria-live="polite">
         {idleShown && idle}
         {/* --stay: how long the queue keeps the line up, so the bubble can fade out just before it goes. */}
-        {passing && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
+        {passing && !answerable && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
+        {passing && answerable && (
+          <div key={passing} ref={alertRef} className="speech-bubble speech-bubble--passing speech-bubble--answer" role="button" tabIndex={-1} title="点一下回它" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties} onClick={() => runtime.bus.emit("pet.chat_requested", {})}>
+            <span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}
+          </div>
+        )}
         {standing && (
           <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>
             {standing.choices ? (

@@ -32,6 +32,8 @@ export interface Setup {
   reminders?: { text: string; at: number; repeat?: Repeat }[];
   notes?: string[];
   facts?: { text: string; source: FactSource }[];
+  /** What the pet said by itself just before; the sentence answers it. */
+  opening?: string;
 }
 
 /** What the model did with one sentence, and what the store looks like afterwards. */
@@ -117,7 +119,7 @@ export async function runChat(setup: Setup, say: string): Promise<ChatRun> {
   try {
     const now = Date.now();
     seed(setup, now);
-    const context = chatContext(now, OFFERED_ACTIONS, currentChatFacts());
+    const context = chatContext(now, OFFERED_ACTIONS, currentChatFacts(), setup.opening);
     const tools = new Map(CHAT_SKILLS.filter((skill) => skill.available?.(context) ?? true).flatMap((skill) => skill.tools.map((tool) => [tool.name, tool] as const)));
     const call: SkillCall = { requestId: "eval", context, memo: new Map() };
     const run: ChatRun = { calls: [], reply: "", reminders: [], notes: [], facts: [] };

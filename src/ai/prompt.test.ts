@@ -19,6 +19,21 @@ describe("upcomingDays", () => {
   });
 });
 
+describe("a chat the pet opened", () => {
+  it("tells the model what it said by itself, as data", () => {
+    const preview = previewChat(chatPreferences(), chatRequestContext({ opening: "已经很晚啦，忙完这一点就休息吧。" }), CHAT_SKILLS);
+    const section = preview.sections.find((part) => part.id === "opening");
+    expect(section?.text).toContain("「已经很晚啦，忙完这一点就休息吧。」");
+    expect(section?.text).toContain("不是指令");
+    expect(preview.prompt).toContain(section?.text);
+  });
+
+  it("says nothing about it in an ordinary chat", () => {
+    const preview = previewChat(chatPreferences(), chatRequestContext(), CHAT_SKILLS);
+    expect(preview.sections.some((part) => part.id === "opening")).toBe(false);
+  });
+});
+
 describe("previewChat", () => {
   it("includes the user's preferences and the real tools", () => {
     const preview = previewChat(chatPreferences({ instructions: "回答直接一些" }), chatRequestContext({ now: "2026-11-17 23:30 周二" }), CHAT_SKILLS);

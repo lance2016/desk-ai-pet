@@ -208,7 +208,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.action.completed` | `{ actionId }` | `ActionController` |
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
 | `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
-| `pet.greeting` | `{ text, offerMove? }`，宠物出来打招呼并说这句话；`offerMove` 时再问要不要把之前没做完的提醒挪到今天 | `PetRuntime.greet()` |
+| `pet.greeting` | `{ text, offerMove? }`，宠物出来打招呼并说这句话；`offerMove` 时再问要不要把之前没做完的提醒挪到今天。`PetSpeech` 和 `useQuickChat` 也听它：这句话可以接（见「主动说话」的「接话」） | `PetRuntime.greet()` |
 | `pet.alert` | `{ text \| null, heading?, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；`heading` 是事项上方或按钮旁的小字（「到点啦」「别忘了」）；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件，最后一个（非危险操作时）画成主按钮；`immediate` 表示这是点了按钮才问的（专注的停止、提前开始），立刻顶掉正在显示的临时气泡，不排在它后面 | `BehaviorEngine` |
 | `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
@@ -370,6 +370,13 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔。更新提示还直接走 `sayProactively()`，没进场合表。
 
+**接话**：宠物自己说的话可以回，回了就是一段新聊天。`src/companion/` 不管这件事，它只负责说出来。
+
+- **入口。** `PetSpeech` 记下 `pet.greeting` 的那句话，气泡显示的正是它时可以点（`speech-bubble--answer`，加进可点击区域表），点了发 `pet.chat_requested`。`useQuickChat` 也记下这句话和时间（`Spoken`）：说完 1 分钟内聊天按钮亮着（`SPOKE_HINT_MS`，提示「回它一句」），5 分钟内（`QUICK_CHAT_CONFIG.answerWindowMs`）不管怎么打开输入条，都是在接这句话。普通的 `pet.say`（专注开始、更新提示）不能接。
+- **输入条。** 打开时这句话留在头顶，样子和刚才的气泡一样，不加按钮；占位文字变成「回某某一句…」。同时带着递来的内容时，按递内容处理，不算接话。
+- **存成什么。** 第一句发出去时新建一段聊天，开头是宠物那句话，标 `unprompted: true`（`ChatMessage`、`quickHistory`）。回复成功，或者工具已经做了事，这句话就算接过了，下次打开输入条又是新聊天；回复失败且什么都没做时，整段撤掉（`withoutLastLine`），这句话还能再接。没发就点「在聊天窗口打开」，先存一段只有这句话的聊天再打开。标题取用户的第一句，`unprompted` 的那句不算标题也不算回复（`recordThread`）。
+- **模型怎么知道。** `contextMessages()` 照旧去掉开头的 assistant 消息，这句话不作为对话发出去。`openingLine()` 取出它，经 `chatContext(…, opening)` 放进 `ChatContext.opening`，`prompt.ts` 在记忆后面加一段「你先开口的话」，标明是资料、不是指令（这句话是模型拿用户的提醒写的）。聊天窗口接着聊时走同一条路。这样做是因为没核实过 DeepSeek 接不接受以 assistant 开头的对话（印象里它的推理模型会拒绝），提示词里给一定能用。
+
 **加一个场合**：在 `occasions/` 里写一个 `Occasion`（`id`、设置里的名字 `title`、`due()`、固定的 `line` 或者 `intent` 加 `brief()`），放进 `OCCASIONS` 里合适的位置。不用改 `Companion`、`App` 和 `src/ai/`。`due()` 每 10 秒跑一次，只能用 `Moment` 里的东西，不读慢的数据，不调模型。
 
 **预览**：设置「陪伴 → 预览一句」选一个场合，设置窗口发 `pet://companion-test`（带场合 id），宠物窗口调 `Companion.test()`：不管到没到时候，现在就写这句话，用 `greetOnRequest()` 显示，不写说话记录；专注时拒绝。结果经 `pet://companion-test-result` 回给设置窗口。
@@ -466,7 +473,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **打开。** 全局快捷键（`tauri-plugin-global-shortcut`，在 Rust 端注册，前端不需要插件权限）按下时，`quick_chat.rs` 在宠物被隐藏时先显示它，再发 `pet://quick-chat` 给宠物窗口；聊天按钮发 `pet.chat_requested`，聊天按钮不显示时单击宠物发的 `pet.clicked` 也算。`useQuickChat` 收到就打开输入条。
 - **键盘。** 宠物窗口是不激活应用的面板，`canBecomeKeyWindow` 返回 true，所以能接收键盘而不把用户正在用的应用切走（和 Spotlight 一样）。打开时调用 `take_pet_keyboard`，让面板成为 key window 并把焦点交给网页；Esc 或再按快捷键收起时调用 `release_pet_keyboard`，面板先移出再不抢焦点地放回，键盘回到原来的应用。点到别的应用时网页收到 `blur`，输入条直接收起。
 - **快捷键。** 默认 `⇧⌘ Space`，设置页可以录制任意组合，存成 `Shift+Super+Space` 这样的写法，按键名直接用 `KeyboardEvent.code`。组合必须含 ⌃ 或 ⌘：macOS 15 起，只用 ⌥ 或 ⌥⇧ 的 `RegisterEventHotKey` 能注册成功，但系统不再转发按键。前端 `recordShortcut` 和原生 `parse_shortcut` 各查一遍。录制时先注销旧快捷键，否则同样的按键会被它截走。设置页改了直接注册；宠物窗口启动时按保存的值注册一次，失败（被别的应用占用）时让宠物说一句提示。注册在主线程完成，命令写成 `async`，避免主线程等自己。
-- **对话。** 每次发送都从本机重新读聊天记录。输入条每次从收起变成打开，都开一段新对话；打开期间接着说的续在这一段（`sessionThread`，`pickQuickThread`）。输入条开着时再点宠物不算重新打开。先把用户这句存进去，回复完成后再存回复，第一轮回复后在本机整理标题。工具和聊天窗口共用能力表 `CHAT_SKILLS`。回复失败或被停止时，如果工具还没做过任何事，把这句从聊天记录里拿掉、放回输入框，重发时不会重复；做过事（比如宠物已经动了）就留着。
+- **对话。** 每次发送都从本机重新读聊天记录。输入条每次从收起变成打开，都开一段新对话（宠物刚自己说过话时，这段对话从那句话开始，见「主动说话」的「接话」）；打开期间接着说的续在这一段（`sessionThread`，`pickQuickThread`）。输入条开着时再点宠物不算重新打开。先把用户这句存进去，回复完成后再存回复，第一轮回复后在本机整理标题。工具和聊天窗口共用能力表 `CHAT_SKILLS`。回复失败或被停止时，如果工具还没做过任何事，把这句从聊天记录里拿掉、放回输入框，重发时不会重复；做过事（比如宠物已经动了）就留着。
 - **回复气泡。** 回复显示在 `PetSpeech` 的位置，有回复时普通气泡和提醒气泡让开。Markdown 转成一行纯文本，最多四行，被截断时底部写「点开看完整回复」。存下的提醒和备忘只显示一条（有没记上的优先），其余写「还有 N 条」；改、删的那一条按钮是「撤销」。输入条开着时一直显示；收起后按长度停留 6～20 秒。点击在聊天窗口打开这段对话（没有 Key 时打开设置）。输入条和回复气泡显示时都加进可点击区域表。
 - **和聊天窗口同步。** 每个窗口同时只有一个请求（`chatRun.ts` 按窗口互斥），聊天窗口和宠物窗口可以各自在回复；同一个窗口再发会收到「上一条还在回复」，前端把这句放回输入框。`llm.rs` 把流只发给发起请求的窗口；关闭聊天窗口不取消回复，只停录音和识别；回复照常写进聊天记录，再打开就能看到。`chatRun.ts` 分别累积文字和工具参数，文字边到边显示，`play_action` 的 JSON 完整且 ID 在枚举内时立即执行（`Tool.early`）。一次回复最多做一个动作。宠物窗口把请求送入运行时，动作控制器返回调度结果，聊天用它提示失败，或在模型只发工具时用本地话术补一句。调度不等待动画结束。完整清单和基础日报在本机组织，只有模型要读结果时才再请求一轮。聊天窗口只在当前角色的聊天记录 key 变化时重新读取，内容没变不刷新；`petWindow.openChat(threadId)` 先发 `pet://chat-thread` 让它切到这段对话再显示。快速聊天回复到一半时点「在聊天窗口打开」，请求在原窗口继续，完成后由聊天记录同步到聊天窗口。两边同时在同一段对话里生成回复时，后完成的一方会覆盖前一方，这种情况很少，暂不处理。
 

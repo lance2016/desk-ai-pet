@@ -3,7 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import type { WebMode, WebReply } from "../chat/ReadLinks";
 import type { ChatImage } from "../chat/ChatImage";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string; readLink?: WebMode; web?: WebReply; image?: ChatImage };
+/** `unprompted`: a line the pet said by itself, which the user then answered; it opens the thread. */
+export type ChatMessage = { role: "user" | "assistant"; content: string; readLink?: WebMode; web?: WebReply; image?: ChatImage; unprompted?: true };
 
 /** Events of the chat window itself. Model requests are in `src/ai/`. */
 export const chatPlatform = {

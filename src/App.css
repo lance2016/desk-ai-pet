@@ -147,6 +147,9 @@ body {
 }
 /* A passing line also fades away just before its time (--stay) is up. */
 .speech-bubble--passing { animation: speech-in var(--ui-duration) var(--ui-ease), speech-out var(--ui-duration-fast) var(--ui-ease) calc(var(--stay) - var(--ui-duration-fast)) forwards; }
+/* What the pet said by itself: a click answers it. */
+.speech-bubble--answer { pointer-events: auto; cursor: pointer; }
+.speech-bubble--answer:hover { border-color: var(--ui-accent-ring); }
 .speech-bubble::after {
   content: "";
   position: absolute;

@@ -12,7 +12,7 @@ import { NOTE_LIMITS } from "../../notes/NoteStore";
 import { keepNote } from "../../worklog/store";
 import { CHAT_SKILLS } from "../../skills";
 import { ControlIcon } from "../ControlIcon";
-import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
+import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, openingLine, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
 import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
 import { chatPlatform, type ChatMessage } from "../../platform/chat";
 import { mimoPlatform } from "../../platform/mimo";
@@ -398,7 +398,7 @@ export function ChatPage({ packId }: { packId: string }) {
     setSkipWeb(false);
     active.current = id; cancelRequested.current = false; replyRef.current = ""; linesRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
-      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current, currentChatFacts()), skills: CHAT_SKILLS };
+      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current, currentChatFacts(), openingLine(next)), skills: CHAT_SKILLS };
       await ai.start(id, outgoing, requestPreferences(packId, personaRef.current), turn);
       if (cancelRequested.current && active.current === id) await ai.cancel(id);
     } catch (reason) {

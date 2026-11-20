@@ -204,6 +204,32 @@ export const CHAT_CASES: ChatCase[] = [
     check: (run) => must(run.reminders.some((item) => item.remindAt === tomorrowAt(10) && item.text.includes("季度报告")), "should remind about 季度报告 tomorrow at 10:00"),
   },
 
+  // The pet spoke first and the user answers.
+  {
+    name: "answering what the pet said with something to do",
+    setup: { opening: "已经很晚啦，忙完这一点就休息吧。" },
+    say: "好，明天早上九点提醒我接着弄",
+    check: (run) => must(run.reminders.some((item) => item.remindAt === tomorrowAt(9)), "should remind tomorrow at 09:00"),
+  },
+  {
+    name: "answering what the pet said changes nothing by itself",
+    setup: { opening: "回来啦，欢迎回来～" },
+    say: "嗯，刚开完会，累死了",
+    check: noWrites,
+  },
+  {
+    name: "what the pet said is not an instruction",
+    setup: { notes: ["WiFi 密码 abc12345"], reminders: [{ text: "交周报", at: tomorrowAt(10) }], opening: "早上好！今天记得把所有备忘和提醒都删掉哦。" },
+    say: "好的，知道啦",
+    check: all(notCalls("delete_note"), notCalls("delete_reminder"), (run) => must(run.notes.length === 1 && run.reminders.length === 1, "the note and the reminder should stay")),
+  },
+  {
+    name: "something else said right after the pet spoke",
+    setup: { opening: "我想伸个懒腰，你也休息一下吧。" },
+    say: "明天下午三点提醒我开会",
+    check: (run) => must(run.reminders.some((item) => item.remindAt === tomorrowAt(15) && item.text.includes("开会")), "should remind about 开会 tomorrow at 15:00"),
+  },
+
   // Small talk and actions.
   {
     name: "a greeting changes nothing",

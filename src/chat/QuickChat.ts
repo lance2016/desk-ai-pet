@@ -8,7 +8,17 @@ export const QUICK_CHAT_CONFIG = {
   lingerPerCharMs: 120,
   lingerMinMs: 6_000,
   lingerMaxMs: 20_000,
+  /** After the pet says something by itself, opening the bar within this time answers that line. */
+  answerWindowMs: 5 * 60_000,
 };
+
+/** A line the pet said by itself, and when. */
+export interface Spoken { text: string; at: number }
+
+/** The line the user would be answering by speaking now, or null once it is too long ago. */
+export function answerable(spoken: Spoken | null, now: number): string | null {
+  return spoken && now - spoken.at < QUICK_CHAT_CONFIG.answerWindowMs ? spoken.text : null;
+}
 
 /**
  * The thread a quick line continues, or null to start a new one. Each opening
@@ -19,9 +29,19 @@ export function pickQuickThread(threads: readonly ChatThread[], sessionThreadId:
   return threads.find((thread) => thread.id === sessionThreadId) ?? null;
 }
 
-/** The thread so far plus the new line, as it is kept; send `contextMessages()` of it. */
-export function quickHistory(thread: ChatThread | null, text: string): ChatMessage[] {
-  return [...(thread?.messages ?? []), { role: "user" as const, content: text }].slice(-CHAT_LIMITS.messages);
+/**
+ * The thread so far plus the new line, as it is kept; send `contextMessages()` of it.
+ * `opening`: what the pet said by itself that this line answers; it starts a new thread.
+ */
+export function quickHistory(thread: ChatThread | null, text: string, opening: string | null = null): ChatMessage[] {
+  const before: ChatMessage[] = thread?.messages ?? (opening ? [{ role: "assistant", content: opening, unprompted: true }] : []);
+  return [...before, { role: "user" as const, content: text }].slice(-CHAT_LIMITS.messages);
+}
+
+/** A thread with its unanswered last line taken back out. Nothing is left when the user said nothing else in it. */
+export function withoutLastLine(messages: readonly ChatMessage[]): ChatMessage[] {
+  const rest = messages.slice(0, -1);
+  return rest.some((message) => message.role === "user") ? rest : [];
 }
 
 const inlineText = (parts: Inline[]) => parts.map((part) => part.text).join("");

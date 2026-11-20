@@ -3,9 +3,10 @@ import { ai, type EffectLine, type Skill } from "../ai";
 import { chatContext } from "../agenda/chatTools";
 import { currentChatFacts } from "../facts/FactStore";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
-import { contextMessages, loadThreads, recordThread, saveThreads } from "../chat/ChatThreads";
-import { pickQuickThread, plainReply, quickHistory, replyLingerMs } from "../chat/QuickChat";
+import { contextMessages, loadThreads, openingLine, recordThread, saveThreads } from "../chat/ChatThreads";
+import { QUICK_CHAT_CONFIG, answerable, pickQuickThread, plainReply, quickHistory, replyLingerMs, withoutLastLine, type Spoken } from "../chat/QuickChat";
 import type { PetRuntime } from "../core/PetRuntime";
+import { fitSpeech } from "../core/SpeechQueue";
 import type { ChatMessage } from "../platform/chat";
 import { petWindow } from "../platform/petWindow";
 import { characterName, requestPreferences } from "../preferences/ChatPreferences";
@@ -33,6 +34,8 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.r
 const BUTTON_SKILLS: readonly Skill[] = [petActionSkill];
 /** How long a copy keeps the chat button lit. Must match `RECENT_COPY` in `src-tauri/src/handover.rs`. */
 const COPY_HINT_MS = 60_000;
+/** How long the chat button stays lit after the pet said something by itself; the line can be answered for longer (`answerWindowMs`). */
+const SPOKE_HINT_MS = 60_000;
 /** How long copied text waits above the pet when the bar is not opened for it. */
 const CARD_LINGER_MS = 30_000;
 
@@ -80,7 +83,11 @@ export interface QuickChat {
   handed: Handover | null;
   /** Something was copied in another app in the last minute: the chat button lights up. */
   copied: boolean;
-  /** Whether the bubble above the pet has something to show: a reply, or the handed text. */
+  /** The pet said something by itself a moment ago: the chat button lights up, and the bar opens onto that line. */
+  spoke: boolean;
+  /** What the pet said by itself that the open bar answers, until the first line of the answer is kept. */
+  answering: string | null;
+  /** Whether the bubble above the pet has something to show: a reply, the handed text, or the line being answered. */
   bubble: boolean;
   name: string;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -114,7 +121,17 @@ function dropUnanswered(packId: string, request: Request): void {
   if (!fresh.valid) return;
   const thread = fresh.threads.find((item) => item.id === request.threadId);
   if (!thread || thread.messages[thread.messages.length - 1]?.role !== "user") return;
-  saveThreads(packId, recordThread(fresh.threads, request.threadId, thread.messages.slice(0, -1), thread.updatedAt));
+  saveThreads(packId, recordThread(fresh.threads, request.threadId, withoutLastLine(thread.messages), thread.updatedAt));
+}
+
+/** Starts a thread with what the pet said by itself, for the answer to be written in the chat window. Null when it cannot be kept. */
+function threadFromLine(packId: string, line: string): string | null {
+  const fresh = loadThreads(packId);
+  if (!fresh.valid) return null;
+  const id = newId();
+  try { saveThreads(packId, recordThread(fresh.threads, id, [{ role: "assistant", content: line, unprompted: true }], Date.now())); }
+  catch (error) { console.error("Could not keep the pet's line for the chat window", error); return null; }
+  return id;
 }
 
 /** Saves the finished reply into its thread and names a new thread after its first exchange. */
@@ -144,6 +161,15 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   const [keyMissing, setKeyMissing] = useState(false);
   const [handed, setHanded] = useState<Handover | null>(null);
   const [copiedAt, setCopiedAt] = useState<number | null>(null);
+  /** What the pet last said by itself, while it can still be answered. */
+  const [spoken, setSpoken] = useState<Spoken | null>(null);
+  const spokenRef = useRef(spoken);
+  spokenRef.current = spoken;
+  const [spokeHint, setSpokeHint] = useState(false);
+  /** The line this opening of the bar answers, until a thread holds it. */
+  const [answering, setAnswering] = useState<string | null>(null);
+  const answeringRef = useRef(answering);
+  answeringRef.current = answering;
   const launcherRef = useRef(launcher);
   launcherRef.current = launcher;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +188,10 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   const wakePet = () => runtimeRef.current?.bus.emit("pet.wake_up", {});
   const show = () => {
     // Asked again while it is open (another click on the pet): the conversation goes on.
-    if (!openRef.current) sessionThread.current = null;
+    if (!openRef.current) {
+      sessionThread.current = null;
+      setAnswering(answerable(spokenRef.current, Date.now()));
+    }
     setOpen(true);
     setFocusRequest((count) => count + 1);
     wakePet();
@@ -170,6 +199,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   const close = (release: boolean) => {
     setOpen(false);
     setHanded(null);
+    setAnswering(null);
     if (release) petWindow.releaseKeyboard().catch(reportFocus);
   };
 
@@ -217,6 +247,17 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     return () => stops.forEach((stop) => stop());
   }, [runtime]);
 
+  // What the pet says by itself can be answered: the chat button lights up for a minute, and for a while longer the bar opens onto that line.
+  useEffect(() => runtime?.bus.on("pet.greeting", ({ text }) => {
+    setSpoken({ text: text.trim(), at: Date.now() });
+    setSpokeHint(true);
+  }), [runtime]);
+  useEffect(() => {
+    if (!spoken) return;
+    const timers = [setTimeout(() => setSpokeHint(false), SPOKE_HINT_MS), setTimeout(() => setSpoken(null), QUICK_CHAT_CONFIG.answerWindowMs)];
+    return () => timers.forEach(clearTimeout);
+  }, [spoken]);
+
   // A copy in another app lights up the chat button for a minute; nothing is read until it is clicked.
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -248,6 +289,14 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     return () => clearTimeout(timer);
   }, [open, reply]);
 
+  /** The thread now holds the pet's line with its answer: the next opening of the bar is a new conversation again. */
+  const answered = (done: Request) => {
+    const line = openingLine(done.history);
+    if (line === null) return;
+    setAnswering(null);
+    setSpoken((now) => (now?.text === line ? null : now));
+  };
+
   useEffect(() => {
     let stop: (() => void) | undefined;
     let disposed = false;
@@ -265,11 +314,12 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
           try { dropUnanswered(packId, current); } catch (error) { console.error("Could not take the unanswered line back", error); }
           setDraft((draft) => draft || current.typed);
           if (openRef.current) setHanded((now) => now ?? current.handed);
-        }
+        } else answered(current);
         setReply(event.kind === "error" ? errorReply(event.text || "回复中断") : null);
         if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
         return;
       }
+      answered(current);
       const said = replyText.current.trim();
       if (!said) { setReply({ text: "没有收到回复，再说一次试试。", status: "error", saved: current.lines }); return; }
       const text = event.text === "length" ? `${said}\n\n${CUT_OFF_MARK}` : said;
@@ -297,7 +347,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     if (!loaded.valid) { setReply({ text: "聊天记录读不出来了，点这里到聊天窗口处理。", status: "error", fix: "chat" }); return; }
     const thread = pickQuickThread(loaded.threads, sessionThread.current);
     const threadId = thread?.id ?? newId();
-    const history = quickHistory(thread, text);
+    // Asking about handed text is its own conversation, not an answer to what the pet said.
+    const history = quickHistory(thread, text, withHanded ? null : answeringRef.current);
     try { saveThreads(packId, recordThread(loaded.threads, threadId, history, now)); }
     catch (error) { console.error("Could not save the quick chat line", error); setReply({ text: STORAGE_FULL, status: "error", fix: "chat" }); return; }
     lastThread.current = threadId;
@@ -311,7 +362,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     setReply({ text: "", status: "thinking" });
     const actions = runtime.chatActionIds();
     try {
-      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts()), skills });
+      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts(), openingLine(history)), skills });
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;
@@ -372,6 +423,10 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   };
   /** Opens the same conversation while the quick chat request finishes in its original window. */
   const expand = () => {
+    // Nothing answered yet: the pet's line goes along, as the start of a thread in the chat window.
+    const line = answeringRef.current;
+    const carried = line ? threadFromLine(packId, line) : null;
+    if (carried) { lastThread.current = carried; setSpoken(null); }
     close(false);
     setReply(null);
     petWindow.openChat(lastThread.current ?? undefined).catch((error: unknown) => console.error("Failed to open chat", error));
@@ -419,9 +474,9 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
       })
       .catch((error: unknown) => { console.warn("Could not read what was copied", error); requestChat(); });
   };
-  const bubble = reply !== null || handed !== null;
+  const bubble = reply !== null || handed !== null || (open && answering !== null);
   const dismissHanded = () => { setHanded(null); if (openRef.current) inputRef.current?.focus(); };
-  return { open, draft, pending, keyMissing, reply, handed, copied: copiedAt !== null, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction, launch, askAbout: requestChat };
+  return { open, draft, pending, keyMissing, reply, handed, copied: copiedAt !== null, spoke: spoken !== null && spokeHint, answering, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction, launch, askAbout: requestChat };
 }
 
 function Icon({ name }: { name: "send" | "stop" | "expand" }) {
@@ -448,7 +503,7 @@ export function QuickChatBar({ chat, ref }: { chat: QuickChat; ref?: Ref<HTMLFor
           value={chat.draft}
           maxLength={MAX_INPUT}
           aria-label={`和${chat.name}说话`}
-          placeholder={chat.keyMissing ? "填上 DeepSeek API Key 才能聊天" : chat.handed ? "问问这段内容，或点上面的按钮" : `和${chat.name}说点什么… Esc 收起`}
+          placeholder={chat.keyMissing ? "填上 DeepSeek API Key 才能聊天" : chat.handed ? "问问这段内容，或点上面的按钮" : chat.answering ? `回${chat.name}一句… Esc 收起` : `和${chat.name}说点什么… Esc 收起`}
           onChange={(event) => chat.setDraft(event.currentTarget.value)}
           onPaste={chat.onPaste}
           onKeyDown={onKeyDown}
@@ -474,7 +529,9 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
     const field = textRef.current;
     setClipped(field !== null && field.scrollHeight > field.clientHeight + 1);
   }, [reply]);
-  if (!reply) return chat.handed ? <HandedCard chat={chat} handed={chat.handed} ref={ref} /> : null;
+  if (!reply && chat.handed) return <HandedCard chat={chat} handed={chat.handed} ref={ref} />;
+  // What the pet said by itself stays up, looking as it did, while the user writes an answer.
+  if (!reply) return chat.answering ? <div ref={ref} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{fitSpeech(chat.answering)}</div> : null;
   const error = reply.status === "error";
   const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
   const hint = reply.fix === "settings" ? "去设置" : "在聊天窗口打开";

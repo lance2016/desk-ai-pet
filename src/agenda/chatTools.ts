@@ -43,10 +43,11 @@ export function loadSavedItems(): SavedItems {
 }
 
 /**
- * What the model needs to know besides the conversation: the local time and the
- * actions it may pick. What the user saved reaches it only when it looks it up.
+ * What the model needs to know besides the conversation: the local time, the
+ * actions it may pick, and the line the pet opened the chat with when it spoke first (`opening`).
+ * What the user saved reaches it only when it looks it up.
  */
-export function chatContext(now: number, actions: readonly string[], facts: ChatFacts): ChatContext {
+export function chatContext(now: number, actions: readonly string[], facts: ChatFacts, opening: string | null = null): ChatContext {
   const date = new Date(now);
   const offset = -date.getTimezoneOffset();
   const minutes = Math.abs(offset);
@@ -57,6 +58,7 @@ export function chatContext(now: number, actions: readonly string[], facts: Chat
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     actions: actions.filter((id) => ACTION_ID.test(id)).slice(0, MAX_ACTIONS),
     facts,
+    ...(opening ? { opening } : {}),
   };
 }
 

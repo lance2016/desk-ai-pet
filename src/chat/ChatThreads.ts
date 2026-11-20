@@ -20,6 +20,7 @@ const messagesSchema = z.array(z.object({
   readLink: webModeSchema.optional(),
   web: webReplySchema.optional(),
   image: chatImageSchema.optional(),
+  unprompted: z.literal(true).optional(),
 })).max(CHAT_LIMITS.messages);
 const threadsSchema = z.array(z.object({
   id: z.string().min(1).max(100),
@@ -64,9 +65,10 @@ export function recordThread(threads: readonly ChatThread[], id: string, message
   const kept = messages.slice(-CHAT_LIMITS.messages);
   const previous = threads.find((thread) => thread.id === id);
   const first = threadTitle(kept);
-  let title = previous?.title ?? first;
-  if (title === first && kept.some((message) => message.role === "assistant")
-    && !previous?.messages.some((message) => message.role === "assistant") && loadAutoTitles()) {
+  // A thread holding only what the pet said by itself has no title of its own yet.
+  let title = previous?.messages.some((message) => message.role === "user") ? previous.title : first;
+  const replied = (list: readonly ChatMessage[]) => list.some((message) => message.role === "assistant" && !message.unprompted);
+  if (title === first && replied(kept) && !replied(previous?.messages ?? []) && loadAutoTitles()) {
     const opening = kept.find((message) => message.role === "user")?.content ?? "";
     title = cleanTitle(opening) || first;
   }
@@ -85,6 +87,15 @@ export function contextMessages(messages: readonly ChatMessage[]): ChatMessage[]
   const recent = messages.slice(-CHAT_LIMITS.context);
   const firstUser = recent.findIndex((message) => message.role === "user");
   return firstUser === -1 ? [] : recent.slice(firstUser);
+}
+
+/**
+ * What the pet said by itself to open this thread, or null when the user spoke first.
+ * `contextMessages()` leaves that line out; it reaches the model in the prompt instead.
+ */
+export function openingLine(messages: readonly ChatMessage[]): string | null {
+  const first = messages[0];
+  return first?.role === "assistant" && first.unprompted ? first.content : null;
 }
 
 export function removeThread(threads: readonly ChatThread[], id: string): ChatThread[] {
