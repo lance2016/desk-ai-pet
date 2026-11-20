@@ -79,6 +79,11 @@ const SETTINGS_WINDOW: &str = "settings";
 const CHAT_WINDOW: &str = "chat";
 const TODAY_WINDOW: &str = "today";
 const NOTES_WINDOW: &str = "notes";
+/// The reminder and note popovers: only one is open at a time, and a click outside puts both away.
+const POPOVERS: [&str; 2] = [TODAY_WINDOW, NOTES_WINDOW];
+/// After a popover loses focus, how long to wait before putting away every popover without it:
+/// by then the window that took the focus has it, so the one the user just opened is kept.
+const POPOVER_SWEEP_DELAY: std::time::Duration = std::time::Duration::from_millis(150);
 
 /// The one menu shared by the tray icon and the pet's right-click menu.
 struct PetMenu {
@@ -529,6 +534,21 @@ fn work_area_under(app: &AppHandle, pet: Area) -> Option<Area> {
     areas.into_iter().min_by(|a, b| distance(a).total_cmp(&distance(b)))
 }
 
+/// Puts away, a moment later, every popover that does not have the focus. A popover only
+/// hears that it lost the focus if it had it; one shown without it would otherwise stay up.
+fn sweep_popovers(app: AppHandle) {
+    std::thread::spawn(move || {
+        std::thread::sleep(POPOVER_SWEEP_DELAY);
+        for label in POPOVERS {
+            if let Some(popover) = app.get_webview_window(label) {
+                if popover.is_visible().unwrap_or(false) && !popover.is_focused().unwrap_or(false) {
+                    report("hide popover without focus", popover.hide());
+                }
+            }
+        }
+    });
+}
+
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
 fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     let window = app
@@ -555,7 +575,13 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     // The popovers are panels (see `setup`): focusing them must not activate the
     // app, or a user in a full-screen app is pulled out of it.
     #[cfg(target_os = "macos")]
-    if label == TODAY_WINDOW || label == NOTES_WINDOW {
+    if POPOVERS.contains(&label) {
+        // They open in the same spot; one left behind without focus would never hear the click outside.
+        for other in POPOVERS.iter().filter(|other| **other != label) {
+            if let Some(other) = app.get_webview_window(other) {
+                report("hide the other popover", other.hide());
+            }
+        }
         return floating_panel::take_keyboard(&window).map_err(|e| e.to_string());
     }
     show_settings_window(&app, &window).map_err(|e| e.to_string())
@@ -700,17 +726,21 @@ pub fn run() {
                 });
             }
             // The today and notes panels behave like popovers: they go away when they lose focus.
-            for label in [TODAY_WINDOW, NOTES_WINDOW] {
+            for label in POPOVERS {
                 if let Some(panel) = app.get_webview_window(label) {
                     #[cfg(target_os = "macos")]
                     floating_panel::apply_popover(&panel)?;
                     let handle = panel.clone();
+                    let app_handle = app.handle().clone();
                     panel.on_window_event(move |event| match event {
                         tauri::WindowEvent::CloseRequested { api, .. } => {
                             api.prevent_close();
                             report("hide panel", handle.hide());
                         }
-                        tauri::WindowEvent::Focused(false) => report("hide panel", handle.hide()),
+                        tauri::WindowEvent::Focused(false) => {
+                            report("hide panel", handle.hide());
+                            sweep_popovers(app_handle.clone());
+                        }
                         _ => {}
                     });
                 }

@@ -161,7 +161,7 @@ pnpm exec tsc --noEmit && pnpm test
 
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
-- 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。
+- 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。两个弹出层同一时间只开一个（`show_beside_pet` 先收起另一个）；任何一个失焦后再统一收起所有没有焦点的弹出层（`sweep_popovers`）。只靠各自的失焦事件不够：没拿到过焦点的那个永远收不到失焦，点别处也关不掉。
 - 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才提前执行，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
