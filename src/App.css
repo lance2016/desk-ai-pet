@@ -58,26 +58,115 @@ body {
   display: block;
 }
 
-/* Above the focus glow, which sits behind the pet. */
+/* Keep the illustration above the progress line and the ripple. */
 .stage { position: relative; z-index: 1; }
 
-/*
- * While a focus round runs: a glass ring around the pet whose bright arc grows with the round,
- * and ripples where it sits. Sized against the pet's area, so it follows the pet size; the ring
- * is centred on the seated focus pose. Takes no clicks: the clickable area comes from the drawing.
- */
-.focus-aura { position: absolute; inset: 0; z-index: 0; pointer-events: none; animation: aura-in 420ms ease-out; }
-.focus-aura img { display: block; -webkit-user-drag: none; }
-.focus-aura__ring { position: absolute; left: 50%; top: 55%; width: 108%; aspect-ratio: 1; transform: translate(-50%, -50%); }
-.focus-aura__ring img, .focus-aura__ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.focus-aura__ring svg { overflow: visible; filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 4px #a996ee); }
-.focus-aura__arc { fill: none; stroke: url(#focus-arc); stroke-width: .9; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
-.focus-aura__dot { fill: #fff; }
-.focus-aura__platform { position: absolute; left: 50%; bottom: 0; width: 128%; transform: translate(-50%, 42%); animation: aura-breathe 4.5s ease-in-out infinite; }
-@keyframes aura-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes aura-breathe {
-  0%, 100% { opacity: .82; transform: translate(-50%, 42%) scale(.97); }
-  50% { opacity: 1; transform: translate(-50%, 42%) scale(1.03); }
+.focus-aura { position: absolute; inset: 0; pointer-events: none; }
+.focus-aura--exiting { opacity: 0; transition: opacity var(--focus-exit-duration) ease-out; }
+
+.focus-aura__halo {
+  position: absolute;
+  left: -3%;
+  top: 55%;
+  width: 106%;
+  aspect-ratio: 1;
+  /* Lift the top of the ring to make room for the time above the pet. */
+  margin-top: calc(-53% - 26px);
+}
+.focus-aura__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: calc(100% + 26px);
+  color: var(--ui-accent);
+  fill: none;
+  mask-image: linear-gradient(#000 76%, rgb(0 0 0 / .24));
+  animation: focus-in 200ms ease-out;
+}
+.focus-aura__track, .focus-aura__arc { stroke: currentColor; stroke-width: .75; }
+.focus-aura__track { opacity: .17; }
+.focus-aura__arc { opacity: .58; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
+.focus-aura__endpoint {
+  fill: currentColor;
+  transform-origin: 50px 50px;
+  transition: transform 1s linear;
+}
+
+.focus-aura__ripple {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 122%;
+  height: auto;
+  transform: translate(-50%, 44%);
+  opacity: var(--focus-ripple-opacity);
+  animation: focus-breathe 6s ease-in-out infinite;
+}
+
+.focus-aura__stop {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 2%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-row);
+  background: transparent;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.focus-aura__stop img {
+  display: block;
+  width: 24px;
+  height: auto;
+  filter: drop-shadow(0 1px 3px var(--ui-accent-ring));
+  transition: transform 140ms ease-out;
+}
+.focus-aura__stop:is(:hover, :focus-visible) img { transform: translateY(-2px); }
+.focus-aura__stop:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.focus-aura__stop:disabled { pointer-events: none; }
+.focus-aura__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface);
+  color: var(--ui-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity 140ms ease-out;
+  pointer-events: none;
+}
+.focus-aura__stop:is(:hover, :focus-visible) .focus-aura__hint { opacity: 1; }
+.focus-aura__countdown {
+  position: absolute;
+  z-index: 2;
+  top: calc(2% + 11px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--ui-accent-strong);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 4px var(--ui-surface), 0 0 8px var(--ui-surface);
+}
+
+@keyframes focus-in { from { opacity: 0; } }
+@keyframes focus-breathe {
+  0%, 100% { opacity: calc(var(--focus-ripple-opacity) * .72); transform: translate(-50%, 44%) scaleX(.97); }
+  50% { opacity: var(--focus-ripple-opacity); transform: translate(-50%, 44%) scaleX(1); }
 }
 
 /* Overlays are laid out inside the on-screen part of the window. */
@@ -503,8 +592,9 @@ button.status-chip--waiting:hover .status-chip__close { stroke: #4c437e; }
 
 @media (prefers-reduced-motion: reduce) {
   .chat-launcher.is-hinting { animation: none; }
-  .focus-aura, .focus-aura__platform { animation: none; }
-  .focus-aura__arc { transition: none; }
+  .focus-aura__ring, .focus-aura__ripple { animation: none; }
+  .focus-aura--exiting, .focus-aura__arc, .focus-aura__endpoint, .focus-aura__stop img, .focus-aura__hint { transition: none; }
+  .focus-aura__stop:is(:hover, :focus-visible) img { transform: none; }
   .pet-bar, .pet-bar__item, .pet-bar__item::after { transition: none; }
   .speech-bubble,
   .speech-bubble--alert,

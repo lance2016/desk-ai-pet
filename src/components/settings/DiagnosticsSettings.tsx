@@ -22,7 +22,7 @@ function useBriefly(): [boolean, () => void] {
   return [on, () => setOn(true)];
 }
 
-/** 「关于 → 日志与诊断」: the app's log, to see what went wrong, and an export to send to someone. */
+/** 「通用 → 关于 → 日志与诊断」: the app's log, to see what went wrong, and an export to send to someone. */
 export function DiagnosticsSettings({ onError }: { onError: (message: string | null) => void }) {
   const [entries, setEntries] = useState<LogEntry[] | null>(null);
   const [level, setLevel] = useState<LevelFilter>("all");

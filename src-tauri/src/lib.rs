@@ -1,4 +1,5 @@
 mod alert;
+mod api_keys;
 mod click_through;
 mod database;
 mod diagnostics;
@@ -405,14 +406,42 @@ fn sync_dock_menu(app: AppHandle, menu: State<'_, PetMenu>, items: Vec<(String, 
 
 /// Opens the pet menu at the cursor. Called from the webview on right-click.
 #[tauri::command]
-fn show_pet_menu(window: WebviewWindow, menu: State<'_, PetMenu>) -> Result<(), String> {
+fn show_pet_menu(app: AppHandle, window: WebviewWindow, menu: State<'_, PetMenu>) -> Result<(), String> {
     if menu.popped_up.swap(true, Ordering::Relaxed) {
         return Ok(());
     }
     // Returns once the menu is closed: the command is sync, so it runs on the main thread.
-    let shown = window.popup_menu(&menu.menu);
+    let shown = show_pet_menu_native(&app, &window, &menu.menu);
     menu.popped_up.store(false, Ordering::Relaxed);
     shown.map_err(|error| format!("failed to open the pet menu: {error}"))
+}
+
+fn show_pet_menu_native(app: &AppHandle, window: &WebviewWindow, menu: &Menu<Wry>) -> tauri::Result<()> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+
+    #[cfg(target_os = "macos")]
+    let settings_open = app
+        .get_webview_window(SETTINGS_WINDOW)
+        .is_some_and(|settings| settings.is_visible().unwrap_or(false));
+
+    // A regular app can leave its non-activating pet panel behind the full-screen
+    // space when a context menu is requested. The accessory policy is the one the
+    // pet uses normally; restore Regular afterward so Settings stays in Dock/⌘Tab.
+    #[cfg(target_os = "macos")]
+    if settings_open {
+        app.set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+    }
+
+    let shown = window.popup_menu(menu);
+
+    #[cfg(target_os = "macos")]
+    if settings_open {
+        let restored = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        return shown.and(restored);
+    }
+
+    shown
 }
 
 #[tauri::command]

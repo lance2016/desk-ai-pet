@@ -48,7 +48,7 @@ export function MailSettings() {
   };
   const open163 = () => void systemPlatform.openLink(MAIL_163).catch((reason: unknown) => { console.error("Could not open 163 mail", reason); setStatus("没能打开网页，可以自己在浏览器里打开 mail.163.com。"); });
 
-  // Rendered inside the "小工具" page, so it brings no section of its own.
+  // Rendered inside the "划词与邮箱" page, so it brings no section of its own.
   return <>
     <div className="settings-section__intro"><h2>查收验证码</h2><p>右键点宠物选「查收验证码」，它会找到验证码并复制好</p></div>
     <article className="settings-card ai-settings mail-settings">

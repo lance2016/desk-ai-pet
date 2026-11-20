@@ -1,7 +1,7 @@
 /* The settings window uses the same neutral surfaces and accent as the chat window. */
 .settings-page {
   --bg: var(--ui-window);
-  --sidebar: var(--ui-raised);
+  --sidebar: var(--ui-window);
   --group: var(--ui-surface);
   --group-border: var(--ui-border);
   --separator: var(--ui-border);
@@ -22,6 +22,14 @@
   --green-wash: var(--ui-positive-soft);
   --orange: var(--ui-warning);
   --orange-wash: var(--ui-warning-soft);
+  --icon-violet: #7952a8;
+  --icon-blue: #2867ad;
+  --icon-teal: #187b75;
+  --icon-rose: #bd4d68;
+  --icon-orange: #a85c12;
+  --icon-amber: #8a6b00;
+  --icon-green: #28734f;
+  --icon-slate: #687384;
   --scrim: rgba(28, 24, 40, .45);
   --control-shadow: 0 .5px 1.5px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .05);
   --radius-group: 10px;
@@ -42,6 +50,14 @@
   .settings-page {
     --scrim: rgba(0, 0, 0, .55);
     --control-shadow: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
+    --icon-violet: #c1a5ef;
+    --icon-blue: #83b5ff;
+    --icon-teal: #68cec1;
+    --icon-rose: #f08ca5;
+    --icon-orange: #f0aa62;
+    --icon-amber: #e5c65f;
+    --icon-green: #78c89c;
+    --icon-slate: #b2bdcf;
     color-scheme: dark;
   }
 }
@@ -59,23 +75,29 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 
 /* ---------- Sidebar ---------- */
 .settings-sidebar { box-sizing: border-box; flex: 0 0 228px; padding: 20px 12px 16px; overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--separator); }
-.settings-sidebar nav { display: grid; gap: 10px; }
-.settings-nav-group { display: grid; gap: 1px; }
-.settings-nav-group__title { margin: 0 9px 3px; color: var(--label-3); font-size: 10px; font-weight: 600; line-height: 18px; }
-.settings-nav { box-sizing: border-box; width: 100%; min-height: 32px; display: flex; align-items: center; gap: 9px; padding: 0 9px; color: var(--label-2); text-align: left; background: none; border: 0; border-radius: 7px; cursor: default; }
+.settings-sidebar nav { display: grid; gap: 12px; }
+.settings-nav-group { display: grid; gap: 4px; }
+.settings-nav-group__title { margin: 0 8px 4px; color: var(--label-3); font-size: 10px; font-weight: 600; line-height: 16px; }
+.settings-nav { box-sizing: border-box; width: 100%; min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--label-2); text-align: left; background: none; border: 0; border-radius: 8px; cursor: default; }
 .settings-nav:hover:not(.is-active) { background: var(--fill-strong); }
 .settings-nav.is-active { color: var(--accent-strong); background: var(--accent-wash); font-weight: 500; }
 .settings-nav__icon { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--label-2); }
-.settings-nav__icon svg { width: 15px; height: 15px; }
-.settings-nav.is-active .settings-nav__icon { color: var(--accent-strong); }
+.settings-nav__icon svg { width: 16px; height: 16px; }
+.settings-nav__icon--character, .settings-nav__icon--characterProfile, .settings-nav__icon--ai, .settings-nav__icon--developer { color: var(--icon-violet); }
+.settings-nav__icon--actions, .settings-nav__icon--voice, .settings-nav__icon--companion { color: var(--icon-rose); }
+.settings-nav__icon--dock, .settings-nav__icon--chat, .settings-nav__icon--diagnostics { color: var(--icon-blue); }
+.settings-nav__icon--memory, .settings-nav__icon--guide { color: var(--icon-amber); }
+.settings-nav__icon--tools { color: var(--icon-orange); }
+.settings-nav__icon--general, .settings-nav__icon--about { color: var(--icon-slate); }
+.settings-nav__icon--privacy { color: var(--icon-green); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
-.settings-search { position: relative; margin: 0 0 14px; }
+.settings-search { position: relative; margin: 0 0 16px; }
 .settings-search svg { position: absolute; top: 50%; left: 8px; width: 14px; height: 14px; color: var(--label-2); transform: translateY(-50%); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
-.settings-page .settings-search input { box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px 0 28px; color: var(--label); background: var(--fill-strong); border: 0; border-radius: 7px; font-size: 13px; }
+.settings-page .settings-search input { box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px 0 28px; color: var(--label); background: var(--fill-strong); border: 0; border-radius: 8px; font-size: 13px; }
 .settings-page .settings-search input:focus { background: var(--field); }
 .settings-search input::placeholder { color: var(--label-2); }
-.settings-results { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
-.settings-result { display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 4px 9px; border-radius: 7px; cursor: default; }
+.settings-results { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.settings-result { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px; border-radius: 8px; cursor: default; }
 .settings-result:hover:not(.is-active) { background: var(--fill-strong); }
 .settings-result.is-active { color: var(--accent-strong); background: var(--accent-wash); }
 .settings-result > span:last-child { min-width: 0; display: grid; }
@@ -375,6 +397,8 @@ button.dock-row__body { cursor: pointer; }
 
 /* ---------- Character, AI, voice, quiet hours ---------- */
 .character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
+.character-current { margin-bottom: 12px; }
+.character-current__portrait { flex: none; width: 40px; height: 40px; }
 .character-tile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px 8px 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); cursor: pointer; }
 .character-tile:hover { border-color: var(--accent-ring); }
 .character-tile.is-current { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
@@ -383,6 +407,10 @@ button.dock-row__body { cursor: pointer; }
 .character-tile.is-current small { color: var(--accent-strong); }
 .character-tile__portrait { width: 52px; height: 52px; margin-bottom: 4px; font-size: 22px; }
 .character-tile--new .character-tile__portrait { box-sizing: border-box; display: grid; place-items: center; color: var(--accent); background: var(--accent-wash); border: 1.5px dashed var(--accent-ring); border-radius: 50%; font-size: 26px; font-weight: 300; }
+.character-profile__instructions { padding: 12px 0 2px; border-top: 1px solid var(--separator); }
+.character-profile__instructions label { display: block; font-size: 12px; }
+.character-profile__instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.character-profile__instructions textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; padding: 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 
 .ai-settings { padding: 14px 12px; }
 .ai-settings__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
@@ -457,7 +485,7 @@ button.dock-row__body { cursor: pointer; }
 .ai-preview__body summary { padding: 10px 0; cursor: pointer; font-weight: 500; }
 .ai-preview__body pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
 
-/* AI settings: the companion's reply settings lead; details stay close to their purpose. */
+/* AI settings: shared provider and rules stay separate from each character's reply style. */
 .ai-page__intro { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0; }
 .ai-page__intro p { margin: 0; color: var(--label-2); line-height: 1.5; }
 .ai-section { min-width: 0; }
@@ -523,8 +551,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-prompt-part__actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .ai-prompt-part__actions span { margin-right: auto; color: var(--label-2); font-size: 11px; }
 .ai-prompt-full, .ai-log pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
-/* Developer mode: the switch row, then the log in the same group. */
-.ai-developer { margin-top: 10px; }
 .ai-log { padding: 4px 0 12px; border-top: 1px solid var(--separator); }
 .ai-log .ai-preview__head { padding-top: 8px; gap: 8px; }
 .ai-log .ai-preview__head strong { font-weight: 500; }
@@ -758,7 +784,7 @@ button.dock-row__body { cursor: pointer; }
 .layer-editor__text input { width: 140px; }
 .layer-editor__text span { flex-basis: 100%; color: var(--label-2); font-size: 11px; }
 
-/* 关于 → 日志与诊断: the log, newest first, read like Console.app. Errors in red, warnings marked by an orange bar. */
+/* 通用 → 关于 → 日志与诊断: the log, newest first, read like Console.app. Errors in red, warnings marked by an orange bar. */
 .log-viewer__bar { display: flex; align-items: center; gap: 8px; }
 .settings-page .log-viewer__search { flex: 1; min-width: 80px; box-sizing: border-box; height: 22px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-size: 12px; }
 .settings-page .log-viewer__search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }

@@ -47,9 +47,7 @@ fn emit_speech(app: &AppHandle, id: &str, kind: &str, data: &str) {
     );
 }
 
-fn service(app: &AppHandle) -> String {
-    format!("{}.mimo", app.config().identifier)
-}
+const PROVIDER: &str = "mimo";
 
 fn config_quote(value: &str) -> String {
     value
@@ -61,7 +59,7 @@ fn config_quote(value: &str) -> String {
 
 #[tauri::command]
 pub fn mimo_key_status(app: AppHandle) -> Result<bool, String> {
-    crate::secrets::exists(&service(&app))
+    Ok(crate::api_keys::store(&app)?.load(PROVIDER)?.is_some())
 }
 
 #[tauri::command]
@@ -74,7 +72,7 @@ pub fn mimo_save_key(app: AppHandle, key: String) -> Result<(), String> {
     {
         return Err("API Key 格式不对。Key 中间没有空格和引号，请重新复制再粘贴。".into());
     }
-    crate::secrets::save(&service(&app), &key)
+    crate::api_keys::store(&app)?.save(PROVIDER, &key)
 }
 
 /// Stops a running transcription; `mimo_transcribe` then fails with `CANCELLED`.
@@ -85,13 +83,13 @@ pub fn mimo_transcribe_cancel(state: State<'_, Arc<MimoSpeechState>>) -> Result<
 
 #[tauri::command]
 pub fn mimo_clear_key(app: AppHandle) -> Result<(), String> {
-    crate::secrets::clear(&service(&app))
+    crate::api_keys::store(&app)?.clear(PROVIDER)
 }
 
 /// Sends one request and waits for the answer. It is registered in `state`
 /// under `TRANSCRIBE_ID`, so the user can cancel it.
 fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Value, String> {
-    let key = crate::secrets::load(&service(app))?.ok_or("请先在设置 → 语音中配置 MiMo API Key")?;
+    let key = crate::api_keys::store(app)?.load(PROVIDER)?.ok_or("请先在设置 → 语音中配置 MiMo API Key")?;
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",
@@ -253,7 +251,7 @@ fn stream_synthesis(
     body: Value,
 ) -> Result<(), String> {
     let key =
-        crate::secrets::load(&service(&app))?.ok_or("请先在设置 → 语音中配置 MiMo API Key")?;
+        crate::api_keys::store(&app)?.load(PROVIDER)?.ok_or("请先在设置 → 语音中配置 MiMo API Key")?;
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",

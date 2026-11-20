@@ -48,6 +48,9 @@
 .action-library__search input::-webkit-search-cancel-button { display: none; }
 .action-library__search input::placeholder { color: var(--label-3); }
 .action-library__search > button { flex: none; width: 20px; height: 20px; padding: 0; color: var(--label-2); background: var(--fill-strong); border: 0; border-radius: 50%; font-size: 16px; line-height: 1; cursor: pointer; }
+.action-library__role { flex: none; min-width: 0; height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--label-2); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-row); font-size: 11px; }
+.action-library__role select { max-width: 150px; min-width: 78px; padding: 0 14px 0 0; color: var(--label); background: transparent; border: 0; font-size: 12px; cursor: pointer; }
+.action-library__role select:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: 3px; }
 .action-library__create, .action-library__button {
   flex: none;
   min-height: 30px;
@@ -182,7 +185,9 @@
 }
 
 @media (max-width: 560px) {
-  .action-library__toolbar { align-items: stretch; }
+  .action-library__toolbar { align-items: stretch; flex-wrap: wrap; }
+  .action-library__search { flex-basis: 100%; }
+  .action-library__role { flex: 1; justify-content: space-between; }
   .action-library__create { padding: 0 8px; font-size: 11px; }
   .action-guide__content { grid-template-columns: 1fr; }
   .action-preview { padding: 8px; }

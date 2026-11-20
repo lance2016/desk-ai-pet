@@ -59,6 +59,11 @@ const NOTE_EVENT = "pet://note";
 const CHAT_THREAD_EVENT = "pet://chat-thread";
 /** Like `CHAT_THREAD_EVENT`, and the chat window also answers the thread's last, unanswered message. */
 const CHAT_RESUME_EVENT = "pet://chat-resume";
+const MORNING_TEST_EVENT = "pet://morning-greeting-test";
+const MORNING_TEST_RESULT_EVENT = "pet://morning-greeting-test-result";
+const MORNING_TEST_TIMEOUT_MS = 45_000;
+interface MorningTestRequest { requestId: string }
+interface MorningTestResult { requestId: string; error?: string }
 
 /** A point in logical screen pixels (the same unit as `MouseEvent.screenX`). */
 export interface ScreenPoint {
@@ -180,6 +185,31 @@ export const petWindow = {
       const result = await response;
       if (result.error) throw new Error(result.error);
     } finally { clearTimeout(timer); unlisten(); }
+  },
+
+  async testMorningGreeting(): Promise<void> {
+    if (!isTauri()) throw new Error("早安问候测试仅在桌面应用中可用");
+    const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let finish!: (result: MorningTestResult) => void;
+    const response = new Promise<MorningTestResult>((resolve) => { finish = resolve; });
+    const unlisten = await listen<MorningTestResult>(MORNING_TEST_RESULT_EVENT, (event) => {
+      if (event.payload?.requestId === requestId) finish(event.payload);
+    });
+    const timer = setTimeout(() => finish({ requestId, error: "宠物没有响应，请稍后再试。" }), MORNING_TEST_TIMEOUT_MS);
+    try {
+      await emitTo("main", MORNING_TEST_EVENT, { requestId } satisfies MorningTestRequest);
+      const result = await response;
+      if (result.error) throw new Error(result.error);
+    } finally { clearTimeout(timer); unlisten(); }
+  },
+
+  onMorningGreetingTest(handler: (request: MorningTestRequest) => void): () => void {
+    return subscribe<MorningTestRequest>(MORNING_TEST_EVENT, handler);
+  },
+
+  async reportMorningGreetingTest(result: MorningTestResult): Promise<void> {
+    if (!isTauri()) return;
+    await emitTo("settings", MORNING_TEST_RESULT_EVENT, result);
   },
 
   onAppearanceChanged(handler: (request: AppearanceRequest) => void): () => void {

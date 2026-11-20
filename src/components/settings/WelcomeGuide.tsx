@@ -87,7 +87,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
         {keyWorks
           ? <p>DeepSeek API Key 已经配置好，可以直接下一步。</p>
           : <>
-            <p>聊天用的是 DeepSeek，需要你自己的 API Key。它存在钥匙串里，只在聊天时使用。</p>
+            <p>聊天用的是 DeepSeek，需要你自己的 API Key。它在本机加密保存，供模型请求使用。</p>
             <ol className="welcome__howto">
               <li>打开 <button type="button" className="welcome__link" onClick={openKeyPage}>DeepSeek 开放平台 ↗</button>，注册并登录</li>
               <li>充值一点余额（聊天花费很少）</li>

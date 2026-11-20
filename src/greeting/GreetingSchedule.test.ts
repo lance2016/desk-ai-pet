@@ -22,7 +22,7 @@ describe("greeting schedule", () => {
   });
 
   it("greets once per day", () => {
-    const day = greetingDay(at(16, 9), NIGHT);
+    const day = greetingDay(at(16, 9), "08:00");
     const record = { morning: day, evening: null };
     expect(greetingDue(at(16, 12), NIGHT, record)).toBeNull();
     expect(greetingDue(at(16, 22, 40), NIGHT, record)).toBe("evening");
@@ -32,7 +32,13 @@ describe("greeting schedule", () => {
   it("keeps a night that runs past midnight on the same day", () => {
     const late = { enabled: true, start: "01:00", end: "09:00" };
     expect(greetingDue(at(17, 0, 40), late, NONE)).toBe("evening");
-    expect(greetingDay(at(17, 0, 40), late)).toBe(greetingDay(at(16, 10), late));
+    expect(greetingDay(at(17, 0, 40), "09:00")).toBe(greetingDay(at(16, 10), "09:00"));
+  });
+
+  it("uses the independent morning time", () => {
+    expect(greetingDue(at(16, 8, 59), NIGHT, NONE, "09:00")).toBeNull();
+    expect(greetingDue(at(16, 9), NIGHT, NONE, "09:00")).toBe("morning");
+    expect(greetingDue(at(16, 8), NIGHT, NONE, "07:00")).toBe("morning");
   });
 
   it("uses the configured times even when quiet hours are off", () => {

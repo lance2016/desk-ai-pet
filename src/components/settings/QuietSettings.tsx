@@ -34,7 +34,7 @@ export function QuietSettings({ onError, during }: { onError: (message: string |
         <label>从<input type="time" disabled={!hours.enabled} value={hours.start} onChange={(event) => { const start = event.currentTarget.value; if (start) update({ ...value, quietHours: { ...hours, start } }); }} /></label>
         <label>到<input type="time" disabled={!hours.enabled} value={hours.end} onChange={(event) => { const end = event.currentTarget.value; if (end) update({ ...value, quietHours: { ...hours, end } }); }} /></label>
       </div>
-      <p className="quiet-hours__note">{hours.end} 后道早安，{eveningGreetingTime(hours.start)} 道晚安。</p>
+      <p className="quiet-hours__note">早安时间在上方单独设置；{eveningGreetingTime(hours.start)} 道晚安。</p>
       {during?.(hours.enabled)}
     </article>
   );

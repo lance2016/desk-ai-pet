@@ -294,9 +294,9 @@ export function ChatPage({ packId }: { packId: string }) {
   // Coming back with nothing focused, the user wants to type: put the cursor in the composer.
   useEffect(() => {
     const check = () => {
-      // An unreadable keychain is not "ready": say so in the status line, and clear it once the key reads again.
+      // An unreadable credential is not "ready": say so in the status line, and clear it once the key reads again.
       ai.keyStatus()
-        .then((saved) => { setKeyMissing(!saved); setFailure((last) => (last === "keychain" ? null : last)); })
+        .then((saved) => { setKeyMissing(!saved); setFailure((last) => (last === "key-storage" ? null : last)); })
         .catch((reason: unknown) => { setKeyMissing(false); const kind = classifyServiceError(String(reason)); setFailure(kind === "missing-key" ? null : kind); });
       mimoPlatform.keyStatus().then((saved) => setVoiceMissing(!saved)).catch(() => setVoiceMissing(null));
     };

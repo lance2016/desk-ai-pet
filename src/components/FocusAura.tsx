@@ -1,50 +1,67 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
-import { focusProgress } from "../behavior/FocusTimer";
+import { focusBadge, focusProgress } from "../behavior/FocusTimer";
 
-const RING = "/focus/ring.png";
+const LOTUS = "/focus/lotus.png";
 const PLATFORM = "/focus/platform.png";
 /** The progress arc follows the countdown, which changes once a second. */
 const TICK_MS = 1000;
-/** Radius of the circle drawn in ring.png, in the arc's 100-unit view box. */
-const ARC_RADIUS = 49.4;
+/** Keep the stage and its controls in place briefly while the focus glow fades. */
+export const FOCUS_EXIT_MS = 200;
+const ARC_RADIUS = 48;
+const ARC_LENGTH = 2 * Math.PI * ARC_RADIUS;
 
 /**
- * The glow around the pet while a focus round runs: a glass ring whose bright arc
- * grows as the round goes by, and ripples under the pet. Only decoration: it takes no clicks.
+ * The remaining time follows a fine arc behind the pet. The lotus labels the stop control.
  */
-export function FocusAura({ runtime }: { runtime: PetRuntime }) {
+export function FocusAura({ runtime, visible, ref }: { runtime: PetRuntime; visible: boolean; ref?: Ref<HTMLButtonElement> }) {
   const focus = useSyncExternalStore(runtime.focus.subscribe, runtime.focus.get);
   const [now, setNow] = useState(Date.now);
   const focusing = focus.phase === "focusing";
   useEffect(() => {
     if (!focusing) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(timer);
+    const refresh = () => setNow(Date.now());
+    refresh();
+    const timer = setInterval(refresh, TICK_MS);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [focusing]);
-  if (!focusing) return null;
+  if (!visible) return null;
 
-  const progress = focusProgress(focus, now) ?? 0;
-  const angle = progress * 2 * Math.PI;
-  const dot = { x: 50 + ARC_RADIUS * Math.sin(angle), y: 50 - ARC_RADIUS * Math.cos(angle) };
+  const remaining = focusing ? 1 - (focusProgress(focus, now) ?? 0) : 0;
+  const countdown = focusing ? focusBadge(focus, now)?.split(" ")[1] : undefined;
+  const style = {
+    "--focus-exit-duration": `${FOCUS_EXIT_MS}ms`,
+    "--focus-ripple-opacity": String(.52 + .28 * remaining),
+  } as CSSProperties;
   return (
-    <div className="focus-aura" aria-hidden="true">
-      <img className="focus-aura__platform" src={PLATFORM} alt="" />
-      <div className="focus-aura__ring">
-        <img src={RING} alt="" />
-        <svg viewBox="0 0 100 100">
-          <defs>
-            <linearGradient id="focus-arc" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#ffffff" />
-              <stop offset="1" stopColor="#a996ee" />
-            </linearGradient>
-          </defs>
-          {/* Starts at the top and runs clockwise. */}
-          <circle className="focus-aura__arc" cx="50" cy="50" r={ARC_RADIUS} pathLength={1} strokeDasharray={`${progress} 1`} transform="rotate(-90 50 50)" />
-          <circle className="focus-aura__dot" cx={dot.x} cy={dot.y} r="1.4" />
+    <div className={`focus-aura${focusing ? "" : " focus-aura--exiting"}`} style={style}>
+      <div className="focus-aura__halo">
+        <svg className="focus-aura__ring" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <circle className="focus-aura__track" cx="50" cy="50" r={ARC_RADIUS} />
+          <circle className="focus-aura__arc" cx="50" cy="50" r={ARC_RADIUS} strokeDasharray={`${remaining * ARC_LENGTH} ${ARC_LENGTH}`} transform="rotate(-90 50 50)" />
+          <circle className="focus-aura__endpoint" cx="50" cy={50 - ARC_RADIUS} r="1" style={{ transform: `rotate(${remaining * 360}deg)` }} />
         </svg>
+        <button
+          ref={ref}
+          type="button"
+          className="focus-aura__stop"
+          aria-label="结束专注"
+          aria-description={countdown && `剩余 ${countdown}`}
+          disabled={!focusing}
+          onClick={() => runtime.bus.emit("pet.focus_stopped", {})}
+        >
+          <img src={LOTUS} alt="" draggable={false} />
+          <span className="focus-aura__hint" aria-hidden="true">结束专注</span>
+        </button>
+        <span className="focus-aura__countdown" aria-hidden="true">{countdown}</span>
       </div>
+      <img className="focus-aura__ripple" src={PLATFORM} alt="" draggable={false} />
     </div>
   );
 }

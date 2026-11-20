@@ -9,9 +9,9 @@ const TOOL_NAMES: Record<string, string> = { add_reminder: "创建提醒", save_
 const FIELD_NAMES: Record<string, string> = { text: "内容", remind_at: "提醒时间", repeat: "重复方式", action: "动作" };
 /** Where the parts the user cannot rewrite here come from. */
 const SOURCES: Record<string, string> = {
-  persona: "由角色名、性格、回复长度和你的称呼生成，在「回复方式」和角色页里改",
+  persona: "由角色名、性格、回复长度和你的称呼生成，在「角色设定」里改",
   date: "每次发送时按当前时间生成",
-  instructions: "在「补充要求」里改",
+  instructions: "在「角色设定」的「补充要求」里改",
 };
 const isRuleId = (id: string): id is ChatRuleId => (CHAT_RULE_IDS as readonly string[]).includes(id);
 
@@ -50,7 +50,7 @@ function PromptPart({ section, onChanged, onError }: { section: PromptSection; o
 export function ChatRequestDetails({ preview, onChanged, onError }: { preview: ChatPreview; onChanged: () => void; onError: (message: string) => void }) {
   const tools = preview.tools.map((tool) => toolSchema.safeParse(tool));
   return <div className="ai-request-details">
-    <p className="ai-request-details__note">按现在的角色和时间生成。查看清单时在本机展示结果，需要按条件查询或归纳时才会追加请求；打开下面的开发者模式，可以看到每次实际发出的内容。</p>
+    <p className="ai-request-details__note">按现在的角色和时间生成。查看清单时在本机展示结果，需要按条件查询或归纳时才会追加请求；可在「通用」打开开发者模式，查看每次实际发出的内容。</p>
     <div className="ai-prompt-parts">{preview.sections.map((section) => <PromptPart key={section.id} section={section} onChanged={onChanged} onError={onError} />)}</div>
     <details className="ai-disclosure">
       <summary><span><strong>拼好的完整提示词</strong><small>上面各段按顺序连起来，就是 AI 收到的系统提示词</small></span></summary>

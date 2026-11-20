@@ -537,6 +537,7 @@ export class BehaviorEngine {
       const result = controller.request(PEEK_ACTION);
       if (result.accepted && result.actionId === PEEK_ACTION) this.setDock(dockSide);
     }
+    this.settle(now);
     this.scheduleIdleAction(now);
   }
 

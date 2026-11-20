@@ -17,8 +17,9 @@ import { AISettings } from "./AISettings";
 import { ChatSettings } from "./ChatSettings";
 import { FactSettings } from "./FactSettings";
 import { ChatRequestLog } from "./ChatRequestLog";
-import { loadDeveloperMode } from "../../preferences/DeveloperMode";
+import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
 import { CharacterSettings } from "./CharacterSettings";
+import { CharacterProfileSettings } from "./CharacterProfileSettings";
 import { VoiceSettings } from "./VoiceSettings";
 import { MailSettings } from "./MailSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
@@ -32,6 +33,7 @@ import { WhatsNewSheet } from "./WhatsNewSheet";
 import { CURRENT_VERSION, markWhatsNewSeen, notesFor, shouldShowWhatsNew } from "../../update/WhatsNew";
 import { LaunchAtLoginRow } from "./LaunchAtLoginRow";
 import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
+import { saveActiveCharacter } from "../../preferences/CharacterPreferences";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
@@ -49,13 +51,13 @@ const SCALES = [
 /** Looking for a search result's title on a page that is still loading: every 100 ms, for 1.5 s. */
 const FIND_INTERVAL_MS = 100;
 const FIND_TRIES = 15;
-const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
 /** Pages whose settings belong to the current character; their title names it. */
-const PER_CHARACTER: readonly SettingsSection[] = ["dock", "actions"];
+const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "actions"];
 
 function SettingsGlyph({ name }: { name: SettingsSection }) {
   const paths: Record<SettingsSection, ReactNode> = {
     character: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>,
+    characterProfile: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6M18 4h3M19.5 2.5v3" /></>,
     general: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2A1.7 1.7 0 0 0 17 3.4l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" /></>,
     companion: <><path d="M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1Z" /></>,
     dock: <><rect x="3" y="14" width="18" height="6" rx="2" /><path d="M7 17h.01M12 17h.01M17 17h.01M8 4h8v6H8z" /></>,
@@ -71,7 +73,7 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     diagnostics: <><path d="M4 5h16M4 10h16M4 15h10M4 20h7" /></>,
     developer: <><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14" /></>,
   };
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 
@@ -81,7 +83,7 @@ const STORED: readonly [string, string][] = [
   ["所有角色共用", "提醒、备忘、宠物大小、勿扰和其他设置"],
   ["聊天记录", `每个角色最多留 ${CHAT_LIMITS.threads} 段，更早的自动删掉`],
   ["请求记录", "每次请求 AI 的用时和用量留 90 天，不含内容；开发者模式另存最近 100 次的完整内容。都不进备份"],
-  ["API Key 和邮箱授权码", "存在钥匙串里"],
+  ["API Key 和邮箱授权码", "API Key 在本机加密保存，邮箱授权码存在钥匙串里"],
 ];
 const ONLINE: readonly [string, string, string][] = [
   ["DeepSeek · 聊天", `最近 ${CHAT_LIMITS.context} 条消息、你的称呼、角色设定和补充要求`, "聊天时"],
@@ -220,10 +222,27 @@ export function SettingsPage({ packId }: { packId: string }) {
     }
   };
 
+  const switchCharacter = (id: string) => {
+    if (id === packId) return;
+    try { saveActiveCharacter(id); setError(null); }
+    catch (reason) { console.error("Could not switch characters", reason); setError("没能切换角色，请再试一次。"); }
+  };
+
   const updateLinger = (value: DisplayPreferences["controlsLingerMs"]) => {
-    // Read again: the AI page saves the chat button into the same preferences.
+    // Read again to preserve display preferences changed in another settings page.
     const next: DisplayPreferences = { ...loadDisplayPreferences(), controlsLingerMs: value };
     try { saveDisplayPreferences(next); setDisplay(next); setError(null); } catch (reason) { console.error("Could not save the display setting", reason); setError("设置没能保存，请再试一次。"); }
+  };
+
+  const updateDeveloper = (enabled: boolean) => {
+    try {
+      saveDeveloperMode(enabled);
+      setDeveloper(enabled);
+      setError(null);
+    } catch (reason) {
+      console.error("Could not save developer mode", reason);
+      setError("设置没能保存，请再试一次。");
+    }
   };
 
   const name = current ? characterName(packId, current.name) : "";
@@ -231,6 +250,8 @@ export function SettingsPage({ packId }: { packId: string }) {
   const title = PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
   /** A page opened from inside another: that one stays lit in the sidebar, and the title leads back to it. */
   const parent = SUB_PAGES[section];
+  /** Nested pages keep the top-level category selected (e.g. logs stay under General → About). */
+  const activeSection = parent ? SUB_PAGES[parent] ?? parent : section;
   const navGroups = developer ? [...NAV_GROUPS, DEVELOPER_GROUP] : NAV_GROUPS;
   /** The action editor has unsaved changes: the first click on another page only warns. */
   const [leaving, setLeaving] = useState<SettingsSection | null>(null);
@@ -250,10 +271,10 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
-    ...[...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "" })),
+    ...[...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "", ...(id === "tools" ? { keywords: "小工具 邮箱 邮件 验证码" } : {}) })),
     ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
     ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
-  ], []);
+  ], [developer]);
   /** The title a search result points at; the page scrolls to it and flashes it. */
   const [found, setFound] = useState<{ title: string; at: number } | null>(null);
   const openResult = (entry: SearchResult) => {
@@ -289,7 +310,7 @@ export function SettingsPage({ packId }: { packId: string }) {
               <div key={groupTitle || "developer"} className="settings-nav-group">
                 {groupTitle && <h2 className="settings-nav-group__title">{groupTitle}</h2>}
                 {items.map(({ id, label }) => (
-                  <button key={id} type="button" aria-current={section === id ? "page" : undefined} className={section === id || parent === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
+                  <button key={id} type="button" aria-current={activeSection === id ? "page" : undefined} className={activeSection === id ? "settings-nav is-active" : "settings-nav"} onClick={() => go(id)}>
                     <span className={`settings-nav__icon settings-nav__icon--${id}`}><SettingsGlyph name={id} /></span>
                     <span>{label}</span>
                   </button>
@@ -315,7 +336,14 @@ export function SettingsPage({ packId }: { packId: string }) {
             <div className="settings-group">
               <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，脚下的按钮多久变淡</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
+            </div>
+            <h2 className="settings-group-title">开发者</h2>
+            <div className="settings-group">
+              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>在本机保留最近 100 次实际发给 AI 的内容和回复；开启后可查看请求记录</span></div>{developer && <button type="button" className="settings-button settings-button--small" onClick={() => void go("developer")}>请求记录</button>}<button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
+            </div>
+            <h2 className="settings-group-title">关于</h2>
+            <div className="settings-group">
+              <div className="settings-row"><div className="settings-row__body"><strong>关于本应用</strong><span>版本信息、更新和问题诊断</span></div><button type="button" className="settings-button settings-button--small" onClick={() => void go("about")}>打开</button></div>
             </div>
           </div>
         )}
@@ -328,15 +356,16 @@ export function SettingsPage({ packId }: { packId: string }) {
           </div>
         )}
 
-        {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
+        {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} controlsLingerMs={display.controlsLingerMs} onControlsLingerChange={updateLinger} onError={setError} />}
 
         {section === "companion" && <CompanionSettings name={name || "宠物"} onError={setError} />}
 
-        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
+        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} catalog={catalog} onSwitchCharacter={switchCharacter} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
-        {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} persona={persona} actions={packActions} onCatalogChange={reloadCatalog} />}
+        {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} />}
+        {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} />}
         {section === "chat" && <ChatSettings onError={setError} />}
-        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} name={name || undefined} actions={packActions.filter(canShortcut).map((action) => action.id)} onOpen={(id) => void go(id)} onDeveloperChange={setDeveloper} />}
+        {section === "ai" && packInfo && <AISettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} onOpen={(id) => void go(id)} />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
         {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
         {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}

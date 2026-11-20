@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { addFact, editFact, FACT_LIMITS, loadFactLearning, loadFacts, removeFact, restoreFact, saveFactLearning, watchFacts, type Fact } from "../../facts/FactStore";
 import { noteTime } from "../../notes/NoteStore";
 import { changeFacts } from "../../worklog/store";
+import { loadUserProfile, saveUserProfile, USER_PROFILE_LIMITS } from "../../preferences/UserProfile";
 import { ConfirmButton } from "../ConfirmButton";
 import { isComposing } from "../keyboard";
 
@@ -20,6 +21,8 @@ export function FactSettings({ who }: { who: string }) {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [removed, setRemoved] = useState<Fact | null>(null);
   const [status, setStatus] = useState("");
+  const [nickname, setNickname] = useState(() => loadUserProfile().nickname);
+  const [profileStatus, setProfileStatus] = useState("");
   const full = facts.length >= FACT_LIMITS.items;
 
   useEffect(() => watchFacts(() => setFacts(loadFacts())), []);
@@ -58,9 +61,18 @@ export function FactSettings({ who }: { who: string }) {
     try { saveFactLearning(!learning); setLearning(!learning); }
     catch (reason) { console.error("Could not save the fact learning setting", reason); setStatus("设置没能保存，请再试一次。"); }
   };
+  const saveNickname = () => {
+    try { saveUserProfile({ nickname }); setNickname(nickname.trim()); setProfileStatus(""); }
+    catch (reason) {
+      console.error("Could not save the nickname", reason);
+      setProfileStatus(nickname.trim().length > USER_PROFILE_LIMITS.nickname ? `称呼最多 ${USER_PROFILE_LIMITS.nickname} 个字。` : "称呼没能保存，请再试一次。");
+    }
+  };
   const now = Date.now();
 
   return <div className="settings-section">
+    <div className="settings-section__intro"><h2>关于你</h2><p>称呼和记忆都会提供给所有角色</p></div>
+    <article className="settings-card ai-settings"><label className="ai-preference">你的称呼<input value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} placeholder="例如：阿龙" onChange={(event) => setNickname(event.currentTarget.value)} onBlur={saveNickname} /></label>{profileStatus && <p className="ai-settings__status" role="status">{profileStatus}</p>}</article>
     <p className="settings-page-intro">{who}记得的关于你的事，每次聊天都会带上，所有角色共用。</p>
     <div className="settings-group">
       <div className="settings-row">

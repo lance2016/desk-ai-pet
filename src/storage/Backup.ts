@@ -7,7 +7,7 @@ import { EMPTY_WORK_LOG, workLogSchema, type WorkLogData } from "../worklog/Work
 /**
  * One file with everything the app keeps on this computer: every
  * `ai-pet:` key in localStorage, the pictures in IndexedDB and, from version 2,
- * the work log in SQLite. API keys live in the macOS keychain and are not part of it.
+ * the work log in SQLite. API keys live in separate native storage and are not part of it.
  */
 const FORMAT = "ai-pet-backup";
 const VERSION = 2;

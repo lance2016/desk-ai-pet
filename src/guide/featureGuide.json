@@ -2,7 +2,7 @@
   {
     "title": "和它互动",
     "features": [
-      { "icon": "chat", "color": "blue", "title": "点一下就能聊天", "detail": "点宠物头旁边的聊天按钮，回复显示在它头顶。说「敲个木鱼」时，它会边回复边做动作。按钮可以放在头的左侧或右侧，或者关掉，关掉后点宠物就是聊天。", "how": ["点聊天按钮", "⇧⌘ Space"], "section": "chat" },
+      { "icon": "chat", "color": "blue", "title": "点一下就能聊天", "detail": "在「设置 › AI 对话」填写 API Key，本机加密保存。点宠物头旁边的聊天按钮，回复显示在它头顶。说「敲个木鱼」时，它会边回复边做动作。按钮可以放在头的左侧或右侧，或者关掉，关掉后点宠物就是聊天。", "how": ["点聊天按钮", "⇧⌘ Space"], "section": "chat" },
       { "icon": "hand", "color": "pink", "title": "摸摸头", "detail": "按住不动半秒；连着摸三次它会害羞。", "how": ["按住宠物 0.5 秒", "右键宠物 › 摸摸头"] },
       { "icon": "move", "color": "teal", "title": "拖走或躲到边上", "detail": "拖到屏幕左右边缘松手，它会躲在边上探头，点一下出来。", "how": ["按住拖动"] },
       { "icon": "sparkle", "color": "purple", "title": "快捷按钮", "detail": "宠物脚下的一排按钮：提醒、备忘、专注，你加的动作收在「互动」里。平时半透明，鼠标移上去就清楚了。", "how": ["看宠物脚下"], "section": "dock" },
@@ -21,7 +21,7 @@
       { "icon": "search", "color": "blue", "title": "联网搜索", "detail": "查近期新闻或资料，回答下方可以展开来源。只搜索当前这条问题。", "how": ["完整聊天 › 联网", "输入问题并发送"], "section": "ai" },
       { "icon": "chat", "color": "purple", "title": "发送图片", "detail": "让宠物帮你看截图或图表。点击发送才会把图片交给 DeepSeek。", "how": ["完整聊天 › 添加图片", "也可以粘贴或拖到输入框"], "section": "ai" },
       { "icon": "list", "color": "pink", "title": "今日回顾", "detail": "按今天完成的提醒、专注和备忘写成几条日报，复制就能贴。宠物会记下每天做过的事，删掉的提醒也算数。", "how": ["右键宠物 › 今日回顾", "说「帮我写今天的日报」"] },
-      { "icon": "timer", "color": "red", "title": "专注", "detail": "专注 25 分钟再休息 5 分钟。专注时宠物身边有一圈光环，跟着倒计时慢慢走满，脚下显示剩余时间，到点叫你起来活动。", "how": ["快捷按钮「专注」", "右键宠物 › 开始专注"] },
+      { "icon": "timer", "color": "red", "title": "专注", "detail": "专注 25 分钟再休息 5 分钟。专注时快捷按钮、聊天入口、状态标签和提示气泡收起，宠物身边的光环随剩余时间慢慢收短；顶部显示剩余时间，点击莲花直接结束。到点提醒会在专注后显示。", "how": ["快捷按钮「专注」", "右键宠物 › 开始专注"] },
       { "icon": "text", "color": "purple", "title": "划词翻译、解释、总结、润色", "detail": "在任何应用里选中文字，点浮钮里的按钮就出结果。", "how": ["选中文字", "⌃⌥⌘ T"], "section": "tools" },
       { "icon": "mail", "color": "green", "title": "查收验证码", "detail": "从 163 邮箱找到最新的验证码，自动复制。", "how": ["右键宠物 › 查收验证码"], "section": "tools" },
       { "icon": "mic", "color": "red", "title": "语音输入", "detail": "在聊天窗口按麦克风说话，识别好由你确认后再发送。", "how": ["聊天窗口 › 麦克风"], "section": "voice" }
@@ -30,7 +30,7 @@
   {
     "title": "陪着你",
     "features": [
-      { "icon": "sun", "color": "orange", "title": "早安和晚安", "detail": "每天第一次见面打招呼，睡前半小时道晚安。早安会接上昨天做了什么；有没做完的提醒，气泡里点「挪到今天」就排到今天同一时间。" },
+      { "icon": "sun", "color": "orange", "title": "早安和晚安", "detail": "早安问候可以单独开关和设置时间，也能在设置里点「立即验证」预览；每天在设定时间后的 4 小时内，等你开始使用电脑时问候一次。睡前半小时道晚安。早安会接上昨天做了什么；有没做完的提醒，气泡里点「挪到今天」就排到今天同一时间。", "how": ["设置 › 陪伴与勿扰 › 早安问候"] },
       { "icon": "heart", "color": "green", "title": "关心你", "detail": "深夜还在用电脑、连续用太久、离开后回来，它会说一句。", "section": "companion" },
       { "icon": "moon", "color": "indigo", "title": "勿扰", "detail": "勿扰时它不主动说话，到点的提醒收成脚下的小标签。", "how": ["右键宠物 › 勿扰"], "section": "companion" }
     ]
@@ -39,10 +39,10 @@
     "title": "变成你的样子",
     "features": [
       { "icon": "user", "color": "purple", "title": "换角色、建角色", "detail": "切换内置角色，或新建一个自己的，改名字和性格。", "section": "character" },
-      { "icon": "text", "color": "indigo", "title": "改对话规则", "detail": "发给 AI 的规则分段列出，记提醒、查东西、做动作这几段可以自己改写；打开开发者模式还能看每次实际发出的内容和 AI 的原始回复。", "how": ["设置 › AI 对话 › 对话规则"], "section": "ai" },
+      { "icon": "text", "color": "indigo", "title": "改对话规则", "detail": "所有角色共用的 AI 规则分段列出，记提醒、查东西、做动作这几段可以自己改写；每只角色的性格和补充要求在「角色设定」里改。开发者模式还能查看实际发出的内容和 AI 的原始回复。", "how": ["设置 › AI 对话 › 对话规则"], "section": "ai" },
       { "icon": "paw", "color": "orange", "title": "换动作图、做新动作", "detail": "换上自己画的动作图，或新建动作放进快捷按钮。", "section": "actions" },
       { "icon": "archive", "color": "gray", "title": "备份", "detail": "提醒、备忘、工作日志、聊天记录和设置导出成一个文件，换电脑时恢复。", "section": "privacy" },
-      { "icon": "search", "color": "gray", "title": "查看日志", "detail": "出了问题可以看应用自己记的日志，按级别筛、搜索、复制，也能清理；导出诊断信息发给帮你排查的人。日志不含聊天内容和 API Key。", "how": ["设置 › 关于 › 日志与诊断"], "section": "diagnostics" }
+      { "icon": "search", "color": "gray", "title": "查看日志", "detail": "出了问题可以看应用自己记的日志，按级别筛、搜索、复制，也能清理；导出诊断信息发给帮你排查的人。日志不含聊天内容和 API Key。", "how": ["设置 › 通用 › 关于 › 日志与诊断"], "section": "diagnostics" }
     ]
   }
 ]

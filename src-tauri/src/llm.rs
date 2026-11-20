@@ -1,4 +1,4 @@
-//! The model channel. It keeps the API keys in the keychain, sends requests only to the
+//! The model channel. It keeps the API keys in encrypted local storage, sends requests only to the
 //! providers' fixed addresses, and passes the replies back. What to send and how to read
 //! the reply is decided in `src/ai/`.
 
@@ -34,8 +34,6 @@ const WRITE_OUT_STATUS: &str = "write-out = \"\\n__ai_pet_http_status__%{http_co
 struct Provider {
     id: &'static str,
     endpoint: &'static str,
-    /// Last part of the keychain service name. Changing it loses the keys users saved.
-    keychain: &'static str,
     /// Shown when a pasted key does not look like this provider's.
     bad_key: &'static str,
 }
@@ -43,16 +41,11 @@ struct Provider {
 const PROVIDERS: [Provider; 1] = [Provider {
     id: "deepseek",
     endpoint: "https://api.deepseek.com/chat/completions",
-    keychain: "deepseek",
     bad_key: "API Key 格式不对。DeepSeek 的 Key 一般以 sk- 开头，中间没有空格和引号，请重新复制再粘贴。",
 }];
 
 fn provider(id: &str) -> Result<&'static Provider, String> {
     PROVIDERS.iter().find(|provider| provider.id == id).ok_or_else(|| "Unknown model provider".to_string())
-}
-
-fn service(app: &AppHandle, provider: &Provider) -> String {
-    format!("{}.{}", app.config().identifier, provider.keychain)
 }
 
 struct Running {
@@ -90,7 +83,7 @@ impl LlmState {
 
 #[tauri::command]
 pub fn llm_key_status(app: AppHandle, provider: String) -> Result<bool, String> {
-    crate::secrets::exists(&service(&app, self::provider(&provider)?))
+    Ok(crate::api_keys::store(&app)?.load(self::provider(&provider)?.id)?.is_some())
 }
 
 #[tauri::command]
@@ -100,12 +93,12 @@ pub fn llm_save_key(app: AppHandle, provider: String, key: String) -> Result<(),
     if value.len() < 8 || value.len() > 256 || !value.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_') {
         return Err(provider.bad_key.into());
     }
-    crate::secrets::save(&service(&app, provider), &value)
+    crate::api_keys::store(&app)?.save(provider.id, &value)
 }
 
 #[tauri::command]
 pub fn llm_clear_key(app: AppHandle, provider: String) -> Result<(), String> {
-    crate::secrets::clear(&service(&app, self::provider(&provider)?))
+    crate::api_keys::store(&app)?.clear(self::provider(&provider)?.id)
 }
 
 fn check_request_id(id: &str) -> Result<(), String> {
@@ -127,9 +120,9 @@ fn request_body(body: &Value) -> Result<String, String> {
     Ok(text)
 }
 
-/// The key in the keychain, or the message the webview reads as "not configured".
+/// The key in encrypted local storage, or the message the webview reads as "not configured".
 fn load_key(app: &AppHandle, provider: &Provider) -> Result<String, String> {
-    crate::secrets::load(&service(app, provider))?.ok_or_else(|| "API key is not configured".to_string())
+    crate::api_keys::store(app)?.load(provider.id)?.ok_or_else(|| "API key is not configured".to_string())
 }
 
 fn config_quote(value: &str) -> String {

@@ -26,7 +26,7 @@ const FAILURES: Record<ChatFailure, ChatStatus> = {
   busy: { label: "服务繁忙", tone: "warning" },
   rejected: { label: "发送失败", tone: "error" },
   running: { label: "稍等", tone: "warning" },
-  keychain: { label: "钥匙串未授权", tone: "warning" },
+  "key-storage": { label: "本机配置不可用", tone: "warning" },
   other: { label: "出错了", tone: "error" },
   voice: { label: "识别失败", tone: "error" },
 };

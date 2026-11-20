@@ -34,21 +34,25 @@ function minuteOfDay(now: number): number {
  * The day a greeting belongs to. A day starts when quiet hours end, so a night
  * that runs past midnight still belongs to the evening before.
  */
-export function greetingDay(now: number, hours: QuietHours): string {
-  return dateKey(now - minutesOf(hours.end) * 60_000);
+export function greetingDay(now: number, morningTime: string): string {
+  return dateKey(now - minutesOf(morningTime) * 60_000);
 }
 
 /**
  * Which greeting is due at `now`, if any. Good morning: in the few hours after
- * quiet hours end. Good night: in the half hour before quiet hours.
- * The configured times are used even when quiet hours are switched off.
+ * its configured time, or after quiet hours end if they cover that time. Good
+ * night: in the half hour before quiet hours. Configured times still apply when
+ * the quiet-hours switch is off.
  */
-export function greetingDue(now: number, hours: QuietHours, record: GreetingRecord): GreetingKind | null {
+export function greetingDue(now: number, hours: QuietHours, record: GreetingRecord, morningTime = hours.end): GreetingKind | null {
   const minute = minuteOfDay(now);
-  const morning = minutesOf(hours.end);
+  const scheduledMorning = minutesOf(morningTime);
+  const morning = hours.enabled && within(scheduledMorning, minutesOf(hours.start), minutesOf(hours.end))
+    ? minutesOf(hours.end)
+    : scheduledMorning;
   const night = minutesOf(hours.start);
   const evening = wrap(night - EVENING_LEAD_MINUTES);
-  const day = greetingDay(now, hours);
+  const day = greetingDay(now, morningTime);
   if (within(minute, evening, night)) return record.evening === day ? null : "evening";
   const morningEnds = within(wrap(morning + MORNING_WINDOW_MINUTES), morning, evening) ? wrap(morning + MORNING_WINDOW_MINUTES) : evening;
   if (within(minute, morning, morningEnds)) return record.morning === day ? null : "morning";

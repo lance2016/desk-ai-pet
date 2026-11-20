@@ -21,10 +21,10 @@ describe("classifyServiceError", () => {
     expect(classifyServiceError("Error: Failed to start the network request")).toBe("network");
   });
 
-  it("recognises a busy service, a refused message, a refused keychain and a reply still running", () => {
+  it("recognises a busy service, a refused message, an unreadable credential and a reply still running", () => {
     expect(classifyServiceError("DeepSeek 服务繁忙，稍后再试。")).toBe("busy");
     expect(classifyServiceError("这条消息发不出去，换个说法或新开一段聊天。")).toBe("rejected");
-    expect(classifyServiceError("没有钥匙串访问权限，请在系统弹窗里点「允许」后再试。")).toBe("keychain");
+    expect(classifyServiceError("本机 API Key 配置已损坏，请在设置里重新保存。")).toBe("key-storage");
     expect(classifyServiceError("上一条还在回复，稍等一下。")).toBe("running");
   });
 

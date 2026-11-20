@@ -3,7 +3,10 @@
  * tools and tool loop (`src/ai/`, `src/skills/`), with the tools working on an
  * in-memory store instead of the user's data. Used by `pnpm eval` only.
  */
-import { execFileSync } from "node:child_process";
+import { createDecipheriv } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { vi } from "vitest";
 import { chatContext } from "../src/agenda/chatTools";
 import { addAgendaItem, loadAgenda, updateAgenda, type AgendaItem } from "../src/agenda/AgendaStore";
@@ -21,9 +24,6 @@ import { createMemoryStorage } from "../src/testing/fixtures";
 
 /** Must match `PROVIDERS` in `src-tauri/src/llm.rs`. */
 const ENDPOINT = "https://api.deepseek.com/chat/completions";
-/** `<identifier>.<keychain>` and the account in `src-tauri/src/secrets.rs`. */
-const KEYCHAIN_SERVICE = "com.aipet.desktop.deepseek";
-const KEYCHAIN_ACCOUNT = "api-key";
 /** As in `src/ai/chatRun.ts`. */
 const MAX_ROUNDS = 4;
 
@@ -45,13 +45,24 @@ export interface ChatRun {
 
 let cachedKey: string | null = null;
 
-/** `DEEPSEEK_API_KEY`, or the key the app saved; macOS asks once before handing it out. */
+/** Reads the same v1 credential as the desktop app without invoking Keychain. */
 export function apiKey(): string {
   if (cachedKey) return cachedKey;
-  const fromEnv = process.env.DEEPSEEK_API_KEY?.trim();
-  cachedKey = fromEnv || execFileSync("security", ["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT, "-w"], { encoding: "utf8" }).trim();
-  if (!cachedKey) throw new Error("No DeepSeek key: set DEEPSEEK_API_KEY or save one in the app");
-  return cachedKey;
+  const override = process.env.DEEPSEEK_API_KEY?.trim();
+  if (override) return cachedKey = override;
+  const dir = join(homedir(), "Library/Application Support/com.aipet.desktop/credentials-v1");
+  const nonceBytes = 12;
+  const tagBytes = 16;
+  try {
+    const data = readFileSync(join(dir, "deepseek"));
+    const decipher = createDecipheriv("aes-256-gcm", readFileSync(join(dir, "master.v1")), data.subarray(0, nonceBytes));
+    decipher.setAAD(Buffer.from("deepseek"));
+    decipher.setAuthTag(data.subarray(-tagBytes));
+    cachedKey = Buffer.concat([decipher.update(data.subarray(nonceBytes, -tagBytes)), decipher.final()]).toString("utf8");
+    return cachedKey;
+  } catch {
+    throw new Error("Could not read local DeepSeek key: set DEEPSEEK_API_KEY or save it in the app");
+  }
 }
 
 /** The actions a character offers the model: every standard one the pet may be asked for. */

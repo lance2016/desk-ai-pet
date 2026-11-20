@@ -2,18 +2,40 @@ import { useState } from "react";
 import { QuietSettings } from "./QuietSettings";
 import { HolidaySettings } from "./HolidaySettings";
 import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPreferences } from "../../preferences/CompanionPreferences";
+import { petWindow } from "../../platform/petWindow";
 
 export function CompanionSettings({ name, onError }: { name: string; onError: (message: string | null) => void }) {
   const [value, setValue] = useState(loadCompanionPreferences);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testStatus, setTestStatus] = useState("");
   const update = (next: CompanionPreferences) => {
     try { saveCompanionPreferences(next); setValue(next); onError(null); }
     catch (error) { console.error("Could not save companion settings", error); onError("设置没能保存，请再试一次。"); }
   };
-  const toggle = (key: "night" | "rest" | "welcomeBack" | "nightDuringQuiet", title: string, description: string, disabled = false) => <div className="settings-row">
+  const toggle = (key: "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet", title: string, description: string, disabled = false) => <div className="settings-row">
     <div className="settings-row__body"><strong>{title}</strong><span>{description}</span></div>
     <button type="button" role="switch" aria-label={title} aria-checked={value[key]} disabled={disabled} className={value[key] ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, [key]: !value[key] })}><span /></button>
   </div>;
+  const testMorningGreeting = async () => {
+    setTestBusy(true);
+    setTestStatus("正在准备早安问候…");
+    try {
+      await petWindow.testMorningGreeting();
+      setTestStatus("测试问候已显示在宠物气泡里。");
+    } catch (error) {
+      console.error("Could not test the morning greeting", error);
+      setTestStatus(error instanceof Error ? error.message : "早安问候没能显示，请再试一次。");
+    } finally { setTestBusy(false); }
+  };
   return <div className="settings-section">
+    <div className="settings-section__intro"><h2>早安问候</h2><p>单独设置每天的早安时间，也可以随时预览</p></div>
+    <div className="settings-group">
+      {toggle("morningGreeting", "每天说早安", "设定时间后的 4 小时内，你开始使用电脑时问候一次")}
+      <div className="settings-row"><div className="settings-row__body"><strong>早安时间</strong><span>今天从 {value.morningTime} 开始等你；定时勿扰开启时会延后</span></div><input type="time" aria-label="早安时间" value={value.morningTime} disabled={!value.morningGreeting} onChange={(event) => { if (event.currentTarget.value) update({ ...value, morningTime: event.currentTarget.value }); }} /></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>问候预览</strong><span>现在生成并显示一次，不占用今天的早安次数</span></div><button type="button" className="settings-button settings-button--small" disabled={testBusy} onClick={() => void testMorningGreeting()}>{testBusy ? "正在验证…" : "立即验证"}</button></div>
+      {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
+    </div>
+    <p className="settings-footnote">生成问候会请求一次 DeepSeek，可能产生少量费用；不可用时会显示本地问候。</p>
     <div className="settings-section__intro"><h2>关心</h2><p>{name}会在合适的时候关心你，勿扰时不出声</p></div>
     <div className="settings-group">
       {toggle("night", "深夜关心", "过了这个时间还在用电脑，提醒你早点休息")}

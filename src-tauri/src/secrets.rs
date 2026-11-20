@@ -101,33 +101,6 @@ mod keychain {
             }
         }
     }
-    pub fn exists(service: &str) -> Result<bool, String> {
-        let mut item = ptr::null_mut();
-        let status = unsafe {
-            SecKeychainFindGenericPassword(
-                ptr::null(),
-                service.len() as u32,
-                service.as_ptr().cast(),
-                ACCOUNT.len() as u32,
-                ACCOUNT.as_ptr().cast(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                &mut item,
-            )
-        };
-        if status == NOT_FOUND {
-            return Ok(false);
-        }
-        if status != 0 {
-            return Err(keychain_error("lookup", status));
-        }
-        if !item.is_null() {
-            unsafe {
-                CFRelease(item.cast());
-            }
-        }
-        Ok(true)
-    }
     pub fn save(service: &str, value: &str) -> Result<(), String> {
         let status = unsafe {
             SecKeychainAddGenericPassword(
@@ -184,11 +157,7 @@ mod keychain {
 }
 
 #[cfg(target_os = "macos")]
-pub use keychain::{clear, exists, load, save};
-#[cfg(not(target_os = "macos"))]
-pub fn exists(_: &str) -> Result<bool, String> {
-    Err("Secure storage is currently available on macOS only".into())
-}
+pub use keychain::{clear, load, save};
 #[cfg(not(target_os = "macos"))]
 pub fn load(_: &str) -> Result<Option<String>, String> {
     Err("Secure storage is currently available on macOS only".into())

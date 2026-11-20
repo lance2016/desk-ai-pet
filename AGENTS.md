@@ -36,7 +36,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 8. **状态不可变。** `PetState` 的快照每次更新都生成新对象。
 9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；提醒、备忘是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮。聊天不进快捷按钮，用宠物旁边的聊天按钮（`ChatLauncher`）。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
-11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。原生的 `llm.rs` 只管钥匙串、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
+11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。原生的 `llm.rs` 只管本机加密 API Key、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 
 ## 界面用词
 
@@ -83,10 +83,10 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 设置窗口路由 | `src-tauri/tauri.conf.json` 的 `settings` 窗口 URL | `src/main.tsx` 的 `window=settings` 路由 |
 | 模型通道的命令名和事件名 | `src/platform/llm.ts`（`llm_*` 命令、`STREAM_EVENT`） | `src-tauri/src/llm.rs`、`request_log.rs`（`llm_log_*`、`llm_stats_add`）、`lib.rs` 的 `invoke_handler` 和 `.manage` |
 | 请求记录的字段 | `recordStat`、`roundSchema`（`src/ai/requestLog.ts`） | `RequestStat`（`src-tauri/src/request_log.rs`）、`database.rs` 第 2 个迁移的表 |
-| 模型供应商 ID | `DEEPSEEK.id`（`src/ai/provider.ts`） | `PROVIDERS`（`src-tauri/src/llm.rs`，同时定地址和钥匙串服务名；改服务名会丢掉用户存的 Key） |
+| 模型供应商 ID | `DEEPSEEK.id`（`src/ai/provider.ts`） | `PROVIDERS`（`src-tauri/src/llm.rs`，供应商 ID 同时用于本机 API Key 文件名和加密关联数据） |
 | 重复提醒的规则格式（`workdays`、`daily`、`1,3,5`，7 是周日） | `parseRepeat`（`src/agenda/Repeat.ts`） | `src/skills/memory.ts` 里 `add_reminder`、`update_reminder` 的 `repeat` 参数说明 |
 | 开机启动、备份和重启命令，登录项状态值 | `src/platform/system.ts` | `src-tauri/src/system.rs`、`lib.rs` 的 `invoke_handler` |
-| 回归集用的接口地址、钥匙串名、工具轮数 | `ENDPOINT`、`KEYCHAIN_SERVICE`、`MAX_ROUNDS`（`evals/runChat.ts`） | `PROVIDERS`（`llm.rs`）、`tauri.conf.json` 的 `identifier`、`secrets.rs` 的 `ACCOUNT`、`MAX_ROUNDS`（`src/ai/chatRun.ts`） |
+| 回归集用的接口地址、本机 API Key 格式、工具轮数 | `ENDPOINT`、`apiKey`、`MAX_ROUNDS`（`evals/runChat.ts`） | `PROVIDERS`（`llm.rs`）、`tauri.conf.json` 的 `identifier`、`api_keys.rs` 的加密格式、`MAX_ROUNDS`（`src/ai/chatRun.ts`） |
 | 记忆编号的写法（`m1`、`m2`…） | `REF_PREFIX`（`src/facts/FactStore.ts`） | `src/skills/remember.ts` 里 `replaces`、`ref` 参数说明的例子 |
 | 用户动作 ID 带连字符，不能被 AI 选用 | `ID_PATTERN`（`src/actions/UserActions.ts`） | `ACTION_ID`（`src/ai/skill.ts`）不允许连字符 |
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
@@ -102,7 +102,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |
 | 快速聊天快捷键规则（必须含 ⌃ 或 ⌘、按键名） | `recordShortcut`、`KEY_CODE`（`src/preferences/QuickChatPreferences.ts`） | `parse_shortcut`（`src-tauri/src/quick_chat.rs`） |
-| 服务报错的措辞 | `failureMessage`（`src/ai/provider.ts`）、`src-tauri/src/llm.rs`、`mimo.rs`、`secrets.rs` 的 `keychain_error` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、模型名、钥匙串、余额不足、过于频繁、服务繁忙、发不出去、还在回复、网络/中断 |
+| 服务报错的措辞 | `failureMessage`（`src/ai/provider.ts`）、`src-tauri/src/llm.rs`、`mimo.rs`、`api_keys.rs` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、模型名、本机 API Key、余额不足、过于频繁、服务繁忙、发不出去、还在回复、网络/中断 |
 | MiMo 音色列表 | `MIMO_VOICES`（`src/types.ts`） | `mimo_synthesize` 里的音色名单（`mimo.rs`） |
 | 快捷键禁用名单 | `RESERVED_SHORTCUTS`（`QuickChatPreferences.ts`） | `RESERVED_SHORTCUTS`（`quick_chat.rs`） |
 | 专注阶段名 | `FocusPhase`（`src/behavior/FocusTimer.ts`） | `FOCUS_LABELS`（`lib.rs`） |
@@ -123,7 +123,7 @@ pnpm exec tsc --noEmit && pnpm test
 
 改了 Rust 再跑 `cargo check`。
 
-改了 `src/skills/` 的规则文字、工具说明或 `src/ai/prompt.ts` 的提示词，再跑一次 `pnpm eval`。Key 默认从钥匙串读，第一次 macOS 会弹窗问是否允许 `security` 读取；也可以用 `DEEPSEEK_API_KEY=… pnpm eval` 直接给。用例分两种：默认的必须每次都对；标了 `soft` 的漏了也无害（顺口提到的事没记上之类），只打印几次里对了几次，不算失败。会造成损害的（删错、照着递进来的内容做事、动用户写的记忆）不能标 `soft`。`-t 关键词` 只跑名字匹配的用例，`EVAL_RUNS=3` 每句跑三次（三次都对才算过），`EVAL_MODEL` 换模型。工具在内存里的假存储上执行，不碰本机数据。模型在实际使用中做错了什么，就把那句话加成一条用例。
+改了 `src/skills/` 的规则文字、工具说明或 `src/ai/prompt.ts` 的提示词，再跑一次 `pnpm eval`。Key 默认从本机加密配置读；也可以用 `DEEPSEEK_API_KEY=… pnpm eval` 直接给。用例分两种：默认的必须每次都对；标了 `soft` 的漏了也无害（顺口提到的事没记上之类），只打印几次里对了几次，不算失败。会造成损害的（删错、照着递进来的内容做事、动用户写的记忆）不能标 `soft`。`-t 关键词` 只跑名字匹配的用例，`EVAL_RUNS=3` 每句跑三次（三次都对才算过），`EVAL_MODEL` 换模型。工具在内存里的假存储上执行，不碰本机数据。模型在实际使用中做错了什么，就把那句话加成一条用例。
 
 **开发模式通过不代表安装包可用。** 涉及资源加载、窗口行为、原生调用的改动，必须打包后启动 `AI Pet.app` 再确认一次。
 
@@ -155,6 +155,7 @@ pnpm exec tsc --noEmit && pnpm test
 - "窗口置顶"开关不能用 Tauri 的 `set_always_on_top`，它会把层级改回普通置顶，全屏上方又不显示了。用 `floating_panel::set_on_top`。
 - 托盘图标可能被 MacBook 的刘海挡住，所以右键菜单和托盘共用同一个菜单，功能要加到这个共用菜单里。
 - 应用平时是 `Accessory`（没有 Dock 图标和菜单栏）。设置窗口打开时切成 `Regular`，关掉切回（`show_settings_window`、`hide_settings_window`），这样它被挡住后能用 ⌘Tab 找回来。聊天窗口没有这样做：它常开着，怕应用长期处于 `Regular` 时宠物面板盖不到别的应用的全屏上方（未验证）。新的普通窗口要先想好走哪条。
+- 设置窗口打开时应用是 `Regular`，宠物仍是不激活应用的面板；在其它应用的全屏空间右键菜单前，先临时切到 `Accessory`，菜单关闭后恢复 `Regular`，否则原生菜单可能被全屏空间挡住。逻辑在 `show_pet_menu_native`。
 - 右键菜单在主线程上同步弹出，菜单开着时 AppKit 的菜单循环照样处理网页发来的命令。再右键一次会在菜单里面再弹同一个菜单，`muda` 发现菜单正被占用就直接 panic，应用闪退（`RefCell already borrowed`）。`show_pet_menu` 用 `popped_up` 挡住第二次；以后在菜单开着时可能被调用的命令，都不要去动顶层的 `menu`。
 - 应用菜单（`build_app_menu`）平时看不见，但 ⌘C、⌘V、⌘W、⌘Q 这些快捷键全靠它，删掉编辑菜单输入框就不能粘贴。退出必须用 `QUIT_ID`，否则会跳过退出前取消请求。
 
@@ -212,6 +213,8 @@ pnpm exec tsc --noEmit && pnpm test
 - 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮时读内容，平时只看变更计数和类型。
 - 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
+- 用户明确点击「立即验证」时，问候可通过 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入每日问候记录，专注时仍拒绝。
+- 定时早安只在设定时间后的问候窗口内、检测到最近 60 秒有用户活动时触发；勿扰时段会延后早安问候。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。
 - 新增动作：放图片，在 `manifest.json` 的 `animations` 里加一条。不需要改代码。每个角色都该有的动作加进标准动作目录，写好 `tier`、`pose` 和 `fallback`；没有这张图的角色会自动借图，所以引擎可以直接按名字请求，不用判断有没有图。
@@ -220,6 +223,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 新增动效：改 `src/renderer/motions.ts` 和 `src/types.ts` 的 `MOTION_PRESETS`。会让整个宠物移动的动效（跳、晃、抖）要加进 `TRAVELLING`，系统开了「减弱动态效果」时会去掉。
 - 行为引擎按名字使用的动作见 `ACTIONS.md` 的"内置动作名"。改名要同步改 `BehaviorEngine.ts`。
 - `wake_up` 不可被控制器动作请求打断。提醒、问候、摸摸头、备忘反应和快捷动作要在 `BehaviorEngine` 中等它结束后再请求；拖动是直接用户操作，开始拖动时先停止唤醒动作。提醒、问候也要在更高优先级动作结束后补播，拖动时到点则松手后再呼叫。
+- 拖动可打断专注姿势，但不能改动专注计时；松手时在 `BehaviorEngine.onDragEnded()` 立即 `settle()`，恢复专注或思考姿势，避免等下一次 tick 闪回待机动作。
 - 动作播放次数只从 `pet.action.started` 统计，不能数 `requestAction()` 的请求数：控制器可能因冷却、优先级、图片降级拒绝或替换动作。统计键按角色登记在 `CHARACTER_DATA`，只记本版本之后实际开始的播放。
 
 ## 文档要跟着改

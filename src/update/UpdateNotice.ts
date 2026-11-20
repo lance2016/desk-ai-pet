@@ -5,7 +5,7 @@ export const CHECK_INTERVAL_MS = 24 * 60 * 60_000;
 /** The last version the pet told the user about. */
 export const ANNOUNCED_KEY = "ai-pet:update-announced:v1";
 
-export const updateLine = (version: string) => `有新版本 ${version} 了，可以在「设置 → 关于」里更新`;
+export const updateLine = (version: string) => `有新版本 ${version} 了，可以在「设置 → 通用 → 关于」里更新`;
 
 interface UpdateNoticeDeps {
   check: () => Promise<{ version: string } | null>;

@@ -2,7 +2,7 @@ import { loadSelectionFloat } from "./preferences/SelectionFloat";
 import { ai } from "./ai";
 import { translationPlatform } from "./platform/translation";
 import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
 import { dueReminders, leftoverReminders, loadAgenda, markReminded, moveToToday, setAgendaItemDone, snoozeReminders, subscribeAgenda, type AgendaItem } from "./agenda/AgendaStore";
 import { agendaChange, hasNewId } from "./agenda/changes";
@@ -24,7 +24,7 @@ import { isOnboarded, markOnboarded } from "./preferences/UserProfile";
 import { PetControls } from "./components/PetControls";
 import { QuickChatBar, QuickReplyBubble, useQuickChat } from "./components/QuickChat";
 import { ChatLauncher } from "./components/ChatLauncher";
-import { FocusAura } from "./components/FocusAura";
+import { FocusAura, FOCUS_EXIT_MS } from "./components/FocusAura";
 import { PetSpeech } from "./components/PetSpeech";
 import { PetStage } from "./components/PetStage";
 import { PetRuntime } from "./core/PetRuntime";
@@ -70,6 +70,7 @@ const HIT_MASK_DELAY_MS = 30;
 const DISPLAY_SETTLE_MS = 500;
 /** How often to see whether a morning or evening greeting is due. */
 const GREETING_CHECK_MS = 15_000;
+const GREETING_ACTIVE_WINDOW_SECONDS = 60;
 /** How often to read how long the keyboard and mouse have been idle: for the pet's naps and the companion's care. */
 const ACTIVITY_CHECK_MS = 10_000;
 /** How often to see whether a missing year of holiday data can be downloaded; it is looked up once a day. */
@@ -135,10 +136,12 @@ interface AppProps {
 
 export default function App({ packId }: AppProps) {
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
+  const greeterRef = useRef<Greeter | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const alertRef = useRef<HTMLDivElement>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
+  const focusControlRef = useRef<HTMLButtonElement>(null);
   /** Bumped when the standing bubble or the badge comes or goes; their boxes go into the clickable area. */
   const [speechLayout, setSpeechLayout] = useState(0);
   const onSpeechLayout = useCallback(() => setSpeechLayout((count) => count + 1), []);
@@ -150,6 +153,10 @@ export default function App({ packId }: AppProps) {
   /** Text of the standing reminder bubble, which must take clicks while it is up. */
   const [alert, setAlert] = useState<string | null>(null);
   const [runtime, setRuntime] = useState<PetRuntime | null>(null);
+  const subscribeFocusMode = useCallback((listener: () => void) => runtime?.focus.subscribe(listener) ?? (() => {}), [runtime]);
+  const getFocusActive = useCallback(() => runtime?.focus.get().phase === "focusing", [runtime]);
+  const focusActive = useSyncExternalStore(subscribeFocusMode, getFocusActive, getFocusActive);
+  const focusMode = useLingering(focusActive, FOCUS_EXIT_MS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadErrorRef = useRef<HTMLParagraphElement>(null);
   const [scale, setScale] = useState(() => storage.loadScale() ?? DEFAULT_SCALE);
@@ -166,10 +173,10 @@ export default function App({ packId }: AppProps) {
   const quickChat = useQuickChat(runtime, packId, { style: displayPreferences.chatLauncher, copyHint: displayPreferences.copyHint });
   const quickReplyShown = quickChat.bubble;
   const launcherStyle = displayPreferences.chatLauncher;
-  /** The chat button steps aside while the pet is dragged or peeks from an edge, and while the bar is open. */
-  const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open;
-  /** The bar under the pet: always there, but not while dragged, peeking from an edge, or giving way to the chat bar. */
-  const barShown = !dragging && !dockSide && !quickChat.open;
+  /** Focus leaves only the pet, its fading ring, and the quiet platform control on stage. */
+  const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open && !focusMode;
+  /** The bar under the pet stays hidden while focused, dragged, docked, or giving way to chat. */
+  const barShown = !dragging && !dockSide && !quickChat.open && !focusMode;
   const barAwake = useLingering(hovered, displayPreferences.controlsLingerMs);
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }
@@ -302,6 +309,10 @@ export default function App({ packId }: AppProps) {
     if (!runtime) return;
     const greeter = new Greeter({
       loadQuiet: () => loadQuietPreferences(),
+      morningSettings: () => {
+        const preferences = loadCompanionPreferences();
+        return { enabled: preferences.morningGreeting, time: preferences.morningTime };
+      },
       loadRecord: () => loadGreetingRecord(),
       saveRecord: (record) => saveGreetingRecord(record),
       facts: async (now) => {
@@ -313,11 +324,28 @@ export default function App({ packId }: AppProps) {
       },
       compose: (kind, lines, now) => ai.greet(kind, lines, requestPreferences(packId, runtime.manifest.persona), localTimeText(now)),
       greet: (text, offerMove) => runtime.greet(text, false, offerMove),
+      greetTest: (text) => runtime.greetOnRequest(text),
     });
-    const check = () => { greeter.check(Date.now()).catch((error: unknown) => console.error("Failed to greet", error)); };
+    greeterRef.current = greeter;
+    const stopTest = petWindow.onMorningGreetingTest(({ requestId }) => {
+      void (async () => {
+        if (runtime.focus.get().phase === "focusing") {
+          await petWindow.reportMorningGreetingTest({ requestId, error: "专注期间不能测试早安问候，请先结束专注。" });
+          return;
+        }
+        const shown = await greeter.testMorning(Date.now());
+        await petWindow.reportMorningGreetingTest(shown
+          ? { requestId }
+          : { requestId, error: "问候正在准备中，请稍后再试。" });
+      })().catch((error: unknown) => {
+        console.error("Failed to test the morning greeting", error);
+        void petWindow.reportMorningGreetingTest({ requestId, error: "早安问候没能显示，请再试一次。" });
+      });
+    });
+    const check = () => { greeter.check(Date.now(), false).catch((error: unknown) => console.error("Failed to greet", error)); };
     check();
     const timer = setInterval(check, GREETING_CHECK_MS);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); stopTest(); if (greeterRef.current === greeter) greeterRef.current = null; };
   }, [runtime, packId]);
 
   // The work log: old focus counts brought in once, and old days folded into counts now and then.
@@ -352,6 +380,9 @@ export default function App({ packId }: AppProps) {
         if (active && idle !== null) {
           const now = Date.now();
           runtime.bus.emit("pet.user_active", { at: now - idle * 1000 });
+          if (idle <= GREETING_ACTIVE_WINDOW_SECONDS) {
+            greeterRef.current?.check(now, true).catch((error: unknown) => console.error("Failed to greet after user activity", error));
+          }
           companion.check(now, idle, loadCompanionPreferences(), runtime.focus.get().phase === "focusing");
         }
       } catch (error) { console.warn("Could not check system activity", error); }
@@ -592,6 +623,7 @@ export default function App({ packId }: AppProps) {
         : [];
       const standing = alertRef.current?.getBoundingClientRect();
       const badge = badgeRef.current?.getBoundingClientRect();
+      const focusControl = focusActive && !dragging ? focusControlRef.current?.getBoundingClientRect() : undefined;
       const bar = quickChat.open ? quickBarRef.current?.getBoundingClientRect() : undefined;
       const answer = quickReplyShown ? quickReplyRef.current?.getBoundingClientRect() : undefined;
       const launcher = launcherShown ? launcherRef.current?.getBoundingClientRect() : undefined;
@@ -602,7 +634,7 @@ export default function App({ packId }: AppProps) {
         drawn: runtime.opaqueMask(HIT_CELL_PX),
         offset: { columns: STAGE_MARGIN.side / HIT_CELL_PX, rows: STAGE_MARGIN.top / HIT_CELL_PX },
         grow: HIT_GROW_CELLS,
-        rects: [...controls, standing, badge, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
+        rects: [...controls, standing, badge, focusControl, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
       });
       const key = `${columns}:${cells.map(Number).join("")}`;
       if (key === lastSent) return;
@@ -621,7 +653,7 @@ export default function App({ packId }: AppProps) {
       runtime.bus.on("pet.dock_changed", schedule),
     ];
     const observer = new ResizeObserver(schedule);
-    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current]) if (element) observer.observe(element);
+    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current, focusControlRef.current]) if (element) observer.observe(element);
     const controlsElement = controlsRef.current;
     const controlsMutations = controlsElement ? new MutationObserver(schedule) : null;
     controlsMutations?.observe(controlsElement!, { childList: true, subtree: true, attributes: true });
@@ -635,7 +667,7 @@ export default function App({ packId }: AppProps) {
       controlsElement?.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [runtime, barShown, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
+  }, [runtime, barShown, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle, focusActive, dragging]);
 
   // Without a pet there is no mask: let the error message take the mouse instead.
   useEffect(() => { if (loadError) maskToElement(loadErrorRef.current); }, [loadError]);
@@ -669,10 +701,10 @@ export default function App({ packId }: AppProps) {
   return (
     <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
-        {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} />}
+        {runtime && !dragging && !dockSide && <FocusAura ref={focusControlRef} runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} focusMode={focusMode} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
       {runtime && barShown && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}

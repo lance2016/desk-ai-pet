@@ -29,6 +29,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "objc2-service-management",
+ "ring",
  "rusqlite",
  "serde",
  "serde_json",
@@ -38,6 +39,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-log",
  "tauri-plugin-updater",
+ "tempfile",
 ]
 
 [[package]]

@@ -228,6 +228,15 @@ export class PetRuntime {
     return true;
   }
 
+  /** Shows a greeting explicitly requested by the user, such as the settings preview. */
+  greetOnRequest(text: string): boolean {
+    const line = text.trim();
+    if (!line) return false;
+    this.lastProactiveAt = Date.now();
+    this.bus.emit("pet.greeting", { text: line, offerMove: false });
+    return true;
+  }
+
   /** Checks quiet time and the gap since the last proactive line, and claims the slot. */
   private allowProactive(text: string, allowQuiet = false): boolean {
     const now = Date.now();

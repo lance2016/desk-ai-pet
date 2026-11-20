@@ -14,11 +14,13 @@ function setup(overrides: Partial<GreeterDeps> = {}, quiet: QuietPreferences = D
   const compose = vi.fn(async () => "早呀，今天也加油！");
   const greeter = new Greeter({
     loadQuiet: () => quiet,
+    morningSettings: () => ({ enabled: true, time: "08:00" }),
     loadRecord: () => record,
     saveRecord: (next) => { record = next; },
     facts: async () => FACTS,
     compose,
     greet: (text, offerMove) => { greeted.push(text); offered.push(offerMove); return true; },
+    greetTest: (text) => { greeted.push(text); return true; },
     ...overrides,
   });
   return { greeter, greeted, offered, compose, record: () => record };
@@ -67,6 +69,29 @@ describe("Greeter", () => {
     const { greeter, greeted, record } = setup({}, { ...DEFAULT_QUIET_PREFERENCES, doNotDisturb: true });
     await greeter.check(MORNING);
     expect(greeted).toEqual([]);
+    expect(record().morning).toBeNull();
+  });
+
+  it("can disable the scheduled morning greeting independently", async () => {
+    const { greeter, greeted, record } = setup({ morningSettings: () => ({ enabled: false, time: "08:00" }) });
+    await greeter.check(MORNING);
+    expect(greeted).toEqual([]);
+    expect(record().morning).toBeNull();
+  });
+
+  it("waits for user activity inside the morning window", async () => {
+    const { greeter, greeted } = setup();
+    await greeter.check(MORNING, false);
+    expect(greeted).toEqual([]);
+    await greeter.check(MORNING, true);
+    expect(greeted).toEqual(["早呀，今天也加油！"]);
+  });
+
+  it("shows a manual test without consuming the scheduled greeting", async () => {
+    const { greeter, greeted, compose, record } = setup();
+    expect(await greeter.testMorning(MORNING)).toBe(true);
+    expect(greeted).toEqual(["早呀，今天也加油！"]);
+    expect(compose).toHaveBeenCalledWith("morning", ["今天要处理的提醒 0 个"], MORNING);
     expect(record().morning).toBeNull();
   });
 

@@ -689,6 +689,18 @@ describe("focus companion", () => {
     expect(badges).toEqual(["专注 25:00"]);
   });
 
+  it("returns to the focus pose immediately after dragging", () => {
+    const { bus, controller, focus } = setup();
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.drag_started", {});
+    expect(controller.current?.id).toBe("drag");
+
+    bus.emit("pet.drag_ended", { dockSide: null });
+
+    expect(focus.get().phase).toBe("focusing");
+    expect(controller.current?.id).toBe("focus");
+  });
+
   it("updates the countdown and neither wanders off nor dozes while focusing", () => {
     const { bus, state, controller, renderer, pass, badges } = setup();
     bus.emit("pet.focus_toggled", {});
