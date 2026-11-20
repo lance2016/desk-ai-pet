@@ -726,6 +726,8 @@ button.dock-row__body { cursor: pointer; }
 .cropper__zoom input { flex: 1; accent-color: var(--accent-strong); }
 .cropper__actions { position: sticky; bottom: 0; justify-content: flex-end; margin: 12px -20px -20px; padding: 10px 20px 20px; background: var(--group); }
 .cropper__actions .cropper__reset { margin-right: auto; background: none; box-shadow: none; color: var(--accent-strong); }
+.cropper__replace { position: relative; display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; background: var(--field); border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 13px; cursor: pointer; }
+.cropper__replace input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
 /* ---------- "功能一览": every feature, what it does and how to start it ---------- */
 .guide > section:first-child > .settings-group-title { margin-top: 4px; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import { CROP_LIMITS, panCrop, zoomCrop, type PictureCrop } from "../../appearance/pictureCrop";
 
 interface Props {
@@ -19,6 +19,8 @@ interface Props {
   warning?: string;
   /** Drawn over the frame, positioned in its terms: lines and outlines to line the picture up with. */
   guide?: ReactNode;
+  /** Shows "换一张图片…" and gets the chosen file; the caller then opens the cropper on it. */
+  onReplace?: (event: ChangeEvent<HTMLInputElement>) => void;
   onCancel: () => void;
   onConfirm: (crop: PictureCrop) => void;
 }
@@ -33,7 +35,7 @@ const KEY_ZOOM = 1.1;
 const SLIDER = { min: -Math.log(CROP_LIMITS.maxZoom), max: -Math.log(CROP_LIMITS.minZoom) } as const;
 
 /** Drag to move, scroll or slide to zoom; the frame shows exactly what the chat will show. */
-export function PictureCropper({ title, src, crop: initial, fallback, frameAspect, round, large = false, hint, warning, guide, onCancel, onConfirm }: Props) {
+export function PictureCropper({ title, src, crop: initial, fallback, frameAspect, round, large = false, hint, warning, guide, onReplace, onCancel, onConfirm }: Props) {
   const [crop, setCrop] = useState(initial);
   const [viewScale, setViewScale] = useState(1);
   const drag = useRef<{ x: number; y: number } | null>(null);
@@ -93,6 +95,7 @@ export function PictureCropper({ title, src, crop: initial, fallback, frameAspec
         <input type="range" min={SLIDER.min} max={SLIDER.max} step="any" value={-Math.log(crop.zoom)} aria-label="缩放" onChange={(event) => { const zoom = Math.exp(-Number(event.currentTarget.value)); setCrop((current) => ({ ...current, zoom })); }} />
         <span>放大</span></label>
       <div className="cropper__actions">
+        {onReplace && <label className="cropper__replace"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={onReplace} /><span>换一张图片…</span></label>}
         <button type="button" className="cropper__reset" onClick={() => setCrop(fallback)}>重置</button>
         <button type="button" onClick={onCancel}>取消</button>
         <button type="button" className="is-primary" onClick={() => onConfirm(crop)}>应用</button>

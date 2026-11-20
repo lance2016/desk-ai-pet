@@ -9,14 +9,15 @@ import { PERSONA_LIMITS } from "../../types";
 import { listAppearances } from "../../appearance/AppearanceStore";
 import { CharacterAvatar } from "../CharacterAvatar";
 import { Chevron } from "./Chevron";
+import { useChatPictures } from "./useChatPictures";
 
 interface Props {
   packId: string;
   catalog: CatalogEntry[];
   onCatalogChange: () => void;
   onOpenProfile: () => void;
-  /** Opens the place to change the avatar: clicking the big portrait, as in System Settings. */
-  onOpenLook: () => void;
+  /** The avatar changed, so other places showing it can refresh. */
+  onLookChange: () => void;
 }
 
 const EMPTY_DRAFT = { name: "", personality: "", base: DEFAULT_PACK_ID };
@@ -30,7 +31,7 @@ const avatarOf = (entry: CatalogEntry) => pictureFor(loadChatAppearance(entry.id
  * The current character, shown like the account page in System Settings: its portrait and name on
  * top, the way into its settings, then every character to switch to, create, import or export.
  */
-export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProfile, onOpenLook }: Props) {
+export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProfile, onLookChange }: Props) {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [message, setMessage] = useState<{ area: Area; text: string } | null>(null);
@@ -39,6 +40,8 @@ export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProf
   const looks = catalog.filter((entry) => !entry.custom);
   const current = catalog.find((entry) => entry.id === packId);
   const currentName = current ? characterName(packId, current.name) : "当前角色";
+  // Clicking the big portrait edits the avatar right here, as in System Settings.
+  const pictures = useChatPictures(packId, current?.actionImages ?? {}, onLookChange);
   const say = (area: Area, text: string) => setMessage({ area, text });
   const note = (area: Area) => message?.area === area && <p className="ai-settings__status" role="status">{message.text}</p>;
 
@@ -116,13 +119,15 @@ export function CharacterSettings({ packId, catalog, onCatalogChange, onOpenProf
 
   return <div className="settings-section character-page">
     {current && <div className="settings-group character-hero">
-      <button type="button" className="character-hero__avatar" aria-label={`更换「${currentName}」的头像`} onClick={onOpenLook}>
-        <CharacterAvatar picture={avatarOf(current)} className="character-hero__portrait" />
+      <button type="button" className="character-hero__avatar" aria-label={`编辑「${currentName}」的头像`} onClick={() => void pictures.edit("avatar")}>
+        <CharacterAvatar picture={pictureFor(pictures.appearance.avatar, current.actionImages)} className="character-hero__portrait" />
         <span className="character-hero__edit" aria-hidden="true">编辑</span>
       </button>
       <h2 className="character-hero__name">{currentName}</h2>
       <p>{kindOf(current)}，正在桌面陪你</p>
+      {pictures.status && <p className="ai-settings__status" role="status">{pictures.status}</p>}
     </div>}
+    {pictures.cropper}
     <div className="settings-group">
       <button type="button" className="settings-row settings-link" onClick={onOpenProfile}>
         <span className="settings-row__body"><strong>角色设定</strong><span>名字、性格、回复方式和聊天形象</span></span>
