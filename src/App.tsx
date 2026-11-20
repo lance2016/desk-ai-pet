@@ -141,7 +141,6 @@ export default function App({ packId }: AppProps) {
   const controlsRef = useRef<HTMLDivElement>(null);
   const alertRef = useRef<HTMLDivElement>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
-  const focusControlRef = useRef<HTMLButtonElement>(null);
   /** Bumped when the standing bubble or the badge comes or goes; their boxes go into the clickable area. */
   const [speechLayout, setSpeechLayout] = useState(0);
   const onSpeechLayout = useCallback(() => setSpeechLayout((count) => count + 1), []);
@@ -173,7 +172,7 @@ export default function App({ packId }: AppProps) {
   const quickChat = useQuickChat(runtime, packId, { style: displayPreferences.chatLauncher, copyHint: displayPreferences.copyHint });
   const quickReplyShown = quickChat.bubble;
   const launcherStyle = displayPreferences.chatLauncher;
-  /** Focus leaves only the pet, its fading ring, and the quiet platform control on stage. */
+  /** Focus leaves only the pet, its pool of light and the status row (the focus pill) on stage. */
   const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open && !focusMode;
   /** The bar under the pet stays hidden while focused, dragged, docked, or giving way to chat. */
   const barShown = !dragging && !dockSide && !quickChat.open && !focusMode;
@@ -623,7 +622,6 @@ export default function App({ packId }: AppProps) {
         : [];
       const standing = alertRef.current?.getBoundingClientRect();
       const badge = badgeRef.current?.getBoundingClientRect();
-      const focusControl = focusActive && !dragging ? focusControlRef.current?.getBoundingClientRect() : undefined;
       const bar = quickChat.open ? quickBarRef.current?.getBoundingClientRect() : undefined;
       const answer = quickReplyShown ? quickReplyRef.current?.getBoundingClientRect() : undefined;
       const launcher = launcherShown ? launcherRef.current?.getBoundingClientRect() : undefined;
@@ -634,7 +632,7 @@ export default function App({ packId }: AppProps) {
         drawn: runtime.opaqueMask(HIT_CELL_PX),
         offset: { columns: STAGE_MARGIN.side / HIT_CELL_PX, rows: STAGE_MARGIN.top / HIT_CELL_PX },
         grow: HIT_GROW_CELLS,
-        rects: [...controls, standing, badge, focusControl, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
+        rects: [...controls, standing, badge, bar, answer, launcher].filter((rect): rect is MaskRect => rect !== undefined),
       });
       const key = `${columns}:${cells.map(Number).join("")}`;
       if (key === lastSent) return;
@@ -653,7 +651,7 @@ export default function App({ packId }: AppProps) {
       runtime.bus.on("pet.dock_changed", schedule),
     ];
     const observer = new ResizeObserver(schedule);
-    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current, focusControlRef.current]) if (element) observer.observe(element);
+    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current]) if (element) observer.observe(element);
     const controlsElement = controlsRef.current;
     const controlsMutations = controlsElement ? new MutationObserver(schedule) : null;
     controlsMutations?.observe(controlsElement!, { childList: true, subtree: true, attributes: true });
@@ -667,7 +665,7 @@ export default function App({ packId }: AppProps) {
       controlsElement?.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [runtime, barShown, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle, focusActive, dragging]);
+  }, [runtime, barShown, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
 
   // Without a pet there is no mask: let the error message take the mouse instead.
   useEffect(() => { if (loadError) maskToElement(loadErrorRef.current); }, [loadError]);
@@ -699,12 +697,12 @@ export default function App({ packId }: AppProps) {
   } as CSSProperties;
 
   return (
-    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
+    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${focusActive ? " app--focus" : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
-        {runtime && !dragging && !dockSide && <FocusAura ref={focusControlRef} runtime={runtime} visible={focusMode} />}
+        {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} focusMode={focusMode} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied} onClick={quickChat.launch} /> : undefined} />}
       {runtime && barShown && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}

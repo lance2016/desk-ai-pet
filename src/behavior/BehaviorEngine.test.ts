@@ -990,6 +990,20 @@ describe("reminders", () => {
     expect(badges[badges.length - 1]).toBe("专注 24:59 · 提醒 1 · 勿扰");
   });
 
+  it("holds new reminders on the badge during a focus round, then shows the line", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() + 5_000 }]);
+    const { bus, badges, pass } = setup({ reminders, extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.focus_toggled", {});
+    const shown = alerts(bus);
+    pass(6_000);
+    expect(shown.filter((text) => text !== null)).toEqual([]);
+    expect(reminders.reminded).toEqual([]);
+    expect(badges[badges.length - 1]).toBe("专注 24:54 · 提醒 1");
+    bus.emit("pet.focus_stopped", {});
+    pass(1_000);
+    expect(shown[shown.length - 1]).toBe("到点啦：开会");
+  });
+
   it("names two reminders at most and counts the rest", () => {
     const items: DueReminder[] = ["开会", "喝水", "交周报"].map((text, index) => ({ id: String(index), text, remindAt: Date.now() }));
     const { bus, pass } = setup({ reminders: fakeReminders(items) });

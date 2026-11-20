@@ -208,7 +208,7 @@ export class PetRuntime {
 
   /**
    * For lines the pet starts on its own rather than in answer to the user
-   * (greetings, small talk). Dropped while it is quiet or when the pet spoke up
+   * (greetings, small talk). Dropped while it is quiet or focusing, or when the pet spoke up
    * recently. Returns whether the line was shown.
    */
   sayProactively(text: string): boolean {
@@ -237,10 +237,12 @@ export class PetRuntime {
     return true;
   }
 
-  /** Checks quiet time and the gap since the last proactive line, and claims the slot. */
+  /** Checks quiet time, a running focus round and the gap since the last proactive line, and claims the slot. */
   private allowProactive(text: string, allowQuiet = false): boolean {
     const now = Date.now();
     if (!text.trim() || (!allowQuiet && this.isQuiet(now))) return false;
+    // A focus round is quieter than quiet time: nothing the pet starts on its own gets through.
+    if (this.focus.get().phase === "focusing") return false;
     if (this.lastProactiveAt !== null && now - this.lastProactiveAt < PROACTIVE_GAP_MS) return false;
     this.lastProactiveAt = now;
     return true;

@@ -123,6 +123,16 @@ describe("PetRuntime", () => {
     runtime.destroy();
   });
 
+  it("keeps quiet on its own during a focus round, even when quiet time would let a greeting through", async () => {
+    const { runtime } = await start();
+    runtime.focus.startFocus(Date.now());
+    expect(runtime.sayProactively("在忙吗？")).toBe(false);
+    expect(runtime.greet("已经很晚啦", true)).toBe(false);
+    runtime.focus.stop();
+    expect(runtime.sayProactively("在忙吗？")).toBe(true);
+    runtime.destroy();
+  });
+
   it("lets outside callers request actions but not state-bound ones", async () => {
     const { runtime, renderer } = await start();
     expect(runtime.requestAction("sleep")).toEqual({ accepted: false, reason: "restricted" });

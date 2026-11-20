@@ -10,7 +10,7 @@ const DRAG_ACTION = "drag";
 /** Played while the pet hides behind a screen edge. */
 const PEEK_ACTION = "peek";
 /** Held while the pet keeps the user company during a focus round. */
-const FOCUS_ACTION = "focus";
+export const FOCUS_ACTION = "focus";
 /** Played when the user pats the pet (long press or the menu). */
 const PET_ACTION = "pet_reaction";
 /** Played instead once the pats keep coming. */
@@ -690,7 +690,7 @@ export class BehaviorEngine {
 
   /**
    * Puts due reminders on a standing line that stays until the user clicks it,
-   * or only counts them on the badge while it is quiet. A reminder counts as
+   * or only counts them on the badge while it is quiet or focusing. A reminder counts as
    * seen only once the line is dismissed, so it comes back after a restart.
    */
   private advanceReminders(now: number): void {
@@ -701,7 +701,8 @@ export class BehaviorEngine {
     // Items ticked off or removed elsewhere leave the line.
     const kept = this.alerted.filter((shown) => due.some((reminder) => reminder.id === shown.id));
     const fresh = due.filter((reminder) => !isShown(reminder));
-    const held = fresh.length > 0 && (holdsReminders?.(now) ?? false);
+    // A focus round holds them like "勿扰" does: counted on the badge, called out once the round is over.
+    const held = fresh.length > 0 && ((holdsReminders?.(now) ?? false) || this.deps.focus.get().phase === "focusing");
     this.waitingReminders = held ? fresh.length : 0;
     if (fresh.length > 0 && !held) {
       this.callOut(now, REMIND_ACTION);

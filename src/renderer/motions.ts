@@ -19,6 +19,9 @@ type Motion = (seconds: number, progress: number) => Partial<MotionTransform>;
 const REST: MotionTransform = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, alpha: 1 };
 const TAU = Math.PI * 2;
 
+/** One breath of the "breathe" motion, in seconds. The focus pool (`FocusAura`) breathes along with it. */
+export const BREATHE_SECONDS = 3.2;
+
 /** Rises from 0 to 1 and returns to 0 across the action. */
 const arc = (progress: number) => Math.sin(Math.PI * progress);
 
@@ -26,7 +29,7 @@ const MOTIONS: Record<MotionPreset, Motion> = {
   none: () => ({}),
   // Slow chest rise: taller and slightly narrower, then back.
   breathe: (seconds) => {
-    const wave = Math.sin((TAU * seconds) / 3.2);
+    const wave = Math.sin((TAU * seconds) / BREATHE_SECONDS);
     return { scaleY: 1 + 0.012 * wave, scaleX: 1 - 0.006 * wave };
   },
   // Repeated hops that squash a little on landing.

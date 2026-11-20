@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MOTION_PRESETS } from "../types";
-import { calmMotion, sampleAdjustedMotion, sampleMotion } from "./motions";
+import { BREATHE_SECONDS, calmMotion, sampleAdjustedMotion, sampleMotion } from "./motions";
 
 const REST = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, alpha: 1 };
 
@@ -21,6 +21,11 @@ describe("sampleMotion", () => {
     for (const key of Object.keys(REST) as Array<keyof typeof REST>) {
       expect(end[key]).toBeCloseTo(REST[key], 5);
     }
+  });
+
+  it("breathes in for the first quarter of a breath and out at three quarters, as the focus pool follows it", () => {
+    expect(sampleMotion("breathe", BREATHE_SECONDS / 4, 0).scaleY).toBeCloseTo(1.012);
+    expect(sampleMotion("breathe", (BREATHE_SECONDS * 3) / 4, 0).scaleY).toBeCloseTo(0.988);
   });
 
   it("raises and fades a timed floating label", () => {

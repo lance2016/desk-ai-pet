@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useState, type ReactNode, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
 import { SpeechQueue } from "../core/SpeechQueue";
 import { mailCodePlatform } from "../platform/mailCode";
@@ -19,8 +19,6 @@ interface PetSpeechProps {
   /** Shown above the pet only while nothing is said there, such as the chat button. */
   idle?: ReactNode;
   hideBadge?: boolean;
-  /** Focus mode hides all speech and status shortcuts; standing alerts stay in state and reappear afterward. */
-  focusMode?: boolean;
 }
 
 type StandingAlert = PetEvents["pet.alert"] & { text: string };
@@ -49,13 +47,12 @@ function ProgressRing({ progress }: { progress: number }) {
 function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => void }) {
   switch (chip.id) {
     case "focus": {
-      // The ring around the pet shows how far the round has come, so the pill shows a lotus and the time.
-      const [name, time] = chip.label.split(" ");
+      // The arc under the pet shows how far the round has come, so the pill shows only a lotus and the time.
+      const time = chip.label.split(" ")[1];
       return (
-        <button type="button" className="status-chip status-chip--focus" title="专注中，点一下可以停止" aria-label={chip.label} onClick={onFocusClick}>
-          <img className="status-chip__lotus" src={LOTUS} alt="" />
-          <span className="status-chip__name">{name}</span>
-          <span className="status-chip__time">{time}</span>
+        <button type="button" className="status-chip status-chip--focus" data-hint="结束专注…" aria-label={`${chip.label}，点一下可以结束`} onClick={onFocusClick}>
+          <img className="status-chip__lotus" src={LOTUS} alt="" draggable={false} />
+          {time}
         </button>
       );
     }
@@ -85,40 +82,27 @@ function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => vo
  * finished focus round) stays until it is clicked, and a question on it stays
  * until one of its buttons is. Each part of the status row does its own thing.
  */
-export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge, focusMode = false }: PetSpeechProps) {
+export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge }: PetSpeechProps) {
   const [line, setLine] = useState<string | null>(null);
   const [alert, setAlert] = useState<StandingAlert | null>(null);
   const [chips, setChips] = useState<StatusChip[]>([]);
-  const queueRef = useRef<SpeechQueue | null>(null);
-  const focusModeRef = useRef(focusMode);
-  focusModeRef.current = focusMode;
 
   useEffect(() => {
     const queue = new SpeechQueue(setLine);
-    queueRef.current = queue;
     const stops = [
-      runtime.bus.on("pet.say", ({ text }) => { if (!focusModeRef.current) queue.push(text); }),
+      runtime.bus.on("pet.say", ({ text }) => queue.push(text)),
       runtime.bus.on("pet.alert", (next) => setAlert(next.text ? { ...next, text: next.text } : null)),
       runtime.bus.on("pet.badge", ({ chips: next }) => setChips(next)),
     ];
     return () => {
       for (const stop of stops) stop();
       queue.clear();
-      queueRef.current = null;
     };
   }, [runtime]);
 
-  useEffect(() => {
-    if (!focusMode) return;
-    queueRef.current?.clear();
-    setLine(null);
-  }, [focusMode]);
-
   const { line: passing, standing } = speechShown(line, alert, Boolean(reply));
-  const visiblePassing = focusMode ? null : passing;
-  const visibleStanding = focusMode ? null : standing;
-  const badgeShown = chips.length > 0 && !hideBadge && !focusMode;
-  const idleShown = Boolean(idle) && visiblePassing === null && standing === null && !focusMode;
+  const badgeShown = chips.length > 0 && !hideBadge;
+  const idleShown = Boolean(idle) && passing === null && standing === null;
   useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, onLayoutChange]);
 
   const dismiss = () => {
@@ -140,29 +124,29 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
     );
   }
   // Reminders (the bell) sit on a colored tile, like a notification; other lines keep a plain icon.
-  const reminder = visibleStanding !== null && !visibleStanding.icon;
-  const glyph = visibleStanding && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[visibleStanding.icon ?? "bell"]}</svg>;
+  const reminder = standing !== null && !standing.icon;
+  const glyph = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
   const icon = reminder ? <span className="speech-bubble__tile">{glyph}</span> : glyph;
-  const heading = visibleStanding?.heading && <span className="speech-bubble__heading">{visibleStanding.heading}</span>;
+  const heading = standing?.heading && <span className="speech-bubble__heading">{standing.heading}</span>;
   // A question about something other than reminders looks calm and holds still.
-  const look = reminder ? " speech-bubble--remind" : visibleStanding?.choices ? " speech-bubble--ask" : "";
-  const lastChoice = (visibleStanding?.choices?.length ?? 0) - 1;
+  const look = reminder ? " speech-bubble--remind" : standing?.choices ? " speech-bubble--ask" : "";
+  const lastChoice = (standing?.choices?.length ?? 0) - 1;
   return (
     <>
       <div className="speech-area" aria-live="polite">
         {idleShown && idle}
-        {visiblePassing && <p key={visiblePassing} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{visiblePassing}</p>}
-        {visibleStanding && (
-          <div key={visibleStanding.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>
-            {visibleStanding.choices ? (
+        {passing && <p key={passing} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
+        {standing && (
+          <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>
+            {standing.choices ? (
               <>
                 {icon}
                 <span className="speech-bubble__body">
-                  <span className="speech-bubble__alert-text">{visibleStanding.text}</span>
+                  <span className="speech-bubble__alert-text">{standing.text}</span>
                   {/* The heading shares the button row: the room above the pet has no line to spare. */}
                   <span className="speech-bubble__choices">
                     {heading}
-                    {visibleStanding.choices.map((choice, index) => (
+                    {standing.choices.map((choice, index) => (
                       // As in a Mac alert, the answer most people pick is on the right and filled in.
                       <button key={choice.label} type="button" className={choice.destructive ? "is-destructive" : index === lastChoice ? "is-primary" : undefined} onClick={() => runtime.bus.emit(choice.event, {})}>{choice.label}</button>
                     ))}
@@ -170,9 +154,9 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
                 </span>
               </>
             ) : (
-              <button type="button" className="speech-bubble__press" title={visibleStanding.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
+              <button type="button" className="speech-bubble__press" title={standing.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
                 {icon}
-                <span className="speech-bubble__body">{heading}<span className="speech-bubble__alert-text">{visibleStanding.text}</span><small>{visibleStanding.more ? "点一下看全部" : "点一下收起"}</small></span>
+                <span className="speech-bubble__body">{heading}<span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}</small></span>
               </button>
             )}
           </div>

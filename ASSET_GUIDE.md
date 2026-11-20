@@ -46,9 +46,9 @@
 
 头旁边的聊天按钮用 `public/chat-launcher/bubble.png`（对话气泡）。144×144 PNG，透明背景，屏幕上显示为 40 像素，放在头左侧时左右翻转。原图是 1024×1024，用 Pillow 的 LANCZOS 缩小。图里自带的感叹线一直显示；复制后的提示靠跳动和变亮，不换图。
 
-## 专注光环
+## 专注水波
 
-专注层的细进度环使用 SVG，脚下的水波使用透明素材 `public/focus/platform.png`（640×204），两者随宠物区域缩放。光环顶部的结束专注入口与休息徽标共用 `public/focus/lotus.png`（96×57，透明 PNG）。
+脚下的水波使用透明素材 `public/focus/platform.png`（640×204），随宠物区域缩放；进度弧用 SVG 画在它的前沿，坐标按这张图的像素写（`ARC_PATH`，`src/components/FocusAura.tsx`），换图时要一起调。状态行里的专注小牌用 `public/focus/lotus.png`（96×57，透明 PNG）。
 
 ## 组合动作图层
 
