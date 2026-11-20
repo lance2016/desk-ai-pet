@@ -18,6 +18,20 @@
   --fill-strong: rgba(0, 0, 0, .08);
   /* The selected page in the sidebar while the window is not in front. */
   --selection: rgba(0, 0, 0, .1);
+  --nav-hover: var(--fill);
+  --search-fill: var(--fill-strong);
+  --search-border: transparent;
+  --search-height: 28px;
+  --search-radius: var(--radius-row);
+  --list-border: var(--group-border);
+  --chevron: var(--label-3);
+  --row-detail-size: 11px;
+  --switch-track: var(--fill-strong);
+  --switch-track-on: var(--ui-action-bg);
+  --segment-track: var(--fill-strong);
+  --segment-selected: var(--field);
+  --button-hover: var(--fill-strong);
+  --tile-highlight: 22%;
   --field: #ffffff;
   --field-border: rgba(0, 0, 0, .14);
   --accent: var(--ui-accent);
@@ -48,6 +62,8 @@
   --radius-group: 10px;
   --radius-row: 8px;
   --radius-control: 6px;
+  --row-gap: 12px;
+  --row-icon-size: 26px;
 
   display: flex;
   width: 100%;
@@ -60,18 +76,32 @@
 
 @media (prefers-color-scheme: dark) {
   .settings-page {
-    --bg: #1e1e1e;
+    --bg: #232323;
     --sidebar: #272727;
-    --group: #2a2a2a;
+    --group: #2d2d2d;
     --group-border: rgba(255, 255, 255, .06);
     --group-shadow: none;
-    --separator: rgba(255, 255, 255, .08);
-    --label: #f5f5f7;
-    --label-2: #a1a1a6;
-    --label-3: #8e8e93;
+    --separator: rgba(255, 255, 255, .06);
+    --label: #ededed;
+    --label-2: #b0b0b0;
+    --label-3: #959595;
     --fill: rgba(255, 255, 255, .05);
     --fill-strong: rgba(255, 255, 255, .1);
-    --selection: rgba(255, 255, 255, .1);
+    --selection: rgba(255, 255, 255, .14);
+    --nav-hover: rgba(255, 255, 255, .07);
+    --search-fill: rgba(255, 255, 255, .095);
+    --search-border: rgba(255, 255, 255, .11);
+    --search-height: 30px;
+    --search-radius: 15px;
+    --list-border: transparent;
+    --chevron: #888888;
+    --row-detail-size: 12px;
+    --switch-track: #595959;
+    --switch-track-on: #8a70cf;
+    --segment-track: #393939;
+    --segment-selected: #565656;
+    --button-hover: #494949;
+    --tile-highlight: 9%;
     --field: #3a3a3c;
     --field-border: rgba(255, 255, 255, .14);
     --scrim: rgba(0, 0, 0, .55);
@@ -120,7 +150,7 @@ body.settings-window { user-select: none; -webkit-user-select: none; }
 .settings-nav-group { display: grid; gap: 2px; }
 .settings-nav-group__title { margin: 0 8px 4px; color: var(--label-3); font-size: 11px; font-weight: 600; line-height: 16px; }
 .settings-nav { box-sizing: border-box; width: 100%; min-height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--label); text-align: left; background: none; border: 0; border-radius: 8px; cursor: default; }
-.settings-nav:hover:not(.is-active) { background: var(--fill); }
+.settings-nav:hover:not(.is-active) { background: var(--nav-hover); }
 /*
  * The selected page wears the system's accent, as the sidebar of System Settings does, and goes
  * grey while another window is in front. The plain blue is for engines without `AccentColor`.
@@ -132,13 +162,13 @@ html.is-inactive .settings-page :is(.settings-nav, .settings-account).is-active 
 html.is-inactive .settings-page .settings-account.is-active .settings-account__text span { color: var(--label-2); }
 /* The current character, at the top of the sidebar like the account in System Settings. */
 .settings-page .settings-account { box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px 8px; color: var(--label); text-align: left; background: none; border: 0; border-radius: var(--radius-row); cursor: default; }
-.settings-account:hover:not(.is-active) { background: var(--fill); }
+.settings-account:hover:not(.is-active) { background: var(--nav-hover); }
 .settings-account__avatar { width: 40px; height: 40px; font-size: 16px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .14); }
 .settings-account__text { min-width: 0; display: grid; }
 .settings-account__text strong { overflow: hidden; font-size: 14px; font-weight: 600; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .settings-account__text span { color: var(--label-2); font-size: 11px; line-height: 15px; }
 /* Each page wears a white glyph on a coloured tile, as in System Settings; the tile keeps its colour when the row is selected. */
-.settings-nav__icon { --tile: var(--tile-gray); flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 78%, #fff), var(--tile)); border-radius: 5px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
+.settings-nav__icon { --tile: var(--tile-gray); flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, #fff var(--tile-highlight), var(--tile)), var(--tile)); border-radius: 5px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
 .settings-nav__icon svg { width: 14px; height: 14px; stroke-width: 2; }
 .settings-nav__icon--character, .settings-nav__icon--characterProfile { --tile: var(--tile-purple); }
 .settings-nav__icon--actions, .settings-nav__icon--companion { --tile: var(--tile-pink); }
@@ -151,7 +181,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { position: relative; margin: 0 0 16px; }
 .settings-search svg { position: absolute; top: 50%; left: 8px; width: 14px; height: 14px; color: var(--label-2); transform: translateY(-50%); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
-.settings-page .settings-search input { box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px 0 28px; color: var(--label); background: var(--fill-strong); border: 0; border-radius: 8px; font-size: 13px; }
+.settings-page .settings-search input { box-sizing: border-box; width: 100%; height: var(--search-height); padding: 0 7px 0 27px; color: var(--label); background: var(--search-fill); border: 1px solid var(--search-border); border-radius: var(--search-radius); font-size: 13px; }
 .settings-page .settings-search input:focus { background: var(--field); }
 .settings-search input::placeholder { color: var(--label-2); }
 .settings-results { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
@@ -192,15 +222,16 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-section__intro--spaced h2 { margin-top: 24px; }
 
 .settings-group, .settings-card { box-sizing: border-box; margin: 0; padding: 0 12px; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); box-shadow: var(--group-shadow); }
+.settings-group { border-color: var(--list-border); }
 /* A row that leads somewhere wears a tile, as the rows of System Settings do. */
-.settings-row > .settings-nav__icon { width: 26px; height: 26px; border-radius: 6px; }
+.settings-row > .settings-nav__icon { width: var(--row-icon-size); height: var(--row-icon-size); border-radius: 6px; }
 .settings-row > .settings-nav__icon svg { width: 17px; height: 17px; }
-.settings-row { box-sizing: border-box; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.settings-row { box-sizing: border-box; min-height: 52px; display: flex; align-items: center; gap: var(--row-gap); padding: 8px 0; }
 .settings-row + .settings-row { border-top: 1px solid var(--separator); }
 .settings-row__body { flex: 1; min-width: 0; }
 .settings-row__body strong, .settings-row__body span { display: block; }
 .settings-row__body strong { font-weight: 400; }
-.settings-row__body span { margin-top: 1px; color: var(--label-2); font-size: 11px; }
+.settings-row__body span { margin-top: 1px; color: var(--label-2); font-size: var(--row-detail-size); }
 .settings-row__value { flex: none; color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 /* Groups that follow each other keep one gap, whichever page they are on. */
 :is(.settings-group, .settings-card) + :is(.settings-group, .settings-card) { margin-top: 12px; }
@@ -211,21 +242,20 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 /* ---------- Controls ---------- */
-.toggle { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--fill-strong); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background 150ms ease; }
+.toggle { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--switch-track); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background 150ms ease; }
 .toggle span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform 150ms ease; }
-.toggle.is-on { background: var(--ui-action-bg); }
+.toggle.is-on { background: var(--switch-track-on); }
 .toggle.is-on span { transform: translateX(13px); }
 .toggle:disabled { opacity: .45; cursor: default; }
 
 /* Segmented control, as NSSegmentedControl draws it. */
-.segmented { flex: none; display: inline-flex; padding: 2px; background: var(--fill-strong); border-radius: var(--radius-control); }
+.segmented { flex: none; display: inline-flex; padding: 2px; background: var(--segment-track); border-radius: var(--radius-control); }
 .segmented button { min-width: 44px; height: 20px; padding: 0 8px; background: none; border: 0; border-radius: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
-.segmented button.is-selected { background: var(--field); box-shadow: var(--control-shadow); font-weight: 500; }
-@media (prefers-color-scheme: dark) { .segmented button.is-selected { background: rgba(255, 255, 255, .2); } }
+.segmented button.is-selected { background: var(--segment-selected); box-shadow: var(--control-shadow); font-weight: 500; }
 
 /* Push button. */
 .settings-button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 24px; padding: 0 12px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 13px; white-space: nowrap; cursor: pointer; }
-.settings-button:hover:not(:disabled) { background: var(--fill-strong); }
+.settings-button:hover:not(:disabled) { background: var(--button-hover); }
 .settings-button:active:not(:disabled) { filter: brightness(.95); }
 .settings-button:disabled { opacity: .45; cursor: default; }
 .settings-button--small { height: 22px; padding: 0 8px; font-size: 12px; }
@@ -410,7 +440,18 @@ button.dock-row__body { cursor: pointer; }
 .settings-link:active::before { background: var(--fill-strong); }
 .settings-page .settings-link:focus-visible { box-shadow: none; }
 .settings-link:focus-visible::before { box-shadow: 0 0 0 3px var(--accent-ring); }
-.settings-link__chevron { flex: none; width: 14px; height: 14px; color: var(--label-3); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.settings-link__chevron { flex: none; width: 14px; height: 14px; color: var(--chevron); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (prefers-color-scheme: dark) {
+  /* Inset dividers for navigation rows with leading tiles. Keep plain setting rows full width. */
+  .settings-row + .settings-link:has(> .settings-nav__icon) { border-top-color: transparent; }
+  .settings-row + .settings-link:has(> .settings-nav__icon)::after {
+    content: "";
+    position: absolute;
+    inset: -1px 0 auto calc(var(--row-icon-size) + var(--row-gap));
+    border-top: 1px solid var(--separator);
+    pointer-events: none;
+  }
+}
 .character-choice__portrait { width: 32px; height: 32px; font-size: 14px; }
 .character-choice__add { box-sizing: border-box; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 20px; font-weight: 300; }
 .character-choice__using { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-strong); font-size: 12px; }
@@ -429,20 +470,23 @@ button.dock-row__body { cursor: pointer; }
 .ai-settings__head:last-child { margin-bottom: 0; }
 .ai-settings__head strong, .ai-settings__head span { display: block; }
 .ai-settings__head strong { font-weight: 500; }
-.ai-settings__head div span { margin-top: 2px; color: var(--label-2); font-size: 11px; }
+.ai-settings__head div span { margin-top: 2px; color: var(--label-2); font-size: var(--row-detail-size); }
 .ai-badge { padding: 2px 8px; color: var(--label-2); background: var(--fill-strong); border-radius: 10px; font-size: 11px; }
 .ai-badge.is-ready { color: var(--green); background: var(--green-wash); }
 .ai-settings form label { display: block; margin-bottom: 6px; font-weight: 500; }
 .ai-settings__key { display: flex; gap: 8px; }
 .ai-settings__key input { box-sizing: border-box; flex: 1; min-width: 0; height: 26px; padding: 0 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .ai-settings button { height: 24px; padding: 0 12px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
-.ai-settings button:hover:not(:disabled) { background: var(--fill-strong); }
+.ai-settings button:hover:not(:disabled) { background: var(--button-hover); }
 .ai-settings button:disabled { opacity: .45; cursor: default; }
 .ai-settings button.is-primary { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
+@media (prefers-color-scheme: dark) {
+  .ai-settings button.is-primary:hover:not(:disabled) { background: var(--ui-action-bg); filter: brightness(1.08); }
+}
 /* A default button that cannot be pressed yet turns grey, as AppKit draws it. */
 .ai-settings button.is-primary:disabled { color: var(--label-3); background: var(--fill-strong); opacity: 1; }
 .ai-settings button.is-danger { margin-left: auto; color: var(--red); }
-.ai-settings p { color: var(--label-2); font-size: 11px; line-height: 1.6; }
+.ai-settings p { color: var(--label-2); font-size: var(--row-detail-size); line-height: 1.6; }
 .ai-settings__actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .ai-settings__actions a { margin-left: auto; color: var(--accent-strong); font-size: 12px; }
 .ai-settings__actions .ai-settings__link { margin-left: auto; padding: 0 4px; color: var(--accent-strong); background: none; box-shadow: none; font-size: 12px; }
