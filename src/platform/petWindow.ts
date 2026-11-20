@@ -1,6 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
-import { availableMonitors, getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
+import { availableMonitors, cursorPosition, getCurrentWindow, LogicalPosition, LogicalSize, primaryMonitor } from "@tauri-apps/api/window";
 import type { ActionResult, ChatPhase, DockSide } from "../types";
 import { z } from "zod";
 import { clampWindowX, clampWindowY, dockSideAt, monitorUnderPet, offscreenInsets, snappedWindowX, verticalInsets, type MonitorBounds, type OffscreenInsets } from "./stageGeometry";
@@ -65,7 +65,7 @@ const MORNING_TEST_TIMEOUT_MS = 45_000;
 interface MorningTestRequest { requestId: string }
 interface MorningTestResult { requestId: string; error?: string }
 
-/** A point in logical screen pixels (the same unit as `MouseEvent.screenX`). */
+/** A point in logical screen pixels, from the top left of the main screen. */
 export interface ScreenPoint {
   x: number;
   y: number;
@@ -154,6 +154,19 @@ export const petWindow = {
     const window = getCurrentWindow();
     const [position, scale] = await Promise.all([window.outerPosition(), window.scaleFactor()]);
     return { x: position.x / scale, y: position.y / scale };
+  },
+
+  /**
+   * The cursor, in the same units as `getPosition`. Dragging must not use `PointerEvent.screenY`:
+   * WebKit measures it from the top of the screen the window is on, so it jumps by a whole screen
+   * when the window crosses onto a screen above or below, and the pet bounces between the two.
+   */
+  async getCursor(): Promise<ScreenPoint | null> {
+    if (!isTauri()) return null;
+    const [cursor, primary] = await Promise.all([cursorPosition(), primaryMonitor()]);
+    // tao converts the cursor with the main screen's scale, whichever screen it is on.
+    const scale = primary?.scaleFactor ?? 1;
+    return { x: cursor.x / scale, y: cursor.y / scale };
   },
 
   async setPosition(point: ScreenPoint): Promise<void> {

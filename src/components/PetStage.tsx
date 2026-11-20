@@ -18,19 +18,32 @@ interface Press {
   petted: boolean;
 }
 
+/** Where the cursor and the window were when the drag began, both read from the native side. */
+interface Anchor {
+  cursor: ScreenPoint;
+  window: ScreenPoint;
+}
+
 interface Drag {
-  /** Cursor position when the press began. */
-  start: ScreenPoint;
-  /** Window position when the drag began; null until it has been read. */
-  origin: ScreenPoint | null;
-  /** Newest window position that still has to be applied. */
-  pending: ScreenPoint | null;
-  /** Animation frame that will apply `pending`. */
+  /** Null until both positions have been read. */
+  anchor: Anchor | null;
+  /** Animation frame that will move the window next. */
   frame: number | null;
+  /** The move being applied, so the last one can wait for it. */
+  moving: Promise<void> | null;
+  /** The cursor moved again while `moving` was under way: follow it once more when it is done. */
+  behind: boolean;
 }
 
 function reportMoveError(error: unknown): void {
   console.error("Failed to move the window", error);
+}
+
+/** Puts the window where the cursor has carried it since the drag began. */
+async function followCursor(anchor: Anchor): Promise<void> {
+  const cursor = await petWindow.getCursor();
+  if (!cursor) return;
+  await petWindow.setPosition({ x: anchor.window.x + cursor.x - anchor.cursor.x, y: anchor.window.y + cursor.y - anchor.cursor.y });
 }
 
 interface PetStageProps {
@@ -58,37 +71,41 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     return () => observer.disconnect();
   }, [hostRef, runtime]);
 
-  const beginDrag = (from: Press) => {
+  const beginDrag = () => {
     if (!runtime) return;
-    const started: Drag = { start: { x: from.screenX, y: from.screenY }, origin: null, pending: null, frame: null };
+    const started: Drag = { anchor: null, frame: null, moving: null, behind: false };
     drag.current = started;
     runtime.bus.emit("pet.drag_started", {});
-    petWindow
-      .getPosition()
-      .then((origin) => {
+    // Read together, so the pet keeps the spot under the cursor where it was picked up.
+    Promise.all([petWindow.getCursor(), petWindow.getPosition()])
+      .then(([cursor, window]) => {
         // Ignore the answer if this drag has already ended.
-        if (drag.current === started) drag.current = { ...started, origin };
+        if (drag.current === started && cursor && window) drag.current = { ...started, anchor: { cursor, window } };
       })
       .catch(reportMoveError);
   };
 
-  const moveDrag = (event: PointerEvent<HTMLDivElement>) => {
+  /** Moves the window at most once per frame and one move at a time, always to where the cursor is now. */
+  const moveDrag = () => {
     const current = drag.current;
-    if (!current?.origin) return;
-    const pending = {
-      x: current.origin.x + event.screenX - current.start.x,
-      y: current.origin.y + event.screenY - current.start.y,
-    };
-    // Move the window at most once per frame, always to the newest position.
-    const frame =
-      current.frame ??
-      requestAnimationFrame(() => {
-        const latest = drag.current;
-        if (!latest?.pending) return;
-        drag.current = { ...latest, frame: null };
-        petWindow.setPosition(latest.pending).catch(reportMoveError);
-      });
-    drag.current = { ...current, pending, frame };
+    if (!current?.anchor || current.frame !== null) return;
+    if (current.moving) {
+      drag.current = { ...current, behind: true };
+      return;
+    }
+    const { anchor } = current;
+    const frame = requestAnimationFrame(() => {
+      const moving = followCursor(anchor)
+        .catch(reportMoveError)
+        .finally(() => {
+          const latest = drag.current;
+          if (latest?.moving !== moving) return;
+          drag.current = { ...latest, moving: null, behind: false };
+          if (latest.behind) moveDrag();
+        });
+      if (drag.current?.frame === frame) drag.current = { ...drag.current, frame: null, moving };
+    });
+    drag.current = { ...current, frame };
   };
 
   const endDrag = async () => {
@@ -97,7 +114,8 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     drag.current = null;
     try {
       if (finished.frame !== null) cancelAnimationFrame(finished.frame);
-      if (finished.pending) await petWindow.setPosition(finished.pending);
+      await finished.moving;
+      if (finished.anchor) await followCursor(finished.anchor);
       await petWindow.constrainToMonitor();
       runtime.bus.emit("pet.drag_ended", { dockSide: await petWindow.dockSide() });
     } catch (error) {
@@ -129,7 +147,7 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     if (drag.current) {
       // The release was missed: without the button held, the pet must not stick to the cursor.
       if ((event.buttons & PRIMARY_BUTTON_MASK) === 0) { void endDrag(); return; }
-      moveDrag(event);
+      moveDrag();
       return;
     }
     const start = press.current;
@@ -145,7 +163,7 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     // Still a drag after a pat: people often press, pause and then pull.
     cancelLongPress();
     press.current = null;
-    beginDrag(start);
+    beginDrag();
   };
 
   const onPointerUp = () => {
