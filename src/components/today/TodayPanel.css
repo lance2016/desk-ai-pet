@@ -85,7 +85,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   border-radius: var(--radius-control);
   font: inherit;
   outline: none;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease);
 }
 .today-field--small { height: 24px; padding: 0 6px; font-size: 12px; }
 .today-field--time { width: 88px; font-variant-numeric: tabular-nums; }
@@ -124,7 +124,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   border: 1px solid var(--field-border);
   border-radius: var(--radius-row);
   cursor: text;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease);
 }
 .today-add__field:focus-within { color: var(--accent); }
 .today-add__field input { flex: 1; min-width: 0; padding: 0; color: var(--label); background: none; border: 0; outline: none; font: inherit; }
@@ -198,7 +198,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   border: 1.5px solid var(--label-3);
   border-radius: 50%;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition: background-color var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), color var(--ui-duration-fast) var(--ui-ease);
 }
 .today-check .today-glyph { width: 13px; height: 13px; stroke-width: 2.4; }
 .today-check:hover { border-color: var(--accent); color: var(--accent-ring); }
@@ -277,7 +277,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   font-size: 12px;
-  animation: today-hud-in 160ms ease-out;
+  animation: today-hud-in var(--ui-duration) var(--ui-ease);
 }
 .today-hud span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-hud button { flex: none; height: 22px; padding: 0 8px; color: #fff; background: rgba(255, 255, 255, .16); border: 0; border-radius: var(--radius-control); font: inherit; font-weight: 600; cursor: pointer; }

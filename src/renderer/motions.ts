@@ -77,6 +77,30 @@ export function sampleMotion(preset: MotionPreset, seconds: number, progress: nu
   return { ...REST, ...MOTIONS[preset](seconds, progress) };
 }
 
+/** How long a new action takes to pick the pet up from where the last one left it. */
+export const SETTLE_MS = 200;
+
+/**
+ * Eases the pet from where the last action left it into the new action's motion, so an
+ * action that ends in the air or leaning does not jump back to rest. `elapsedMs` is the time
+ * since the new action started. Opacity is not carried: a label that faded out must not hide what comes next.
+ */
+export function settleMotion(from: MotionTransform, to: MotionTransform, elapsedMs: number): MotionTransform {
+  if (elapsedMs >= SETTLE_MS) return to;
+  // Eases in and out: at 30 frames a second a curve that starts fast would cover half the way in its first frame.
+  const done = Math.max(0, elapsedMs) / SETTLE_MS;
+  const left = 1 - done * done * (3 - 2 * done);
+  const mix = (old: number, next: number) => next + (old - next) * left;
+  return {
+    x: mix(from.x, to.x),
+    y: mix(from.y, to.y),
+    scaleX: mix(from.scaleX, to.scaleX),
+    scaleY: mix(from.scaleY, to.scaleY),
+    rotation: mix(from.rotation, to.rotation),
+    alpha: to.alpha,
+  };
+}
+
 /** Applies user-selected speed and intensity to a built-in motion. */
 export function sampleAdjustedMotion(preset: MotionPreset, seconds: number, progress: number, speed: number, strength: number): MotionTransform {
   const value = sampleMotion(preset, seconds * speed, Math.min(1, progress * speed));

@@ -242,8 +242,8 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 /* ---------- Controls ---------- */
-.toggle { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--switch-track); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background 150ms ease; }
-.toggle span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform 150ms ease; }
+.toggle { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--switch-track); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background-color var(--ui-duration) var(--ui-ease); }
+.toggle span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform var(--ui-duration) var(--ui-ease); }
 .toggle.is-on { background: var(--switch-track-on); }
 .toggle.is-on span { transform: translateX(13px); }
 .toggle:disabled { opacity: .45; cursor: default; }
@@ -307,7 +307,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 button.dock-row__body { cursor: pointer; }
 .dock-row__body strong { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dock-row__body small { grid-column: 1; color: var(--label-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dock-row__chevron { grid-column: 2; grid-row: 1 / 3; color: var(--label-3); transition: transform 150ms ease; }
+.dock-row__chevron { grid-column: 2; grid-row: 1 / 3; color: var(--label-3); transition: transform var(--ui-duration) var(--ui-ease); }
 .dock-row.is-open .dock-row__chevron { transform: rotate(90deg); }
 .dock-row__remove { flex: none; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; color: var(--ui-action-text); background: var(--red); border: 0; border-radius: 50%; cursor: pointer; opacity: .85; }
 .dock-row__remove:hover { opacity: 1; }
@@ -375,7 +375,7 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__types button { min-height: 28px; padding: 0 11px; color: var(--label-2); background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
 .action-editor__types button.is-selected { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
 .action-editor__mode-note { margin: 8px 0 10px; }
-.action-editor__dropzone { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; padding: 10px; background: var(--fill); border: 1px dashed var(--group-border); border-radius: var(--radius-row); transition: background 140ms ease, border-color 140ms ease; }
+.action-editor__dropzone { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; padding: 10px; background: var(--fill); border: 1px dashed var(--group-border); border-radius: var(--radius-row); transition: background-color var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease); }
 .action-editor__dropzone.is-dragging { background: var(--accent-wash); border-color: var(--accent); }
 .action-editor__upload { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; min-height: 32px; padding: 0 13px; color: var(--ui-action-text); background: var(--ui-action-bg); border-radius: var(--radius-control); cursor: pointer; }
 .action-editor__upload:hover { filter: brightness(1.06); }
@@ -428,14 +428,14 @@ button.dock-row__body { cursor: pointer; }
 .settings-page .character-hero__avatar { position: relative; display: block; width: 88px; height: 88px; padding: 0; overflow: hidden; background: none; border: 0; border-radius: 50%; cursor: pointer; }
 .character-hero__portrait { width: 88px; height: 88px; font-size: 32px; }
 /* Changing the picture starts from the picture: hovering shows "编辑" across its foot. */
-.character-hero__edit { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; display: grid; place-items: center; color: #fff; background: rgba(24, 23, 29, .5); font-size: 11px; opacity: 0; transition: opacity 120ms ease-out; pointer-events: none; }
+.character-hero__edit { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; display: grid; place-items: center; color: #fff; background: rgba(24, 23, 29, .5); font-size: 11px; opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); pointer-events: none; }
 .character-hero__avatar:is(:hover, :focus-visible) .character-hero__edit { opacity: 1; }
 .character-hero__name { margin: 12px 0 2px; font-size: 20px; font-weight: 600; line-height: 1.25; }
 .character-hero p { margin: 0; color: var(--label-2); font-size: 12px; }
 /* A row that opens or picks something: the whole row answers, as in System Settings. */
 .settings-page .settings-link { position: relative; isolation: isolate; box-sizing: border-box; width: 100%; padding: 8px 0; color: var(--label); text-align: left; background: none; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; cursor: default; }
 .settings-page .settings-link:first-child { border-top: 0; }
-.settings-link::before { content: ""; position: absolute; z-index: -1; inset: 3px -8px; border-radius: var(--radius-row); transition: background-color 120ms ease-out; }
+.settings-link::before { content: ""; position: absolute; z-index: -1; inset: 3px -8px; border-radius: var(--radius-row); transition: background-color var(--ui-duration-fast) var(--ui-ease); }
 .settings-link:hover::before { background: var(--fill); }
 .settings-link:active::before { background: var(--fill-strong); }
 .settings-page .settings-link:focus-visible { box-shadow: none; }
@@ -456,7 +456,7 @@ button.dock-row__body { cursor: pointer; }
 .character-choice__add { box-sizing: border-box; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 20px; font-weight: 300; }
 .character-choice__using { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-strong); font-size: 12px; }
 .character-choice__using svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.character-choice__switch { flex: none; color: var(--accent-strong); font-size: 12px; opacity: 0; transition: opacity 120ms ease-out; }
+.character-choice__switch { flex: none; color: var(--accent-strong); font-size: 12px; opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
 .character-choice:is(:hover, :focus-visible) .character-choice__switch { opacity: 1; }
 .character-choice[aria-current]:hover::before { background: none; }
 .character-profile__instructions { padding: 12px 0; border-top: 1px solid var(--separator); }
@@ -683,6 +683,12 @@ button.dock-row__body { cursor: pointer; }
 .update-progress::-webkit-progress-value { background: var(--accent); border-radius: 2px; }
 
 /* ---------- Sheets: first-run guide and picture cropper ---------- */
+/* Sheets open the same way everywhere: the scrim fades in and the card settles into place, without a bounce. The action preview joins in from ActionLibrary.css. */
+.welcome, .cropper, .whats-new, .action-preview { animation: scrim-in var(--ui-duration) var(--ui-ease); }
+.welcome__card, .cropper__card, .whats-new__card, .action-preview__dialog { animation: sheet-in var(--ui-duration-slow) var(--ui-ease); }
+@keyframes scrim-in { from { opacity: 0; } }
+@keyframes sheet-in { from { opacity: 0; scale: .97; } }
+@media (prefers-reduced-motion: reduce) { @keyframes sheet-in { from { opacity: 0; } } }
 .welcome, .cropper { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: var(--scrim); }
 .welcome { z-index: 20; }
 .cropper { z-index: 30; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 12px; }
@@ -750,8 +756,7 @@ button.dock-row__body { cursor: pointer; }
 
 /* ---------- "新功能" sheet: what this version brings, like a phone's update notes ---------- */
 .whats-new { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
-.whats-new__card { box-sizing: border-box; display: flex; flex-direction: column; width: min(460px, 100%); max-height: calc(100dvh - 32px); padding: 24px 28px 20px; background: var(--group); border-radius: 14px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3); animation: whats-new-in 260ms cubic-bezier(.2, .9, .3, 1.15); }
-@keyframes whats-new-in { from { opacity: 0; transform: scale(.94); } }
+.whats-new__card { box-sizing: border-box; display: flex; flex-direction: column; width: min(460px, 100%); max-height: calc(100dvh - 32px); padding: 24px 28px 20px; background: var(--group); border-radius: 14px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3); }
 .whats-new__icon { flex: none; display: block; width: 56px; height: 56px; margin: 0 auto 8px; }
 .whats-new h2 { flex: none; margin: 0 0 18px; font-size: 19px; font-weight: 600; letter-spacing: -.01em; text-align: center; }
 .whats-new__list { display: grid; gap: 14px; min-height: 0; margin: 0; padding: 0 2px; overflow-y: auto; list-style: none; }
@@ -774,7 +779,6 @@ button.dock-row__body { cursor: pointer; }
 .whats-new__more { flex: none; margin: 18px 0 0; padding-top: 14px; color: var(--label-2); border-top: 1px solid var(--separator); font-size: 11px; line-height: 1.5; }
 .whats-new .whats-new__done { flex: none; height: 32px; margin-top: 18px; color: var(--ui-action-text); background: var(--ui-action-bg); border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .whats-new .whats-new__done:hover { filter: brightness(1.08); }
-@media (prefers-reduced-motion: reduce) { .whats-new__card { animation: none; } }
 
 /* Settings expand with the window; keep long paragraphs readable on wide screens. */
 .settings-content > .settings-section, .settings-content > .action-editor { margin-left: auto; margin-right: auto; width: 100%; }

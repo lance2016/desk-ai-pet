@@ -26,6 +26,11 @@
   --ui-radius-row: 8px;
   --ui-radius-control: 6px;
   --ui-shadow-popover: 0 8px 24px rgba(24, 23, 29, .12);
+  /* Motion: one curve that starts fast and settles. Short for hover and press, medium for what appears, long for sheets. */
+  --ui-ease: cubic-bezier(.2, .8, .2, 1);
+  --ui-duration-fast: 120ms;
+  --ui-duration: 180ms;
+  --ui-duration-slow: 260ms;
 }
 
 @media (prefers-color-scheme: dark) {

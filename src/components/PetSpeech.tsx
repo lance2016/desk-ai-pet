@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
-import { SpeechQueue } from "../core/SpeechQueue";
+import { SpeechQueue, speechDuration } from "../core/SpeechQueue";
 import { mailCodePlatform } from "../platform/mailCode";
 import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
@@ -135,7 +135,8 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
     <>
       <div className="speech-area" aria-live="polite">
         {idleShown && idle}
-        {passing && <p key={passing} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
+        {/* --stay: how long the queue keeps the line up, so the bubble can fade out just before it goes. */}
+        {passing && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
         {standing && (
           <div key={standing.text} ref={alertRef} className={`speech-bubble speech-bubble--alert${look}`}>
             {standing.choices ? (
