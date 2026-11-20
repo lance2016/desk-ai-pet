@@ -35,6 +35,8 @@
   --tile-gray: #8e8e93;
   --scrim: rgba(28, 24, 40, .45);
   --control-shadow: 0 .5px 1.5px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .05);
+  /* The up-down chevron of a pop-up button; drawn as an image, so dark mode swaps it below. */
+  --popup-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4.5 4 1.5l3 3M1 7.5l3 3 3-3'/%3E%3C/svg%3E");
   --radius-group: 10px;
   --radius-row: 8px;
   --radius-control: 6px;
@@ -53,6 +55,7 @@
   .settings-page {
     --scrim: rgba(0, 0, 0, .55);
     --control-shadow: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
+    --popup-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%23a1a1a6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4.5 4 1.5l3 3M1 7.5l3 3 3-3'/%3E%3C/svg%3E");
     --tile-orange: #ff9f0a;
     --tile-yellow: #ffcc00;
     --tile-green: #30d158;
@@ -646,8 +649,14 @@ button.dock-row__body { cursor: pointer; }
 .quiet-hours label { display: flex; align-items: center; gap: 6px; }
 .quiet-hours input { height: 22px; padding: 0 6px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 /* A time or a choice at the end of a row looks like the quiet-hours fields. */
-.settings-row > :is(input[type="time"], select) { flex: none; height: 24px; padding: 0 6px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
-.settings-row > :is(input[type="time"], select):disabled { opacity: .45; }
+/* A value at the end of a row. The time field and the pop-up button share height, corner and type so a list of them lines up. */
+.settings-row > :is(input[type="time"], select) { box-sizing: border-box; flex: none; height: 24px; margin: 0; color: var(--label); border-radius: var(--radius-control); font: inherit; font-variant-numeric: tabular-nums; }
+.settings-row > input[type="time"] { padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); }
+/* A macOS pop-up button (a push button with the up-down chevron), not the glossy Aqua menu WebKit draws by default. */
+.settings-row > select { appearance: none; -webkit-appearance: none; min-width: 88px; padding: 0 26px 0 10px; background: var(--field) var(--popup-arrow) no-repeat right 9px center / 8px 12px; border: 0; box-shadow: var(--control-shadow); cursor: pointer; }
+.settings-row > select:hover:not(:disabled) { background-color: var(--fill-strong); }
+.settings-row > select:focus-visible { outline: none; box-shadow: var(--control-shadow), 0 0 0 3px var(--accent-ring); }
+.settings-row > :is(input[type="time"], select):disabled { opacity: .45; cursor: default; }
 
 /* Shortcut recorder: the field itself is the record button, the clear button sits inside it. */
 .shortcut-field { flex: none; display: flex; align-items: center; gap: 10px; }
