@@ -20,7 +20,7 @@
   color: var(--label-2);
   background: var(--fill-strong);
   border-radius: var(--radius-control);
-  transition: box-shadow 120ms ease;
+  transition: box-shadow var(--ui-duration-fast) var(--ui-ease);
 }
 .note-search .today-glyph { width: 13px; height: 13px; }
 .note-search:focus-within { box-shadow: 0 0 0 3px var(--accent-ring); }

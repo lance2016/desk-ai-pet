@@ -26,7 +26,7 @@ src/
 ├── renderer/
 │   ├── PetRenderer.ts       渲染接口
 │   ├── PixiRenderer.ts      PixiJS 实现
-│   └── motions.ts           程序化动效（呼吸、弹跳、摇晃等）；系统开了「减弱动态效果」时 `calmMotion` 去掉会移动整个宠物的几种
+│   └── motions.ts           程序化动效（呼吸、弹跳、摇晃等）；系统开了「减弱动态效果」时 `calmMotion` 去掉会移动整个宠物的几种；换动作时 `settleMotion` 用 0.2 秒把宠物从上一个动作停下的位置带到新动作，不瞬移
 ├── assets/
 │   ├── Manifest.ts          manifest 的格式定义和校验
 │   ├── AssetLoader.ts       读取资源包

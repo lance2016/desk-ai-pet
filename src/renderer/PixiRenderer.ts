@@ -6,7 +6,7 @@ import type { ActionAppearance } from "../appearance/AppearanceStore";
 import type { AssetPack } from "../assets/AssetLoader";
 import type { AnimationEntry, AnimationLayer, PetManifest } from "../assets/Manifest";
 import type { HitRegion } from "../types";
-import { calmMotion, sampleAdjustedMotion, sampleMotion } from "./motions";
+import { calmMotion, sampleAdjustedMotion, sampleMotion, settleMotion, type MotionTransform } from "./motions";
 import type { OpaqueMask, PetRenderer } from "./PetRenderer";
 
 /** A mask cell counts as drawn above this alpha (0-255). */
@@ -83,6 +83,9 @@ export class PixiRenderer implements PetRenderer {
   private mirrored = false;
   /** Mirrored by the playing action's own random facing. */
   private flipped = false;
+  /** Where the motion last put the pet, and where the playing action picked it up from. */
+  private lastMotion: MotionTransform | null = null;
+  private settleFrom: MotionTransform | null = null;
 
   /** The renderer owns its canvas and mounts it inside `host`. `random` decides the facing of `randomFlip` actions. */
   constructor(private readonly host: HTMLElement, private readonly random: () => number = Math.random) {
@@ -213,8 +216,12 @@ export class PixiRenderer implements PetRenderer {
     }
     this.scene.sortChildren();
     if (this.app) this.app.ticker.maxFPS = animationId === SLEEP_ACTION ? SLEEP_MAX_FPS : MAX_FPS;
+    const carried = this.playback ? this.lastMotion : null;
+    const facedLeft = this.facesLeft();
     this.playback = { animation, elapsedMs: 0 };
     this.flipped = animation.entry.randomFlip && this.random() < FLIP_CHANCE;
+    // Motions are sampled facing right: turning around turns what is carried over with it.
+    this.settleFrom = carried && this.facesLeft() !== facedLeft ? { ...carried, x: -carried.x, rotation: -carried.rotation } : carried;
     this.sprite.visible = true;
     this.draw();
   }
@@ -406,7 +413,9 @@ export class PixiRenderer implements PetRenderer {
 
     const progress = entry.duration ? Math.min(1, elapsedMs / entry.duration) : (elapsedMs % 2000) / 2000;
     const reduceMotion = this.reducedMotion.matches;
-    const motion = sampleAdjustedMotion(calmMotion(entry.motion, reduceMotion), elapsedMs / 1000, progress, animation.motionSpeed ?? 1, animation.motionStrength ?? 1);
+    const sampled = sampleAdjustedMotion(calmMotion(entry.motion, reduceMotion), elapsedMs / 1000, progress, animation.motionSpeed ?? 1, animation.motionStrength ?? 1);
+    const motion = this.settleFrom ? settleMotion(this.settleFrom, sampled, elapsedMs) : sampled;
+    this.lastMotion = motion;
     const facing = this.facesLeft() ? -1 : 1;
     const centerX = this.restingCenterX(entry, frames[frameIndex].width);
     this.sprite.position.set(centerX + motion.x * facing, this.manifest.canvas.height + motion.y);

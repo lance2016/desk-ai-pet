@@ -21,7 +21,7 @@
 .action-progress__number { color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .action-progress__number strong { color: var(--accent-strong); font-size: 17px; font-weight: 600; }
 .action-progress__track { grid-column: 1 / -1; height: 3px; overflow: hidden; background: var(--fill-strong); border-radius: 2px; }
-.action-progress__track span { display: block; height: 100%; background: var(--accent-strong); transition: width 180ms ease; }
+.action-progress__track span { display: block; height: 100%; background: var(--accent-strong); transition: width var(--ui-duration) var(--ui-ease); }
 
 .action-library__toolbar {
   display: flex;
@@ -90,7 +90,7 @@
 .action-guide { margin: 0 0 16px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-row); }
 .action-guide > summary { min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 11px; list-style: none; cursor: pointer; }
 .action-guide > summary::-webkit-details-marker { display: none; }
-.action-guide > summary::after { content: "⌄"; flex: none; color: var(--label-2); transition: transform 140ms ease; }
+.action-guide > summary::after { content: "⌄"; flex: none; color: var(--label-2); transition: transform var(--ui-duration) var(--ui-ease); }
 .action-guide[open] > summary::after { transform: rotate(180deg); }
 .action-guide > summary span { font-size: 11px; font-weight: 500; }
 .action-guide > summary small { margin-left: auto; color: var(--label-2); font-size: 11px; }
@@ -119,7 +119,7 @@
 .action-tile { min-width: 0; overflow: hidden; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-row); }
 .action-tile__art { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 1.08 / 1; display: grid; place-items: center; padding: 8px; overflow: hidden; background-color: var(--fill); background-image: repeating-conic-gradient(var(--fill-strong) 0 25%, transparent 0 50%); background-position: 0 0; background-size: 14px 14px; border: 0; border-bottom: 1px solid var(--separator); cursor: zoom-in; }
 .action-tile__art canvas { display: block; width: 100%; height: 100%; }
-.action-tile__zoom { position: absolute; right: 7px; bottom: 7px; padding: 3px 6px; color: var(--label-2); background: var(--group); border: 1px solid var(--group-border); border-radius: 10px; font-size: 11px; opacity: 0; transform: translateY(2px); transition: opacity 120ms ease, transform 120ms ease; }
+.action-tile__zoom { position: absolute; right: 7px; bottom: 7px; padding: 3px 6px; color: var(--label-2); background: var(--group); border: 1px solid var(--group-border); border-radius: 10px; font-size: 11px; opacity: 0; transform: translateY(2px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .action-tile__art:hover .action-tile__zoom, .action-tile__art:focus-visible .action-tile__zoom { opacity: 1; transform: translateY(0); }
 .action-tile__empty { display: grid; justify-items: center; gap: 4px; color: var(--label-3); }
 .action-tile__empty > span { width: 25px; height: 25px; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 18px; }

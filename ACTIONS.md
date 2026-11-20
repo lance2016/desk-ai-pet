@@ -138,6 +138,8 @@ __pet.requestAction("dance");
 
 标"是"的动效按动作进度变化，没有 `duration` 就不会动。
 
+动作结束时动效不一定正好回到原位（`remind` 结束时还在半空）。渲染器换动作时会用 0.2 秒（`SETTLE_MS`）把宠物从停下的位置带到新动作的起点，所以时长不用凑成动效周期的整数倍。
+
 动效在 `src/renderer/motions.ts` 里定义。新增一种动效需要改这个文件，并把名字加到 `src/types.ts` 的 `MOTION_PRESETS`。这是唯一需要改代码的情况。
 
 ## 分类 `category`

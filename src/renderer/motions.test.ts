@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MOTION_PRESETS } from "../types";
-import { BREATHE_SECONDS, calmMotion, sampleAdjustedMotion, sampleMotion } from "./motions";
+import { BREATHE_SECONDS, SETTLE_MS, calmMotion, sampleAdjustedMotion, sampleMotion, settleMotion } from "./motions";
 
 const REST = { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, alpha: 1 };
 
@@ -66,5 +66,32 @@ describe("calmMotion", () => {
     expect(calmMotion("breathe", true)).toBe("breathe");
     expect(calmMotion("squash", true)).toBe("squash");
     expect(calmMotion("bounce", false)).toBe("bounce");
+  });
+});
+
+describe("settleMotion", () => {
+  const midHop = { ...REST, y: -14, rotation: 0.04, scaleY: 1.02 };
+
+  it("starts a new action from where the last one left the pet", () => {
+    expect(settleMotion(midHop, REST, 0)).toEqual(midHop);
+  });
+
+  it("gets there in small steps and hands over to the new motion", () => {
+    const frames = [0, 1, 2, 3, 4, 5, 6].map((frame) => settleMotion(midHop, REST, (frame * SETTLE_MS) / 6).y);
+    for (let frame = 1; frame < frames.length; frame += 1) {
+      expect(frames[frame]).toBeGreaterThan(frames[frame - 1]);
+      expect(frames[frame] - frames[frame - 1]).toBeLessThan(14 / 3);
+    }
+    expect(settleMotion(midHop, REST, SETTLE_MS)).toEqual(REST);
+    expect(settleMotion(midHop, REST, SETTLE_MS * 4)).toEqual(REST);
+  });
+
+  it("follows the new motion while it catches up", () => {
+    const hopping = { ...REST, y: -10 };
+    expect(settleMotion(REST, hopping, SETTLE_MS / 2).y).toBeCloseTo(-5);
+  });
+
+  it("does not carry a faded-out label's opacity into the next action", () => {
+    expect(settleMotion({ ...REST, alpha: 0 }, REST, 0).alpha).toBe(1);
   });
 });

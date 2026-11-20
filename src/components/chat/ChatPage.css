@@ -158,7 +158,7 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 
 /* Low emphasis keeps reply actions discoverable without competing with the message. */
 .chat-row__actions { flex: none; display: flex; gap: 2px; margin-bottom: 2px; }
-.chat-row__action { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-control); color: var(--label-2); background: none; cursor: pointer; opacity: .72; transition: opacity .12s ease, background-color .12s ease; }
+.chat-row__action { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-control); color: var(--label-2); background: none; cursor: pointer; opacity: .72; transition: opacity var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease); }
 .chat-row__action svg { width: 14px; height: 14px; }
 .chat-row:hover .chat-row__action, .chat-row__action:focus-visible, .chat-row__action.is-saved { opacity: 1; }
 .chat-row__action:hover:not(:disabled) { color: var(--accent-strong); background: var(--accent-wash); }
@@ -173,9 +173,9 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 /* Show only the top of the picture; the crop ends at the input's top edge. */
 .chat-peek { position: absolute; z-index: 0; right: 70px; bottom: calc(100% - 34px); width: 78px; clip-path: inset(0 0 24px); }
 .peek-picture.chat-peek { pointer-events: auto; cursor: default; }
-.peek-picture.chat-peek img { transform: translateY(12px); transform-origin: 50% 100%; transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
+.peek-picture.chat-peek img { transform: translateY(12px); transform-origin: 50% 100%; transition: transform var(--ui-duration-slow) var(--ui-ease); }
 .peek-picture.chat-peek:hover img { transform: translateY(0); }
-.chat-input { position: relative; z-index: 1; flex: 1; display: flex; align-items: flex-end; gap: 2px; padding: 4px 4px 4px 12px; border: 1px solid var(--field-border); border-radius: var(--radius-group); background: var(--field); transition: border-color .15s, box-shadow .15s; }
+.chat-input { position: relative; z-index: 1; flex: 1; display: flex; align-items: flex-end; gap: 2px; padding: 4px 4px 4px 12px; border: 1px solid var(--field-border); border-radius: var(--radius-group); background: var(--field); transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 .chat-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 .chat-input.is-recording { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-wash); }
 .chat-input textarea { flex: 1; box-sizing: border-box; min-width: 0; min-height: 30px; padding: 6px 0; border: 0; outline: none; resize: none; color: inherit; background: none; font-family: inherit; font-size: 14px; line-height: 18px; user-select: text; }
