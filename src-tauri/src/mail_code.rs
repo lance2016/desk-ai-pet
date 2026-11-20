@@ -1,5 +1,5 @@
 //! "查收验证码" in the pet menu: waits up to two minutes for a verification
-//! code in the user's 163 inbox, copies it and tells the pet window.
+//! code in the user's 163 inboxes, copies it and tells the pet window.
 //!
 //! The inbox is opened read-only (EXAMINE and BODY.PEEK), so nothing is marked
 //! as read. Mail is looked at only while the user waits, never stored, and
@@ -20,10 +20,11 @@ use std::{
 };
 
 use native_tls::{TlsConnector, TlsStream};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::mail_extract::{self, Verdict};
+use crate::mail_extract::{self, Reading, Verdict};
 
 /// Tells the pet window how a wait went. Must match `src/platform/mailCode.ts`.
 const EVENT: &str = "pet://mail-code";
@@ -58,6 +59,8 @@ const LOGIN_REFUSED: &str = "163 邮箱登录失败：授权码不对，或者�
 const NETWORK_ERROR: &str = "连不上 163 邮箱，检查一下网络。";
 const MAIL_ERROR: &str = "163 邮箱出了点问题，请稍后再试。";
 const BROKEN_ACCOUNT: &str = "邮箱设置坏了，请在设置里重新添加。";
+/// Leads the reasons when the wait ran out while some mailbox could not be read.
+const TIMEOUT_WITH_TROUBLE: &str = "一直没等到验证码，有的邮箱没查成：";
 const TRY_TOO_LONG: &str = "内容太长了，只粘贴邮件的标题和正文就行。";
 
 type Session = imap::Session<TlsStream<TcpStream>>;
@@ -66,13 +69,29 @@ type Session = imap::Session<TlsStream<TcpStream>>;
 pub struct MailCodeState {
     /// Set while a wait runs; storing true in it asks the wait to stop.
     running: Mutex<Option<Arc<AtomicBool>>>,
-    /// Messages already handed over, so after "resend" the new code is waited for instead of the old one given again.
-    delivered: Mutex<HashSet<u32>>,
+    /// Messages already handed over, by mailbox and UID, so after "resend" the new code is waited for instead of the old one given again.
+    delivered: Mutex<HashSet<(String, u32)>>,
 }
 
+#[derive(Serialize, Deserialize)]
 struct Account {
     address: String,
     password: String,
+}
+
+/// One logged-in mailbox during a wait.
+struct Mailbox {
+    address: String,
+    session: Session,
+    /// Messages downloaded in this wait, so each is read once.
+    looked_at: HashSet<u32>,
+}
+
+/// The newest code mail in one mailbox, not handed over yet.
+struct Candidate {
+    at: i64,
+    uid: u32,
+    reading: Reading,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -83,20 +102,33 @@ fn service(app: &AppHandle) -> String {
     format!("{}.mail.163", app.config().identifier)
 }
 
-fn load_account(app: &AppHandle) -> Result<Option<Account>, String> {
-    let Some(text) = crate::secrets::load(&service(app))? else {
-        return Ok(None);
-    };
-    let value: Value = serde_json::from_str(&text).map_err(|_| BROKEN_ACCOUNT.to_string())?;
-    match (value["address"].as_str(), value["password"].as_str()) {
-        (Some(address), Some(password)) => Ok(Some(Account { address: address.into(), password: password.into() })),
-        _ => Err(BROKEN_ACCOUNT.into()),
+/// All saved mailboxes, in the order they were added. They share one keychain entry.
+fn load_accounts(app: &AppHandle) -> Result<Vec<Account>, String> {
+    match crate::secrets::load(&service(app))? {
+        Some(text) => parse_accounts(&text),
+        None => Ok(Vec::new()),
     }
 }
 
-/// A new mailbox has its own message numbers.
-fn forget_delivered(app: &AppHandle) {
-    lock(&app.state::<MailCodeState>().delivered).clear();
+fn parse_accounts(text: &str) -> Result<Vec<Account>, String> {
+    let value: Value = serde_json::from_str(text).map_err(|_| BROKEN_ACCOUNT.to_string())?;
+    // Before several mailboxes, the entry held a single account object.
+    let list = match value {
+        Value::Array(_) => value,
+        single => Value::Array(vec![single]),
+    };
+    serde_json::from_value(list).map_err(|_| BROKEN_ACCOUNT.to_string())
+}
+
+fn save_accounts(app: &AppHandle, accounts: &[Account]) -> Result<(), String> {
+    if accounts.is_empty() {
+        return crate::secrets::clear(&service(app));
+    }
+    let text = serde_json::to_string(accounts).map_err(|error| {
+        log::error!("Mail: failed to write the accounts: {error}");
+        MAIL_ERROR.to_string()
+    })?;
+    crate::secrets::save(&service(app), &text)
 }
 
 fn validate(address: &str, password: &str) -> Result<(), String> {
@@ -110,13 +142,14 @@ fn validate(address: &str, password: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// The saved 163 address, or None when no mailbox is set up.
+/// The saved 163 addresses; empty when no mailbox is set up.
 #[tauri::command]
-pub fn mail_account(app: AppHandle) -> Result<Option<String>, String> {
-    Ok(load_account(&app)?.map(|account| account.address))
+pub fn mail_accounts(app: AppHandle) -> Result<Vec<String>, String> {
+    Ok(load_accounts(&app)?.into_iter().map(|account| account.address).collect())
 }
 
 /// Logs in with the address and authorization code, and saves them only when 163 lets us in.
+/// A saved address gets the new code; any other is added to the list.
 #[tauri::command]
 pub async fn mail_save_account(app: AppHandle, address: String, password: String) -> Result<(), String> {
     let address = address.trim().to_lowercase();
@@ -126,9 +159,10 @@ pub async fn mail_save_account(app: AppHandle, address: String, password: String
         let mut session = connect(&address, &password)?;
         session.examine("INBOX").map_err(|error| failure("open the inbox", error))?;
         let _ = session.logout();
-        crate::secrets::save(&service(&app), &json!({ "address": address, "password": password }).to_string())?;
-        forget_delivered(&app);
-        Ok(())
+        let mut accounts = load_accounts(&app)?;
+        accounts.retain(|account| account.address != address);
+        accounts.push(Account { address, password });
+        save_accounts(&app, &accounts)
     })
     .await
     .map_err(|error| {
@@ -156,10 +190,10 @@ fn try_text(subject: &str, body: &str) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn mail_remove_account(app: AppHandle) -> Result<(), String> {
-    crate::secrets::clear(&service(&app))?;
-    forget_delivered(&app);
-    Ok(())
+pub fn mail_remove_account(app: AppHandle, address: String) -> Result<(), String> {
+    let mut accounts = load_accounts(&app)?;
+    accounts.retain(|account| account.address != address);
+    save_accounts(&app, &accounts)
 }
 
 fn network(step: &str, error: impl Display) -> String {
@@ -271,18 +305,30 @@ pub fn toggle(app: &AppHandle) {
 
 /// What came of the wait, or None when it was cancelled.
 fn wait_for_code(app: &AppHandle, cancel: &AtomicBool) -> Option<Value> {
-    let account = match load_account(app) {
-        Ok(Some(account)) => account,
-        Ok(None) => return Some(json!({ "kind": "unset" })),
+    let accounts = match load_accounts(app) {
+        Ok(accounts) if accounts.is_empty() => return Some(json!({ "kind": "unset" })),
+        Ok(accounts) => accounts,
         Err(message) => return Some(failed(message)),
     };
-    let mut session = match connect(&account.address, &account.password) {
-        Ok(session) => session,
-        Err(message) => return Some(failed(message)),
-    };
-    // One login for the whole wait: logging in again every few seconds can trip 163's checks.
-    let outcome = watch_inbox(app, &mut session, cancel);
-    let _ = session.logout();
+    // With one mailbox the reason is enough; with several it has to say which one.
+    let several = accounts.len() > 1;
+    let trouble = |address: &str, message: String| if several { format!("{address}：{message}") } else { message };
+    let mut problems = Vec::new();
+    let mut mailboxes = Vec::new();
+    for account in accounts {
+        if cancel.load(Ordering::Relaxed) {
+            break;
+        }
+        // One login per mailbox for the whole wait: logging in again every few seconds can trip 163's checks.
+        match connect(&account.address, &account.password) {
+            Ok(session) => mailboxes.push(Mailbox { address: account.address, session, looked_at: HashSet::new() }),
+            Err(message) => problems.push(trouble(&account.address, message)),
+        }
+    }
+    let outcome = watch_inboxes(app, &mut mailboxes, &mut problems, &trouble, cancel);
+    for mailbox in &mut mailboxes {
+        let _ = mailbox.session.logout();
+    }
     outcome
 }
 
@@ -290,21 +336,45 @@ fn failed(message: String) -> Value {
     json!({ "kind": "failed", "message": message })
 }
 
-fn watch_inbox(app: &AppHandle, session: &mut Session, cancel: &AtomicBool) -> Option<Value> {
+/// Checks every mailbox until one has a code. A mailbox that fails is dropped and its reason kept for the end.
+fn watch_inboxes(
+    app: &AppHandle,
+    mailboxes: &mut Vec<Mailbox>,
+    problems: &mut Vec<String>,
+    trouble: &dyn Fn(&str, String) -> String,
+    cancel: &AtomicBool,
+) -> Option<Value> {
     let deadline = Instant::now() + WAIT_FOR;
-    let mut looked_at = HashSet::new();
     loop {
         if cancel.load(Ordering::Relaxed) {
             return None;
         }
-        match check_inbox(app, session, &mut looked_at) {
-            Ok(Some(payload)) => return Some(payload),
-            Ok(None) => {}
-            Err(message) => return Some(failed(message)),
+        if mailboxes.is_empty() {
+            return Some(failed(problems.join(" ")));
+        }
+        let mut newest: Option<(String, Candidate)> = None;
+        mailboxes.retain_mut(|mailbox| match newest_code(app, mailbox) {
+            Ok(found) => {
+                if let Some(candidate) = found.filter(|found| newest.as_ref().is_none_or(|(_, best)| found.at > best.at)) {
+                    newest = Some((mailbox.address.clone(), candidate));
+                }
+                true
+            }
+            Err(message) => {
+                problems.push(trouble(&mailbox.address, message));
+                false
+            }
+        });
+        if let Some((address, candidate)) = newest {
+            return Some(hand_over(app, address, candidate));
         }
         let next = Instant::now() + CHECK_EVERY;
         if next >= deadline {
-            return Some(json!({ "kind": "timeout" }));
+            return Some(if problems.is_empty() {
+                json!({ "kind": "timeout" })
+            } else {
+                failed(format!("{TIMEOUT_WITH_TROUBLE}{}", problems.join(" ")))
+            });
         }
         while Instant::now() < next {
             if cancel.load(Ordering::Relaxed) {
@@ -315,6 +385,20 @@ fn watch_inbox(app: &AppHandle, session: &mut Session, cancel: &AtomicBool) -> O
     }
 }
 
+/// Copies the code, if there is one, and remembers the message so it is not given again.
+fn hand_over(app: &AppHandle, address: String, candidate: Candidate) -> Value {
+    let Candidate { at, uid, reading } = candidate;
+    lock(&app.state::<MailCodeState>().delivered).insert((address, uid));
+    match reading.verdict {
+        Verdict::Code(code) => {
+            log::info!("Mail: found a code {}s after the mailbox got it", unix_now() - at);
+            let copied = copy(&code);
+            json!({ "kind": "found", "code": code, "sender": reading.sender, "copied": copied })
+        }
+        _ => json!({ "kind": "unrecognized", "sender": reading.sender }),
+    }
+}
+
 fn unix_now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -322,8 +406,9 @@ fn unix_now() -> i64 {
         .unwrap_or_default()
 }
 
-/// The newest fresh code not handed over yet, newest message first. Each message is downloaded once per wait.
-fn check_inbox(app: &AppHandle, session: &mut Session, looked_at: &mut HashSet<u32>) -> Result<Option<Value>, String> {
+/// The newest fresh code mail in this mailbox not handed over yet. Each message is downloaded once per wait.
+fn newest_code(app: &AppHandle, mailbox: &mut Mailbox) -> Result<Option<Candidate>, String> {
+    let Mailbox { address, session, looked_at } = mailbox;
     let inbox = session.examine("INBOX").map_err(|error| failure("open the inbox", error))?;
     if inbox.exists == 0 {
         return Ok(None);
@@ -341,31 +426,18 @@ fn check_inbox(app: &AppHandle, session: &mut Session, looked_at: &mut HashSet<u
     fresh.sort_unstable_by(|a, b| b.cmp(a));
     looked_at.extend(fresh.iter().map(|(_, uid)| *uid));
     let state = app.state::<MailCodeState>();
-    fresh.retain(|(_, uid)| !lock(&state.delivered).contains(uid));
+    fresh.retain(|(_, uid)| !lock(&state.delivered).contains(&(address.clone(), *uid)));
     if fresh.is_empty() {
         return Ok(None);
     }
     // One request for all of them: on the first check there can be several, and each round trip adds up.
     let set = fresh.iter().map(|(_, uid)| uid.to_string()).collect::<Vec<_>>().join(",");
     let messages = session.uid_fetch(set, "BODY.PEEK[]").map_err(|error| failure("read messages", error))?;
-    for (at, uid) in fresh {
-        let body = messages.iter().find(|message| message.uid == Some(uid)).and_then(|message| message.body());
-        let Some(reading) = body.and_then(mail_extract::read_message) else {
-            continue;
-        };
-        let payload = match reading.verdict {
-            Verdict::NotCode => continue,
-            Verdict::Code(code) => {
-                log::info!("Mail: found a code {}s after the mailbox got it", unix_now() - at);
-                let copied = copy(&code);
-                json!({ "kind": "found", "code": code, "sender": reading.sender, "copied": copied })
-            }
-            Verdict::Unrecognized => json!({ "kind": "unrecognized", "sender": reading.sender }),
-        };
-        lock(&state.delivered).insert(uid);
-        return Ok(Some(payload));
-    }
-    Ok(None)
+    Ok(fresh.into_iter().find_map(|(at, uid)| {
+        let body = messages.iter().find(|message| message.uid == Some(uid))?.body()?;
+        let reading = mail_extract::read_message(body)?;
+        (!matches!(reading.verdict, Verdict::NotCode)).then_some(Candidate { at, uid, reading })
+    }))
 }
 
 #[cfg(target_os = "macos")]
@@ -387,7 +459,7 @@ fn copy(_: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{BAD_PASSWORD, MAX_TRY_CHARS, NOT_163, TRY_TOO_LONG, log_in, try_text, validate};
+    use super::{BAD_PASSWORD, BROKEN_ACCOUNT, MAX_TRY_CHARS, NOT_163, TRY_TOO_LONG, log_in, parse_accounts, try_text, validate};
     use serde_json::json;
     use std::io::{Cursor, Read, Write};
 
@@ -426,6 +498,19 @@ a2 OK ID completed\r\n";
         assert_eq!(try_text("Your verification code", "Code: AB7KQZ"), Ok(json!({ "kind": "unrecognized", "word": "verification code" })));
         assert_eq!(try_text("周末特惠", "满 300 减 50"), Ok(json!({ "kind": "not_code" })));
         assert_eq!(try_text("", &"码".repeat(MAX_TRY_CHARS + 1)), Err(TRY_TOO_LONG.into()));
+    }
+
+    #[test]
+    fn reads_one_or_several_saved_mailboxes() {
+        let addresses = |text: &str| parse_accounts(text).map(|list| list.into_iter().map(|account| account.address).collect::<Vec<_>>());
+        // What versions before several mailboxes saved.
+        assert_eq!(addresses(r#"{"address":"a@163.com","password":"P"}"#), Ok(vec!["a@163.com".to_string()]));
+        assert_eq!(
+            addresses(r#"[{"address":"a@163.com","password":"P"},{"address":"b@163.com","password":"Q"}]"#),
+            Ok(vec!["a@163.com".to_string(), "b@163.com".to_string()])
+        );
+        assert_eq!(addresses(r#"{"address":"a@163.com"}"#), Err(BROKEN_ACCOUNT.into()));
+        assert_eq!(addresses("not json"), Err(BROKEN_ACCOUNT.into()));
     }
 
     #[test]

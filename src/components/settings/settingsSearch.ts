@@ -57,7 +57,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "tools", title: "划词浮钮", keywords: "解释 总结 润色 选中文字" },
   { section: "tools", title: "翻译窗口", keywords: "粘贴 翻译" },
   { section: "tools", title: "查收验证码", keywords: "邮箱 邮件 验证码" },
-  { section: "tools", title: "163 邮箱", keywords: "授权码 IMAP 邮箱" },
+  { section: "tools", title: "163 邮箱", keywords: "授权码 IMAP 邮箱 添加 多个" },
   { section: "tools", title: "认不出验证码？", keywords: "规则 测试" },
   { section: "general", title: "开机时打开", keywords: "开机启动 登录项" },
   { section: "general", title: "总在最前面", keywords: "置顶 全屏" },

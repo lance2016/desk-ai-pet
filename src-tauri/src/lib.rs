@@ -820,7 +820,7 @@ pub fn run() {
             request_log::llm_log_clear,
             request_log::llm_stats_add,
             holidays::fetch_holiday_year,
-            mail_code::mail_account,
+            mail_code::mail_accounts,
             mail_code::mail_save_account,
             mail_code::mail_remove_account,
             mail_code::mail_code_cancel,

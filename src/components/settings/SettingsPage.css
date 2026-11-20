@@ -473,6 +473,11 @@ button.dock-row__body { cursor: pointer; }
 .ai-settings__actions a { margin-left: auto; color: var(--accent-strong); font-size: 12px; }
 .ai-settings__actions .ai-settings__link { margin-left: auto; padding: 0 4px; color: var(--accent-strong); background: none; box-shadow: none; font-size: 12px; }
 /* Labels on the left, fields on the right, as a macOS form lays them out. */
+.mail-accounts { margin: 0 0 14px; padding: 0; list-style: none; }
+.mail-accounts li { min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mail-accounts li + li { border-top: 1px solid var(--separator); }
+.mail-accounts span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-accounts:last-child { margin-bottom: 0; }
 .mail-form { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; }
 .ai-settings .mail-form label { margin: 0; color: var(--label-2); font-weight: 400; text-align: right; }
 .mail-form input { box-sizing: border-box; width: 100%; height: 26px; padding: 0 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }

@@ -16,18 +16,19 @@ function saveError(reason: unknown, doing: string): string {
 }
 
 export function MailSettings() {
-  const [address, setAddress] = useState<string | null | undefined>(undefined);
+  const [addresses, setAddresses] = useState<string[] | undefined>(undefined);
   const [draftAddress, setDraftAddress] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  /** Open while no mailbox is saved, and behind "更换" after. */
+  /** Open while no mailbox is saved, and behind "添加" after. */
   const [expanded, setExpanded] = useState(false);
   useEffect(() => {
-    mailCodePlatform.account()
-      .then((saved) => { setAddress(saved); if (!saved) setExpanded(true); })
-      .catch((reason: unknown) => { setAddress(null); setExpanded(true); setStatus(saveError(reason, "读取邮箱设置")); });
+    mailCodePlatform.accounts()
+      .then((saved) => { setAddresses(saved); if (saved.length === 0) setExpanded(true); })
+      .catch((reason: unknown) => { setAddresses([]); setExpanded(true); setStatus(saveError(reason, "读取邮箱设置")); });
   }, []);
+  const saved = addresses ?? [];
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -35,14 +36,19 @@ export function MailSettings() {
     setBusy(true); setStatus("正在连接 163 邮箱…");
     try {
       await mailCodePlatform.saveAccount(draftAddress, password);
-      setAddress(draftAddress.trim().toLowerCase()); setDraftAddress(""); setPassword(""); setExpanded(false);
-      setStatus("已连上。要验证码时，右键点宠物，选「查收验证码」。");
+      const added = draftAddress.trim().toLowerCase();
+      setAddresses([...saved.filter((address) => address !== added), added]); setDraftAddress(""); setPassword(""); setExpanded(false);
+      setStatus(`已连上 ${added}。要验证码时，右键点宠物，选「查收验证码」。`);
     } catch (reason) { setStatus(saveError(reason, "保存")); }
     finally { setBusy(false); }
   };
-  const remove = async () => {
+  const remove = async (removed: string) => {
     setBusy(true); setStatus("");
-    try { await mailCodePlatform.removeAccount(); setAddress(null); setExpanded(true); setStatus("已移除邮箱。"); }
+    try {
+      await mailCodePlatform.removeAccount(removed);
+      const left = saved.filter((address) => address !== removed);
+      setAddresses(left); if (left.length === 0) setExpanded(true); setStatus(`已移除 ${removed}。`);
+    }
     catch (reason) { setStatus(saveError(reason, "移除")); }
     finally { setBusy(false); }
   };
@@ -53,10 +59,16 @@ export function MailSettings() {
     <div className="settings-section__intro"><h2>查收验证码</h2><p>右键点宠物选「查收验证码」，它会找到验证码并复制好</p></div>
     <article className="settings-card ai-settings mail-settings">
       <div className="ai-settings__head">
-        <div><strong>163 邮箱</strong><span>{address ?? "连上后才会保存"}</span></div>
-        <span className={address ? "ai-badge is-ready" : "ai-badge"}>{address === undefined ? "检查中" : address ? "已连上" : "未配置"}</span>
-        {address && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "更换"}</button>}
+        <div><strong>163 邮箱</strong><span>{saved.length > 1 ? `已连上 ${saved.length} 个，查收时一起找` : "可以加几个，查收时一起找"}</span></div>
+        <span className={saved.length ? "ai-badge is-ready" : "ai-badge"}>{addresses === undefined ? "检查中" : saved.length ? "已连上" : "未配置"}</span>
+        {saved.length > 0 && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "添加"}</button>}
       </div>
+      {saved.length > 0 && <ul className="mail-accounts">
+        {saved.map((address) => <li key={address}>
+          <span>{address}</span>
+          <ConfirmButton className="settings-button settings-button--small" disabled={busy} confirm={{ message: `移除 ${address}？`, detail: "这个邮箱的地址和授权码会从钥匙串里删掉，之后不再查它的验证码。", action: "移除" }} onConfirm={() => void remove(address)}>移除</ConfirmButton>
+        </li>)}
+      </ul>}
       {expanded && <>
         <form className="mail-form" onSubmit={(event) => void save(event)}>
           <label htmlFor="mail-address">邮箱地址</label>
@@ -68,17 +80,16 @@ export function MailSettings() {
         <ol className="mail-steps">
           <li>登录网页版 163 邮箱，打开「设置 → POP3/SMTP/IMAP」，开启「IMAP/SMTP 服务」。</li>
           <li>按提示用手机验证，复制页面给出的授权码。</li>
-          <li>回到这里粘贴，点「连接并保存」。</li>
+          <li>回到这里粘贴，点「连接并保存」。已加过的邮箱再填一次，会换成新的授权码。</li>
         </ol>
         <p>只在你查收时读最新几封邮件，不标已读，不保存，也不发给 AI。</p>
         <div className="ai-settings__actions">
-          {address && <ConfirmButton disabled={busy} confirm={{ message: "移除 163 邮箱？", detail: "邮箱地址和授权码会从钥匙串里删掉，之后要重新填写才能查收验证码。", action: "移除" }} onConfirm={() => void remove()}>移除邮箱</ConfirmButton>}
           <button type="button" className="ai-settings__link" onClick={open163}>打开 163 邮箱 ↗</button>
         </div>
       </>}
       {status && <p className="ai-settings__status" role="status">{status}</p>}
     </article>
-    <p className="settings-footnote">邮件没到会接着等，最多 2 分钟。目前只支持 163 邮箱。</p>
+    <p className="settings-footnote">会一起查所有加过的邮箱，取最新的一条。邮件没到会接着等，最多 2 分钟。目前只支持 163 邮箱。</p>
     <details className="ai-disclosure ai-disclosure--standalone mail-try">
       <summary><span><strong>认不出验证码？</strong><small>把邮件贴进来，看看卡在哪一步</small></span></summary>
       <MailCodeTester />

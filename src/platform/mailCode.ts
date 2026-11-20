@@ -27,13 +27,13 @@ export type MailCodeTrial = z.infer<typeof trialSchema>;
 
 function requireNative() { if (!isTauri()) throw new Error("邮箱功能需要在桌面应用中使用。"); }
 
-/** The 163 mailbox behind "查收验证码". In a plain browser there is none and nothing is reported. */
+/** The 163 mailboxes behind "查收验证码". In a plain browser there are none and nothing is reported. */
 export const mailCodePlatform = {
-  /** The saved address, or null when no mailbox is set up. */
-  async account(): Promise<string | null> { return isTauri() ? invoke<string | null>("mail_account") : null; },
-  /** Logs in once to check the authorization code, then keeps both in the keychain. Rejects with a message for the user. */
+  /** The saved addresses, in the order they were added. */
+  async accounts(): Promise<string[]> { return isTauri() ? invoke<string[]>("mail_accounts") : []; },
+  /** Logs in once to check the authorization code, then keeps both in the keychain. A saved address gets the new code. Rejects with a message for the user. */
   async saveAccount(address: string, password: string): Promise<void> { requireNative(); await invoke("mail_save_account", { address, password }); },
-  async removeAccount(): Promise<void> { requireNative(); await invoke("mail_remove_account"); },
+  async removeAccount(address: string): Promise<void> { requireNative(); await invoke("mail_remove_account", { address }); },
   /** Runs the same rules as "查收验证码" on pasted text. Rejects with a message for the user. */
   async tryText(subject: string, body: string): Promise<MailCodeTrial> {
     requireNative();
