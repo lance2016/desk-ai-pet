@@ -49,7 +49,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "companion", title: "回来打招呼", keywords: "欢迎回来 离开" },
   { section: "companion", title: "早安问候", keywords: "早上好 每天问候 早安时间" },
   { section: "companion", title: "每天说早安", keywords: "早安 开启 关闭 问候 早安时间 时钟 定时" },
-  { section: "companion", title: "问候预览", keywords: "预览 立即验证 测试早安" },
+  { section: "companion", title: "预览一句", keywords: "预览 立即验证 试一下 测试 早安 晚安 问候预览" },
   { section: "companion", title: "手动勿扰", keywords: "免打扰 安静" },
   { section: "companion", title: "定时勿扰", keywords: "免打扰 睡觉 夜间 早安 晚安" },
   { section: "general", title: "工作日", keywords: "提醒 节假日 调休 法定假日" },

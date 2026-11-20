@@ -10,13 +10,11 @@ import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
 import { loadNotes, subscribeNotes } from "./notes/NoteStore";
 import type { ReminderSource } from "./behavior/BehaviorEngine";
-import { collectFacts, LOOK_BACK_DAYS } from "./greeting/GreetingContent";
+import { Companion } from "./companion";
+import { collectFacts, LOOK_BACK_DAYS } from "./companion/GreetingContent";
 import { changeReminders, readWorkLog, recordWork, tidyWorkLog } from "./worklog/store";
 import { addDays, EMPTY_WORK_LOG } from "./worklog/WorkLog";
-import { Greeter } from "./greeting/Greeter";
-import { Companion } from "./behavior/Companion";
 import { loadCompanionPreferences } from "./preferences/CompanionPreferences";
-import { loadGreetingRecord, saveGreetingRecord } from "./greeting/GreetingSchedule";
 import { loadThreads, recordThread, saveThreads } from "./chat/ChatThreads";
 import { holidayPlatform } from "./platform/holidays";
 import { requestPreferences } from "./preferences/ChatPreferences";
@@ -68,10 +66,7 @@ const HIT_GROW_CELLS = 2;
 const HIT_MASK_DELAY_MS = 30;
 /** Moves come in bursts while macOS rearranges windows; act once they stop. */
 const DISPLAY_SETTLE_MS = 500;
-/** How often to see whether a morning or evening greeting is due. */
-const GREETING_CHECK_MS = 15_000;
-const GREETING_ACTIVE_WINDOW_SECONDS = 60;
-/** How often to read how long the keyboard and mouse have been idle: for the pet's naps and the companion's care. */
+/** How often to read how long the keyboard and mouse have been idle: for the pet's naps, and to see whether the pet has something to say. */
 const ACTIVITY_CHECK_MS = 10_000;
 /** How often to see whether a missing year of holiday data can be downloaded; it is looked up once a day. */
 const HOLIDAY_CHECK_MS = 60 * 60_000;
@@ -136,7 +131,6 @@ interface AppProps {
 
 export default function App({ packId }: AppProps) {
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
-  const greeterRef = useRef<Greeter | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const alertRef = useRef<HTMLDivElement>(null);
@@ -303,48 +297,60 @@ export default function App({ packId }: AppProps) {
     return petWindow.onOnTopChanged((value) => { try { saveOnTop(value); } catch (error) { console.warn("Failed to save on-top setting", error); } });
   }, []);
 
-  // Morning and evening greetings, from the reminders and the work log.
+  // What the pet says by itself: greetings and care, one line at a time (`src/companion/`).
   useEffect(() => {
     if (!runtime) return;
-    const greeter = new Greeter({
-      loadQuiet: () => loadQuietPreferences(),
-      morningSettings: () => {
-        const preferences = loadCompanionPreferences();
-        return { enabled: preferences.morningGreeting, time: preferences.morningTime };
-      },
-      loadRecord: () => loadGreetingRecord(),
-      saveRecord: (record) => saveGreetingRecord(record),
-      facts: async (now) => {
+    /** A line allowed in quiet hours still waits while "勿扰" is on. */
+    const passesQuiet = (allowQuiet: boolean) => allowQuiet && !loadQuietPreferences().doNotDisturb;
+    const companion = new Companion({
+      settings: () => loadCompanionPreferences(),
+      quietHours: () => loadQuietPreferences().quietHours,
+      storage: window.localStorage,
+      maySpeak: (allowQuiet) => runtime.maySpeakUp(passesQuiet(allowQuiet)),
+      day: async (now) => {
         const log = await readWorkLog(addDays(now, -LOOK_BACK_DAYS), now).catch((error: unknown) => {
-          console.warn("Greeting without the work log", error);
+          console.warn("Speaking up without the work log", error);
           return EMPTY_WORK_LOG;
         });
         return collectFacts(loadAgenda(), log, now);
       },
-      compose: (kind, lines, now) => ai.greet(kind, lines, requestPreferences(packId, runtime.manifest.persona), localTimeText(now)),
-      greet: (text, offerMove) => runtime.greet(text, false, offerMove),
-      greetTest: (text) => runtime.greetOnRequest(text),
+      write: (intent, facts, now) => ai.greet(intent, facts, requestPreferences(packId, runtime.manifest.persona), localTimeText(now)),
+      say: ({ text, allowQuiet, offerMove }) => runtime.greet(text, passesQuiet(allowQuiet), offerMove),
+      show: (text) => runtime.greetOnRequest(text),
     });
-    greeterRef.current = greeter;
-    const stopTest = petWindow.onMorningGreetingTest(({ requestId }) => {
+    const stopTest = petWindow.onCompanionTest(({ requestId, occasion }) => {
       void (async () => {
         if (runtime.focus.get().phase === "focusing") {
-          await petWindow.reportMorningGreetingTest({ requestId, error: "专注期间不能测试早安问候，请先结束专注。" });
+          await petWindow.reportCompanionTest({ requestId, error: "专注期间不能试，请先结束专注。" });
           return;
         }
-        const shown = await greeter.testMorning(Date.now());
-        await petWindow.reportMorningGreetingTest(shown
-          ? { requestId }
-          : { requestId, error: "问候正在准备中，请稍后再试。" });
+        const shown = await companion.test(occasion, Date.now());
+        await petWindow.reportCompanionTest(shown ? { requestId } : { requestId, error: "它正在准备另一句话，请稍后再试。" });
       })().catch((error: unknown) => {
-        console.error("Failed to test the morning greeting", error);
-        void petWindow.reportMorningGreetingTest({ requestId, error: "早安问候没能显示，请再试一次。" });
+        console.error("Failed to try a companion line", error);
+        void petWindow.reportCompanionTest({ requestId, error: "这句话没能显示，请再试一次。" });
       });
     });
-    const check = () => { greeter.check(Date.now(), false).catch((error: unknown) => console.error("Failed to greet", error)); };
-    check();
-    const timer = setInterval(check, GREETING_CHECK_MS);
-    return () => { clearInterval(timer); stopTest(); if (greeterRef.current === greeter) greeterRef.current = null; };
+    let active = true;
+    let pending = false;
+    const check = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const idle = await systemPlatform.idleSeconds().catch((error: unknown) => {
+          console.warn("Could not check system activity", error);
+          return null;
+        });
+        if (!active) return;
+        const now = Date.now();
+        if (idle !== null) runtime.bus.emit("pet.user_active", { at: now - idle * 1000 });
+        // Not awaited: writing a line takes a while, and the next reading should not wait for it.
+        companion.check(now, idle).catch((error: unknown) => console.error("Failed to speak up", error));
+      } finally { pending = false; }
+    };
+    void check();
+    const timer = setInterval(() => void check(), ACTIVITY_CHECK_MS);
+    return () => { active = false; clearInterval(timer); stopTest(); };
   }, [runtime, packId]);
 
   // The work log: old focus counts brought in once, and old days folded into counts now and then.
@@ -364,32 +370,6 @@ export default function App({ packId }: AppProps) {
       if (phase === "focusing" && next !== "focusing") void recordWork([{ kind: next === "resting" ? "focus_completed" : "focus_stopped", text: "", before: null, itemId: null }], "user");
       phase = next;
     });
-  }, [runtime]);
-
-  useEffect(() => {
-    if (!runtime) return;
-    const companion = new Companion(window.localStorage, (text, allowQuiet) => runtime.greet(text, Boolean(allowQuiet) && !loadQuietPreferences().doNotDisturb));
-    let active = true;
-    let pending = false;
-    const check = async () => {
-      if (pending) return;
-      pending = true;
-      try {
-        const idle = await systemPlatform.idleSeconds();
-        if (active && idle !== null) {
-          const now = Date.now();
-          runtime.bus.emit("pet.user_active", { at: now - idle * 1000 });
-          if (idle <= GREETING_ACTIVE_WINDOW_SECONDS) {
-            greeterRef.current?.check(now, true).catch((error: unknown) => console.error("Failed to greet after user activity", error));
-          }
-          companion.check(now, idle, loadCompanionPreferences(), runtime.focus.get().phase === "focusing");
-        }
-      } catch (error) { console.warn("Could not check system activity", error); }
-      finally { pending = false; }
-    };
-    void check();
-    const timer = setInterval(() => void check(), ACTIVITY_CHECK_MS);
-    return () => { active = false; clearInterval(timer); };
   }, [runtime]);
 
   // Working-day reminders need each year's official holidays; fetch a year once it is published.

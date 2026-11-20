@@ -53,10 +53,15 @@ src/
 │   ├── listEvents.ts        写入前后的提醒、备忘相比，做了什么、改之前是什么
 │   ├── recap.ts             某一天做了什么：抵消当天撤回的操作，加上折叠后的次数
 │   └── store.ts             带日志的写入（`changeReminders`、`changeNotes`、`keepNote`）、按日期读、导入旧专注记录、折叠 30 天前的日子
-├── greeting/
-│   ├── GreetingSchedule.ts  早安晚安什么时候该说、今天说过没有
-│   ├── GreetingContent.ts   问候里提到的事实、模板问候
-│   └── Greeter.ts           定时检查、请模型写问候、失败时用模板
+├── companion/               宠物主动说的话，见下文「主动说话」
+│   ├── types.ts             Moment（这一刻的快照）、Occasion（一个场合）、Cue、Brief、Line
+│   ├── occasions/           场合表：greetings.ts（早安、晚安）、care.ts（回来打招呼、深夜关心、休息一下）、index.ts 的 OCCASIONS
+│   ├── presence.ts          用户在不在电脑前、连续用了多久、是不是刚回来
+│   ├── history.ts           说过什么、什么时候说的（本机）
+│   ├── schedule.ts          decide()：这一刻该说哪一个场合
+│   ├── Companion.ts         每次检查走一遍：快照、挑场合、写这句话、交给宠物说；test() 是设置里的「预览」
+│   ├── GreetingSchedule.ts  早安晚安的时间窗、一天怎么划分
+│   └── GreetingContent.ts   问候里提到的事实、模板问候
 ├── preferences/
 │   ├── CharacterPreferences.ts 当前角色、按角色生成存储 key、旧数据迁移
 │   ├── QuietPreferences.ts  勿扰、免打扰时段，判断现在是否该安静
@@ -339,17 +344,35 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 气泡里的事项在“提醒”里被勾掉或删除后，下一秒就从气泡里拿掉；全部拿掉时气泡收起。
 - 普通的话照常短暂显示，期间暂时盖住常驻气泡，说完后常驻气泡回来。
 
-## 早安和晚安
+## 主动说话
 
-宠物窗口每 15 秒调用一次 `Greeter.check()`：
+宠物自己开口说的话（早安、晚安、关心）都由 `src/companion/` 决定。它是独立模块：不引用运行时、平台和 `ai`，需要的东西由 `App` 通过 `CompanionPorts` 接进来（设置、勿扰时段、存储、现在能不能说、当天的事实、请模型写一句、说出来、预览时显示）。
 
-1. 安静时（勿扰或免打扰时段内）直接返回。
-2. `greetingDue()` 判断该不该问候。早安有独立开关和时间，窗口从设定时间开始持续 4 个小时；若设定时间落在定时勿扰内，则从勿扰结束后开始。窗口内要检测到用户最近 60 秒有键盘或鼠标活动才问候，应用保持打开但无人使用时不会抢先问候。晚安窗口是定时勿扰开始前 30 分钟。“一天”按早安设定时间划分，所以跨午夜的晚安仍算前一天。
-3. 该问候时，先在 `ai-pet:greetings:v1` 记下今天已问候，再去生成内容，避免请求慢或失败时问两次。
-4. `collectFacts()` 从提醒和工作日志（最近 7 天加今天）里整理事实：未完成数、今天完成数、下一个提醒、今天最近一次提醒（即路线图里的 `latest_reminder`）、今天的专注轮数、上一个有记录的日子（`lastActiveDay`，昨天就叫「昨天」，否则写日期）完成了哪些提醒和专注了几轮，以及之前没做完的一次性提醒（`leftoverReminders`：今天以前、没勾、没过期作废）。早安提今天的事、上一天和没做完的，晚安提今天的完成情况。
-5. `ai.greet`（`src/ai/completions.ts`）用非流式请求让 DeepSeek 按角色性格写一句不超过 40 字的问候。没有 Key、网络失败或回复为空时，用 `templateGreeting()`。
-6. `PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔；通过后发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求问候动作并说话。设置中的「预览」会请求一次问候内容，通过 `greetOnRequest()` 显示，不改每日问候记录；专注时会拒绝测试。到点提醒也用同一段逻辑叫宠物出来。
-7. 早安时有没做完的提醒，`pet.greeting` 带 `offerMove`。`BehaviorEngine` 通过 `ReminderSource.leftovers` 再取一次，放进常驻气泡（`moveOffer`，小字「之前没做完」），按钮是「不用了」（`pet.alert_dismissed`）和「挪到今天」（`pet.leftovers_moved`）。挪的时候 `ReminderSource.moveToToday` 调 `moveToToday`：排到今天同一时刻，已经过了就排到半小时后，清掉 `remindedAt` 让它到点再叫。气泡里的提醒在别处勾掉或删掉，下一秒就拿掉。
+`App` 每 10 秒读一次系统空闲秒数，发 `pet.user_active`，再调 `Companion.check(now, idleSeconds)`。一次检查分五步：
+
+1. **在场。** `Presence.sample()` 只看空闲秒数：最近 60 秒有活动算在用；空闲满 5 分钟连续时长重新算；空闲满 30 分钟算离开，回来的那一次检查 `returned` 为真；两次采样隔了 2 分钟以上（合盖、休眠）就清零，不推断这段时间。
+2. **快照。** 拼出 `Moment`：现在几点、连续用了多久（`activeMs`，这一刻没在用是 null）、是不是刚回来、陪伴设置、定时勿扰时段、每个场合上次说的时间。它是纯数据，测试里可以直接造。
+3. **挑场合。** `decide()` 按 `OCCASIONS` 的顺序问每个场合的 `due(moment)`，取第一个能说的。同时到的只说排在前面的那个，所以早上回到电脑前只说早安，不会先来一句「欢迎回来」。两种情况会跳过：这个场合对同一个 `subject` 已经说过（早安的 subject 是那一天，深夜关心是那一夜）；或者 `PetRuntime.maySpeakUp()` 说现在不能开口（勿扰、专注、20 分钟内说过）。不能开口时不会去请求模型。
+4. **写这句话。** `wording: "fixed"` 的场合直接用 `line`。`wording: "model"` 的场合先读当天的事实（`collectFacts()`：提醒和最近 7 天的工作日志），由 `brief()` 给出事实行和兜底的话，再用 `ai.greet(intent, facts)` 请 DeepSeek 按角色性格写一句不超过 40 字的话；没有 Key、网络失败或回复为空时用兜底的话。写的过程中不会再挑第二个场合。
+5. **说出来。** 通过 `PetRuntime.greet()` 发 `pet.greeting`，`BehaviorEngine` 叫醒宠物、从贴边处出来、请求问候动作并说话。说成功了才往 `ai-pet:companion-history:v1` 记一条（场合、subject、时间，留 7 天，所有角色共用）；最后一刻被挡住就不记，下次检查再来。
+
+现在的五个场合，按表里的顺序：
+
+| 场合 | 什么时候 | 谁写 |
+|---|---|---|
+| 早安 `morning` | 早安开关打开，在早安窗口内，且用户正在用电脑；每天一次。窗口从设定时间开始 4 小时，设定时间落在定时勿扰内就从勿扰结束算起 | 模型，兜底 `templateGreeting()` |
+| 晚安 `evening` | 定时勿扰开始前 30 分钟；每天一次。「一天」按早安时间划分，跨午夜的晚安仍算前一天 | 模型，兜底 `templateGreeting()` |
+| 回来打招呼 `welcome_back` | 离开 30 分钟以上回来的那一次检查；两次至少隔 2 小时。当时不能开口就不补 | 固定的一句 |
+| 深夜关心 `late_night` | 过了设定时间到凌晨 4 点，连续用了 15 分钟；每夜一次。打开「定时勿扰时照样深夜关心」后能穿过定时勿扰，手动勿扰始终拦住 | 固定的一句 |
+| 休息一下 `rest` | 连续用了设定的时长；说过之后重新计时 | 固定的一句 |
+
+早安的事实里有没做完的提醒时，`Line.offerMove` 为真，`pet.greeting` 带上它。`BehaviorEngine` 通过 `ReminderSource.leftovers` 再取一次，放进常驻气泡（`moveOffer`，小字「之前没做完」），按钮是「不用了」（`pet.alert_dismissed`）和「挪到今天」（`pet.leftovers_moved`）。挪的时候 `ReminderSource.moveToToday` 调 `moveToToday`：排到今天同一时刻，已经过了就排到半小时后，清掉 `remindedAt` 让它到点再叫。气泡里的提醒在别处勾掉或删掉，下一秒就拿掉。
+
+`PetRuntime.greet()` 和 `sayProactively()` 共用安静判断和 20 分钟间隔。更新提示还直接走 `sayProactively()`，没进场合表。
+
+**加一个场合**：在 `occasions/` 里写一个 `Occasion`（`id`、设置里的名字 `title`、`due()`、固定的 `line` 或者 `intent` 加 `brief()`），放进 `OCCASIONS` 里合适的位置。不用改 `Companion`、`App` 和 `src/ai/`。`due()` 每 10 秒跑一次，只能用 `Moment` 里的东西，不读慢的数据，不调模型。
+
+**预览**：设置「陪伴 → 预览一句」选一个场合，设置窗口发 `pet://companion-test`（带场合 id），宠物窗口调 `Companion.test()`：不管到没到时候，现在就写这句话，用 `greetOnRequest()` 显示，不写说话记录；专注时拒绝。结果经 `pet://companion-test-result` 回给设置窗口。
 
 ## 日志和诊断
 
@@ -560,7 +583,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 发布：`scripts/release.sh` 从 `releaseNotes.json` 生成更新说明，Release 页面放完整列表，`latest.json` 只放标题连成的一行。只在发布模式下打开 `createUpdaterArtifacts` 并读私钥（`~/.tauri/ai-pet-updater.key`），本机安装（`--local`）不需要私钥。`latest.json` 由脚本生成，平台名按本机架构（目前只有 `darwin-aarch64`）。
 # 主动陪伴
 
-`Companion` 定期通过 `platform/system.ts` 读取 macOS 的系统空闲秒数，在本机判断深夜持续使用、连续使用与离开后返回。采样中断时不推断使用时长。场景通过 `PetRuntime.greet()` 共用主动说话间隔和问候动作；仅深夜关心允许用户选择绕过定时勿扰，手动勿扰始终生效。专注期间暂停场景触发，专注动作和完成提示由 `BehaviorEngine` 管理。
+宠物什么时候自己开口、说什么，见上文「主动说话」（`src/companion/`）。空闲秒数由 `platform/system.ts` 从 macOS 读取，只在本机用。专注期间不主动说话，专注动作和完成提示由 `BehaviorEngine` 管理。
 
 AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附带；问候不使用。聊天预览 `ai.preview` 直接调用与聊天请求共用的提示词和工具组装函数，不读取聊天记录、不调用网络。
 

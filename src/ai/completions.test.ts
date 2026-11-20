@@ -13,10 +13,10 @@ describe("greetings", () => {
   });
 
   it("asks in the character's voice with the day's facts", () => {
-    const body = greetingRequest("morning", ["今天有 2 个提醒"], chatPreferences({ userName: "阿龙" }), "2026-11-19 08:30 周四") as unknown as { messages: Array<{ content: string }>; stream: boolean };
+    const body = greetingRequest("向用户问好，开始新的一天", ["今天有 2 个提醒"], chatPreferences({ userName: "阿龙" }), "2026-11-19 08:30 周四") as unknown as { messages: Array<{ content: string }>; stream: boolean };
     expect(body.stream).toBe(false);
     expect(body.messages[0].content).toContain("称呼用户为「阿龙」。");
-    expect(body.messages[1].content).toContain("向用户问好");
+    expect(body.messages[1].content).toContain("请用一句不超过 40 个字的话向用户问好，开始新的一天。");
     expect(body.messages[1].content).toContain("- 今天有 2 个提醒");
   });
 });

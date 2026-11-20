@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { petWindow } from "../../platform/petWindow";
 import { loadQuietPreferences, saveQuietPreferences, subscribeQuietPreferences, type QuietPreferences } from "../../preferences/QuietPreferences";
-import { eveningGreetingTime } from "../../greeting/GreetingSchedule";
+import { eveningGreetingTime } from "../../companion/GreetingSchedule";
 
 /** Do-not-disturb and daily quiet hours. Shared by every character. `during` adds options that only apply while quiet hours are on. */
 export function QuietSettings({ onError, during }: { onError: (message: string | null) => void; during?: (enabled: boolean) => ReactNode }) {

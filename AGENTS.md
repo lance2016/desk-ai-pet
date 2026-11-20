@@ -214,7 +214,8 @@ pnpm exec tsc --noEmit && pnpm test
 - 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮时读内容，平时只看变更计数和类型。
 - 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
-- 用户明确点击「预览」时，问候可通过 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入每日问候记录，专注时仍拒绝。
+- 宠物自己想说的新话（问候、关心、以后的事前预告和事后问一句）不要在 `App` 或引擎里另起定时器，写成 `src/companion/occasions/` 里的一个场合，放进 `OCCASIONS`：表里靠前的优先，同一刻只说一句。`due()` 每 10 秒跑一次，只用 `Moment` 里的数据，不读慢的东西，不调模型。`src/companion/` 不引用 `PetRuntime`、`src/platform/` 和 `ai`，缺什么在 `CompanionPorts` 里加一个口子，由 `App` 接。
+- 用户明确点击「预览」时，通过 `Companion.test()` 和 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入说话记录，专注时仍拒绝。
 - 定时早安只在设定时间后的问候窗口内、检测到最近 60 秒有用户活动时触发；勿扰时段会延后早安问候。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。
 - 设置页和聊天窗口里显示角色的图片，要用 `characterPictures`（`src/appearance/characterPictures.ts`）取图，不要直接用 `resolveAsset(action.file)` 或 `actionImages(pack)`：那样会漏掉用户换过的图，自建角色还会显示被借用角色的样子。

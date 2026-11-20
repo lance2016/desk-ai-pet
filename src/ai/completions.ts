@@ -1,4 +1,3 @@
-import type { GreetingKind } from "../greeting/GreetingSchedule";
 import { llmPlatform, type Completion } from "../platform/llm";
 import type { ChatRequestPreferences } from "../preferences/ChatPreferences";
 import { DEEPSEEK, failureMessage, isSuccess, THINKING_OFF } from "./provider";
@@ -8,13 +7,15 @@ import { readUsage } from "./stream";
 const GREETING_TOKENS = 120;
 /** A request body that is not streamed; only its model is read here. */
 type PlainBody = { model: string; [field: string]: unknown };
-const OCCASIONS: Record<GreetingKind, string> = { morning: "向用户问好，开始新的一天", evening: "跟用户道晚安，收个尾" };
 
-/** The request for a one-line morning or evening greeting in the character's voice. `now` is `localTimeText()`. */
-export function greetingRequest(kind: GreetingKind, facts: readonly string[], preferences: ChatRequestPreferences, now: string): PlainBody {
+/**
+ * The request for one line the pet says by itself, in the character's voice.
+ * `intent`: what the line is for, such as "向用户问好，开始新的一天". `now` is `localTimeText()`.
+ */
+export function greetingRequest(intent: string, facts: readonly string[], preferences: ChatRequestPreferences, now: string): PlainBody {
   const userName = preferences.userName.trim();
   const system = `你是一位名叫${preferences.name}的中文桌面宠物。${userName ? `称呼用户为「${userName}」。` : ""}用户希望你的性格是：${preferences.personality}`;
-  const user = `现在是${now}。请用一句不超过 40 个字的话${OCCASIONS[kind]}。可以自然地提到下面一两条信息，不要逐条罗列，不要加引号：\n- ${facts.join("\n- ")}`;
+  const user = `现在是${now}。请用一句不超过 40 个字的话${intent}。可以自然地提到下面一两条信息，不要逐条罗列，不要加引号：\n- ${facts.join("\n- ")}`;
   return { model: preferences.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], stream: false, max_tokens: GREETING_TOKENS, ...THINKING_OFF };
 }
 
@@ -42,8 +43,8 @@ export function greetingText(response: string): string | null {
   }
 }
 
-export async function greet(kind: GreetingKind, facts: readonly string[], preferences: ChatRequestPreferences, now: string): Promise<string> {
-  const result = await complete("greeting", greetingRequest(kind, facts, preferences, now));
+export async function greet(intent: string, facts: readonly string[], preferences: ChatRequestPreferences, now: string): Promise<string> {
+  const result = await complete("greeting", greetingRequest(intent, facts, preferences, now));
   if (!result.ok) throw new Error("Request failed");
   const text = greetingText(result.body);
   if (!text) throw new Error("Empty reply");

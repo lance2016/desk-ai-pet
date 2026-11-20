@@ -1,9 +1,6 @@
-import { z } from "zod";
 import { minutesOf, type QuietPreferences } from "../preferences/QuietPreferences";
 import { dateKey } from "../worklog/WorkLog";
 
-/** Which greetings were given on which day. Shared by every character, so switching does not greet again. */
-const KEY = "ai-pet:greetings:v1";
 /** Good night comes this long before quiet hours start. */
 const EVENING_LEAD_MINUTES = 30;
 /** Good morning is only said this long after quiet hours end; opening the app at 9 pm is not the start of a day. */
@@ -11,8 +8,6 @@ const MORNING_WINDOW_MINUTES = 4 * 60;
 const MINUTES_PER_DAY = 24 * 60;
 
 export type GreetingKind = "morning" | "evening";
-const recordSchema = z.object({ morning: z.string().nullable(), evening: z.string().nullable() });
-export type GreetingRecord = z.infer<typeof recordSchema>;
 type QuietHours = QuietPreferences["quietHours"];
 
 const wrap = (minutes: number) => ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
@@ -39,12 +34,13 @@ export function greetingDay(now: number, morningTime: string): string {
 }
 
 /**
- * Which greeting is due at `now`, if any. Good morning: in the few hours after
- * its configured time, or after quiet hours end if they cover that time. Good
- * night: in the half hour before quiet hours. Configured times still apply when
- * the quiet-hours switch is off.
+ * Which greeting `now` is the time for, if any; whether it was already given is
+ * not looked at. Good morning: in the few hours after its configured time, or
+ * after quiet hours end if they cover that time. Good night: in the half hour
+ * before quiet hours. Configured times still apply when the quiet-hours switch
+ * is off.
  */
-export function greetingDue(now: number, hours: QuietHours, record: GreetingRecord, morningTime = hours.end): GreetingKind | null {
+export function greetingDue(now: number, hours: QuietHours, morningTime = hours.end): GreetingKind | null {
   const minute = minuteOfDay(now);
   const scheduledMorning = minutesOf(morningTime);
   const morning = hours.enabled && within(scheduledMorning, minutesOf(hours.start), minutesOf(hours.end))
@@ -52,23 +48,7 @@ export function greetingDue(now: number, hours: QuietHours, record: GreetingReco
     : scheduledMorning;
   const night = minutesOf(hours.start);
   const evening = wrap(night - EVENING_LEAD_MINUTES);
-  const day = greetingDay(now, morningTime);
-  if (within(minute, evening, night)) return record.evening === day ? null : "evening";
+  if (within(minute, evening, night)) return "evening";
   const morningEnds = within(wrap(morning + MORNING_WINDOW_MINUTES), morning, evening) ? wrap(morning + MORNING_WINDOW_MINUTES) : evening;
-  if (within(minute, morning, morningEnds)) return record.morning === day ? null : "morning";
-  return null;
-}
-
-export function loadGreetingRecord(storage: Storage = window.localStorage): GreetingRecord {
-  try {
-    const raw = storage.getItem(KEY);
-    return raw ? recordSchema.parse(JSON.parse(raw)) : { morning: null, evening: null };
-  } catch (error) {
-    console.warn("Ignoring invalid greeting record", error);
-    return { morning: null, evening: null };
-  }
-}
-
-export function saveGreetingRecord(record: GreetingRecord, storage: Storage = window.localStorage): void {
-  storage.setItem(KEY, JSON.stringify(recordSchema.parse(record)));
+  return within(minute, morning, morningEnds) ? "morning" : null;
 }

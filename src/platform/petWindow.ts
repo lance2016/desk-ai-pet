@@ -59,11 +59,13 @@ const NOTE_EVENT = "pet://note";
 const CHAT_THREAD_EVENT = "pet://chat-thread";
 /** Like `CHAT_THREAD_EVENT`, and the chat window also answers the thread's last, unanswered message. */
 const CHAT_RESUME_EVENT = "pet://chat-resume";
-const MORNING_TEST_EVENT = "pet://morning-greeting-test";
-const MORNING_TEST_RESULT_EVENT = "pet://morning-greeting-test-result";
-const MORNING_TEST_TIMEOUT_MS = 45_000;
-interface MorningTestRequest { requestId: string }
-interface MorningTestResult { requestId: string; error?: string }
+/** Asks the pet to say one of the lines it says by itself, right now; sent between webviews only. */
+const COMPANION_TEST_EVENT = "pet://companion-test";
+const COMPANION_TEST_RESULT_EVENT = "pet://companion-test-result";
+const COMPANION_TEST_TIMEOUT_MS = 45_000;
+/** `occasion`: an id from `OCCASIONS` (`src/companion/`). */
+interface CompanionTestRequest { requestId: string; occasion: string }
+interface CompanionTestResult { requestId: string; error?: string }
 
 /** A point in logical screen pixels, from the top left of the main screen. */
 export interface ScreenPoint {
@@ -200,29 +202,30 @@ export const petWindow = {
     } finally { clearTimeout(timer); unlisten(); }
   },
 
-  async testMorningGreeting(): Promise<void> {
-    if (!isTauri()) throw new Error("早安问候测试仅在桌面应用中可用");
+  /** Has the pet say one occasion's line now. Rejects with a message for the user when it could not. */
+  async testCompanion(occasion: string): Promise<void> {
+    if (!isTauri()) throw new Error("只能在桌面应用里试");
     const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    let finish!: (result: MorningTestResult) => void;
-    const response = new Promise<MorningTestResult>((resolve) => { finish = resolve; });
-    const unlisten = await listen<MorningTestResult>(MORNING_TEST_RESULT_EVENT, (event) => {
+    let finish!: (result: CompanionTestResult) => void;
+    const response = new Promise<CompanionTestResult>((resolve) => { finish = resolve; });
+    const unlisten = await listen<CompanionTestResult>(COMPANION_TEST_RESULT_EVENT, (event) => {
       if (event.payload?.requestId === requestId) finish(event.payload);
     });
-    const timer = setTimeout(() => finish({ requestId, error: "宠物没有响应，请稍后再试。" }), MORNING_TEST_TIMEOUT_MS);
+    const timer = setTimeout(() => finish({ requestId, error: "宠物没有响应，请稍后再试。" }), COMPANION_TEST_TIMEOUT_MS);
     try {
-      await emitTo("main", MORNING_TEST_EVENT, { requestId } satisfies MorningTestRequest);
+      await emitTo("main", COMPANION_TEST_EVENT, { requestId, occasion } satisfies CompanionTestRequest);
       const result = await response;
       if (result.error) throw new Error(result.error);
     } finally { clearTimeout(timer); unlisten(); }
   },
 
-  onMorningGreetingTest(handler: (request: MorningTestRequest) => void): () => void {
-    return subscribe<MorningTestRequest>(MORNING_TEST_EVENT, handler);
+  onCompanionTest(handler: (request: CompanionTestRequest) => void): () => void {
+    return subscribe<CompanionTestRequest>(COMPANION_TEST_EVENT, handler);
   },
 
-  async reportMorningGreetingTest(result: MorningTestResult): Promise<void> {
+  async reportCompanionTest(result: CompanionTestResult): Promise<void> {
     if (!isTauri()) return;
-    await emitTo("settings", MORNING_TEST_RESULT_EVENT, result);
+    await emitTo("settings", COMPANION_TEST_RESULT_EVENT, result);
   },
 
   onAppearanceChanged(handler: (request: AppearanceRequest) => void): () => void {

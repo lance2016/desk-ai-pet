@@ -237,14 +237,23 @@ export class PetRuntime {
     return true;
   }
 
-  /** Checks quiet time, a running focus round and the gap since the last proactive line, and claims the slot. */
-  private allowProactive(text: string, allowQuiet = false): boolean {
+  /**
+   * Whether a line the pet starts on its own would get through right now: it is
+   * not quiet time, no focus round is running and the pet has not spoken up
+   * recently. Only asks; the slot is taken when the line is said.
+   */
+  maySpeakUp(allowQuiet = false): boolean {
     const now = Date.now();
-    if (!text.trim() || (!allowQuiet && this.isQuiet(now))) return false;
+    if (!allowQuiet && this.isQuiet(now)) return false;
     // A focus round is quieter than quiet time: nothing the pet starts on its own gets through.
     if (this.focus.get().phase === "focusing") return false;
-    if (this.lastProactiveAt !== null && now - this.lastProactiveAt < PROACTIVE_GAP_MS) return false;
-    this.lastProactiveAt = now;
+    return this.lastProactiveAt === null || now - this.lastProactiveAt >= PROACTIVE_GAP_MS;
+  }
+
+  /** Checks that there is something to say and that the pet may speak up, and claims the slot. */
+  private allowProactive(text: string, allowQuiet = false): boolean {
+    if (!text.trim() || !this.maySpeakUp(allowQuiet)) return false;
+    this.lastProactiveAt = Date.now();
     return true;
   }
 

@@ -123,6 +123,22 @@ describe("PetRuntime", () => {
     runtime.destroy();
   });
 
+  it("tells whether it may speak up without taking the slot", async () => {
+    let quiet = true;
+    const { runtime } = await start({ isQuiet: () => quiet });
+    expect(runtime.maySpeakUp()).toBe(false);
+    expect(runtime.maySpeakUp(true)).toBe(true);
+    quiet = false;
+    expect(runtime.maySpeakUp()).toBe(true);
+    expect(runtime.maySpeakUp()).toBe(true);
+    expect(runtime.greet("早上好")).toBe(true);
+    expect(runtime.maySpeakUp()).toBe(false);
+    vi.advanceTimersByTime(20 * 60_000);
+    runtime.focus.startFocus(Date.now());
+    expect(runtime.maySpeakUp(true)).toBe(false);
+    runtime.destroy();
+  });
+
   it("keeps quiet on its own during a focus round, even when quiet time would let a greeting through", async () => {
     const { runtime } = await start();
     runtime.focus.startFocus(Date.now());
