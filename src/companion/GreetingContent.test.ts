@@ -33,9 +33,16 @@ describe("greeting facts", () => {
       nextReminder: { text: "开会", at: at(16, 10) },
       latestReminder: { text: "喝水", at: at(16, 8) },
       focusToday: 1,
-      lastDay: { label: "11月13日 周五", done: ["写方案"], doneCount: 1, focusRounds: 3 },
+      lastDay: { label: "11月13日 周五", done: ["写方案"], doneCount: 1, focusRounds: 3, agentWork: null },
       leftovers: [{ text: "回邮件", at: at(13, 15) }],
     });
+  });
+
+  it("tells the morning what Claude Code finished on the last day", () => {
+    const log = { events: [event("2026-11-15", "agent_turn_done", "ai-pet"), event("2026-11-15", "agent_turn_done", "ai-pet")], counts: [] };
+    const facts = collectFacts([], log, NOW);
+    expect(facts.lastDay?.agentWork).toBe("让 Claude Code 干完了 2 轮活：ai-pet 2 轮");
+    expect(factLines("morning", facts, NOW)).toContain("昨天让 Claude Code 干完了 2 轮活：ai-pet 2 轮");
   });
 
   it("calls the day before today 昨天", () => {
@@ -48,7 +55,7 @@ describe("fact lines for the model", () => {
   it("tells the morning about the day ahead and the evening about the day done", () => {
     const facts = {
       ...EMPTY, openCount: 2, doneToday: 1, nextReminder: { text: "开会", at: at(16, 10) }, latestReminder: { text: "喝水", at: at(16, 8) }, focusToday: 2,
-      lastDay: { label: "昨天", done: ["写方案"], doneCount: 1, focusRounds: 3 },
+      lastDay: { label: "昨天", done: ["写方案"], doneCount: 1, focusRounds: 3, agentWork: null },
       leftovers: [{ text: "回邮件", at: at(15, 15) }],
     };
     expect(factLines("morning", facts, NOW)).toEqual(["今天要处理的提醒 2 个", "下一个提醒：10:00 开会", "昨天完成了 1 个提醒：写方案", "昨天专注了 3 轮，每轮 25 分钟", "之前没做完的提醒 1 个：11月15日 周日 15:00 回邮件"]);

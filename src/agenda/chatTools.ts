@@ -3,7 +3,7 @@ import type { ChatContext, ChatFacts } from "../ai/types";
 import { ACTION_ID } from "../ai/skill";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
-import { dayRecap } from "../worklog/recap";
+import { agentWork, dayRecap } from "../worklog/recap";
 import { dateKey, type WorkLogData } from "../worklog/WorkLog";
 import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, reminderLabel, shownAt, sortAgenda, type AgendaItem, type NewAgendaItem } from "./AgendaStore";
 import { parseRepeat, repeatLabel } from "./Repeat";
@@ -77,10 +77,12 @@ export function todayLines({ agenda, notes }: SavedItems, log: WorkLogData, now:
   const open = agenda.filter((item) => !isDone(item, now) && shownAt(item, now) < end);
   const written = new Map([...recap.notesWritten, ...sortNotes(notes).filter((note) => note.updatedAt >= start).map((note) => [note.id, note.text] as const)]);
   const stopped = recap.focusStopped > 0 ? `，中途停了 ${recap.focusStopped} 次` : "";
+  const agents = agentWork(recap);
   const lines = [
     ...[...done.values()].map((text) => `完成了提醒：${text}`),
     ...open.map((item) => `还没处理的提醒：${reminderLabel(shownAt(item, now), now)} ${item.text}`),
     `专注了 ${recap.focusRounds} 轮，每轮 ${FOCUS_CONFIG.focusMs / 60_000} 分钟${stopped}`,
+    ...(agents ? [`今天${agents}`] : []),
     ...[...written.values()].map((text) => `今天记的备忘：${clip(text.replace(/\s+/g, " "), TODAY_NOTE_CHARS)}`),
   ];
   return lines.slice(0, TODAY_LIMITS.lines).map((line) => clip(line, TODAY_LIMITS.chars));

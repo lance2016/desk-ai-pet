@@ -1,0 +1,65 @@
+import { useCallback, useEffect, useState } from "react";
+import { agentPlatform, type ClaudeHooksState } from "../../platform/agents";
+import { ConfirmButton } from "../ConfirmButton";
+
+const HAS_CHINESE = /[一-鿿]/;
+
+/** The native side words its errors for the user; anything else is logged and replaced. */
+function failure(reason: unknown, doing: string): string {
+  console.error(`Claude Code hooks: ${doing} failed`, reason);
+  const text = String(reason).replace(/^Error:\s*/, "");
+  return HAS_CHINESE.test(text) ? text : `${doing}失败，请再试一次`;
+}
+
+function ago(at: number, now: number): string {
+  const minutes = Math.floor((now - at) / 60_000);
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes} 分钟前`;
+  return `${Math.floor(minutes / 60)} 小时前`;
+}
+
+function describe(state: ClaudeHooksState | undefined, now: number): string {
+  if (state === undefined) return "检查中";
+  if (!state.connected) return "连上后，宠物脚下会显示 Claude Code 在干活还是在等你";
+  if (!state.current) return "AI Pet 换了位置，重新连接一下才收得到";
+  return state.lastReportAt === null ? "已连接，新开的 Claude Code 会话才会报上来" : `已连接，最近一次收到：${ago(state.lastReportAt, now)}`;
+}
+
+/** "编码助手" on the "小工具" page: puts the pet's hooks into Claude Code's settings, or takes them out. */
+export function AgentSettings() {
+  const [state, setState] = useState<ClaudeHooksState | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+  const refresh = useCallback(() => agentPlatform.state().then(setState).catch((reason: unknown) => setStatus(failure(reason, "读取 Claude Code 设置"))), []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const run = async (change: () => Promise<void>, doing: string, done: string) => {
+    setBusy(true); setStatus("");
+    try { await change(); setStatus(done); }
+    catch (reason) { setStatus(failure(reason, doing)); }
+    finally { setBusy(false); void refresh(); }
+  };
+  const connect = () => void run(agentPlatform.connect, "连接", "已连接。新开的 Claude Code 会话才会报上来，开着的要重开一次");
+  const disconnect = () => void run(agentPlatform.disconnect, "断开", "已断开，Claude Code 设置里只去掉了宠物加的那几条");
+
+  const action = !state?.connected || !state.current
+    ? (
+      <ConfirmButton className="settings-button settings-button--small" disabled={busy || state === undefined} confirm={{
+        message: state?.connected ? "重新连接 Claude Code？" : "连接 Claude Code？",
+        detail: "会在 ~/.claude/settings.json 里加几条钩子，改之前先备份成 settings.json.ai-pet-backup。钩子在后台运行，不会拖慢 Claude Code；只报项目名、状态和工具名，不报你说的话、命令和代码。你自己的设置和别的钩子都不动，随时可以断开。",
+        action: state?.connected ? "重新连接" : "连接",
+      }} onConfirm={connect}>{state?.connected ? "重新连接" : "连接"}</ConfirmButton>
+    )
+    : <button type="button" className="settings-button settings-button--small" disabled={busy} onClick={disconnect}>断开</button>;
+
+  return <>
+    <h2 className="settings-group-title">编码助手</h2>
+    <div className="settings-group">
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>Claude Code</strong><span>{describe(state, Date.now())}</span></div>
+        {action}
+      </div>
+    </div>
+    {status && <p className="settings-footnote" role="status">{status}</p>}
+  </>;
+}

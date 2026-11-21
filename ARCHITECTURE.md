@@ -324,7 +324,18 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **记账。** `ActivityBoard`（`src/activity/ActivityBoard.ts`）只管记：哪些活动有徽标（`chips()`，先来的在前），现在该把哪一件放进常驻气泡（`notice()`，等用户确认的排在结果前面）。内容完全一样的重复上报不算数（`report()` 返回 `false`），宠物不会为同一件事叫两次。结果被点掉后这件事就忘了；等确认的被点掉后徽标还在，气泡不再出来，除非它换了一句话。只存在内存里，重启后没有。
 - **不受勿扰和专注限制。** 活动是用户自己发起的事，等确认和结果随时都叫。
 - **取消。** `cancellable` 的徽标是按钮，点一下发 `pet.activity_chip_clicked`。引擎不处理这个事件：上报方自己订阅，认出自己的 `id` 后去停，停完再报 `cancelled`。
-- **现在的使用者。** 只有「查收验证码」。专注和聊天没有迁过来：专注有自己的计时、提问和水波，聊天只是摆姿势，都不是「一件在外面进行的事」。
+- **现在的使用者。** 「查收验证码」和 Claude Code（见下一节）。专注和聊天没有迁过来：专注有自己的计时、提问和水波，聊天只是摆姿势，都不是「一件在外面进行的事」。
+
+### Claude Code 的状态
+
+宠物不内置编码 Agent，只接 Claude Code 自己的钩子，每个会话一个活动。
+
+- **转发。** 钩子执行的就是宠物的主程序：`ai-pet --agent-hook claude`。`run()` 一开始看到这个参数就不启动应用（`agent_hooks::forward_if_hook`），从 stdin 读事件，只留事件名、`session_id`、项目文件夹名、`tool_name`、`notification_type`、失败种类和会话记录的路径，写一行到应用数据目录下 `agent/hooks.sock`（文件夹 0700，只有用户自己能连），然后退出。永远退出码 0、不往 stdout 写东西，所以影响不了 Claude Code；宠物没开时连不上，直接退出。实测一次约 7 毫秒（冷启动约 0.7 秒）。钩子都是 `async`，Claude Code 不等它。
+- **收。** 应用启动时 `agent_hooks::listen` 在后台线程收这些行，校验后发 `pet://agent` 给宠物窗口，不带会话记录的路径（路径留在原生端，只认 `~/.claude/projects/` 下的 `.jsonl`）。有另一份 AI Pet 在收（开发版和安装版同时开）时让给它。
+- **翻译成活动。** `ClaudeSessions`（`src/agents/`）是纯逻辑：`UserPromptSubmit` 和 `PostToolUse` 是 `running`；`PermissionRequest` 是 `waiting`，话里只写工具名（`AskUserQuestion` 说「有话问你」，`ExitPlanMode` 说「写好计划了」），`Notification` 的 `permission_prompt` 只在前面没来请求时兜底（它晚 6 秒才到）；`Stop` 时这一轮超过 30 秒报带用时的 `done`，更短的报 `cancelled`，悄悄去掉；`StopFailure` 报 `failed` 并说原因；`SessionEnd` 报 `cancelled`。在等的会话只有被问的那个工具（按 `tool_name`）的 `PostToolUse` 才回到 `running`，一起跑的别的工具不算；子代理的事件（原生端看到 `agent_id` 就带上 `subagent`）只算会话还活着，不开新会话、不改状态。已知的不准：用户点了允许以后，Claude Code 要等这个工具跑完才发 `PostToolUse`，所以允许了一个跑十分钟的构建，琥珀色会一直留到构建结束。`followClaude` 把它接到平台事件上，用 `activityUpdateSchema` 校验后发 `pet.activity`；报 `done` 的那一轮记进工作日志（`agent_turn_done`，来源 `agent`，文字是项目名）。
+- **Esc 打断。** Claude Code 在用户按 Esc（打断这一轮，或在确认框里拒绝）时不发任何钩子。所以 `followClaude` 每 5 秒对还在跑或在等的会话调 `agent_interrupted`：原生端读这个会话记录的末尾 64 KB，找 `type` 是 `user`、带 `[Request interrupted by user` 且时间晚于上一个钩子事件的那一行，只回答是或否，读到的内容不记日志、不保存。这个格式没有文档，Claude Code 改了就会失效，失效后靠下面的超时和下一句话恢复。
+- **超时。** 在跑的会话 30 分钟没有任何事件就去掉（一个工具可以跑很久不发事件，所以不能更短）；在等的 3 小时。只在内存里，宠物重启后等下一个事件再出现。
+- **装钩子。** 「设置 → 小工具 → 编码助手」调 `claude_hooks_connect`（`claude_settings.rs`）：读 `~/.claude/settings.json`，去掉旧的我们的钩子，每个事件加一条，命令里带 `--agent-hook claude`，`[ -x 路径 ]` 判断应用还在才执行。写之前备份成 `settings.json.ai-pet-backup`，先写临时文件再改名，新文件沿用原文件的权限（里面可能有 API Key；原来没有就是 0600），设置文件是链接时写到它指向的地方。只有装好的应用能连接：开发版的路径随构建消失，没挪进「应用程序」的会被系统放到临时位置（`AppTranslocation`），下次启动路径就变了。`serde_json` 开了 `preserve_order`，用户的键顺序不变。`claude_hooks_disconnect` 只去掉带这个参数的钩子。`claude_hooks_state` 告诉设置页连没连、路径对不对（应用挪过位置要重连）、最近一次收到的时间。Claude Code 在会话开始时读钩子，所以开着的会话要重开。
 
 ## 提醒和备忘
 
@@ -439,7 +450,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 - **表。** `events`：时间、本地日期（前端算好的 `YYYY-MM-DD`）、种类、来源（`user` 手动，包括面板、宠物气泡按钮和撤销；`chat` 是聊天里的工具）、一行文字（最多 500 字，够放下一整条备忘）、改之前的文字、关联的提醒或备忘 ID。提醒的文字带时间（「今天 15:00 · 开会」）；改动的 `before` 是改之前的样子，删除的文字就是删掉的内容。`day_counts`：某天某种事件的次数。
 - **表结构版本。** `database.rs` 的 `MIGRATIONS` 按顺序列出迁移脚本（第 1 个建工作日志的表，第 2 个建请求记录的表），`PRAGMA user_version` 记跑到第几个，每个在自己的事务里跑。发出去的脚本不能改，只能往后加。
-- **种类。** 提醒的新建、完成、取消完成、修改、删除，备忘的新建、修改、删除，专注完成和中途停止。读的一方跳过不认识的种类，以后可以加。
+- **种类。** 提醒的新建、完成、取消完成、修改、删除，备忘的新建、修改、删除，专注完成和中途停止，Claude Code 干完的一轮（`agent_turn_done`，来源 `agent`，只记超过 30 秒的；`agentWork` 把它写成「让 Claude Code 干完了 3 轮活：ai-pet 2 轮、robot 1 轮」，今日回顾和早安各用一行）。读的一方跳过不认识的种类，以后可以加。
 - **从哪来。** 在写入的地方记，这样才知道是谁做的。提醒和备忘的改动都经过 `changeReminders`、`changeNotes`、`keepNote`（`worklog/store.ts`），它们写入前后各读一次，`agendaEvents`、`noteEvents` 比较出做了什么，带上来源写进日志。调用方：提醒面板、备忘面板、聊天里「存为备忘」和宠物气泡按钮（`user`），聊天工具（`chat`），撤销（`user`）。不记标记已提醒、稍后提醒、过期作废（`isStale`）、满了被挤掉这些整理动作，这类写入可以直接用 `updateAgenda`。聊天工具的 `effect` 目前只有提醒和备忘，已经在写入处记了，不单独记。专注：宠物窗口订阅 `FocusTimer`，专注转休息记完成，专注转关闭记中途停止（包括电脑睡着打断），来源算 `user`。
 - **读。** `dayRecap` 算一天：完成了又取消的不算，记了又删的备忘不算，再加上 `day_counts` 的次数。今日回顾（`review_today`）合并日志和当前清单（日志之前的、或日志漏掉的也在），早安读最近 7 天。
 - **保留。** 宠物窗口启动时和之后每 6 小时调 `tidyWorkLog`：30 天前的事件折叠成 `day_counts` 再删掉。旧版的 `ai-pet:focus-log:v1`（每天几轮）第一次启动时导入 `day_counts`，导入成功才删 key。

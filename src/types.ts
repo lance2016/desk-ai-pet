@@ -135,8 +135,31 @@ export type MailCodeUpdate =
   | { kind: "failed"; message: string };
 
 /** What a standing line is about; a bell when it names none. */
-export const ALERT_ICONS = ["mail", "timer"] as const;
+export const ALERT_ICONS = ["mail", "timer", "agent"] as const;
 export type AlertIcon = (typeof ALERT_ICONS)[number];
+
+/** The Claude Code hook events the pet listens to. Must match `EVENTS` in src-tauri/src/agent_hooks.rs. */
+export const AGENT_EVENTS = ["UserPromptSubmit", "PermissionRequest", "PostToolUse", "Notification", "Stop", "StopFailure", "SessionEnd"] as const;
+export type AgentEvent = (typeof AGENT_EVENTS)[number];
+
+/**
+ * One Claude Code hook event, cut down by the native side to what the pet
+ * shows: no prompts, commands, replies or file contents. `project` is the last
+ * part of the session's folder.
+ */
+export interface AgentReport {
+  event: AgentEvent;
+  session: string;
+  project: string;
+  /** The tool it wants to use (PermissionRequest), or used (PostToolUse). */
+  tool?: string;
+  /** Such as "permission_prompt" (Notification). */
+  notification?: string;
+  /** Such as "rate_limit" (StopFailure). */
+  error?: string;
+  /** The event comes from a subagent of the session. */
+  subagent?: boolean;
+}
 
 /**
  * Where something going on stands: it runs, it waits for the user to confirm

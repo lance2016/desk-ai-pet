@@ -60,6 +60,11 @@ describe("chat context", () => {
     }, NOW);
     expect(lines).toEqual(["完成了提醒：交周报", "专注了 0 轮，每轮 25 分钟", "今天记的备忘：定稿"]);
   });
+
+  it("tells what Claude Code finished today", () => {
+    const turn = { at: 0, day: "2026-11-16", kind: "agent_turn_done", source: "agent", text: "ai-pet", before: null, itemId: null };
+    expect(todayLines({ agenda: [], notes: [] }, { events: [turn], counts: [] }, NOW)).toContain("今天让 Claude Code 干完了 1 轮活：ai-pet 1 轮");
+  });
 });
 
 describe("tool calls", () => {

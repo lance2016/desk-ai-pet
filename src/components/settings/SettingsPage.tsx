@@ -22,6 +22,7 @@ import { CharacterSettings } from "./CharacterSettings";
 import { CharacterProfileSettings } from "./CharacterProfileSettings";
 import { HolidaySettings } from "./HolidaySettings";
 import { MailSettings } from "./MailSettings";
+import { AgentSettings } from "./AgentSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
 import { DockSettings } from "./DockSettings";
 import { CompanionSettings } from "./CompanionSettings";
@@ -59,7 +60,7 @@ const FIND_TRIES = 15;
 const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
   ai: "AI 对话 DeepSeek MiMo API Key 模型 语音",
   companion: "早安 问候 关心 勿扰 免打扰",
-  tools: "划词 翻译 邮箱 邮件 验证码",
+  tools: "划词 翻译 编码助手 Claude Code 邮箱 邮件 验证码",
 };
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "actions"];
@@ -375,6 +376,7 @@ export function SettingsPage({ packId }: { packId: string }) {
           <div className="settings-section">
             <h2 className="settings-group-title">划词翻译</h2>
             <TranslationShortcutSettings onError={setError} />
+            <AgentSettings />
             <MailSettings />
           </div>
         )}

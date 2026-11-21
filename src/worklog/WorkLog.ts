@@ -12,10 +12,12 @@ export type WorkKind =
   | "reminder_added" | "reminder_done" | "reminder_undone" | "reminder_edited" | "reminder_deleted"
   | "note_added" | "note_edited" | "note_deleted"
   | "focus_completed" | "focus_stopped"
-  | "fact_added" | "fact_edited" | "fact_deleted";
+  | "fact_added" | "fact_edited" | "fact_deleted"
+  /** A Claude Code turn long enough to tell the user about; the text is the project folder. */
+  | "agent_turn_done";
 
-/** Who did it: the user by hand (panels, the pet's buttons, undo), or a tool in a chat reply. */
-export type WorkSource = "user" | "chat";
+/** Who did it: the user by hand (panels, the pet's buttons, undo), a tool in a chat reply, or a coding agent. */
+export type WorkSource = "user" | "chat" | "agent";
 
 export const KEEP_DAYS = 30;
 /** Characters of an event's text, enough for a whole note. The native side refuses more than 1000. */

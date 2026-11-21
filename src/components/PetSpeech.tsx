@@ -30,6 +30,7 @@ const ALERT_ICONS = {
   bell: <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" />,
   mail: <path d="M3 6h18v12H3zM3 7l9 6 9-6" />,
   timer: <path d="M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 9v4l2.5 2M10 2h4" />,
+  agent: <path d="M3 5h18v14H3zM7 10l3 2-3 2M12 15h5" />,
 };
 
 /** A ring that fills as the focus round or the rest goes by. */

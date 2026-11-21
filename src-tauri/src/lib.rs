@@ -1,5 +1,7 @@
+mod agent_hooks;
 mod alert;
 mod api_keys;
+mod claude_settings;
 mod click_through;
 mod database;
 mod diagnostics;
@@ -654,6 +656,10 @@ fn request_pet_scale(app: AppHandle, scale: f64) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Claude Code runs this binary as a hook: forward the event and stop, before anything of the app starts.
+    if agent_hooks::forward_if_hook() {
+        return;
+    }
     diagnostics::log_panics();
     tauri::Builder::default()
         // First, so everything after it can log.
@@ -671,6 +677,7 @@ pub fn run() {
         .manage(handover::Clipboard::default())
         .manage(translation::SelectionFloat::default())
         .manage(mail_code::MailCodeState::default())
+        .manage(agent_hooks::AgentHooks::default())
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(llm::LlmState::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
@@ -688,6 +695,8 @@ pub fn run() {
                 log::warn!("failed to open the database: {error}");
                 database::Database::default()
             }));
+
+            agent_hooks::listen(app.handle());
 
             let pet_menu = build_menu(app)?;
             let (app_menu, new_chat) = build_app_menu(app)?;
@@ -825,6 +834,10 @@ pub fn run() {
             mail_code::mail_remove_account,
             mail_code::mail_code_cancel,
             mail_code::mail_code_try,
+            agent_hooks::agent_interrupted,
+            claude_settings::claude_hooks_state,
+            claude_settings::claude_hooks_connect,
+            claude_settings::claude_hooks_disconnect,
             mimo::mimo_speech_cancel,
             mimo::mimo_key_status,
             mimo::mimo_save_key,

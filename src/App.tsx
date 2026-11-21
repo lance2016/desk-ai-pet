@@ -38,6 +38,7 @@ import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
 import { mailCodePlatform } from "./platform/mailCode";
 import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivity";
+import { followClaude } from "./agents/followClaude";
 import { STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
 import { PixiRenderer } from "./renderer/PixiRenderer";
 import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
@@ -467,6 +468,12 @@ export default function App({ packId }: AppProps) {
       }),
     ];
     return () => stops.forEach((stop) => stop());
+  }, [runtime]);
+
+  // Claude Code sessions, from its hooks: a chip while one works, a line when one waits for the user or is done.
+  useEffect(() => {
+    if (!runtime) return;
+    return followClaude((update) => runtime.bus.emit("pet.activity", update));
   }, [runtime]);
 
   // The global quick chat shortcut. Settings changes it directly; this restores it at launch.

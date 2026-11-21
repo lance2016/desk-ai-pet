@@ -1,6 +1,6 @@
 import { formatReminderTime, isDone, leftoverReminders, occurrenceAt, shownAt, type AgendaItem } from "../agenda/AgendaStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
-import { dayRecap, lastActiveDay } from "../worklog/recap";
+import { agentWork, dayRecap, lastActiveDay } from "../worklog/recap";
 import { addDays, dateKey, type WorkLogData } from "../worklog/WorkLog";
 import type { GreetingKind } from "./GreetingSchedule";
 
@@ -22,6 +22,8 @@ interface LastDay {
   done: string[];
   doneCount: number;
   focusRounds: number;
+  /** "让 Claude Code 干完了 3 轮活：…", or null. */
+  agentWork: string | null;
 }
 
 /** What the pet knows about the user's day when it greets. */
@@ -62,7 +64,7 @@ export function collectFacts(items: readonly AgendaItem[], log: WorkLogData, now
     nextReminder: upcoming ?? null,
     latestReminder: announced && announcedAt !== null ? { text: announced.text, at: announcedAt } : null,
     focusToday: dayRecap(log, today).focusRounds,
-    lastDay: last && { label: dayLabel(last.day, now), done: [...last.remindersDone.values()], doneCount: last.doneCount, focusRounds: last.focusRounds },
+    lastDay: last && { label: dayLabel(last.day, now), done: [...last.remindersDone.values()], doneCount: last.doneCount, focusRounds: last.focusRounds, agentWork: agentWork(last) },
     leftovers: leftoverReminders(items, now).sort((a, b) => a.remindAt - b.remindAt).map((item) => ({ text: item.text, at: item.remindAt })),
   };
 }
@@ -80,6 +82,7 @@ export function factLines(kind: GreetingKind, facts: GreetingFacts, now: number)
       ...reminder("下一个提醒", facts.nextReminder),
       ...(lastDay && lastDay.doneCount > 0 ? [`${lastDay.label}完成了 ${lastDay.doneCount} 个提醒${lastDay.done.length > 0 ? `：${named(lastDay.done)}` : ""}`] : []),
       ...(lastDay && lastDay.focusRounds > 0 ? [`${lastDay.label}专注了 ${lastDay.focusRounds} 轮，${round}`] : []),
+      ...(lastDay?.agentWork ? [`${lastDay.label}${lastDay.agentWork}`] : []),
       ...(leftovers.length > 0 ? [`之前没做完的提醒 ${leftovers.length} 个：${named(leftovers.map((item) => `${formatReminderTime(item.at, now)} ${item.text}`))}`] : []),
     ];
   }
