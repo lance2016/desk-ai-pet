@@ -88,7 +88,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease);
 }
 .today-field--small { height: 24px; padding: 0 6px; font-size: 12px; }
-.today-field--time { width: 88px; font-variant-numeric: tabular-nums; }
+.today-field--time { width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
 .today-field::-webkit-calendar-picker-indicator { opacity: .55; }
 .today-field:focus, .today-add__field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
 

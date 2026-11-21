@@ -166,6 +166,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 看设置窗口在安装包里的真实样子：用 `CGWindowListCopyWindowInfo` 找到本应用名为「AI Pet 设置」的窗口号，`screencapture -x -o -l <窗口号>` 只截这一个窗口。窗口没开着时截不到，也不能替用户去点菜单；可以临时把配置里它的 `visible` 改成 `true` 起一次 `pnpm tauri dev` 截图，截完改回并关掉。
 - 应用菜单（`build_app_menu`）平时看不见，但 ⌘C、⌘V、⌘W、⌘Q 这些快捷键全靠它，删掉编辑菜单输入框就不能粘贴。退出必须用 `QUIT_ID`，否则会跳过退出前取消请求。
 
+- 时间框不要用 `<input type="time">`：WebKit 的分段时间框要先点中小时或分钟那一段才能打字，用户觉得「只能上下选」。用 `TimeField`（`src/components/TimeField.tsx`），能直接打 `2230`、`22:30`，上下键调光标所在的那一段。
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
 - 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。两个弹出层同一时间只开一个（`show_beside_pet` 先收起另一个）；任何一个失焦后再统一收起所有没有焦点的弹出层（`sweep_popovers`）。只靠各自的失焦事件不够：没拿到过焦点的那个永远收不到失焦，点别处也关不掉。

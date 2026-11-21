@@ -5,6 +5,7 @@ import { EVERY_DAY, repeatLabel, repeatSchema, type Repeat } from "../../agenda/
 import { holidayCalendar, lastCoveredYear } from "../../agenda/Workdays";
 import { petWindow } from "../../platform/petWindow";
 import { isComposing } from "../keyboard";
+import { TimeField } from "../TimeField";
 import { loadQuietPreferences, subscribeQuietPreferences } from "../../preferences/QuietPreferences";
 import "./TodayPanel.css";
 
@@ -142,7 +143,7 @@ function WhenField({ draft, onChange, now }: { draft: Draft; onChange: (draft: D
       <div className="today-when">
         <Segmented label="提醒日期" options={DAYS} value={day} onPick={pick} />
         {day === "other" && <input className="today-field today-field--small" type="date" aria-label="提醒日期" value={date} min={today} onChange={(event) => { const value = event.currentTarget.value; if (value) onChange({ ...draft, time: `${value}T${clock}` }); }} />}
-        {draft.time !== null && <input className="today-field today-field--small today-field--time" type="time" aria-label="提醒时刻" value={clock} onChange={(event) => { const value = event.currentTarget.value; if (value) onChange({ ...draft, time: `${date}T${value}` }); }} />}
+        {draft.time !== null && <TimeField className="today-field today-field--small today-field--time" label="提醒时刻" value={clock} onChange={(value) => onChange({ ...draft, time: `${date}T${value}` })} />}
         {draft.repeat === null && at !== null && at < now && <span className="today-when__past">这个时间已经过了，保存时会改到明天</span>}
       </div>
       {draft.repeat !== null && <RepeatField repeat={draft.repeat} now={now} onChange={(repeat) => onChange({ ...draft, repeat })} />}

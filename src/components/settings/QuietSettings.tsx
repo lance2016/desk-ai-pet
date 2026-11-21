@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { TimeField } from "../TimeField";
 import { petWindow } from "../../platform/petWindow";
 import { loadQuietPreferences, saveQuietPreferences, subscribeQuietPreferences, type QuietPreferences } from "../../preferences/QuietPreferences";
 import { eveningGreetingTime } from "../../companion/GreetingSchedule";
@@ -31,8 +32,8 @@ export function QuietSettings({ onError, during }: { onError: (message: string |
       <div className="settings-row"><div className="settings-row__body"><strong>定时勿扰</strong><span>每天这段时间不主动说话，提醒照常弹出</span></div><button type="button" role="switch" aria-checked={hours.enabled} aria-label="定时勿扰" className={hours.enabled ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, quietHours: { ...hours, enabled: !hours.enabled } })}><span /></button></div>
       {/* Greyed out, not hidden, when off: the greetings still go by these times. */}
       <div className={hours.enabled ? "quiet-hours" : "quiet-hours is-off"}>
-        <label>从<input type="time" disabled={!hours.enabled} value={hours.start} onChange={(event) => { const start = event.currentTarget.value; if (start) update({ ...value, quietHours: { ...hours, start } }); }} /></label>
-        <label>到<input type="time" disabled={!hours.enabled} value={hours.end} onChange={(event) => { const end = event.currentTarget.value; if (end) update({ ...value, quietHours: { ...hours, end } }); }} /></label>
+        <label>从<TimeField disabled={!hours.enabled} value={hours.start} onChange={(start) => update({ ...value, quietHours: { ...hours, start } })} /></label>
+        <label>到<TimeField disabled={!hours.enabled} value={hours.end} onChange={(end) => update({ ...value, quietHours: { ...hours, end } })} /></label>
       </div>
       <p className="quiet-hours__note">早安时间在上方单独设置；{eveningGreetingTime(hours.start)} 道晚安。</p>
       {during?.(hours.enabled)}

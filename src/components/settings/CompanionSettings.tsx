@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { TimeField } from "../TimeField";
 import { QuietSettings } from "./QuietSettings";
 import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPreferences } from "../../preferences/CompanionPreferences";
 import { petWindow } from "../../platform/petWindow";
@@ -45,7 +46,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
     <div className="settings-section__intro"><h2>早安问候</h2><p>单独设置每天的早安时间</p></div>
     <div className="settings-group">
       {toggle("morningGreeting", "每天说早安", "到这个时间后的 4 小时内，你开始用电脑时问候一次；定时勿扰时会延后",
-        <input type="time" aria-label="早安时间" value={value.morningTime} disabled={!value.morningGreeting} onChange={(event) => { if (event.currentTarget.value) update({ ...value, morningTime: event.currentTarget.value }); }} />)}
+        <TimeField label="早安时间" value={value.morningTime} disabled={!value.morningGreeting} onChange={(morningTime) => update({ ...value, morningTime })} />)}
     </div>
     <p className="settings-footnote">生成问候会请求一次 DeepSeek，可能产生少量费用；不可用时会显示本地问候</p>
     <div className="settings-section__intro"><h2>关心</h2><p>{name}会在合适的时候关心你，勿扰时不出声</p></div>
@@ -55,7 +56,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
         <button type="button" className="settings-button settings-button--small" onClick={speakAgain}>恢复说话</button>
       </div>}
       {toggle("night", "深夜关心", "过了这个时间还在用电脑，提醒你早点休息",
-        <input type="time" aria-label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(event) => { if (event.currentTarget.value) update({ ...value, nightTime: event.currentTarget.value }); }} />)}
+        <TimeField label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(nightTime) => update({ ...value, nightTime })} />)}
       {toggle("rest", "休息一下", "连续用电脑这么久，提醒你起来活动；离开 5 分钟后重新计时",
         <select aria-label="使用多久后提醒" value={value.restMinutes} disabled={!value.rest} onChange={(event) => update({ ...value, restMinutes: Number(event.currentTarget.value) })}><option value={60}>60 分钟</option><option value={90}>90 分钟</option><option value={120}>120 分钟</option></select>)}
       {toggle("headsUp", "提醒前说一声", "一次性的提醒，到点前 10 分钟先说一声；刚设不到 1 小时的不说")}
