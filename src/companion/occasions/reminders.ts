@@ -1,4 +1,4 @@
-import { clockLabel, dueReminders, type AgendaItem } from "../../agenda/AgendaStore";
+import { clockLabel, dueReminders, occurrenceAt, type AgendaItem } from "../../agenda/AgendaStore";
 import { awayMinutes } from "../presence";
 import type { Brief, Occasion } from "../types";
 
@@ -49,18 +49,27 @@ export const HEADS_UP: Occasion = {
   },
 };
 
+/** The reminder as it stands now: a repeating one with `remindAt` moved to its latest time that has come. */
+function latest(item: AgendaItem, now: number): AgendaItem | null {
+  const at = occurrenceAt(item, now);
+  return at === null ? null : { ...item, remindAt: at };
+}
+
+/** Shown or ticked off at `at`; for a repeating reminder only from its latest time on, not on an earlier day. */
+const seenAt = (at: number | null, item: AgendaItem) => at !== null && (item.repeat === null || at >= item.remindAt);
+
 /**
- * The one-off reminder the user seems to have left for: it came up around the time they went,
- * and they saw to it (the pet showed it, or it is ticked off). One still waiting to be shown
- * comes up by itself when they are back.
+ * The reminder the user seems to have left for: it came up around the time they went, and they
+ * saw to it (the pet showed it, or it is ticked off). One still waiting to be shown comes up by
+ * itself when they are back. A repeating one counts by its latest time, with `remindAt` moved there.
  */
 function leftFor(items: readonly AgendaItem[], leftAt: number, now: number): AgendaItem | null {
   if (now - leftAt > LONGEST_AWAY_MS) return null;
-  const oneOffs = items.filter((item) => item.repeat === null);
-  const waiting = new Set(dueReminders(oneOffs, now).map((item) => item.id));
-  const seenTo = oneOffs.filter((item) => !waiting.has(item.id) && (item.remindedAt !== null || item.doneAt !== null)
-    && item.remindAt <= now && Math.abs(leftAt - item.remindAt) <= LEFT_WITHIN_MS);
-  return seenTo.reduce<AgendaItem | null>((latest, item) => (latest === null || item.remindAt > latest.remindAt ? item : latest), null);
+  const waiting = new Set(dueReminders(items, now).map((item) => item.id));
+  const seenTo = items.filter((item) => !waiting.has(item.id)).flatMap((item) => latest(item, now) ?? [])
+    .filter((item) => (seenAt(item.remindedAt, item) || seenAt(item.doneAt, item))
+      && item.remindAt <= now && Math.abs(leftAt - item.remindAt) <= LEFT_WITHIN_MS);
+  return seenTo.reduce<AgendaItem | null>((last, item) => (last === null || item.remindAt > last.remindAt ? item : last), null);
 }
 
 function askAfter(text: string, done: boolean, facts: string[]): Brief {
@@ -83,7 +92,7 @@ export const FOLLOW_UP: Occasion = {
     const item = leftAt === null ? null : leftFor(reminders, leftAt, now);
     const written = (facts: string[]) => (settings.careByModel ? facts : []);
     if (item === null || leftAt === null) return askAfter(EXAMPLE.left, true, written([`用户刚才去做了这件事：「${EXAMPLE.left}」，已经做完`, "用户刚回到电脑前"]));
-    const done = item.doneAt !== null;
+    const done = seenAt(item.doneAt, item);
     return askAfter(item.text, done, written([
       `用户 ${clockLabel(item.remindAt)} 去做了这件事：「${item.text}」，${done ? "已经做完" : "不知道做成没有"}`,
       `用户离开了大约 ${awayMinutes(leftAt, now)} 分钟，刚回到电脑前`,

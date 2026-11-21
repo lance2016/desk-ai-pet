@@ -294,14 +294,56 @@ describe("asking after what the user left for", () => {
   it("just welcomes the user back when no reminder goes with their leaving", async () => {
     const longAgo = lunch({ remindAt: AFTERNOON - 3 * 60 * MINUTE, remindedAt: AFTERNOON - 3 * 60 * MINUTE });
     const stillDue = lunch({ id: "r2", remindedAt: null });
-    const repeating = lunch({ id: "r3", repeat: [0, 1, 2, 3, 4, 5, 6] });
-    const { companion, texts } = setup({ reminders: () => [longAgo, stillDue, repeating] }, NO_MORNING);
+    const { companion, texts } = setup({ reminders: () => [longAgo, stillDue] }, NO_MORNING);
     await leaveAndReturn(companion);
     expect(texts()).toEqual(["回来啦，欢迎回来～"]);
 
     const off = setup({ reminders: () => [lunch()] }, { ...NO_MORNING, followUp: false });
     await leaveAndReturn(off.companion);
     expect(off.texts()).toEqual(["回来啦，欢迎回来～"]);
+  });
+
+  describe("a repeating reminder", () => {
+    const DAY = 24 * 60 * MINUTE;
+    /** Every day at two, made a week ago; today's time was shown a minute after it. */
+    const daily = (overrides: Partial<AgendaItem> = {}) => lunch({ remindAt: AFTERNOON - 7 * DAY, createdAt: AFTERNOON - 8 * DAY, repeat: [0, 1, 2, 3, 4, 5, 6], ...overrides });
+
+    it("asks after today's time, with today's time in the facts", async () => {
+      const write = vi.fn(async () => "饭吃得怎么样？");
+      const { companion, texts } = setup({ reminders: () => [daily()], write }, WRITTEN);
+      await leaveAndReturn(companion);
+      expect(texts()).toEqual(["饭吃得怎么样？"]);
+      expect(write).toHaveBeenCalledWith(expect.any(String), ["用户 14:00 去做了这件事：「出去吃饭」，不知道做成没有", "用户离开了大约 45 分钟，刚回到电脑前"], AFTERNOON + 51 * MINUTE);
+    });
+
+    it("knows today's time was ticked off, and not yesterday's", async () => {
+      const write = vi.fn(async () => { throw new Error("offline"); });
+      const ticked = setup({ reminders: () => [daily({ doneAt: AFTERNOON })], write }, WRITTEN);
+      await leaveAndReturn(ticked.companion);
+      expect(ticked.texts()).toEqual(["回来啦～「出去吃饭」还顺利吗？"]);
+
+      const yesterday = setup({ reminders: () => [daily({ doneAt: AFTERNOON - DAY })], write }, WRITTEN);
+      await leaveAndReturn(yesterday.companion);
+      expect(yesterday.texts()).toEqual(["回来啦～「出去吃饭」弄好了吗？"]);
+    });
+
+    it("does not ask when only yesterday's time was shown", async () => {
+      const { companion, texts } = setup({ reminders: () => [daily({ remindedAt: AFTERNOON - DAY + MINUTE })] }, NO_MORNING);
+      await leaveAndReturn(companion);
+      expect(texts()).toEqual(["回来啦，欢迎回来～"]);
+    });
+
+    it("asks again the next day", async () => {
+      let items = [daily()];
+      const write = vi.fn(async () => "饭吃得怎么样？");
+      const { companion, texts } = setup({ reminders: () => items, write }, { ...WRITTEN, welcomeBack: false });
+      await leaveAndReturn(companion);
+      items = [daily({ remindedAt: AFTERNOON + DAY + MINUTE })];
+      await companion.check(AFTERNOON + DAY + 5 * MINUTE, HERE);
+      await companion.check(AFTERNOON + DAY + 50 * MINUTE, 45 * 60);
+      await companion.check(AFTERNOON + DAY + 51 * MINUTE, HERE);
+      expect(texts()).toEqual(["饭吃得怎么样？", "饭吃得怎么样？"]);
+    });
   });
 
   it("does not ask after a whole night away", async () => {
