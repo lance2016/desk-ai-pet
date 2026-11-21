@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
@@ -31,6 +31,8 @@ export default defineConfig(() => ({
   },
 
   test: {
+    // Worktrees of other branches live under .claude/worktrees; their tests are not this tree's.
+    exclude: [...configDefaults.exclude, ".claude/**"],
     coverage: {
       // Rendering, native window calls and React views are verified by running the app.
       include: ["src/actions/**", "src/assets/**", "src/behavior/**", "src/core/**", "src/storage/**", "src/renderer/motions.ts", "src/platform/hitMask.ts"],
