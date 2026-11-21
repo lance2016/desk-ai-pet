@@ -6,7 +6,9 @@ import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
 import type { PetPersona } from "../../assets/Manifest";
 import { markdownToPlain } from "../../chat/markdown";
-import { CHAT_IMAGE_TYPES, prepareChatImage, type AttachedChatImage } from "../../chat/ChatImage";
+import { prepareChatImage, type AttachedChatImage } from "../../chat/ChatImage";
+import { ATTACH_ACCEPT, mayTake, readDropped } from "../../handover/dropped";
+import { handedMessage, handedQuestion, handover, type Handover } from "../../handover/Handover";
 import { containsWebAddress, webAddress, webConversationStart, webReplySchema, type WebMode, type WebReply } from "../../chat/ReadLinks";
 import { NOTE_LIMITS } from "../../notes/NoteStore";
 import { keepNote } from "../../worklog/store";
@@ -59,7 +61,11 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.r
 const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 const sameMessages = (a: readonly ChatMessage[], b: readonly ChatMessage[]) => a.length === b.length && a.every((message, index) =>
   message.role === b[index].role && message.content === b[index].content && message.readLink === b[index].readLink
-  && message.image?.id === b[index].image?.id && JSON.stringify(message.web) === JSON.stringify(b[index].web));
+  && message.image?.id === b[index].image?.id && message.file?.label === b[index].file?.label && JSON.stringify(message.web) === JSON.stringify(b[index].web));
+/** A text file waiting in the composer: sent as a data block after the user's words. */
+type DraftFile = { name: string; handed: Handover };
+/** Characters of a file name kept with the message. */
+const FILE_NAME_CHARS = 128;
 
 const WEB_PROGRESS: Record<string, string> = {
   reading: "正在读取网页…",
@@ -70,7 +76,7 @@ const WEB_PROGRESS: Record<string, string> = {
   "search-failed": "这一轮搜索未返回结果…",
 };
 
-function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" | "image" | "globe" }) {
+function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" | "image" | "globe" | "attach" | "file" }) {
   const paths = {
     mic: <><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></>,
     stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
@@ -80,6 +86,8 @@ function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "s
     close: <path d="m7 7 10 10M17 7 7 17" />,
     globe: <><circle cx="12" cy="12" r="9" /><ellipse cx="12" cy="12" rx="4" ry="9" /><path d="M3 12h18" /></>,
     image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="9" r="1.5" /><path d="m4 17 4-4 3 3 5-5 4 4" /></>,
+    attach: <path d="m20 11.5-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7" />,
+    file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
     copy: <><rect x="8" y="8" width="11" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h1" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
   } as const;
@@ -124,6 +132,7 @@ export function ChatPage({ packId }: { packId: string }) {
   const [sentImage, setSentImage] = useState<AttachedChatImage | null>(null);
   const [preparingImage, setPreparingImage] = useState(false);
   const [draggingImage, setDraggingImage] = useState(false);
+  const [draftFile, setDraftFile] = useState<DraftFile | null>(null);
   const imageAttempt = useRef(0);
   const imageInput = useRef<HTMLInputElement>(null);
   const [skipWeb, setSkipWeb] = useState(false);
@@ -368,7 +377,7 @@ export function ChatPage({ packId }: { packId: string }) {
     return () => clearTimeout(timer);
   }, [copied]);
 
-  const startReply = async (requested: ChatMessage[], typed = "", attachment = sentImage) => {
+  const startReply = async (requested: ChatMessage[], typed = "", attachment = sentImage, file: DraftFile | null = null) => {
     if (active.current || !ready || !personaReady || !historyValid) return;
     const before = latest.current.messages;
     const id = newId();
@@ -395,6 +404,7 @@ export function ChatPage({ packId }: { packId: string }) {
       : mode === "search" ? "准备联网搜索…" : mode === "image" ? "正在查看图片…" : "");
     setSearch(false);
     if (mode === "image") { setSentImage(attachment); setDraftImage(null); }
+    if (file) setDraftFile(null);
     setSkipWeb(false);
     active.current = id; cancelRequested.current = false; replyRef.current = ""; linesRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
@@ -409,6 +419,7 @@ export function ChatPage({ packId }: { packId: string }) {
         setMessages(before);
         if (typed) setDraft(typed);
         if (mode === "image") setDraftImage(attachment);
+        if (file) setDraftFile(file);
         if (mode === "search") setSearch(true);
       }
       reportServiceError("DeepSeek", String(reason));
@@ -419,11 +430,13 @@ export function ChatPage({ packId }: { packId: string }) {
   const send = (event: FormEvent) => {
     event.preventDefault();
     const text = draft.trim();
-    if ((!text && !draftImage) || preparingImage || pending || recording || !ready || !historyValid || keyMissing) return;
-    const readLink = draftImage ? "image" : search ? "search" : skipWeb ? undefined : webCandidate;
+    if ((!text && !draftImage && !draftFile) || preparingImage || pending || recording || !ready || !historyValid || keyMissing) return;
+    const readLink = draftImage ? "image" : draftFile ? undefined : search ? "search" : skipWeb ? undefined : webCandidate;
     const image = draftImage ? { id: draftImage.id, name: draftImage.name } : undefined;
-    const message: ChatMessage = { role: "user", content: text || "帮我看看这张图片。", readLink, image };
-    void startReply([...messages, message].slice(-CHAT_LIMITS.messages), draft, draftImage);
+    const file = draftFile ? { name: draftFile.name, label: draftFile.handed.label } : undefined;
+    const content = draftFile ? handedMessage(text || "帮我看看这个文件。", draftFile.handed) : text || "帮我看看这张图片。";
+    const message: ChatMessage = { role: "user", content, readLink, image, file };
+    void startReply([...messages, message].slice(-CHAT_LIMITS.messages), draft, draftImage, draftFile);
     // A click on the button would leave the focus there, where Space would stop the reply.
     input.current?.focus();
   };
@@ -436,6 +449,7 @@ export function ChatPage({ packId }: { packId: string }) {
     imageAttempt.current++;
     setPreparingImage(false);
     setDraftImage(null);
+    setDraftFile(null);
     setSearch(false);
     setThreadId(id); setMessages(shown); setError(""); setNotice(""); setReply(""); setSavedLines([]); setNotedMessages({}); setHistoryOpen(false);
     input.current?.focus();
@@ -551,6 +565,24 @@ export function ChatPage({ packId }: { packId: string }) {
     </div>
     {key !== undefined && replyActions(content, key)}
   </div>;
+  const showImage = (image: AttachedChatImage) => {
+    setDraftFile(null);
+    setDraftImage(image);
+    setSearch(false);
+    setNotice("");
+    input.current?.focus();
+  };
+  /** A picture dragged onto the pet: it waits in the composer like one added here. */
+  const takeHandedImage = (image: AttachedChatImage) => {
+    if (active.current || recording || transcribing) { setNotice("等这条回复完，再把图片拖给我。"); return; }
+    // A picture still being read here gives way to the handed one.
+    imageAttempt.current++;
+    setPreparingImage(false);
+    showImage(image);
+  };
+  const takeHandedImageRef = useRef(takeHandedImage);
+  takeHandedImageRef.current = takeHandedImage;
+  useEffect(() => petWindow.onChatImageHanded((image) => takeHandedImageRef.current(image)), []);
   const attachImage = async (files: FileList | File[]) => {
     if (active.current || recording || transcribing) return;
     if (files.length !== 1) { setNotice("一次可以添加一张图片。"); return; }
@@ -559,10 +591,7 @@ export function ChatPage({ packId }: { packId: string }) {
     try {
       const image = await prepareChatImage(files[0], newId());
       if (attempt !== imageAttempt.current) return;
-      setDraftImage(image);
-      setSearch(false);
-      setNotice("");
-      input.current?.focus();
+      showImage(image);
     } catch (reason) {
       if (attempt !== imageAttempt.current) return;
       console.warn("Could not prepare the chat image", reason);
@@ -570,6 +599,20 @@ export function ChatPage({ packId }: { packId: string }) {
     } finally {
       if (attempt === imageAttempt.current) setPreparingImage(false);
     }
+  };
+  /** The one attach button and a drop on the composer: a picture to look at, or a text file as data. */
+  const attach = async (files: File[]) => {
+    if (active.current || recording || transcribing) return;
+    const added = await readDropped({ files, text: "" }, "添加");
+    if (added.kind === "unreadable") { setNotice(added.reason); return; }
+    if (added.kind === "image") { void attachImage([added.file]); return; }
+    imageAttempt.current++;
+    setPreparingImage(false);
+    setDraftImage(null);
+    setSearch(false);
+    setNotice("");
+    setDraftFile({ name: files[0].name.slice(0, FILE_NAME_CHARS), handed: handover(added.text, added.label) });
+    input.current?.focus();
   };
   const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(event.clipboardData.files);
@@ -616,7 +659,8 @@ export function ChatPage({ packId }: { packId: string }) {
             {sentImage?.id === message.image.id && <img src={sentImage.dataUrl} alt={message.image.name} />}
             <span><Icon name="image" />{message.image.name}</span>
           </div>}
-          <ChatPlainText text={message.content} />
+          {message.file && <div className="chat-sent-image"><span><Icon name="file" />{message.file.name}</span></div>}
+          <ChatPlainText text={message.file ? handedQuestion(message.content, message.file.label) : message.content} />
         </div>
       </div>)}
       {(pending || reply) && assistantRow(reply || (webProgress ? "" : "正在想…"))}
@@ -640,7 +684,7 @@ export function ChatPage({ packId }: { packId: string }) {
       onDragOver={(event) => {
         if (!event.dataTransfer.types.includes("Files")) return;
         event.preventDefault();
-        const available = !pending && !recording && !transcribing;
+        const available = !pending && !recording && !transcribing && mayTake(Array.from(event.dataTransfer.items));
         event.dataTransfer.dropEffect = available ? "copy" : "none";
         setDraggingImage(available);
       }}
@@ -649,11 +693,11 @@ export function ChatPage({ packId }: { packId: string }) {
         if (event.dataTransfer.files.length === 0) return;
         event.preventDefault();
         setDraggingImage(false);
-        void attachImage(event.dataTransfer.files);
+        void attach(Array.from(event.dataTransfer.files));
       }}>
       {peek && <PeekPicture picture={peek} className="chat-peek" />}
       <div className="chat-compose-field">
-        {webCandidate && !pending && <div className="chat-web-mode">
+        {webCandidate && !pending && !draftFile && <div className="chat-web-mode">
           <button type="button" aria-pressed={!skipWeb} aria-label={webCandidate === "open" ? "阅读链接" : "追问网页"}
             title={skipWeb ? "切换到网页阅读" : "使用 DeepSeek Flash 阅读网页，可切回普通聊天"} onClick={() => setSkipWeb((skip) => !skip)}>
             {skipWeb ? "普通聊天" : webCandidate === "open" ? "阅读链接" : "追问网页"}
@@ -669,16 +713,21 @@ export function ChatPage({ packId }: { packId: string }) {
             input.current?.focus();
           }}><Icon name="close" /></button>
         </div>}
+        {draftFile && <div className="chat-draft-image" aria-live="polite">
+          <span className="chat-draft-file" aria-hidden="true"><Icon name="file" /></span>
+          <div><strong>{draftFile.name}</strong><small>{[...draftFile.handed.text].length} 字{draftFile.handed.trimmed ? "，太长只发开头" : ""}，发送时作为资料交给 DeepSeek</small></div>
+          <button type="button" className="chat-mic" aria-label="移除文件" onClick={() => { setDraftFile(null); input.current?.focus(); }}><Icon name="close" /></button>
+        </div>}
         <div className={`chat-input${recording ? " is-recording" : ""}${draggingImage ? " is-dragging" : ""}`}>
-          <input type="file" ref={imageInput} hidden accept={CHAT_IMAGE_TYPES} onChange={(event) => {
+          <input type="file" ref={imageInput} hidden accept={ATTACH_ACCEPT} onChange={(event) => {
             const files = Array.from(event.currentTarget.files ?? []);
             event.currentTarget.value = "";
-            if (files.length) void attachImage(files);
+            if (files.length) void attach(files);
           }} />
-          <button type="button" className="chat-mic chat-mic--attach" disabled={pending || recording || transcribing} aria-label="添加图片"
-            title="添加图片，也可以粘贴截图或拖入图片" onClick={() => imageInput.current?.click()}><Icon name="image" /></button>
-          <button type="button" className="chat-search" disabled={pending || recording || transcribing || preparingImage || Boolean(draftImage)}
-            aria-pressed={search} aria-label="联网搜索" title={draftImage ? "移除图片后可以联网搜索" : "仅为这条消息联网搜索"}
+          <button type="button" className="chat-mic chat-mic--attach" disabled={pending || recording || transcribing} aria-label="添加图片或文件"
+            title="添加图片或文本文件，也可以粘贴截图或拖进来" onClick={() => imageInput.current?.click()}><Icon name="attach" /></button>
+          <button type="button" className="chat-search" disabled={pending || recording || transcribing || preparingImage || Boolean(draftImage) || Boolean(draftFile)}
+            aria-pressed={search} aria-label="联网搜索" title={draftImage ? "移除图片后可以联网搜索" : draftFile ? "移除文件后可以联网搜索" : "仅为这条消息联网搜索"}
             onClick={() => { setSearch((enabled) => !enabled); input.current?.focus(); }}><Icon name="globe" />联网</button>
           <textarea ref={input} rows={1} aria-label="聊天内容" placeholder={recording ? `正在听你说… ${clock(voice.seconds)}，再点麦克风结束` : transcribing ? "正在识别语音…" : keyMissing ? "先在设置里填上 DeepSeek API Key 才能聊天" : `和${name}说点什么…`} value={draft} maxLength={MAX_INPUT} onPaste={onPaste} onChange={(event) => setDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !isComposing(event)) { event.preventDefault(); if (!recording) event.currentTarget.form?.requestSubmit(); } }} />
           {draft.length >= SHOW_COUNT_FROM && <span className="chat-count">{draft.length}/{MAX_INPUT}</span>}
@@ -690,7 +739,7 @@ export function ChatPage({ packId }: { packId: string }) {
       </div>
       {pending
         ? <button className="chat-send" type="button" onClick={cancel} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
-        : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage) || preparingImage || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
+        : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage && !draftFile) || preparingImage || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
     </form>
   </main>;
 }

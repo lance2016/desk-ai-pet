@@ -22,6 +22,7 @@ import { requestPreferences } from "./preferences/ChatPreferences";
 import { isOnboarded, markOnboarded } from "./preferences/UserProfile";
 import { PetControls } from "./components/PetControls";
 import { QuickChatBar, QuickReplyBubble, useQuickChat } from "./components/QuickChat";
+import { usePetDrop } from "./components/usePetDrop";
 import { ChatLauncher } from "./components/ChatLauncher";
 import { FocusAura, FOCUS_EXIT_MS } from "./components/FocusAura";
 import { PetSpeech } from "./components/PetSpeech";
@@ -168,6 +169,8 @@ export default function App({ packId }: AppProps) {
   const restoredPosition = useRef<Promise<boolean> | null>(null);
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences);
   const quickChat = useQuickChat(runtime, packId, { style: displayPreferences.chatLauncher, copyHint: displayPreferences.copyHint });
+  // Nothing is handed to the pet while it keeps a focus round or is still answering.
+  usePetDrop(runtime !== null && !focusMode && !quickChat.pending, quickChat.receive);
   const quickReplyShown = quickChat.bubble;
   const launcherStyle = displayPreferences.chatLauncher;
   /** Focus leaves only the pet, its pool of light and the status row (the focus pill) on stage. */

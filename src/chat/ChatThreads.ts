@@ -20,6 +20,8 @@ const messagesSchema = z.array(z.object({
   readLink: webModeSchema.optional(),
   web: webReplySchema.optional(),
   image: chatImageSchema.optional(),
+  /** A text file sent with the message; its text is in `content`, after the user's words. */
+  file: z.object({ name: z.string().min(1).max(128), label: z.string().min(1).max(128) }).optional(),
   unprompted: z.literal(true).optional(),
 })).max(CHAT_LIMITS.messages);
 const threadsSchema = z.array(z.object({

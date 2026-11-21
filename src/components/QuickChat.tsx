@@ -13,7 +13,9 @@ import { characterName, requestPreferences } from "../preferences/ChatPreference
 import { CHAT_SKILLS } from "../skills";
 import { petActionSkill } from "../skills/petActions";
 import { readText } from "../agenda/chatTools";
-import { ACTION_LABELS, ACTION_QUESTIONS, HANDED_LABEL, handedMessage, handover, handoverPreview, suggestions, type Handover, type HandoverAction } from "../handover/Handover";
+import { ACTION_LABELS, ACTION_QUESTIONS, handedMessage, handover, handoverPreview, suggestions, type Handover, type HandoverAction } from "../handover/Handover";
+import type { Dropped } from "../handover/dropped";
+import { prepareChatImage } from "../chat/ChatImage";
 import { handoverPlatform } from "../platform/handover";
 import type { ChatLauncher } from "../preferences/DisplayPreferences";
 import { loadNotes, NOTE_LIMITS, removeNote } from "../notes/NoteStore";
@@ -79,7 +81,7 @@ export interface QuickChat {
   /** True when no DeepSeek key is saved: the bar's send button opens the key settings instead. */
   keyMissing: boolean;
   reply: QuickReply | null;
-  /** Text the user copied and asked about with the chat button, shown above the pet until used or put aside. */
+  /** Text the user copied and asked about with the chat button, or dragged onto the pet, shown above it until used or put aside. */
   handed: Handover | null;
   /** Something was copied in another app in the last minute: the chat button lights up. */
   copied: boolean;
@@ -111,6 +113,8 @@ export interface QuickChat {
   launch: () => void;
   /** Opens the bar to ask about the handed text in one's own words. */
   askAbout: () => void;
+  /** Something dragged onto the pet: text goes above it like copied text, a picture to the chat window. */
+  receive: (dropped: Dropped) => void;
 }
 
 const reportFocus = (error: unknown) => console.warn("Could not move keyboard focus for quick chat", error);
@@ -466,17 +470,29 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     setCopiedAt(null);
     wakePet();
     handoverPlatform.takeCopied()
-      .then((text) => {
-        if (!text) { requestChat(); return; }
-        setHanded(handover(text));
-        // The copied text takes the bubble; a finished reply from before steps aside.
-        setReply((current) => (current !== MISSING_KEY_REPLY && (current?.status === "done" || current?.status === "error") ? null : current));
-      })
+      .then((text) => { if (text) takeHanded(handover(text)); else requestChat(); })
       .catch((error: unknown) => { console.warn("Could not read what was copied", error); requestChat(); });
+  };
+  /** The handed text takes the bubble; a finished reply from before steps aside. */
+  const takeHanded = (item: Handover) => {
+    setHanded(item);
+    setReply((current) => (current !== MISSING_KEY_REPLY && (current?.status === "done" || current?.status === "error") ? null : current));
+  };
+  const receive = (dropped: Dropped) => {
+    if (pending) return;
+    wakePet();
+    if (dropped.kind === "text") { takeHanded(handover(dropped.text, dropped.label)); return; }
+    if (dropped.kind === "unreadable") { setReply({ text: dropped.reason, status: "done" }); return; }
+    prepareChatImage(dropped.file, newId())
+      .then((image) => petWindow.openChatWithImage(image))
+      .catch((error: unknown) => {
+        console.warn("Could not hand the dropped picture to the chat window", error);
+        setReply({ text: error instanceof Error && /[\u4e00-\u9fff]/.test(error.message) ? error.message : "这张图片我读不了，换一张试试。", status: "done" });
+      });
   };
   const bubble = reply !== null || handed !== null || (open && answering !== null);
   const dismissHanded = () => { setHanded(null); if (openRef.current) inputRef.current?.focus(); };
-  return { open, draft, pending, keyMissing, reply, handed, copied: copiedAt !== null, spoke: spoken !== null && spokeHint, answering, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction, launch, askAbout: requestChat };
+  return { open, draft, pending, keyMissing, reply, handed, copied: copiedAt !== null, spoke: spoken !== null && spokeHint, answering, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction, launch, askAbout: requestChat, receive };
 }
 
 function Icon({ name }: { name: "send" | "stop" | "expand" }) {
@@ -563,9 +579,9 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
 
 /** Text the user copied, in the bubble above the pet, with what can be done with it. */
 function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; ref?: Ref<HTMLDivElement> }) {
-  const size = `${HANDED_LABEL} · ${[...handed.text].length}${handed.trimmed ? "+" : ""} 字`;
+  const size = `${handed.label} · ${[...handed.text].length}${handed.trimmed ? "+" : ""} 字`;
   return (
-    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={`${HANDED_LABEL}，${size}`} title={size}>
+    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={size} title={size}>
       <span className="speech-bubble__spark" aria-hidden="true">✦</span>
       <span className="speech-bubble__body">
         <span className="handed__main">

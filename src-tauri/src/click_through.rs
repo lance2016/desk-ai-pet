@@ -119,15 +119,29 @@ fn cursor_over_pet(app: &AppHandle, window: &WebviewWindow) -> Option<bool> {
     current.as_ref().map(|grid| grid.contains(x, y))
 }
 
+/// Where the press in progress began, from the window's state when it was first seen.
+/// `None` while no button is held.
+fn press_start(previous: Option<bool>, button_down: bool, over_pet: Option<bool>) -> Option<bool> {
+    match (button_down, previous) {
+        (false, _) => None,
+        (true, Some(began_on_pet)) => Some(began_on_pet),
+        (true, None) => Some(over_pet == Some(true)),
+    }
+}
+
 /// Starts following the cursor for the given window.
 pub fn start(app: AppHandle, window_label: &'static str) {
     thread::spawn(move || {
         let mut over_pet: Option<bool> = None;
+        let mut pressed_on_pet: Option<bool> = None;
         loop {
             thread::sleep(POLL_INTERVAL);
             // A press that began on the pet (a drag, a menu) must keep going to
-            // the window even if the cursor slips onto a transparent part.
-            if mouse_button_down() {
+            // the window even if the cursor slips onto a transparent part. One that
+            // began elsewhere may be a file dragged in from another app: the window
+            // keeps following the cursor, so it can take the drop.
+            pressed_on_pet = press_start(pressed_on_pet, mouse_button_down(), over_pet);
+            if pressed_on_pet == Some(true) {
                 continue;
             }
             let Some(window) = app.get_webview_window(window_label) else {
@@ -158,7 +172,25 @@ pub fn start(app: AppHandle, window_label: &'static str) {
 
 #[cfg(test)]
 mod tests {
-    use super::cursor_in_window;
+    use super::{cursor_in_window, press_start};
+
+    #[test]
+    fn a_press_on_the_pet_holds_the_window_until_released() {
+        let pressed = press_start(None, true, Some(true));
+        assert_eq!(pressed, Some(true));
+        // The cursor slips off the pet mid-drag: still the same press.
+        assert_eq!(press_start(pressed, true, Some(false)), Some(true));
+        assert_eq!(press_start(pressed, false, Some(true)), None);
+    }
+
+    #[test]
+    fn a_press_elsewhere_lets_the_window_follow_a_drag_onto_the_pet() {
+        let pressed = press_start(None, true, Some(false));
+        assert_eq!(pressed, Some(false));
+        // The drag reaches the pet and the window takes the cursor: still a press from elsewhere.
+        assert_eq!(press_start(pressed, true, Some(true)), Some(false));
+        assert_eq!(press_start(None, true, None), Some(false));
+    }
 
     #[test]
     fn same_scale_matches_plain_subtraction() {

@@ -3,6 +3,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { availableMonitors, cursorPosition, getCurrentWindow, LogicalPosition, LogicalSize, primaryMonitor } from "@tauri-apps/api/window";
 import type { ActionResult, ChatPhase, DockSide } from "../types";
 import { z } from "zod";
+import { chatImageSchema, type AttachedChatImage } from "../chat/ChatImage";
 import { clampWindowX, clampWindowY, dockSideAt, monitorUnderPet, offscreenInsets, snappedWindowX, verticalInsets, type MonitorBounds, type OffscreenInsets } from "./stageGeometry";
 
 /** Must match SCALE_EVENT in src-tauri/src/lib.rs. */
@@ -59,6 +60,9 @@ const NOTE_EVENT = "pet://note";
 const CHAT_THREAD_EVENT = "pet://chat-thread";
 /** Like `CHAT_THREAD_EVENT`, and the chat window also answers the thread's last, unanswered message. */
 const CHAT_RESUME_EVENT = "pet://chat-resume";
+/** Hands the chat window a picture dragged onto the pet; sent between webviews only. */
+const CHAT_IMAGE_EVENT = "pet://chat-image";
+const handedImageSchema = chatImageSchema.extend({ dataUrl: z.string().startsWith("data:image/") });
 /** Asks the pet to say one of the lines it says by itself, right now; sent between webviews only. */
 const COMPANION_TEST_EVENT = "pet://companion-test";
 const COMPANION_TEST_RESULT_EVENT = "pet://companion-test-result";
@@ -370,6 +374,22 @@ export const petWindow = {
     if (!isTauri()) { window.open("/?window=chat", "_blank"); return; }
     if (threadId) await emitTo("chat", resume ? CHAT_RESUME_EVENT : CHAT_THREAD_EVENT, threadId);
     await invoke("open_chat");
+  },
+
+  /** Opens the chat window with `image` waiting in its composer. In a plain browser the picture stays behind. */
+  async openChatWithImage(image: AttachedChatImage): Promise<void> {
+    if (!isTauri()) { window.open("/?window=chat", "_blank"); return; }
+    await emitTo("chat", CHAT_IMAGE_EVENT, image);
+    await invoke("open_chat");
+  },
+
+  /** Calls `handler` with a picture another window handed the chat window. */
+  onChatImageHanded(handler: (image: AttachedChatImage) => void): () => void {
+    return subscribe<unknown>(CHAT_IMAGE_EVENT, (payload) => {
+      const parsed = handedImageSchema.safeParse(payload);
+      if (parsed.success) handler(parsed.data);
+      else console.warn("Ignored a handed picture that is not one", parsed.error.issues);
+    });
   },
 
   /** Calls `handler` with the thread whose last message the chat window should answer. */
