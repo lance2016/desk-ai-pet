@@ -459,8 +459,11 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .handed__foot button:active:not(:disabled) { background: var(--ui-fill-strong); }
 .handed__foot button:disabled { opacity: .45; cursor: default; }
 .handed__foot button:focus-visible, .handed__close:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
-.handed__foot .handed__ask { margin-left: auto; padding: 0 4px; color: var(--ui-text-secondary); border-color: transparent; background: none; }
-.handed__foot .handed__ask:hover:not(:disabled) { color: var(--ui-accent-strong); background: none; }
+/* Asking in one's own words is the open-ended way in: the one filled button, on the right like a Mac default button. */
+.handed__foot .handed__ask { margin-left: auto; color: var(--ui-action-text); background: var(--ui-action-bg); border-color: transparent; font-weight: 500; }
+.handed__foot .handed__ask:hover:not(:disabled) { background: var(--ui-accent-strong); }
+.handed__foot .handed__ask:active:not(:disabled) { background: var(--ui-accent-strong); }
+.handed__foot .handed__ask:focus-visible { outline-offset: 2px; }
 
 /* The chat button: always there, quiet until hovered or until something was copied in another app. */
 .chat-launcher { position: absolute; z-index: 3; width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 50%; opacity: .78; cursor: pointer; pointer-events: auto; transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
