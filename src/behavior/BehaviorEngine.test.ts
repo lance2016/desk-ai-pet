@@ -4,7 +4,8 @@ import { ActionRegistry } from "../actions/ActionRegistry";
 import { EventBus } from "../core/EventBus";
 import { createSnapshot, PetState } from "../core/PetState";
 import { animationIds, FakeRenderer, makeManifest } from "../testing/fixtures";
-import type { PetEvents, PetStats } from "../types";
+import { mailCodeActivity } from "../activity/mailCodeActivity";
+import type { ActivityUpdate, MailCodeUpdate, PetEvents, PetStats } from "../types";
 import { BEHAVIOR_CONFIG, BehaviorEngine, type DueReminder, type ReminderSource } from "./BehaviorEngine";
 import { FOCUS_CONFIG, FocusTimer } from "./FocusTimer";
 
@@ -1183,29 +1184,32 @@ describe("greetings", () => {
   });
 });
 
-describe("mail codes", () => {
+describe("activities", () => {
   const withScenes = () => setup({ extraAnimations: SCENE_ACTIONS });
   const last = <T,>(list: T[]): T | undefined => list[list.length - 1];
+  /** Reports a step of "查收验证码" the way the app does. */
+  const mail = (bus: ReturnType<typeof setup>["bus"], update: MailCodeUpdate) => bus.emit("pet.activity", mailCodeActivity(update).activity);
+  const agent = (state: ActivityUpdate["state"], extra: Partial<ActivityUpdate> = {}): ActivityUpdate => ({ id: "agent", state, label: "Claude", icon: "timer", ...extra });
 
   it("shows it is waiting on the badge until the wait ends", () => {
     const { bus, badges } = withScenes();
-    bus.emit("pet.mail_code", { kind: "waiting" });
+    mail(bus, { kind: "waiting" });
     expect(last(badges)).toBe("等验证码");
-    bus.emit("pet.mail_code", { kind: "cancelled" });
+    mail(bus, { kind: "cancelled" });
     expect(last(badges)).toBeNull();
   });
 
   it("keeps the other badge parts while waiting", () => {
     const { bus, badges } = withScenes();
     bus.emit("pet.focus_toggled", {});
-    bus.emit("pet.mail_code", { kind: "waiting" });
+    mail(bus, { kind: "waiting" });
     expect(last(badges)).toMatch(/ · 等验证码$/);
-    bus.emit("pet.mail_code", { kind: "timeout" });
+    mail(bus, { kind: "timeout" });
     expect(last(badges)).not.toContain("等验证码");
     expect(last(badges)).not.toBeNull();
   });
 
-  /** The standing line as it goes, text only. */
+  /** The standing line as it goes. */
   const watchAlert = (bus: ReturnType<typeof setup>["bus"]) => {
     const shown: Array<PetEvents["pet.alert"]> = [];
     bus.on("pet.alert", (alert) => shown.push(alert));
@@ -1217,8 +1221,8 @@ describe("mail codes", () => {
     const shown = watchAlert(bus);
     bus.emit("pet.drag_started", {});
     bus.emit("pet.drag_ended", { dockSide: "right" });
-    bus.emit("pet.mail_code", { kind: "waiting" });
-    bus.emit("pet.mail_code", { kind: "found", code: "384920", sender: "网易邮件中心", copied: true });
+    mail(bus, { kind: "waiting" });
+    mail(bus, { kind: "found", code: "384920", sender: "网易邮件中心", copied: true });
     expect(renderer.last).toBe("happy");
     expect(docks).toEqual(["right", null]);
     expect(last(shown)).toEqual({ text: "验证码 384920，已复制（网易邮件中心）", icon: "mail" });
@@ -1235,7 +1239,7 @@ describe("mail codes", () => {
     const { bus, pass } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
     const shown = watchAlert(bus);
     pass(0);
-    bus.emit("pet.mail_code", { kind: "found", code: "57743", sender: "Telegram", copied: true });
+    mail(bus, { kind: "found", code: "57743", sender: "Telegram", copied: true });
     expect(last(shown)?.text).toBe("验证码 57743，已复制（Telegram）");
     bus.emit("pet.alert_dismissed", {});
     expect(last(shown)).toMatchObject({ heading: "到点啦", text: "开会" });
@@ -1244,34 +1248,80 @@ describe("mail codes", () => {
   it("takes down the last answer when a new wait starts", () => {
     const { bus } = withScenes();
     const shown = watchAlert(bus);
-    bus.emit("pet.mail_code", { kind: "timeout" });
+    mail(bus, { kind: "timeout" });
     expect(last(shown)?.text).toBe("一直没等到验证码，可以再点一次查收");
-    bus.emit("pet.mail_code", { kind: "waiting" });
+    mail(bus, { kind: "waiting" });
     expect(last(shown)?.text).toBeNull();
   });
 
-  it("asks the user to type the code when it could not be copied", () => {
-    const { bus } = withScenes();
-    const shown = watchAlert(bus);
-    bus.emit("pet.mail_code", { kind: "found", code: "1234", sender: "GitHub", copied: false });
-    expect(last(shown)?.text).toBe("验证码 1234（GitHub），没能复制，手动输一下吧");
-  });
-
-  it("looks confused and says why when no code came", () => {
+  it("looks confused and says why when it failed", () => {
     const { bus, renderer } = withScenes();
     const shown = watchAlert(bus);
-    bus.emit("pet.mail_code", { kind: "unrecognized", sender: "GitHub" });
+    mail(bus, { kind: "unrecognized", sender: "GitHub" });
     expect(renderer.last).toBe("confused");
     expect(last(shown)?.text).toContain("没认出码");
-    bus.emit("pet.mail_code", { kind: "failed", message: "连不上 163 邮箱，检查一下网络。" });
+    mail(bus, { kind: "failed", message: "连不上 163 邮箱，检查一下网络。" });
     expect(last(shown)?.text).toBe("连不上 163 邮箱，检查一下网络。");
   });
 
-  it("points to the settings when no mailbox is set up", () => {
-    const { bus, said, badges } = withScenes();
-    bus.emit("pet.mail_code", { kind: "waiting" });
-    bus.emit("pet.mail_code", { kind: "unset" });
-    expect(last(said)).toBe("先在设置里加个 163 邮箱吧");
-    expect(last(badges)).toBeNull();
+  it("calls the user when an activity waits for them, and keeps its chip after the line is clicked away", () => {
+    const { bus, renderer, badges } = withScenes();
+    const shown = watchAlert(bus);
+    bus.emit("pet.activity", agent("running"));
+    expect(shown).toEqual([]);
+    bus.emit("pet.activity", agent("waiting", { text: "要运行 pnpm install，等你确认" }));
+    expect(renderer.last).toBe("remind");
+    expect(last(shown)).toEqual({ text: "要运行 pnpm install，等你确认", icon: "timer" });
+    bus.emit("pet.alert_dismissed", {});
+    expect(last(shown)?.text).toBeNull();
+    expect(last(badges)).toBe("Claude");
+  });
+
+  it("wakes the pet for an activity that waits for the user or is done", () => {
+    for (const state of ["waiting", "done"] as const) {
+      const { bus, state: pet } = withScenes();
+      bus.emit("pet.sleep", {});
+      expect(pet.get().activity).toBe("sleeping");
+      bus.emit("pet.activity", agent(state, { text: "看一眼" }));
+      expect(pet.get().activity).toBe("awake");
+    }
+  });
+
+  it("stays behind the edge for news that has no line to show", () => {
+    const { bus, docks } = withScenes();
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    bus.emit("pet.activity", agent("waiting"));
+    bus.emit("pet.activity", agent("done"));
+    expect(docks).toEqual(["left"]);
+  });
+
+  it("does not call the user again for a report it already has", () => {
+    const { bus, renderer, pass } = withScenes();
+    const shown = watchAlert(bus);
+    bus.emit("pet.activity", agent("waiting", { text: "等你确认" }));
+    pass(5_000);
+    expect(renderer.last).toBe("idle");
+    const alerts = shown.length;
+    bus.emit("pet.activity", agent("waiting", { text: "等你确认" }));
+    expect(renderer.last).toBe("idle");
+    expect(shown).toHaveLength(alerts);
+  });
+
+  it("is not held back by a focus round or by do-not-disturb", () => {
+    const { bus } = setup({ extraAnimations: SCENE_ACTIONS, holdsReminders: () => true });
+    const shown = watchAlert(bus);
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.activity", agent("waiting", { text: "等你确认" }));
+    expect(last(shown)?.text).toBe("等你确认");
+  });
+
+  it("leaves the reminder buttons alone while an activity's line covers the reminders", () => {
+    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
+    const { bus, pass } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
+    pass(0);
+    bus.emit("pet.activity", agent("done", { text: "做完了" }));
+    bus.emit("pet.reminders_done", {});
+    expect(reminders.done).toEqual([]);
   });
 });

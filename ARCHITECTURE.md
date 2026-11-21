@@ -23,6 +23,10 @@ src/
 │   └── ActionController.ts  播放、优先级、打断、冷却
 ├── behavior/
 │   └── BehaviorEngine.ts    交互响应和自主行为
+├── activity/
+│   ├── Activity.ts          外来活动上报的校验（`activityUpdateSchema`）和长度上限
+│   ├── ActivityBoard.ts     进行中的事：哪些有徽标、现在该把哪一件放进常驻气泡
+│   └── mailCodeActivity.ts  「查收验证码」的每一步对应哪个活动状态、说哪句话
 ├── renderer/
 │   ├── PetRenderer.ts       渲染接口
 │   ├── PixiRenderer.ts      PixiJS 实现
@@ -194,7 +198,8 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.chat_phase` | `{ phase: "idle" \| "listening" \| "thinking" \| "talking" \| "failed" }`，对话进行到哪一步 | `useQuickChat`、`App`（转发聊天窗口的） |
 | `pet.noted` | 无，新增了一条提醒或备忘 | `App`（比较存储变化） |
 | `pet.item_done` | 无，勾掉了一条提醒 | `App`（比较存储变化） |
-| `pet.mail_code` | `MailCodeUpdate`：`waiting`、`found`（带 `code`、`sender`、`copied`）、`unrecognized`、`timeout`、`cancelled`、`unset`、`failed`（带 `message`） | `App`（转发原生事件 `pet://mail-code`） |
+| `pet.activity` | `ActivityUpdate`：`{ id, state, label, icon, text?, cancellable? }`，一件进行中的事走到哪了；`state` 只有 `running`、`waiting`（等用户确认）、`done`、`failed`、`cancelled`，见「活动」 | `App`（把「查收验证码」的原生事件用 `mailCodeActivity` 转过来） |
+| `pet.activity_chip_clicked` | `{ id }`，点了某个可取消活动的徽标；谁上报的这件事，谁负责停掉它 | `PetSpeech` |
 | `pet.hovered` | 无，光标移到了宠物上 | `App` |
 | `pet.user_active` | `{ at }`，用户最近一次碰键盘或鼠标的时间（任何应用里），每 10 秒读一次系统空闲时长 | `App` |
 | `pet.drag_started` | 无 | `PetStage` |
@@ -217,7 +222,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
 | `pet.reminders_snoozed` | 无，提醒气泡上的「10 分钟后」：过一会儿再提醒 | `PetSpeech`（气泡按钮） |
 | `pet.leftovers_moved` | 无，早安后气泡上的「挪到今天」 | `PetSpeech`（气泡按钮） |
-| `pet.badge` | `{ chips }`，角色脚下的一排状态小块（专注/休息倒计时带进度、提醒数、勿扰、等验证码）；空数组表示隐藏 | `BehaviorEngine` |
+| `pet.badge` | `{ chips }`，角色脚下的一排状态小块（专注/休息倒计时带进度、提醒数、勿扰、进行中的活动）；空数组表示隐藏 | `BehaviorEngine` |
 
 动作统计监听 `pet.action.started`，以实际开始的 `actionId` 为键写入 `characterKey(packId, CHARACTER_DATA.actionTriggerStats)`。该键从本次更新开始为空，不迁移旧历史；动作库手动预览会计入，跨窗口存储变化会刷新动作库计数。请求被控制器拒绝时不会产生事件，也不会计数。
 
@@ -281,7 +286,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 限制在屏幕内、判断贴边、贴边对齐都按角色区域计算，窗口的留白可以伸出屏幕。几何计算是 `stageGeometry.ts` 里的纯函数。
 - 窗口伸出屏幕的宽度通过 `petWindow.offscreenInsets()` 读出，写进 `--visible-left`、`--visible-right`。气泡和底栏只在屏幕可见的范围内布局，宠物贴边时底栏和聊天按钮都收起。
 - 探头时气泡及状态徽标靠近对应屏幕边缘，气泡尾巴指向角色；贴边状态变化时重新计算提醒气泡的可点击区域。
-- 普通气泡只显示，不接收鼠标，不进入命中区域表。底栏（平时半透明也照样能点）和打开的「互动」菜单、聊天按钮、常驻气泡和状态行显示时加入命中区域表；状态行里每一块各管各的：专注和休息倒计时发 `pet.focus_badge_clicked`，「提醒 N」打开提醒面板，「等验证码」调 `mail_code_cancel` 取消，「勿扰」只是标签。状态行在底栏上方；专注时底栏收起，它落到水波下方（`.app--focus`）；贴边时回到窗口底部。
+- 普通气泡只显示，不接收鼠标，不进入命中区域表。底栏（平时半透明也照样能点）和打开的「互动」菜单、聊天按钮、常驻气泡和状态行显示时加入命中区域表；状态行里每一块各管各的：专注和休息倒计时发 `pet.focus_badge_clicked`，「提醒 N」打开提醒面板，活动的小块在可取消时发 `pet.activity_chip_clicked`（「等验证码」由 `App` 调 `mail_code_cancel`），不可取消时只是标签，「勿扰」也只是标签。状态行在底栏上方；专注时底栏收起，它落到水波下方（`.app--focus`）；贴边时回到窗口底部。
 - `SpeechQueue` 一次只显示一句，按字数决定停留时间（2.5～8 秒），最多排队 3 句，超出时丢掉最早排队的。
 
 ## 专注陪伴
@@ -295,10 +300,30 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - 专注结束：播放 `happy`，被接受时心情 +5、亲密 +2，然后进入休息并改为显示休息倒计时。
 - 休息结束：提醒可以再来一轮，徽标隐藏。
 - 专注中重复收到 `pet.focus_toggled`，或点状态行的专注小牌，会在常驻气泡里问「继续专注 / 停止专注」（`focusPrompt`）。只有系统菜单的「结束专注」直接结束。`focusPromptMs`（15 秒）没回答就按继续收起。休息中点倒计时问「继续休息 / 开始专注」。阶段一变（结束、停止、开始）问题就作废；按“休息”让宠物睡觉也会停止。
-- 常驻气泡同时只显示一件事，顺序是：专注提问 → 验证码结果 → 挪到今天 → 到点提醒 → 专注完成。点掉最上面的，下一件才出来。
+- 常驻气泡同时只显示一件事，顺序是：专注提问 → 活动（等用户确认的在前，结果在后）→ 挪到今天 → 到点提醒 → 专注完成。点掉最上面的，下一件才出来。
 - 专注结束和休息结束都算一次互动，避免刚结束就因为“太久没互动”睡着。
 
 专注中的画面装饰不归引擎管：`FocusAura`（`components/FocusAura.tsx`）直接订阅 `PetRuntime.focus`，在宠物身后画脚下的水波。水波跟着宠物的 `breathe` 动效一起呼吸：周期用同一个 `BREATHE_SECONDS`（`renderer/motions.ts`），每次 `focus` 动作开始（`pet.action.started`）都从头起步，吸气时扩开变亮，呼气时收回变暗；用户在动作库里改过专注动作的动效速度时不会跟着变。进度弧画在水波前沿，从左往右收短；前沿在脚的前面，整段都不会被人物挡住。水波不接收鼠标。剩余时间和结束入口是状态行里的专注小牌（莲花加时间）。专注期间收起快捷按钮和聊天入口。停止或自然结束后，水波淡出再恢复普通界面。拖动和贴边时水波不显示，小牌仍在状态行里。休息阶段恢复常规按钮和休息倒计时徽标。
+
+## 活动
+
+一件在宠物之外进行的事（等验证码，以后的编码 Agent）用「活动」告诉宠物。上报方只说事情走到哪了，宠物怎么表现由 `BehaviorEngine` 统一决定。不做任务规划，宠物也不替用户确认。
+
+- **上报。** 往总线发 `pet.activity`，内容是 `ActivityUpdate`：`id`（同一件事用同一个，新的一条替换旧的）、`state`、`label`（徽标上的几个字）、`icon`（常驻气泡的图标，取值是 `ALERT_ICONS`）、可选的 `text`（常驻气泡里的话）和 `cancellable`。来自宠物窗口之外的上报（原生事件、别的程序）先用 `activityUpdateSchema`（`src/activity/Activity.ts`）校验，长度上限在 `ACTIVITY_LIMITS`。
+- **五个状态。**
+
+  | `state` | 徽标 | 常驻气泡 | 宠物的反应 |
+  |---|---|---|---|
+  | `running` 进行中 | 转圈加 `label` | 没有，并收起这件事上一次的结果 | 没有 |
+  | `waiting` 等用户确认 | 琥珀色圆点加 `label` | `text` | 有 `text` 时叫醒、从边上出来、播 `remind`；没有就只播 `remind` |
+  | `done` 完成 | 去掉 | `text` | 有 `text` 时叫醒、从边上出来、播 `happy`；没有就只播 `happy` |
+  | `failed` 失败 | 去掉 | `text` | 播 `confused`，不叫醒、不从边上出来 |
+  | `cancelled` 取消 | 去掉 | 没有，并收起这件事已有的气泡 | 没有 |
+
+- **记账。** `ActivityBoard`（`src/activity/ActivityBoard.ts`）只管记：哪些活动有徽标（`chips()`，先来的在前），现在该把哪一件放进常驻气泡（`notice()`，等用户确认的排在结果前面）。内容完全一样的重复上报不算数（`report()` 返回 `false`），宠物不会为同一件事叫两次。结果被点掉后这件事就忘了；等确认的被点掉后徽标还在，气泡不再出来，除非它换了一句话。只存在内存里，重启后没有。
+- **不受勿扰和专注限制。** 活动是用户自己发起的事，等确认和结果随时都叫。
+- **取消。** `cancellable` 的徽标是按钮，点一下发 `pet.activity_chip_clicked`。引擎不处理这个事件：上报方自己订阅，认出自己的 `id` 后去停，停完再报 `cancelled`。
+- **现在的使用者。** 只有「查收验证码」。专注和聊天没有迁过来：专注有自己的计时、提问和水波，聊天只是摆姿势，都不是「一件在外面进行的事」。
 
 ## 提醒和备忘
 
@@ -634,5 +659,5 @@ AI 对话补充要求按角色保存在 `ChatInstructions`，由聊天请求附�
 - **挑哪一封。** 只看收件箱最新 10 封里 10 分钟内收到、不到 512 KB 的邮件，用一条 `UID FETCH` 一起下载，再从新到旧解析。每个邮箱取最新的一封验证码邮件，再在所有邮箱里取收到时间最新的那封。同一次等待里每封只下载一次；已经给过用户的邮件（`delivered`，按邮箱地址加 UID 记，只在内存里）不再给，所以「重新发送」后再查收会等新的那封。
 - **认码。** `mail_extract.rs` 先看标题、再看正文（HTML 由 `mail-parser` 转成纯文本，GBK 需要它的 `full_encoding`）。邮件必须含「验证码」「verification code」「your code」这类词才算；码是离「码」「code」最近的 4～8 位数字（`123 456`、`G-123456` 也认），日期、时间、金额、手机号排除在外。都找不到时，取单独占一行的数字。是验证码邮件但认不出码时报 `unrecognized`。设置页的「认不出验证码？」（`MailCodeTester.tsx`）把粘贴的标题和正文交给 `mail_code_try` 命令，走同一套 `find_code`，另外用 `code_word` 说出是哪个词判断成验证码邮件；不读邮箱。前端只负责在原文里标出认出的码（`locateCode`）。
 - **复制。** 原生层写系统剪贴板，同时加 `org.nspasteboard.ConcealedType`，让剪贴板工具不记进历史。
-- **宠物的反应。** `App` 把原生事件转成总线上的 `pet.mail_code`，由 `BehaviorEngine` 处理：等待时状态行加一块「等验证码」；查到时用 `callOut` 叫醒、从边上出来、开心一下，把验证码放进常驻气泡（`codeNotice`），点掉后才回到边上；认不出、超时、失败时困惑一下，原因也放进常驻气泡。新的一次等待开始时收起上一次的结果。这是用户主动要的结果，不受勿扰限制。宠物被隐藏时，原生层在发结果前先把它显示出来。没配邮箱时报 `unset`，`App` 打开「设置 → 划词与邮箱」。
+- **宠物的反应。** 走「活动」。`App` 收到原生事件后用 `mailCodeActivity`（`src/activity/mailCodeActivity.ts`）转成 `pet.activity`：等待是 `running`，状态行加一块可取消的「等验证码」；查到是 `done`，宠物被叫醒、从边上出来、开心一下，验证码放进常驻气泡，点掉后才回到边上；认不出、超时、失败是 `failed`，困惑一下，原因也放进常驻气泡。新的一次等待开始时收起上一次的结果。这是用户主动要的结果，不受勿扰限制。宠物被隐藏时，原生层在发结果前先把它显示出来。没配邮箱时报 `unset`，宠物说一句话，`App` 打开「设置 → 小工具」。
 - **账号。** 可以存多个 163 邮箱，地址和授权码以 JSON 数组存在同一条钥匙串项里（服务名 `<identifier>.mail.163`）；旧版本存的是单个对象，读的时候当成只有一个。保存前先登录并打开一次收件箱，成功才保存；已存的地址再保存一次会换成新的授权码。

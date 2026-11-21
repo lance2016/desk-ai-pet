@@ -36,6 +36,7 @@ import { saveActiveCharacter } from "./preferences/CharacterPreferences";
 import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
 import { mailCodePlatform } from "./platform/mailCode";
+import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivity";
 import { STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
 import { PixiRenderer } from "./renderer/PixiRenderer";
 import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
@@ -448,13 +449,21 @@ export default function App({ packId }: AppProps) {
     return petWindow.onPatRequested(() => runtime.bus.emit("pet.petted", {}));
   }, [runtime]);
 
-  // "查收验证码" in the pet menu: the native side waits for the mail, the engine shows and says how it went.
+  // "查收验证码" in the pet menu: the native side waits for the mail and reports it as an activity; a click on its chip stops the wait.
   useEffect(() => {
     if (!runtime) return;
-    return mailCodePlatform.onUpdate((update) => {
-      runtime.bus.emit("pet.mail_code", update);
-      if (update.kind === "unset") void petWindow.openSettings("tools").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
-    });
+    const stops = [
+      mailCodePlatform.onUpdate((update) => {
+        const { activity, say } = mailCodeActivity(update);
+        runtime.bus.emit("pet.activity", activity);
+        if (say) runtime.say(say);
+        if (update.kind === "unset") void petWindow.openSettings("tools").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
+      }),
+      runtime.bus.on("pet.activity_chip_clicked", ({ id }) => {
+        if (id === MAIL_CODE_ACTIVITY) void mailCodePlatform.cancel().catch((error: unknown) => console.error("Failed to stop waiting for a mail code", error));
+      }),
+    ];
+    return () => stops.forEach((stop) => stop());
   }, [runtime]);
 
   // The global quick chat shortcut. Settings changes it directly; this restores it at launch.

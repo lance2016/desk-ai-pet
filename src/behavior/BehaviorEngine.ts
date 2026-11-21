@@ -2,7 +2,8 @@ import type { ActionController } from "../actions/ActionController";
 import { IDLE_ACTION, type ActionRegistry } from "../actions/ActionRegistry";
 import type { EventBus } from "../core/EventBus";
 import type { PetState } from "../core/PetState";
-import type { AlertChoice, ChatPhase, DockSide, MailCodeUpdate, Mood, PetEvents, PetStats, StatusChip } from "../types";
+import { ActivityBoard } from "../activity/ActivityBoard";
+import type { ActivityState, ActivityUpdate, AlertChoice, ChatPhase, DockSide, Mood, PetEvents, PetStats, StatusChip } from "../types";
 import { FOCUS_CONFIG, focusBadge, focusProgress, type FocusTimer } from "./FocusTimer";
 
 /** Played while the user carries the pet around. */
@@ -25,10 +26,12 @@ const GREET_ACTION = "wave";
 const NOTE_ACTION = "write";
 /** Played when a reminder is ticked off. */
 const DONE_ACTION = "happy";
-/** Played when a reply, a voice transcription or a wait for a mail code failed. */
+/** Played when a reply, a voice transcription or an activity failed. */
 const CONFUSED_ACTION = "confused";
-/** Played when a verification code from the mailbox is copied for the user. */
-const CODE_FOUND_ACTION = "happy";
+/** Played when an activity is done, such as a verification code copied for the user. */
+const ACTIVITY_DONE_ACTION = "happy";
+/** How the pet reacts when an activity gets to a state; nothing while it just runs or when it is called off. */
+const ACTIVITY_ACTIONS: Partial<Record<ActivityState, string>> = { waiting: REMIND_ACTION, done: ACTIVITY_DONE_ACTION, failed: CONFUSED_ACTION };
 /** Played shortly before the pet dozes off. */
 const YAWN_ACTION = "yawn";
 /** Played when the cursor comes onto the idle pet. */
@@ -93,16 +96,6 @@ const MOVE_CHOICES: AlertChoice[] = [
   { label: "不用了", event: "pet.alert_dismissed" },
   { label: "挪到今天", event: "pet.leftovers_moved" },
 ];
-
-/** What the pet says about "查收验证码". The native side has already copied a found code. */
-const MAIL_CODE_LINES = {
-  badge: "等验证码",
-  found: (code: string, sender: string) => `验证码 ${code}，已复制（${sender}）`,
-  notCopied: (code: string, sender: string) => `验证码 ${code}（${sender}），没能复制，手动输一下吧`,
-  unrecognized: (sender: string) => `收到一封验证码邮件（${sender}），但我没认出码，去邮箱看一眼吧`,
-  timeout: "一直没等到验证码，可以再点一次查收",
-  unset: "先在设置里加个 163 邮箱吧",
-};
 
 export const BEHAVIOR_CONFIG = {
   /** Actions in this category are played at random while the pet is idle. */
@@ -201,14 +194,12 @@ export class BehaviorEngine {
   private shownBadge = "[]";
   /** Due reminders held back while it is quiet. */
   private waitingReminders = 0;
-  /** True while "查收验证码" waits for mail; shown on the badge. */
-  private waitingForCode = false;
+  /** Things going on outside the pet (a wait for a mail code, an agent at work): their chips and standing lines. */
+  private readonly activities = new ActivityBoard();
   /** Reminders on the standing line, until the user clicks it away. */
   private alerted: DueReminder[] = [];
   /** "Focus done" waits on the standing line too, after any reminders. */
   private focusNotice: string | null = null;
-  /** What came of a wait for a mail code: the user asked for it, so it stays up, ahead of reminders. */
-  private codeNotice: string | null = null;
   /** Earlier reminders the morning greeting offered to move to today, until the user answers. */
   private moveOffer: DueReminder[] = [];
   /** A question about the focus round, ahead of everything else on the standing line: the user just asked. */
@@ -259,7 +250,7 @@ export class BehaviorEngine {
       bus.on("pet.chat_phase", ({ phase }) => this.onChatPhase(phase)),
       bus.on("pet.noted", () => this.react(NOTE_ACTION)),
       bus.on("pet.item_done", () => this.onItemDone()),
-      bus.on("pet.mail_code", (update) => this.onMailCode(update)),
+      bus.on("pet.activity", (update) => this.onActivity(update)),
       bus.on("pet.hovered", () => this.onHovered()),
       bus.on("pet.user_active", ({ at }) => this.onUserActive(at)),
       // A pose that ran out, or a reaction that played over it: back into the pose without a blink of idle.
@@ -445,42 +436,20 @@ export class BehaviorEngine {
   }
 
   /**
-   * The user asked for a code and is waiting for it, so a found one is worth
-   * coming out from the edge for; anything else is a passing line.
+   * Something going on moved on. What waits for the user, or is done with a
+   * result to tell, is worth coming out from the edge for; the rest is a passing
+   * reaction. Neither a focus round nor "勿扰" holds these back: the user set them going.
    */
-  private onMailCode(update: MailCodeUpdate): void {
+  private onActivity(update: ActivityUpdate): void {
     const now = Date.now();
-    this.waitingForCode = update.kind === "waiting";
+    const shown = this.activities.notice();
+    if (!this.activities.report(update)) return;
     this.showBadge(now);
-    switch (update.kind) {
-      case "waiting":
-        // A new wait: the answer to the last one is stale.
-        this.showCodeNotice(null);
-        return;
-      case "cancelled":
-        return;
-      case "found":
-        // It stays out until the line is clicked away, so the code is not missed.
-        this.callOut(now, CODE_FOUND_ACTION);
-        this.showCodeNotice(update.copied ? MAIL_CODE_LINES.found(update.code, update.sender) : MAIL_CODE_LINES.notCopied(update.code, update.sender));
-        return;
-      case "unrecognized":
-        this.react(CONFUSED_ACTION);
-        this.showCodeNotice(MAIL_CODE_LINES.unrecognized(update.sender));
-        return;
-      case "timeout":
-        this.react(CONFUSED_ACTION);
-        this.showCodeNotice(MAIL_CODE_LINES.timeout);
-        return;
-      case "unset":
-        // The settings window opens at the same time, so a passing line is enough.
-        this.say(MAIL_CODE_LINES.unset);
-        return;
-      case "failed":
-        this.react(CONFUSED_ACTION);
-        this.showCodeNotice(update.message);
-        return;
-    }
+    const action = ACTIVITY_ACTIONS[update.state];
+    // The pet stays out until the line is clicked away, so there has to be one; a failure is not worth coming out for.
+    if (action !== undefined && update.text && update.state !== "failed") this.callOut(now, action);
+    else if (action !== undefined) this.react(action);
+    if (this.activities.notice() !== shown) this.showAlert(now);
   }
 
   /** The cursor is not an interaction: the idle pet glances at it now and then, and still dozes off under it. */
@@ -662,14 +631,8 @@ export class BehaviorEngine {
     this.showAlert(Date.now());
   }
 
-  private showCodeNotice(text: string | null): void {
-    if (text === this.codeNotice) return;
-    this.codeNotice = text;
-    this.showAlert(Date.now());
-  }
-
   private hasStandingLine(): boolean {
-    return this.focusPrompt !== null || this.codeNotice !== null || this.moveOffer.length > 0 || this.alerted.length > 0 || this.focusNotice !== null;
+    return this.focusPrompt !== null || this.activities.notice() !== null || this.moveOffer.length > 0 || this.alerted.length > 0 || this.focusNotice !== null;
   }
 
   private advanceFocus(now: number): void {
@@ -721,7 +684,7 @@ export class BehaviorEngine {
     }
   }
 
-  /** Puts a question about the focus round, a mail code, the reminders, or else the focus notice on the standing line. */
+  /** Puts a question about the focus round, an activity, the reminders, or else the focus notice on the standing line. */
   private showAlert(now: number): void {
     const { bus } = this.deps;
     if (this.focusPrompt) {
@@ -729,8 +692,9 @@ export class BehaviorEngine {
       bus.emit("pet.alert", { text: this.focusPrompt.text, icon: "timer", choices: this.focusPrompt.choices, immediate: true });
       return;
     }
-    if (this.codeNotice) {
-      bus.emit("pet.alert", { text: this.codeNotice, icon: "mail" });
+    const activity = this.activities.notice();
+    if (activity?.text) {
+      bus.emit("pet.alert", { text: activity.text, icon: activity.icon });
       return;
     }
     if (this.moveOffer.length > 0) {
@@ -758,7 +722,7 @@ export class BehaviorEngine {
    */
   private answerReminders(answer: "done" | "snoozed"): void {
     const { reminders, state } = this.deps;
-    if (!reminders || this.alerted.length === 0 || this.focusPrompt || this.codeNotice) return;
+    if (!reminders || this.alerted.length === 0 || this.focusPrompt || this.activities.notice()) return;
     const now = Date.now();
     const ids = this.alerted.map((reminder) => reminder.id);
     if (answer === "done") {
@@ -794,7 +758,7 @@ export class BehaviorEngine {
   /** "挪到今天": only while the offer is what the line shows. */
   private moveLeftovers(): void {
     const { reminders, state } = this.deps;
-    if (!reminders || this.moveOffer.length === 0 || this.focusPrompt || this.codeNotice) return;
+    if (!reminders || this.moveOffer.length === 0 || this.focusPrompt || this.activities.notice()) return;
     const now = Date.now();
     reminders.moveToToday(this.moveOffer.map((reminder) => reminder.id), now);
     this.moveOffer = [];
@@ -811,8 +775,8 @@ export class BehaviorEngine {
       this.clearFocusPrompt();
       return;
     }
-    if (this.codeNotice) {
-      this.codeNotice = null;
+    if (this.activities.notice()) {
+      this.activities.dismiss();
     } else if (this.moveOffer.length > 0) {
       this.moveOffer = [];
     } else {
@@ -875,7 +839,7 @@ export class BehaviorEngine {
     if (countdown !== null && progress !== null) chips.push({ id: focus.phase === "resting" ? "rest" : "focus", label: countdown, progress });
     if (this.waitingReminders > 0) chips.push({ id: "reminders", label: REMINDER_LINES.badge(this.waitingReminders) });
     if (this.deps.holdsReminders?.(now) ?? false) chips.push({ id: "dnd", label: REMINDER_LINES.doNotDisturb });
-    if (this.waitingForCode) chips.push({ id: "mail_code", label: MAIL_CODE_LINES.badge });
+    chips.push(...this.activities.chips());
     const key = JSON.stringify(chips);
     if (key === this.shownBadge) return;
     this.shownBadge = key;

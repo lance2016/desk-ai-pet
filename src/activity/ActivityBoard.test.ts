@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+import type { ActivityUpdate } from "../types";
+import { ActivityBoard } from "./ActivityBoard";
+
+const build = (id: string, state: ActivityUpdate["state"], extra: Partial<ActivityUpdate> = {}): ActivityUpdate => ({ id, state, label: `${id} 的事`, icon: "mail", ...extra });
+
+describe("ActivityBoard", () => {
+  it("shows a chip for what is running or waiting for the user, in the order they came", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "running", { cancellable: true }));
+    board.report(build("b", "waiting"));
+    expect(board.chips()).toEqual([
+      { id: "activity", label: "a 的事", activity: { id: "a", waiting: false, cancellable: true } },
+      { id: "activity", label: "b 的事", activity: { id: "b", waiting: true, cancellable: false } },
+    ]);
+  });
+
+  it("keeps a chip in its place when its activity moves on", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "running"));
+    board.report(build("b", "running"));
+    board.report(build("a", "waiting"));
+    expect(board.chips().map((chip) => chip.activity?.id)).toEqual(["a", "b"]);
+  });
+
+  it("drops the chip once the activity is over", () => {
+    for (const state of ["done", "failed", "cancelled"] as const) {
+      const board = new ActivityBoard();
+      board.report(build("a", "running"));
+      board.report(build("a", state, { text: "结果" }));
+      expect(board.chips()).toEqual([]);
+    }
+  });
+
+  it("has no line for an activity that just runs", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "running", { text: "正在跑" }));
+    expect(board.notice()).toBeNull();
+  });
+
+  it("keeps a result up until it is dismissed, then forgets the activity", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "done", { text: "做完了" }));
+    expect(board.notice()?.text).toBe("做完了");
+    board.dismiss();
+    expect(board.notice()).toBeNull();
+  });
+
+  it("puts what waits for the user ahead of results", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "failed", { text: "没成" }));
+    board.report(build("b", "waiting", { text: "等你点头" }));
+    expect(board.notice()?.text).toBe("等你点头");
+    board.dismiss();
+    expect(board.notice()?.text).toBe("没成");
+  });
+
+  it("keeps the chip of a waiting activity after its line is dismissed, and does not bring the line back", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "waiting", { text: "等你点头" }));
+    board.dismiss();
+    expect(board.notice()).toBeNull();
+    expect(board.chips()).toHaveLength(1);
+    expect(board.report(build("a", "waiting", { text: "等你点头" }))).toBe(false);
+    expect(board.notice()).toBeNull();
+  });
+
+  it("asks again when a waiting activity asks something new", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "waiting", { text: "第一件" }));
+    board.dismiss();
+    expect(board.report(build("a", "waiting", { text: "第二件" }))).toBe(true);
+    expect(board.notice()?.text).toBe("第二件");
+  });
+
+  it("takes down the last result when the activity starts again or is cancelled", () => {
+    for (const state of ["running", "cancelled"] as const) {
+      const board = new ActivityBoard();
+      board.report(build("a", "failed", { text: "没成" }));
+      board.report(build("a", state));
+      expect(board.notice()).toBeNull();
+    }
+  });
+
+  it("tells a new report from a repeated one", () => {
+    const board = new ActivityBoard();
+    expect(board.report(build("a", "running"))).toBe(true);
+    expect(board.report(build("a", "running"))).toBe(false);
+    expect(board.report(build("a", "done"))).toBe(true);
+    expect(board.report(build("gone", "cancelled"))).toBe(false);
+  });
+});

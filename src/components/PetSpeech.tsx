@@ -1,7 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
 import { SpeechQueue, fitSpeech, speechDuration } from "../core/SpeechQueue";
-import { mailCodePlatform } from "../platform/mailCode";
 import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
 import { speechShown } from "./speechShown";
@@ -24,7 +23,6 @@ interface PetSpeechProps {
 type StandingAlert = PetEvents["pet.alert"] & { text: string };
 
 const openReminders = () => void petWindow.openToday().catch((error: unknown) => console.error("Failed to open reminders", error));
-const cancelMailCode = () => void mailCodePlatform.cancel().catch((error: unknown) => console.error("Failed to stop waiting for a mail code", error));
 
 const LOTUS = "/focus/lotus.png";
 
@@ -44,7 +42,7 @@ function ProgressRing({ progress }: { progress: number }) {
   );
 }
 
-function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => void }) {
+function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFocusClick: () => void; onActivityClick: (id: string) => void }) {
   switch (chip.id) {
     case "focus": {
       // The arc under the pet shows how far the round has come, so the pill shows only a lotus and the time.
@@ -64,13 +62,19 @@ function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => vo
       );
     case "reminders":
       return <button type="button" className="status-chip" title="打开提醒" onClick={openReminders}>{chip.label}</button>;
-    case "mail_code":
+    case "activity": {
+      // Running spins; waiting for the user holds still and stands out.
+      const mark = <span className={chip.activity?.waiting ? "status-chip__dot" : "status-chip__spinner"} aria-hidden="true" />;
+      const look = `status-chip status-chip--activity${chip.activity?.waiting ? " status-chip--asking" : ""}`;
+      if (!chip.activity?.cancellable) return <span className={look}>{mark}{chip.label}</span>;
+      const { id } = chip.activity;
       return (
-        <button type="button" className="status-chip status-chip--waiting" title="停止等验证码" aria-label={`${chip.label}，点一下停止`} onClick={cancelMailCode}>
-          <span className="status-chip__spinner" aria-hidden="true" />{chip.label}
+        <button type="button" className={`${look} status-chip--stoppable`} title={`停止${chip.label}`} aria-label={`${chip.label}，点一下停止`} onClick={() => onActivityClick(id)}>
+          {mark}{chip.label}
           <svg className="status-chip__close" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" /></svg>
         </button>
       );
+    }
     case "dnd":
       return <span className="status-chip status-chip--label">{chip.label}</span>;
   }
@@ -78,7 +82,7 @@ function Chip({ chip, onFocusClick }: { chip: StatusChip; onFocusClick: () => vo
 
 /**
  * The speech bubble above the pet and the status row at its feet. Passing
- * lines show for a few seconds; a standing line (due reminders, a mail code, a
+ * lines show for a few seconds; a standing line (due reminders, an activity's news, a
  * finished focus round) stays until it is clicked, and a question on it stays
  * until one of its buttons is. A line the pet said by itself can be clicked to
  * answer it. Each part of the status row does its own thing.
@@ -117,7 +121,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   };
   const statusRow = badgeShown && (
     <div ref={badgeRef} className="status-row">
-      {chips.map((chip) => <Chip key={chip.id} chip={chip} onFocusClick={() => runtime.bus.emit("pet.focus_badge_clicked", {})} />)}
+      {chips.map((chip) => <Chip key={chip.activity?.id ?? chip.id} chip={chip} onFocusClick={() => runtime.bus.emit("pet.focus_badge_clicked", {})} onActivityClick={(id) => runtime.bus.emit("pet.activity_chip_clicked", { id })} />)}
     </div>
   );
   if (reply) {

@@ -134,14 +134,46 @@ export type MailCodeUpdate =
   | { kind: "unset" }
   | { kind: "failed"; message: string };
 
-/** One part of the status row at the pet's feet. Each part is its own button, or a plain label for "dnd". */
-export type StatusChipId = "focus" | "rest" | "reminders" | "dnd" | "mail_code";
+/** What a standing line is about; a bell when it names none. */
+export const ALERT_ICONS = ["mail", "timer"] as const;
+export type AlertIcon = (typeof ALERT_ICONS)[number];
+
+/**
+ * Where something going on stands: it runs, it waits for the user to confirm
+ * something, or it is over (done, failed, or called off). There are no others.
+ */
+export const ACTIVITY_STATES = ["running", "waiting", "done", "failed", "cancelled"] as const;
+export type ActivityState = (typeof ACTIVITY_STATES)[number];
+
+/**
+ * A report on something going on that the pet shows: a wait for a mail code, a
+ * coding agent at work. Each report replaces the last one with the same `id`.
+ */
+export interface ActivityUpdate {
+  id: string;
+  state: ActivityState;
+  /** A few words for the chip at the pet's feet while it runs or waits, such as "等验证码". */
+  label: string;
+  icon: AlertIcon;
+  /**
+   * The standing line: what the user should confirm, or what came of it. Left
+   * out, the pet only reacts in passing. Not shown while it just runs.
+   */
+  text?: string;
+  /** The chip is a button that asks to stop it (`pet.activity_chip_clicked`). */
+  cancellable?: boolean;
+}
+
+/** One part of the status row at the pet's feet. Each part is its own button, or a plain label. */
+export type StatusChipId = "focus" | "rest" | "reminders" | "dnd" | "activity";
 
 export interface StatusChip {
   id: StatusChipId;
   label: string;
   /** How much of the focus round or the rest has passed, from 0 to 1. */
   progress?: number;
+  /** The activity an "activity" chip stands for. */
+  activity?: { id: string; waiting: boolean; cancellable: boolean };
 }
 
 /** A button on the standing line. Clicking it reports `event`; the engine decides what follows. */
@@ -164,8 +196,10 @@ export interface PetEvents {
   "pet.noted": Record<string, never>;
   /** A reminder was ticked off. */
   "pet.item_done": Record<string, never>;
-  /** "查收验证码" moved on; the pet shows it is waiting and says what came of it. */
-  "pet.mail_code": MailCodeUpdate;
+  /** Something going on moved on; the pet shows it at its feet and tells what needs the user or what came of it. */
+  "pet.activity": ActivityUpdate;
+  /** The chip of a cancellable activity was clicked; whoever reports that activity stops it. */
+  "pet.activity_chip_clicked": { id: string };
   /** The cursor came onto the pet. */
   "pet.hovered": Record<string, never>;
   /** When the user last touched the keyboard or mouse anywhere, polled from the system now and then. */
@@ -210,7 +244,7 @@ export interface PetEvents {
    */
   /** `heading`: a short word over the text, such as "到点啦" over a reminder's own words. */
   /** `immediate`: asked in answer to a press, so it shows at once over a passing line instead of waiting for it. */
-  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: "mail" | "timer"; choices?: AlertChoice[]; immediate?: boolean };
+  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: AlertIcon; choices?: AlertChoice[]; immediate?: boolean };
   /** The user clicked the standing line away. */
   "pet.alert_dismissed": Record<string, never>;
   /** "完成" on the reminder line: tick off the reminders it names. */

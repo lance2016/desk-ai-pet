@@ -353,7 +353,11 @@ button.status-chip:active { transform: scale(.97); }
 .status-chip__ring-fill { stroke: var(--ui-accent); stroke-linecap: round; transition: stroke-dasharray 1s linear; }
 .status-chip--rest .status-chip__ring-track { stroke: var(--ui-positive-soft); }
 .status-chip--rest .status-chip__ring-fill { stroke: var(--ui-positive); }
-.status-chip--waiting { padding-left: 6px; padding-right: 5px; }
+/* Something going on: a spinner while it runs, a still dot in the reminder's amber while it waits for the user. */
+.status-chip--activity { padding-left: 6px; cursor: default; }
+.status-chip--stoppable { padding-right: 5px; cursor: pointer; }
+.status-chip--asking { color: var(--ui-warning); background: var(--ui-warning-soft); }
+.status-chip__dot { width: 6px; height: 6px; margin: 0 2px; background: currentColor; border-radius: 50%; }
 .status-chip__spinner {
   width: 10px;
   height: 10px;
@@ -363,7 +367,7 @@ button.status-chip:active { transform: scale(.97); }
   animation: chip-spin 900ms linear infinite;
 }
 .status-chip__close { width: 12px; height: 12px; margin-left: 1px; fill: none; stroke: var(--ui-text-muted); stroke-width: 1.6; stroke-linecap: round; }
-button.status-chip--waiting:hover .status-chip__close { stroke: var(--ui-text); }
+button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text); }
 @keyframes chip-spin { to { transform: rotate(360deg); } }
 
 /* The floating action cluster stays inside the visible part of the transparent window. */
