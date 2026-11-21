@@ -13,6 +13,7 @@ mod llm;
 mod mail_code;
 mod mail_extract;
 mod mimo;
+mod navigation_guard;
 mod proxy;
 mod quick_chat;
 mod request_log;
@@ -664,6 +665,7 @@ pub fn run() {
     tauri::Builder::default()
         // First, so everything after it can log.
         .plugin(diagnostics::log_plugin())
+        .plugin(navigation_guard::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()

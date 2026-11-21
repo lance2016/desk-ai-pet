@@ -192,7 +192,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 拖动时窗口位置按原生光标算（`petWindow.getCursor()`），不能用 `PointerEvent.screenX/Y`。WebKit 的 `screenY` 从窗口所在那块屏幕的上沿算起，两块屏幕上下摆放时，窗口一换屏它就跳一整屏高，宠物在两块屏幕之间来回弹：看起来在闪、像有两个，也拖不过去。只判断是否开始拖（同一块屏幕上的几像素）时可以用。
 - 按下之后松手事件可能丢失。移动事件里要检查左键是否还按着，否则会出现窗口粘在光标上的问题。
 - 在宠物身上按下的那一次，松开前不切换穿透状态，否则拖动中途会丢事件。在别处按下的要照常切换：从别的应用拖文件过来时鼠标也一直按着，冻结了窗口就一直穿透，东西落不到宠物身上（`press_start`）。
-- 宠物窗口关掉了 Tauri 自己的拖放（`tauri.conf.json` 里 `main` 的 `dragDropEnabled: false`），拖放由网页的 `drop` 事件接（`usePetDrop`）。打开它网页就收不到 `drop`；`dragover` 不 `preventDefault` 时拖放被拒，网页也不会跑去打开那个文件。
+- 宠物窗口关掉了 Tauri 自己的拖放（`tauri.conf.json` 里 `main` 的 `dragDropEnabled: false`），拖放由网页的 `drop` 事件接（`usePetDrop`）。打开它网页就收不到 `drop`。`dragover` 必须一律 `preventDefault`，要拒绝就把 `dropEffect` 设成 `none`：不 `preventDefault` 时 WebKit 会把拖来的文件当网页打开，1.15.0 就这样把宠物窗口换成了文件内容（还是乱码）。拖动途中 WebKit 给的类型不可靠（`.md` 可能是空的或 `application/octet-stream`），只拒绝确定读不了的。兜底是 `navigation_guard.rs`：所有窗口只能停在应用自己的页面上。
 
 **提醒**
 

@@ -11,10 +11,11 @@ export function usePetDrop(enabled: boolean, onDrop: (dropped: Dropped) => void)
   handler.current = onDrop;
   useEffect(() => {
     const over = (event: DragEvent) => {
-      // Not prevented: the drop is refused (the cursor says so), and the webview does not open the file either.
-      if (!enabled || !event.dataTransfer || !mayTake(Array.from(event.dataTransfer.items))) return;
+      if (!event.dataTransfer) return;
+      // Always prevented: a drag the page leaves alone makes WebKit open the file in the pet window.
+      // A drop it refuses is refused with "none", which also shows on the cursor.
       event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
+      event.dataTransfer.dropEffect = enabled && mayTake(Array.from(event.dataTransfer.items)) ? "copy" : "none";
     };
     const drop = (event: DragEvent) => {
       const transfer = event.dataTransfer;

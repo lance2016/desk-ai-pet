@@ -42,16 +42,20 @@ export interface DragItem {
   type: string;
 }
 
+/** Types that say nothing about a file: Finder gives these for .md, .log or .ts files, among others. */
+const UNKNOWN_TYPES = new Set(["", "application/octet-stream"]);
+
 /**
- * Whether a drag still moving can be dropped, so the cursor can say no at once. Only a file whose type
- * it knows and cannot read is refused; one without a type (a .log or .ts file, often) is left to the drop.
+ * Whether a drag still moving can be dropped, so the cursor can say no at once. Only what it knows it
+ * cannot read is refused: several files, or a file of a type it cannot read. Anything it cannot tell
+ * yet (no items shown, a file without a telling type) is left to the drop, which says so in words.
  */
 export function mayTake(items: readonly DragItem[]): boolean {
   const files = items.filter((item) => item.kind === "file");
   if (files.length > 1) return false;
-  if (files.length === 0) return items.length > 0;
+  if (files.length === 0) return true;
   const { type } = files[0];
-  return type === "" || IMAGE_TYPES.has(type) || type.startsWith("text/") || TEXT_TYPES.has(type);
+  return UNKNOWN_TYPES.has(type) || IMAGE_TYPES.has(type) || type.startsWith("text/") || TEXT_TYPES.has(type);
 }
 
 const extensionOf = (name: string) => /\.([^./]+)$/.exec(name)?.[1]?.toLowerCase() ?? "";

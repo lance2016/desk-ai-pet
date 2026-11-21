@@ -65,8 +65,11 @@ describe("mayTake", () => {
     expect(mayTake([item("image/png")])).toBe(true);
     expect(mayTake([item("text/markdown")])).toBe(true);
     expect(mayTake([item("application/json")])).toBe(true);
-    // Finder often gives no type for .log or .ts files: the drop decides.
+    // Finder often gives no type for .log or .ts files, or a generic one: the drop decides.
     expect(mayTake([item("")])).toBe(true);
+    expect(mayTake([item("application/octet-stream")])).toBe(true);
+    // WebKit may show nothing of the drag until it is dropped.
+    expect(mayTake([])).toBe(true);
     // A file drag also carries its path as text.
     expect(mayTake([item("text/uri-list", "string"), item("text/plain")])).toBe(true);
   });
@@ -76,7 +79,6 @@ describe("mayTake", () => {
     expect(mayTake([item("application/pdf")])).toBe(false);
     expect(mayTake([item("application/vnd.openxmlformats-officedocument.wordprocessingml.document")])).toBe(false);
     expect(mayTake([item("image/gif")])).toBe(false);
-    expect(mayTake([])).toBe(false);
   });
 });
 
