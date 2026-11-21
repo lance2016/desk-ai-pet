@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-pet"
-version = "1.12.0"
+version = "1.13.0"
 dependencies = [
  "imap",
  "log",
