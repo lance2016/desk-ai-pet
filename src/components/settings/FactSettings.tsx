@@ -10,6 +10,8 @@ import { isComposing } from "../keyboard";
 const UNDO_MS = 6_000;
 const SOURCE_LABELS: Record<Fact["source"], string> = { user: "你写的", chat: "聊天里记的" };
 const UNSAVED = "记忆没能保存，请再试一次。";
+/** Facts shown before "显示全部": the list may hold 50, which would run on for pages. */
+const FACTS_SHOWN = 8;
 
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -19,6 +21,7 @@ export function FactSettings({ who }: { who: string }) {
   const [learning, setLearning] = useState(loadFactLearning);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [removed, setRemoved] = useState<Fact | null>(null);
   const [status, setStatus] = useState("");
   const [nickname, setNickname] = useState(() => loadUserProfile().nickname);
@@ -69,6 +72,9 @@ export function FactSettings({ who }: { who: string }) {
     }
   };
   const now = Date.now();
+  // Newest first, so a fact just added or rewritten is in view while the list is folded.
+  const newestFirst = [...facts].reverse();
+  const shown = showAll ? newestFirst : newestFirst.slice(0, FACTS_SHOWN);
 
   return <div className="settings-section">
     <div className="settings-section__intro"><h2>关于你</h2><p>称呼和记忆每次聊天都会带上，所有角色共用</p></div>
@@ -85,9 +91,13 @@ export function FactSettings({ who }: { who: string }) {
       {facts.length > 0 && <ConfirmButton className="settings-button settings-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空…</ConfirmButton>}
     </div>
     <div className="settings-group fact-settings">
+      <form className="settings-row fact-add" onSubmit={add}>
+        <input aria-label="新的记忆" value={draft} maxLength={FACT_LIMITS.text} disabled={full} placeholder={full ? `最多 ${FACT_LIMITS.items} 条，删掉几条才能再加` : "写一件关于你的事，如：不吃香菜、每周三下午开例会"} onChange={(event) => setDraft(event.currentTarget.value)} />
+        <button type="submit" className="settings-button settings-button--small" disabled={full || !draft.trim()}>添加</button>
+      </form>
       {facts.length === 0
-        ? <p className="fact-empty">还没有记忆。可以在下面写，也可以在聊天里说「记住，我不吃香菜」。</p>
-        : <ul className="fact-list">{facts.map((fact) => <li key={fact.id} className="settings-row fact-row">
+        ? <p className="fact-empty">还没有记忆。可以在上面写，也可以在聊天里说「记住，我不吃香菜」。</p>
+        : <ul className="fact-list">{shown.map((fact) => <li key={fact.id} className="settings-row fact-row">
           {editing?.id === fact.id
             ? <form className="fact-edit" onSubmit={saveEdit}>
               <input autoFocus aria-label="修改这条记忆" value={editing.text} maxLength={FACT_LIMITS.text} onChange={(event) => setEditing({ id: fact.id, text: event.currentTarget.value })} onKeyDown={editKeys} />
@@ -102,10 +112,7 @@ export function FactSettings({ who }: { who: string }) {
               </div>
             </>}
         </li>)}</ul>}
-      <form className="settings-row fact-add" onSubmit={add}>
-        <input aria-label="新的记忆" value={draft} maxLength={FACT_LIMITS.text} disabled={full} placeholder={full ? `最多 ${FACT_LIMITS.items} 条，删掉几条才能再加` : "写一件关于你的事，如：不吃香菜、每周三下午开例会"} onChange={(event) => setDraft(event.currentTarget.value)} />
-        <button type="submit" className="settings-button settings-button--small" disabled={full || !draft.trim()}>添加</button>
-      </form>
+      {facts.length > FACTS_SHOWN && <button type="button" className="settings-more" onClick={() => setShowAll(!showAll)}>{showAll ? "收起" : `显示全部 ${facts.length} 条`}</button>}
     </div>
     {removed && <div className="fact-undo" role="status"><span>已删除“{removed.text}”</span><button type="button" onClick={undo}>撤销</button></div>}
     {status && <p className="ai-inline-status" role="status">{status}</p>}
