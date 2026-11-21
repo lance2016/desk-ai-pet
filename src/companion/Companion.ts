@@ -1,9 +1,13 @@
 import type { AgendaItem } from "../agenda/AgendaStore";
 import type { CompanionPreferences } from "../preferences/CompanionPreferences";
 import type { QuietPreferences } from "../preferences/QuietPreferences";
+import type { Mood } from "../types";
 import type { GreetingFacts } from "./GreetingContent";
-import { lastSaid, loadHistory, recordSaid } from "./history";
+import { lastSaid, loadHistory, markAnswered, recordSaid } from "./history";
+import { hushedUntil } from "./hush";
+import { moodLine, moodOf } from "./mood";
 import { OCCASIONS } from "./occasions";
+import { LATE_NIGHT, nightOf } from "./occasions/care";
 import { Presence, type PresenceSample } from "./presence";
 import { decide } from "./schedule";
 import type { Line, Moment, Occasion } from "./types";
@@ -36,6 +40,8 @@ const PAUSE_SECONDS = 3;
 export class Companion {
   private readonly presence = new Presence();
   private writing = false;
+  /** Whether the last check found the user at the computer. */
+  private here = false;
 
   constructor(private readonly ports: CompanionPorts, private readonly occasions: readonly Occasion[] = OCCASIONS) {}
 
@@ -43,9 +49,10 @@ export class Companion {
   async check(now: number, idleSeconds: number | null): Promise<void> {
     // Sampled on every check, also while a line is being written, or the session would look interrupted.
     const sample = this.presence.sample(now, idleSeconds);
+    this.here = sample.activeMs !== null;
     if (this.writing) return;
     const history = loadHistory(this.ports.storage);
-    const moment: Moment = { now, ...sample, paused: idleSeconds === null || idleSeconds >= PAUSE_SECONDS, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: lastSaid(history) };
+    const moment: Moment = { now, ...sample, paused: idleSeconds === null || idleSeconds >= PAUSE_SECONDS, hushed: hushedUntil(now, this.ports.storage) !== null, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: lastSaid(history) };
     const pick = decide(this.occasions, moment, history, (allowQuiet) => this.ports.maySpeak(allowQuiet));
     if (!pick) return;
     this.writing = true;
@@ -61,13 +68,31 @@ export class Companion {
     }
   }
 
+  /**
+   * The user reacted to the pet: a pat, or opening the chat to answer. Soon after a line it counts as
+   * an answer to it, so care is not taken for ignored. Returns whether it did.
+   */
+  heard(now: number): boolean {
+    return markAnswered(now, this.ports.storage);
+  }
+
+  /** How the pet feels right now, from what the user's day held and whether they are up late. */
+  async mood(now: number): Promise<Mood> {
+    return this.feeling(now, await this.ports.day(now));
+  }
+
+  private feeling(now: number, day: GreetingFacts): Mood {
+    const upLateNow = this.here && nightOf(now, this.ports.settings().nightTime) !== null;
+    return moodOf(day, now, { upLateNow, lateCareAt: lastSaid(loadHistory(this.ports.storage))[LATE_NIGHT.id] });
+  }
+
   /** Says one occasion's line now, whether or not it is due, and leaves the history alone. Returns false when it could not be shown. */
   async test(id: string, now: number): Promise<boolean> {
     const occasion = this.occasions.find((entry) => entry.id === id);
     if (!occasion || this.writing) return false;
     this.writing = true;
     try {
-      const moment: Moment = { now, ...NOT_HERE, paused: true, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: {} };
+      const moment: Moment = { now, ...NOT_HERE, paused: true, hushed: false, reminders: this.ports.reminders(), settings: this.ports.settings(), quietHours: this.ports.quietHours(), lastSaid: {} };
       return this.ports.show((await this.compose(occasion, moment)).text);
     } finally {
       this.writing = false;
@@ -76,9 +101,11 @@ export class Companion {
 
   private async compose(occasion: Occasion, moment: Moment): Promise<Omit<Line, "allowQuiet">> {
     if (occasion.wording === "fixed") return { text: typeof occasion.line === "string" ? occasion.line : occasion.line(moment), offerMove: false };
-    const brief = occasion.brief(moment, await this.ports.day(moment.now));
+    const day = await this.ports.day(moment.now);
+    const brief = occasion.brief(moment, day);
     if (brief.facts.length === 0) return { text: brief.fallback, offerMove: false };
-    const written = await this.ports.write(occasion.intent, brief.facts, moment.now).catch((error: unknown) => {
+    const facts = [...brief.facts, ...moodLine(this.feeling(moment.now, day))];
+    const written = await this.ports.write(occasion.intent, facts, moment.now).catch((error: unknown) => {
       console.warn(`Using the fallback line for ${occasion.id}`, error);
       return "";
     });

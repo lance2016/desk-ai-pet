@@ -190,7 +190,7 @@
       "tier": "interactive",
       "scene": "companion",
       "label": "打哈欠",
-      "description": "快要睡着之前",
+      "description": "快要睡着之前；你熬夜时它犯困，闲着也会打",
       "pose": "站着，一只手捂着嘴打哈欠，另一只手自然垂下，眼睛眯成一条缝，肩膀放松下垂。",
       "motion": "pop",
       "duration": 2000,

@@ -45,7 +45,7 @@ export const HEADS_UP: Occasion = {
     if (!settings.headsUp || activeMs === null) return null;
     const item = comingUp(reminders, now);
     // The user timed the reminder, so the word ahead of it comes in quiet hours too, as the reminder does.
-    return item ? { subject: subjectOf(item), allowQuiet: true } : null;
+    return item ? { subject: subjectOf(item), allowQuiet: true, timedByUser: true } : null;
   },
 };
 
@@ -70,6 +70,7 @@ function askAfter(text: string, done: boolean, facts: string[]): Brief {
 export const FOLLOW_UP: Occasion = {
   id: "follow_up",
   title: "回来问一句",
+  eases: true,
   wording: "model",
   // Told only what the user went to do: a model that hears "提醒" or "没标完成" starts nagging about the reminder itself.
   intent: "在用户回到电脑前时，像朋友一样顺着他刚才去做的那件事随口问一句，不要提“提醒”这两个字",

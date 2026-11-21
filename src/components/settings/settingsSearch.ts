@@ -49,6 +49,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "companion", title: "提醒前说一声", keywords: "提前 预告 事前 快到了 十分钟 提醒" },
   { section: "companion", title: "回来问一句", keywords: "事后 回访 问一下 离开 回来 提醒" },
   { section: "companion", title: "回来打招呼", keywords: "欢迎回来 离开" },
+  { section: "companion", title: "正在安静", keywords: "别催 别吵 安静 恢复说话 不说话" },
   { section: "companion", title: "关心的话由 AI 来写", keywords: "模型 DeepSeek 固定 语气 关心 费用 隐私" },
   { section: "companion", title: "早安问候", keywords: "早上好 每天问候 早安时间" },
   { section: "companion", title: "每天说早安", keywords: "早安 开启 关闭 问候 早安时间 时钟 定时" },

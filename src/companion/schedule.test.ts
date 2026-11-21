@@ -5,7 +5,7 @@ import { decide } from "./schedule";
 import type { Cue, Moment, Occasion } from "./types";
 
 const NOW = new Date(2026, 10, 16, 9).getTime();
-const MOMENT: Moment = { now: NOW, activeMs: 0, returned: false, leftAt: null, paused: true, reminders: [], settings: DEFAULT_COMPANION, quietHours: DEFAULT_QUIET_PREFERENCES.quietHours, lastSaid: {} };
+const MOMENT: Moment = { now: NOW, activeMs: 0, returned: false, leftAt: null, paused: true, hushed: false, reminders: [], settings: DEFAULT_COMPANION, quietHours: DEFAULT_QUIET_PREFERENCES.quietHours, lastSaid: {} };
 const occasion = (id: string, cue: Cue | null): Occasion => ({ id, title: id, wording: "fixed", line: id, due: () => cue });
 const always = () => true;
 const TYPING: Moment = { ...MOMENT, paused: false };
@@ -35,5 +35,26 @@ describe("decide", () => {
     expect(decide(table, TYPING, [], always)?.occasion.id).toBe("b");
     expect(decide([occasion("a", {})], TYPING, [], always)).toBeNull();
     expect(decide(table, MOMENT, [], always)?.occasion.id).toBe("a");
+  });
+
+  it("keeps to itself while the user asked for quiet, except for what the user timed", () => {
+    const hushed: Moment = { ...MOMENT, hushed: true };
+    expect(decide([occasion("a", {})], hushed, [], always)).toBeNull();
+    expect(decide([occasion("a", {}), occasion("b", { timedByUser: true })], hushed, [], always)?.occasion.id).toBe("b");
+  });
+
+  it("says care less often after it went unanswered several times, and as before once it is answered", () => {
+    const HOUR = 60 * 60_000;
+    const care: Occasion = { ...occasion("care", {}), eases: true };
+    const said = (hoursAgo: number, answered?: boolean) => ({ occasion: "care", subject: null, at: NOW - hoursAgo * HOUR, ...(answered ? { answered } : {}) });
+    expect(decide([care], MOMENT, [said(5), said(3)], always)?.occasion.id).toBe("care");
+    const three = [said(6), said(4), said(1.5)];
+    expect(decide([care], MOMENT, three, always)).toBeNull();
+    expect(decide([care, occasion("other", {})], MOMENT, three, always)?.occasion.id).toBe("other");
+    expect(decide([care], { ...MOMENT, now: NOW + HOUR }, three, always)?.occasion.id).toBe("care");
+    const five = [said(12), said(10), said(8), said(6), said(3)];
+    expect(decide([care], MOMENT, five, always)).toBeNull();
+    expect(decide([care], { ...MOMENT, now: NOW + 1.5 * HOUR }, five, always)?.occasion.id).toBe("care");
+    expect(decide([care], MOMENT, [said(6), said(4), said(1.5, true)], always)?.occasion.id).toBe("care");
   });
 });

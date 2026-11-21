@@ -2,7 +2,7 @@ import type { ActionController } from "../actions/ActionController";
 import { IDLE_ACTION, type ActionRegistry } from "../actions/ActionRegistry";
 import type { EventBus } from "../core/EventBus";
 import type { PetState } from "../core/PetState";
-import type { AlertChoice, ChatPhase, DockSide, MailCodeUpdate, PetEvents, PetStats, StatusChip } from "../types";
+import type { AlertChoice, ChatPhase, DockSide, MailCodeUpdate, Mood, PetEvents, PetStats, StatusChip } from "../types";
 import { FOCUS_CONFIG, focusBadge, focusProgress, type FocusTimer } from "./FocusTimer";
 
 /** Played while the user carries the pet around. */
@@ -109,6 +109,10 @@ export const BEHAVIOR_CONFIG = {
   idleCategory: "idle",
   /** Shortest and longest wait between two random idle actions. */
   idleActionIntervalMs: { min: 6_000, max: 14_000 },
+  /** The wait between idle actions is this many times as long in each mood: livelier when bright, slower when tired. */
+  idlePace: { bright: 0.6, calm: 1, tired: 1.6 },
+  /** While tired, an idle action is a yawn this often. */
+  tiredYawnChance: 0.3,
   /**
    * The pet falls asleep after this long without the user: not touching the
    * computer, where that is known (`pet.user_active`), else not touching the pet.
@@ -190,6 +194,8 @@ export class BehaviorEngine {
   private readonly random: () => number;
   private unsubscribers: Array<() => void> = [];
   private nextIdleActionAt = 0;
+  /** How the pet feels today; told by `pet.mood`. */
+  private mood: Mood = "calm";
   private dockSide: DockSide | null = null;
   /** The status row last sent, to send it only when it changed. */
   private shownBadge = "[]";
@@ -258,6 +264,7 @@ export class BehaviorEngine {
       bus.on("pet.user_active", ({ at }) => this.onUserActive(at)),
       // A pose that ran out, or a reaction that played over it: back into the pose without a blink of idle.
       bus.on("pet.action.completed", () => this.settle(Date.now())),
+      bus.on("pet.mood", ({ mood }) => { this.mood = mood; }),
       bus.on("pet.greeting", ({ text, offerMove }) => {
         const now = Date.now();
         this.callOut(now, GREET_ACTION);
@@ -902,6 +909,7 @@ export class BehaviorEngine {
   }
 
   private playRandomIdleAction(): void {
+    if (this.mood === "tired" && this.random() < BEHAVIOR_CONFIG.tiredYawnChance && this.deps.controller.request(YAWN_ACTION).accepted) return;
     const pool = this.deps.registry.list().filter((action) => action.category === BEHAVIOR_CONFIG.idleCategory && (this.deps.isIdleActionEnabled?.(action.id) ?? true));
     if (pool.length === 0) return;
     const pick = pool[Math.floor(this.random() * pool.length)];
@@ -910,6 +918,6 @@ export class BehaviorEngine {
 
   private scheduleIdleAction(now: number): void {
     const { min, max } = BEHAVIOR_CONFIG.idleActionIntervalMs;
-    this.nextIdleActionAt = now + min + this.random() * (max - min);
+    this.nextIdleActionAt = now + (min + this.random() * (max - min)) * BEHAVIOR_CONFIG.idlePace[this.mood];
   }
 }

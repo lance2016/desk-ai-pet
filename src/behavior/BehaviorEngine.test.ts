@@ -622,6 +622,29 @@ describe("autonomous behavior", () => {
     expect(renderer.last).toBe("blink");
   });
 
+  it("fidgets sooner in a bright mood and later when tired", () => {
+    const bright = setup();
+    bright.bus.emit("pet.mood", { mood: "bright" });
+    bright.pass(BEHAVIOR_CONFIG.idleActionIntervalMs.min);
+    bright.pass(BEHAVIOR_CONFIG.idleActionIntervalMs.min * 0.6);
+    expect(bright.renderer.played.filter((id) => id === "blink")).toHaveLength(2);
+
+    const tired = setup({ random: () => 0.99 });
+    tired.bus.emit("pet.mood", { mood: "tired" });
+    tired.pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);
+    tired.pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);
+    expect(tired.renderer.played.filter((id) => id === "blink")).toHaveLength(1);
+  });
+
+  it("yawns now and then while tired", () => {
+    const { bus, renderer, pass } = setup({ extraAnimations: [{ id: "yawn", file: "a/yawn.png", duration: 1000 }] });
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.min);
+    expect(renderer.last).toBe("blink");
+    bus.emit("pet.mood", { mood: "tired" });
+    pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max * 2);
+    expect(renderer.last).toBe("yawn");
+  });
+
   it("does nothing when the pack has no idle actions", () => {
     const { renderer, pass } = setup({ missing: ["blink"] });
     pass(BEHAVIOR_CONFIG.idleActionIntervalMs.max);

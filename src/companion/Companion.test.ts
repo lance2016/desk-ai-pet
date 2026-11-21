@@ -6,6 +6,7 @@ import { createMemoryStorage } from "../testing/fixtures";
 import { Companion, type CompanionPorts } from "./Companion";
 import type { GreetingFacts } from "./GreetingContent";
 import { loadHistory } from "./history";
+import { setHush } from "./hush";
 import type { Line } from "./types";
 
 const MINUTE = 60_000;
@@ -354,7 +355,7 @@ describe("care in the model's words", () => {
     expect(texts()).toEqual(["都坐一个半小时啦，起来转转？"]);
     expect(write).toHaveBeenCalledWith(
       "提醒用户起来活动一下、歇歇眼睛，像朋友随口一说，不要说教",
-      ["用户已经连续用了 90 分钟电脑", "今天专注了 3 轮", "今天完成了 2 个提醒", "下一个提醒：17:00 开会"],
+      ["用户已经连续用了 90 分钟电脑", "今天专注了 3 轮", "今天完成了 2 个提醒", "下一个提醒：17:00 开会", "你今天心情很好，因为用户今天做成了不少事"],
       AFTERNOON + 90 * MINUTE,
     );
   });
@@ -369,7 +370,7 @@ describe("care in the model's words", () => {
     const night = new Date(2026, 10, 17, 23, 30).getTime();
     const late = setup({}, WRITTEN);
     await use(late.companion, night, night + 15 * MINUTE);
-    expect(late.write).toHaveBeenCalledWith("劝用户早点休息，像朋友随口一说，不要说教", ["已经是深夜，用户还在用电脑"], night + 15 * MINUTE);
+    expect(late.write).toHaveBeenCalledWith("劝用户早点休息，像朋友随口一说，不要说教", ["已经是深夜，用户还在用电脑", "你有点困了，因为用户熬夜，你一直陪着"], night + 15 * MINUTE);
 
     const back = setup({}, WRITTEN);
     await back.companion.check(AFTERNOON, HERE);
@@ -394,6 +395,54 @@ describe("care in the model's words", () => {
     await companion.check(AFTERNOON + 51 * MINUTE, HERE);
     expect(texts()).toEqual(["回来啦～「出去吃饭」弄好了吗？"]);
     expect(write).not.toHaveBeenCalled();
+  });
+});
+
+describe("manners", () => {
+  it("keeps to itself after the user asked for quiet, but still says a word ahead of a reminder", async () => {
+    const storage = createMemoryStorage();
+    setHush(AFTERNOON + 24 * 60 * MINUTE, storage);
+    const { companion, texts } = setup({ storage, reminders: () => [reminder({ remindAt: AFTERNOON + 100 * MINUTE })] }, NO_MORNING);
+    await use(companion, AFTERNOON, AFTERNOON + 95 * MINUTE);
+    expect(texts()).toEqual(["还有 10 分钟：开会"]);
+  });
+
+  it("takes a pat or a word soon after its line as an answer", async () => {
+    const { companion, ports } = setup({}, NO_MORNING);
+    expect(companion.heard(AFTERNOON)).toBe(false);
+    await use(companion, AFTERNOON, AFTERNOON + 90 * MINUTE);
+    expect(companion.heard(AFTERNOON + 91 * MINUTE)).toBe(true);
+    expect(companion.heard(AFTERNOON + 92 * MINUTE)).toBe(false);
+    expect(loadHistory(ports.storage)[0].answered).toBe(true);
+  });
+
+  it("reminds the user to rest less often once that went unanswered three times", async () => {
+    const { companion, said } = setup({}, NO_MORNING);
+    await use(companion, AFTERNOON, AFTERNOON + 270 * MINUTE);
+    expect(said).toHaveLength(3);
+    // The fourth would come 90 minutes after the third; eased, it waits for two hours.
+    await use(companion, AFTERNOON + 271 * MINUTE, AFTERNOON + 389 * MINUTE);
+    expect(said).toHaveLength(3);
+    await companion.check(AFTERNOON + 390 * MINUTE, HERE);
+    expect(said).toHaveLength(4);
+  });
+});
+
+describe("mood", () => {
+  it("comes from what the day held", async () => {
+    const busy = setup({ day: async () => ({ ...FACTS, focusToday: 2, doneToday: 2 }) }, NO_MORNING);
+    expect(await busy.companion.mood(AFTERNOON)).toBe("bright");
+    expect(await setup({}, NO_MORNING).companion.mood(AFTERNOON)).toBe("calm");
+  });
+
+  it("is tired while the user is at the computer late at night, and the morning after the pet said so", async () => {
+    const night = new Date(2026, 10, 17, 23, 40).getTime();
+    const { companion } = setup({ day: async () => ({ ...FACTS, focusToday: 4 }) }, NO_MORNING);
+    await companion.check(night, HERE);
+    expect(await companion.mood(night)).toBe("tired");
+    await use(companion, night, night + 20 * MINUTE);
+    expect(await companion.mood(night + 9 * 60 * MINUTE)).toBe("tired");
+    expect(await companion.mood(night + 14 * 60 * MINUTE)).toBe("bright");
   });
 });
 

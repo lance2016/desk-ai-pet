@@ -12,7 +12,7 @@ const NIGHT_END_MINUTES = 4 * 60;
 const RETURN_GAP_MS = 2 * 60 * MINUTE_MS;
 
 /** The night `now` falls in, named by the day it started on; null in the daytime. `start`: "HH:MM". */
-function nightOf(now: number, start: string): string | null {
+export function nightOf(now: number, start: string): string | null {
   const date = new Date(now);
   const minute = date.getHours() * 60 + date.getMinutes();
   const from = minutesOf(start);
@@ -35,6 +35,7 @@ function care(line: string, about: (moment: Moment) => string[]): (moment: Momen
 export const WELCOME_BACK: Occasion = {
   id: "welcome_back",
   title: "回来打招呼",
+  eases: true,
   wording: "model",
   intent: "欢迎用户回到电脑前",
   due: ({ now, returned, settings, lastSaid }) =>
@@ -45,6 +46,7 @@ export const WELCOME_BACK: Occasion = {
 export const LATE_NIGHT: Occasion = {
   id: "late_night",
   title: "深夜关心",
+  eases: true,
   wording: "model",
   intent: "劝用户早点休息，像朋友随口一说，不要说教",
   due: ({ now, activeMs, settings }) => {
@@ -63,6 +65,7 @@ function sinceBreak({ now, activeMs, lastSaid }: Moment): number | null {
 export const REST: Occasion = {
   id: "rest",
   title: "休息一下",
+  eases: true,
   wording: "model",
   intent: "提醒用户起来活动一下、歇歇眼睛，像朋友随口一说，不要说教",
   due: (moment) => {

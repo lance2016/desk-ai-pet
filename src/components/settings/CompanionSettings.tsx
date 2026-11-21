@@ -3,6 +3,8 @@ import { QuietSettings } from "./QuietSettings";
 import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPreferences } from "../../preferences/CompanionPreferences";
 import { petWindow } from "../../platform/petWindow";
 import { OCCASIONS } from "../../companion";
+import { hushedUntil, setHush } from "../../companion/hush";
+import { formatReminderTime } from "../../agenda/AgendaStore";
 
 type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp" | "careByModel";
 
@@ -12,6 +14,12 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
   const [tried, setTried] = useState(OCCASIONS[0].id);
   const [testBusy, setTestBusy] = useState(false);
   const [testStatus, setTestStatus] = useState("");
+  /** Until when the user told the pet in a chat to keep to itself; null when it may speak up. */
+  const [hushed, setHushed] = useState(() => hushedUntil(Date.now()));
+  const speakAgain = () => {
+    try { setHush(null); setHushed(null); onError(null); }
+    catch (error) { console.error("Could not let the pet speak up again", error); onError("设置没能保存，请再试一次。"); }
+  };
   const update = (next: CompanionPreferences) => {
     try { saveCompanionPreferences(next); setValue(next); onError(null); }
     catch (error) { console.error("Could not save companion settings", error); onError("设置没能保存，请再试一次。"); }
@@ -42,6 +50,10 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
     <p className="settings-footnote">生成问候会请求一次 DeepSeek，可能产生少量费用；不可用时会显示本地问候</p>
     <div className="settings-section__intro"><h2>关心</h2><p>{name}会在合适的时候关心你，勿扰时不出声</p></div>
     <div className="settings-group">
+      {hushed !== null && <div className="settings-row">
+        <div className="settings-row__body"><strong>正在安静</strong><span>你让它别催，{formatReminderTime(hushed, Date.now())} 前不主动说话；提醒照常到点</span></div>
+        <button type="button" className="settings-button settings-button--small" onClick={speakAgain}>恢复说话</button>
+      </div>}
       {toggle("night", "深夜关心", "过了这个时间还在用电脑，提醒你早点休息",
         <input type="time" aria-label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(event) => { if (event.currentTarget.value) update({ ...value, nightTime: event.currentTarget.value }); }} />)}
       {toggle("rest", "休息一下", "连续用电脑这么久，提醒你起来活动；离开 5 分钟后重新计时",
@@ -57,7 +69,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       </div>
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
     </div>
-    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容，等你手停下来才说。由 AI 来写时，每句话说之前请求一次 DeepSeek，带上今天专注了几轮、完成了几个提醒、下一个提醒是什么，「回来问一句」还带上那条提醒；关掉后不调用 AI。专注时不打扰。</p>
+    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容，等你手停下来才说。连着几句没人理，它会说得少一些，摸摸它或回一句就恢复；聊天时说「今晚别催我」，它到明早都不主动说话。由 AI 来写时，每句话说之前请求一次 DeepSeek，带上今天专注了几轮、完成了几个提醒、下一个提醒是什么，「回来问一句」还带上那条提醒；关掉后不调用 AI。专注时不打扰。</p>
     <h2 className="settings-group-title">勿扰</h2>
     {/* Only matters while quiet hours are on and night care is: greyed out otherwise, so it is still found. */}
     <QuietSettings onError={onError} during={(enabled) => <><div className="settings-divider" />{toggle("nightDuringQuiet", "定时勿扰时照样深夜关心", enabled && value.night ? "手动勿扰时仍然不打扰" : "要先打开「定时勿扰」和「深夜关心」", undefined, !enabled || !value.night)}</>} />

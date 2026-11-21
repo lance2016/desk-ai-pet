@@ -52,7 +52,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 聊天记录 | 聊天历史 |
 | 新聊天 | 新的聊天 |
 | 提醒、备忘 | 事项、待办、今日、速记 |
-| 已设提醒：…、已存进备忘：…（全角冒号） | 不带冒号的写法 |
+| 已设提醒：…、已存进备忘：…、已安静：…（全角冒号） | 不带冒号的写法 |
 
 不可撤销的操作用 `ConfirmButton`：先弹系统确认框（`src-tauri/src/alert.rs`），回车确认、Esc 取消。它只能用在设置、聊天这类普通窗口里；提醒、备忘弹层不能弹框，会激活应用。宠物窗口也不能弹框：要用户确认时，由 `BehaviorEngine` 发带 `choices` 的 `pet.alert`，在气泡里放按钮（例子是停止专注）。能撤销的用撤销条。报错只给人话，原始错误用 `console.error` 记日志。
 
@@ -224,6 +224,8 @@ pnpm exec tsc --noEmit && pnpm test
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 宠物自己想说的新话（问候、关心、以后的事前预告和事后问一句）不要在 `App` 或引擎里另起定时器，写成 `src/companion/occasions/` 里的一个场合，放进 `OCCASIONS`：表里靠前的优先，同一刻只说一句。`due()` 每 10 秒跑一次，只用 `Moment` 里的数据，不读慢的东西，不调模型。场合默认等用户手停下（`Moment.paused`）才说，只有「刚回来」这种过了就没有的时刻才标 `rightAway`。请模型写的场合，给它的事实只写用户做了什么，不写应用里的说法：试过把「提醒还没标完成」写进事实，模型就去念叨「提醒还挂着呢」（`occasions/reminders.ts`）。`src/companion/` 不引用 `PetRuntime`、`src/platform/` 和 `ai`，缺什么在 `CompanionPorts` 里加一个口子，由 `App` 接。
 - 宠物自己说的话能被接上，靠的是 `pet.greeting`：`PetSpeech` 让这句气泡可点，`useQuickChat` 在之后 5 分钟内把打开的输入条当成回这句话。所以要让一句话能接，就走 `PetRuntime.greet()`，不要走 `sayProactively()`。这句话存进聊天记录时标 `unprompted`，不作为对话发给模型，而是由 `openingLine()` 取出、放进提示词的「你先开口的话」；别把它改成直接发一条开头的 assistant 消息（没核实过 DeepSeek 接不接受）。
+- 宠物的心情不是存下来的数值，是 `src/companion/mood.ts` 由当天的事现算的（专注几轮、完成几个提醒、熬没熬夜），经 `pet.mood` 告诉 `BehaviorEngine`。要让别的东西跟着心情变，就读这个事件或 `Companion.mood()`，不要往 `PetState` 的属性里加新数值。
+- 「今晚别催我」这类安静的要求存在 `ai-pet:companion-hush:v1`（`src/companion/hush.ts`），只有 `Cue.timedByUser` 的场合能穿过它。新加的场合如果是关心，标 `eases`，它才会在没人理时少说。
 - 用户明确点击「预览」时，通过 `Companion.test()` 和 `PetRuntime.greetOnRequest()` 展示；这类手动预览不写入说话记录，专注时仍拒绝。
 - 定时早安只在设定时间后的问候窗口内、检测到最近 60 秒有用户活动时触发；勿扰时段会延后早安问候。
 - 属于某个角色的本机数据必须用 `characterKey(packId, name)` 生成 key，并在 `CHARACTER_DATA` 中登记；只有真正全局的设置才用固定 key。

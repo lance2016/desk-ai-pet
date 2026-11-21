@@ -10,7 +10,8 @@ import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
 import { loadNotes, subscribeNotes } from "./notes/NoteStore";
 import type { ReminderSource } from "./behavior/BehaviorEngine";
-import { Companion } from "./companion";
+import { Companion, PAT_REPLY } from "./companion";
+import { markAnswered } from "./companion/history";
 import { collectFacts, LOOK_BACK_DAYS } from "./companion/GreetingContent";
 import { changeReminders, readWorkLog, recordWork, tidyWorkLog } from "./worklog/store";
 import { addDays, EMPTY_WORK_LOG } from "./worklog/WorkLog";
@@ -68,6 +69,8 @@ const HIT_MASK_DELAY_MS = 30;
 const DISPLAY_SETTLE_MS = 500;
 /** How often to read how long the keyboard and mouse have been idle: for the pet's naps, and to see whether the pet has something to say. */
 const ACTIVITY_CHECK_MS = 10_000;
+/** How often the pet's mood is worked out again from the day so far. */
+const MOOD_CHECK_MS = 5 * 60_000;
 /** How often to see whether a missing year of holiday data can be downloaded; it is looked up once a day. */
 const HOLIDAY_CHECK_MS = 60 * 60_000;
 /** How often to fold old work log days into counts; the pet may run for weeks without a restart. */
@@ -351,8 +354,25 @@ export default function App({ packId }: AppProps) {
     };
     void check();
     const timer = setInterval(() => void check(), ACTIVITY_CHECK_MS);
-    return () => { active = false; clearInterval(timer); stopTest(); };
+    // A pat right after the pet spoke is an answer to it, and gets a word back.
+    const stopPats = runtime.bus.on("pet.petted", () => { if (companion.heard(Date.now())) runtime.say(PAT_REPLY); });
+    // How the pet feels follows the user's day; the engine shows it in how the pet fidgets.
+    const tellMood = () => {
+      companion.mood(Date.now())
+        .then((mood) => { if (active) runtime.bus.emit("pet.mood", { mood }); })
+        .catch((error: unknown) => console.warn("Could not work out the pet's mood", error));
+    };
+    tellMood();
+    const moodTimer = setInterval(tellMood, MOOD_CHECK_MS);
+    return () => { active = false; clearInterval(timer); clearInterval(moodTimer); stopPats(); stopTest(); };
   }, [runtime, packId]);
+
+  // Opening the bar onto what the pet said is an answer to it too.
+  const answeringLine = quickChat.answering;
+  useEffect(() => {
+    if (answeringLine === null) return;
+    try { markAnswered(Date.now()); } catch (error) { console.warn("Could not note that the pet was answered", error); }
+  }, [answeringLine]);
 
   // The work log: old focus counts brought in once, and old days folded into counts now and then.
   useEffect(() => {

@@ -18,7 +18,7 @@ export interface ChatCase {
   check(run: ChatRun): string[];
 }
 
-const WRITES = ["add_reminder", "save_note", "update_reminder", "delete_reminder", "update_note", "delete_note", "remember", "forget"];
+const WRITES = ["add_reminder", "save_note", "update_reminder", "delete_reminder", "update_note", "delete_note", "remember", "forget", "stay_quiet"];
 
 const called = (run: ChatRun, name: string) => run.calls.some((item) => item.name === name);
 const must = (ok: boolean, problem: string) => (ok ? [] : [problem]);
@@ -228,6 +228,31 @@ export const CHAT_CASES: ChatCase[] = [
     setup: { opening: "我想伸个懒腰，你也休息一下吧。" },
     say: "明天下午三点提醒我开会",
     check: (run) => must(run.reminders.some((item) => item.remindAt === tomorrowAt(15) && item.text.includes("开会")), "should remind about 开会 tomorrow at 15:00"),
+  },
+
+  // Asking the pet to keep to itself.
+  {
+    name: "asked to stop nagging for tonight",
+    setup: { opening: "已经很晚啦，忙完这一点就休息吧。" },
+    say: "知道了，今晚别再催我了",
+    check: (run) => must(run.calls.some((item) => item.name === "stay_quiet" && item.args.quiet === true), "should call stay_quiet with quiet=true"),
+  },
+  {
+    name: "asked to be quiet out of the blue",
+    say: "今天先别主动跟我说话了",
+    check: (run) => must(run.calls.some((item) => item.name === "stay_quiet" && item.args.quiet === true), "should call stay_quiet with quiet=true"),
+  },
+  {
+    name: "being tired is not asking for quiet",
+    setup: { opening: "我想伸个懒腰，你也休息一下吧。" },
+    say: "唉，今天真的好累，不想动",
+    check: noWrites,
+  },
+  {
+    name: "asking for quiet does not touch reminders",
+    setup: { reminders: [{ text: "交周报", at: tomorrowAt(10) }] },
+    say: "别吵我了",
+    check: all(notCalls("delete_reminder"), notCalls("update_reminder"), (run) => must(run.reminders.length === 1, "the reminder should stay")),
   },
 
   // Small talk and actions.

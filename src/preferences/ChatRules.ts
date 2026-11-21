@@ -3,11 +3,11 @@ import { z } from "zod";
 /** Counted in UTF-16 like the textarea. */
 export const CHAT_RULE_LIMIT = 2000;
 /** The parts of the chat rules the user may rewrite; see `chatSections` in `src/ai/prompt.ts`. */
-export const CHAT_RULE_IDS = ["memory", "lookup", "remember", "actions"] as const;
+export const CHAT_RULE_IDS = ["memory", "lookup", "remember", "quiet", "actions"] as const;
 export type ChatRuleId = (typeof CHAT_RULE_IDS)[number];
 
 const text = z.string().max(CHAT_RULE_LIMIT);
-const schema = z.object({ memory: text.optional(), lookup: text.optional(), remember: text.optional(), actions: text.optional() });
+const schema = z.object({ memory: text.optional(), lookup: text.optional(), remember: text.optional(), quiet: text.optional(), actions: text.optional() });
 /** The user's wording of each part they rewrote; a part left out uses the app's default. Shared by all characters. */
 export type ChatRules = z.infer<typeof schema>;
 const KEY = "ai-pet:chat-rules:v1";

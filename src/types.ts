@@ -109,6 +109,10 @@ export type DockSide = "left" | "right";
  * the chat window: the user is typing or speaking, a reply is awaited, it is
  * coming in, or it failed. "idle" ends it.
  */
+/** How the pet feels today: tired when the user stays up late, bright when a few things got done. */
+export const MOODS = ["bright", "calm", "tired"] as const;
+export type Mood = (typeof MOODS)[number];
+
 export const CHAT_PHASES = ["idle", "listening", "thinking", "talking", "failed"] as const;
 
 export type ChatPhase = (typeof CHAT_PHASES)[number];
@@ -189,6 +193,8 @@ export interface PetEvents {
    * `offerMove`: earlier reminders are still open; the pet offers to move them to today.
    */
   "pet.greeting": { text: string; offerMove?: boolean };
+  /** How the pet feels, worked out from the user's day (`src/companion/mood.ts`). It shows in how the pet fidgets. */
+  "pet.mood": { mood: Mood };
   "pet.appearance.changed": Record<string, never>;
   /** The user made, changed or deleted one of their own actions. */
   "pet.actions.changed": Record<string, never>;

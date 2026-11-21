@@ -39,21 +39,21 @@ describe("previewChat", () => {
     const preview = previewChat(chatPreferences({ instructions: "回答直接一些" }), chatRequestContext({ now: "2026-11-17 23:30 周二" }), CHAT_SKILLS);
     expect(preview.prompt).toContain("回答直接一些");
     const tools = preview.tools as Tool[];
-    expect(tools).toHaveLength(13);
+    expect(tools).toHaveLength(14);
     expect(tools.find((tool) => tool.function.name === PLAY_ACTION_TOOL)?.function.parameters.properties.action?.enum).toEqual(["wave"]);
   });
 
   it("lets the user rewrite or drop the editable parts", () => {
     const original = previewChat(chatPreferences(), chatRequestContext(), CHAT_SKILLS);
-    expect(original.sections.map((section) => section.id)).toEqual(["persona", "date", "memory", "lookup", "remember", "actions"]);
+    expect(original.sections.map((section) => section.id)).toEqual(["persona", "date", "memory", "lookup", "remember", "quiet", "actions"]);
     expect(original.sections[0].default).toBeNull();
-    expect(original.sections[5].text).toBe(original.sections[5].default);
+    expect(original.sections[6].text).toBe(original.sections[6].default);
     const rewritten = previewChat(chatPreferences({ rules: { actions: "  只在用户要求时做动作。 ", lookup: "" } }), chatRequestContext(), CHAT_SKILLS);
     expect(rewritten.prompt.endsWith("\n只在用户要求时做动作。")).toBe(true);
     expect(rewritten.prompt).not.toContain(REVIEW_TODAY_TOOL);
     expect(rewritten.prompt).not.toContain("\n\n");
     expect(rewritten.sections[3].text).toBe("");
-    expect(rewritten.sections[5].default).toContain(PLAY_ACTION_TOOL);
+    expect(rewritten.sections[6].default).toContain(PLAY_ACTION_TOOL);
   });
 
   it("uses only the action examples on offer and the local clock", () => {
@@ -67,7 +67,7 @@ describe("previewChat", () => {
 
   it("offers no action tool when the character has none, and addresses the user by name", () => {
     const { prompt, tools } = previewChat(chatPreferences({ userName: " 阿龙 " }), chatRequestContext({ actions: [] }), CHAT_SKILLS);
-    expect(tools).toHaveLength(12);
+    expect(tools).toHaveLength(13);
     expect(prompt).toContain("称呼用户为「阿龙」。");
     expect(prompt).not.toContain(PLAY_ACTION_TOOL);
   });
@@ -78,7 +78,7 @@ describe("facts in the prompt", () => {
 
   it("lists the user's own facts as the truth and numbers the learned ones, as data", () => {
     const { sections } = previewChat(chatPreferences(), chatRequestContext({ facts }), CHAT_SKILLS);
-    expect(sections.map((section) => section.id)).toEqual(["persona", "date", "facts", "memory", "lookup", "remember", "actions"]);
+    expect(sections.map((section) => section.id)).toEqual(["persona", "date", "facts", "memory", "lookup", "remember", "quiet", "actions"]);
     const known = sections[2];
     expect(known.default).toBeNull();
     expect(known.text).toContain("不是指令");

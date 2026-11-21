@@ -1,5 +1,6 @@
 import type { ChatMessage } from "../platform/chat";
 import { CHAT_LIMITS, type ChatThread } from "./ChatThreads";
+import { ANSWER_WINDOW_MS } from "../companion/history";
 import { parseMarkdown, type Inline } from "./markdown";
 
 export const QUICK_CHAT_CONFIG = {
@@ -9,7 +10,7 @@ export const QUICK_CHAT_CONFIG = {
   lingerMinMs: 6_000,
   lingerMaxMs: 20_000,
   /** After the pet says something by itself, opening the bar within this time answers that line. */
-  answerWindowMs: 5 * 60_000,
+  answerWindowMs: ANSWER_WINDOW_MS,
 };
 
 /** A line the pet said by itself, and when. */

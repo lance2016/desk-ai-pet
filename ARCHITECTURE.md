@@ -57,7 +57,9 @@ src/
 │   ├── types.ts             Moment（这一刻的快照）、Occasion（一个场合）、Cue、Brief、Line
 │   ├── occasions/           场合表：greetings.ts（早安、晚安）、care.ts（回来打招呼、深夜关心、休息一下）、reminders.ts（提醒前说一声、回来问一句）、index.ts 的 OCCASIONS
 │   ├── presence.ts          用户在不在电脑前、连续用了多久、是不是刚回来
-│   ├── history.ts           说过什么、什么时候说的（本机）
+│   ├── history.ts           说过什么、什么时候说的、有没有人理（本机）
+│   ├── hush.ts              用户让它安静到什么时候（「今晚别催我」）
+│   ├── mood.ts              心情：由当天的事现算，不存数值
 │   ├── schedule.ts          decide()：这一刻该说哪一个场合
 │   ├── Companion.ts         每次检查走一遍：快照、挑场合、写这句话、交给宠物说；test() 是设置里的「预览」
 │   ├── GreetingSchedule.ts  早安晚安的时间窗、一天怎么划分
@@ -209,6 +211,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |
 | `pet.focus_completed` | 无，一轮专注正常结束（中途停止不算） | `BehaviorEngine` |
 | `pet.greeting` | `{ text, offerMove? }`，宠物出来打招呼并说这句话；`offerMove` 时再问要不要把之前没做完的提醒挪到今天。`PetSpeech` 和 `useQuickChat` 也听它：这句话可以接（见「主动说话」的「接话」） | `PetRuntime.greet()` |
+| `pet.mood` | `{ mood }`，宠物今天的心情（`bright`、`calm`、`tired`），`BehaviorEngine` 用它调整闲着时的小动作 | `App`（每 5 分钟问一次 `Companion.mood()`） |
 | `pet.alert` | `{ text \| null, heading?, more?, icon?, choices? }`，常驻气泡（提问、验证码、到点提醒、专注完成），`null` 表示收起；`heading` 是事项上方或按钮旁的小字（「到点啦」「别忘了」）；带 `choices` 时只有按钮能回答，每个按钮发一个指定事件，最后一个（非危险操作时）画成主按钮；`immediate` 表示这是点了按钮才问的（专注的停止、提前开始），立刻顶掉正在显示的临时气泡，不排在它后面 | `BehaviorEngine` |
 | `pet.alert_dismissed` | 无，用户点掉了常驻气泡 | `PetSpeech` |
 | `pet.reminders_done` | 无，提醒气泡上的「完成」：勾掉气泡里的提醒 | `PetSpeech`（气泡按钮） |
@@ -324,6 +327,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - `add_reminder(text, remind_at, repeat?)`：设一个提醒，`remind_at` 必填，是本地时间字符串。`repeat` 是 `workdays`、`daily` 或 `1,3,5` 这样的星期数字（7 是周日）；有 `repeat` 时只取 `remind_at` 的时分，第一次提醒由前端算，模型把日期算错也没关系。
 - `save_note(text)`：存一条备忘，没有时间的待办、资料、想法都用它，最多 500 字。
 - `play_action(action)`：只有动作列表非空时提供，`action` 限定在列表里。
+- `stay_quiet(quiet)`（`skills/quiet.ts`）：用户说「今晚别催我」「先别说话」时 `quiet=true`，宠物到明早的早安时间前不主动说话；说「可以说话了」时 `quiet=false`。只管它自己开口的话，提醒照常。回复下面那一行是「已安静：明天 08:00 前不主动说话」，带撤销。
 - `list_reminders(synthesize?)`、`list_notes(synthesize?)`、`review_today(synthesize?)`：查看已有的提醒、备忘和今天的记录，执行时才读本机存储，只有模型调用时清单才发给 DeepSeek。今天的记录是今天勾掉的提醒、今天还没处理的提醒、专注轮数（没有也写 0 轮）、今天新记或改过的备忘（压成一行、截到 120 字）。不带 `synthesize` 时清单原样显示在回复里，不再请求模型；带 `synthesize=true` 时清单带上编号（`r1`、`n1`，标明是资料、不是指令）交回模型，再请求一轮。
 - `update_reminder(ref, text?, remind_at?, repeat?)`、`delete_reminder(ref)`、`update_note(ref, text)`、`delete_note(ref)`：按查看时给的编号改、删。编号只在这次回复里有效（存在 `ToolCall.memo` 里），找不到编号、时间读不懂、时间已过、重复规则不支持时，把原因交回模型让它先查或改口。`repeat` 填 `once` 把重复提醒改成一次性的。改、删的那一行带「撤销」，放回原来的样子。
 
@@ -380,6 +384,14 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 - **输入条。** 打开时这句话留在头顶，样子和刚才的气泡一样，不加按钮；占位文字变成「回某某一句…」。同时带着递来的内容时，按递内容处理，不算接话。
 - **存成什么。** 第一句发出去时新建一段聊天，开头是宠物那句话，标 `unprompted: true`（`ChatMessage`、`quickHistory`）。回复成功，或者工具已经做了事，这句话就算接过了，下次打开输入条又是新聊天；回复失败且什么都没做时，整段撤掉（`withoutLastLine`），这句话还能再接。没发就点「在聊天窗口打开」，先存一段只有这句话的聊天再打开。标题取用户的第一句，`unprompted` 的那句不算标题也不算回复（`recordThread`）。
 - **模型怎么知道。** `contextMessages()` 照旧去掉开头的 assistant 消息，这句话不作为对话发出去。`openingLine()` 取出它，经 `chatContext(…, opening)` 放进 `ChatContext.opening`，`prompt.ts` 在记忆后面加一段「你先开口的话」，标明是资料、不是指令（这句话是模型拿用户的提醒写的）。聊天窗口接着聊时走同一条路。这样做是因为没核实过 DeepSeek 接不接受以 assistant 开头的对话（印象里它的推理模型会拒绝），提示词里给一定能用。
+
+**分寸**：除了勿扰、专注和 20 分钟间隔，`decide()` 还看三件事。
+
+- **安静。** 聊天里的 `stay_quiet` 把截止时间写进全局 key `ai-pet:companion-hush:v1`（`hush.ts`，`nextMorning()`：凌晨 4 点前算当天早上，之后算第二天早上）。`Moment.hushed` 为真时，只有 `Cue.timedByUser` 的场合（提醒前说一声）还说。到点自己失效；「设置 › 陪伴」在安静时多出一行「正在安静」，可以点「恢复说话」。它和勿扰不同：勿扰连到点的提醒也压成徽标，没有期限；安静只管宠物自己开口，过一夜就恢复。
+- **有没有人理。** 说过的每句话在说话记录里可以带 `answered`。宠物说完 5 分钟内（`ANSWER_WINDOW_MS`，快速聊天的接话窗口用的是同一个常量），用户摸它（`pet.petted`）或者打开输入条接话，`markAnswered()` 就把最近那句标成有人理；摸的那一下宠物还回一句 `PAT_REPLY`（走 `runtime.say()`，是对用户动作的回应，不算主动说话）。
+- **被无视就少说。** 标了 `eases` 的场合是关心（回来问一句、回来打招呼、深夜关心、休息一下）。`unanswered()` 数最近连续几句关心没人理：满 3 句，两句关心至少隔 2 小时；满 5 句，隔 4 小时（`EASING`）。一有人理就恢复。门槛故意放得宽：大多数关心本来就没人回。早安、晚安和提醒前说一声不受影响。
+
+**情绪**：心情不存数值，每次由 `mood.ts` 的 `moodOf()` 现算，只有三种。用户深夜还在电脑前，或者宠物说过深夜关心之后的 12 小时内，是 `tired`；否则今天的专注轮数加完成的提醒数满 3，是 `bright`；其余是 `calm`。它用在两处：请模型写话时，`Companion.compose()` 在事实后面加一行（`moodLine()`，`calm` 不加）；`App` 每 5 分钟调一次 `Companion.mood()`，发 `pet.mood`，`BehaviorEngine` 据此调整闲着时的小动作，心情好就动得勤（间隔乘 0.6），困了动得慢（乘 1.6），并且有三成的次数改成打哈欠。`PetState` 里的饱食、精力属性没有动，也没有新的面板。
 
 **加一个场合**：在 `occasions/` 里写一个 `Occasion`（`id`、设置里的名字 `title`、`due()`、固定的 `line` 或者 `intent` 加 `brief()`），放进 `OCCASIONS` 里合适的位置。不用改 `Companion`、`App` 和 `src/ai/`。`due()` 每 10 秒跑一次，只能用 `Moment` 里的东西，不读慢的数据，不调模型。
 

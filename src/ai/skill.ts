@@ -6,8 +6,8 @@ export const ACTION_ID = /^[a-z0-9_]{1,40}$/;
 
 /** A line under the reply about something a tool did. */
 export interface EffectLine {
-  /** "agenda" and "note" open the item with `id`; "fact" is about what the pet knows of the user; "failed" says what could not be done. */
-  kind: "agenda" | "note" | "fact" | "failed";
+  /** "agenda" and "note" open the item with `id`; "fact" is about what the pet knows of the user; "quiet" about the pet keeping to itself; "failed" says what could not be done. */
+  kind: "agenda" | "note" | "fact" | "quiet" | "failed";
   /** The item to open; none once it is gone. */
   id?: string;
   text: string;

@@ -26,6 +26,8 @@ export interface Moment {
    * a line said now does not cut into what the user is typing.
    */
   paused: boolean;
+  /** The user asked the pet to keep to itself for now ("今晚别催我"). */
+  hushed: boolean;
   /** The user's reminders as they are kept now. */
   reminders: readonly AgendaItem[];
   settings: CompanionPreferences;
@@ -43,6 +45,8 @@ export interface Cue {
   subject?: string;
   /** Said even in quiet hours. "勿扰" still holds it back. */
   allowQuiet?: boolean;
+  /** About something the user asked to be told at a time (a reminder): said even after the user asked for quiet. */
+  timedByUser?: boolean;
   /** Said without waiting for the user's hands to stop: the moment (coming back) will not be there later. */
   rightAway?: boolean;
 }
@@ -61,6 +65,8 @@ interface OccasionBase {
   id: string;
   /** What settings call it. */
   title: string;
+  /** A line of care: said less often while such lines go by without a word or a pat from the user. */
+  eases?: boolean;
   /**
    * Whether this is the moment. Checked every few seconds, so it reads nothing
    * slow and never asks the model.
