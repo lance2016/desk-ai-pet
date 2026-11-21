@@ -10,7 +10,7 @@ describe("readDropped", () => {
   });
 
   it("reads a text file by its name or its type, labelled with the name", async () => {
-    expect(await readDropped({ files: [file("notes.md", "# 周报")], text: "" })).toEqual({ kind: "text", text: "# 周报", label: "拖进来的文件：notes.md" });
+    expect(await readDropped({ files: [file("notes.md", "# 周报")], text: "" })).toEqual({ kind: "text", text: "# 周报", label: "拖进来的文件：notes.md", name: "notes.md" });
     expect(await readDropped({ files: [file("README", "hello", "text/plain")], text: "" })).toMatchObject({ kind: "text", text: "hello" });
     expect(await readDropped({ files: [file("error.LOG", "panic at main")], text: "" })).toMatchObject({ kind: "text", text: "panic at main" });
   });

@@ -481,7 +481,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   const receive = (dropped: Dropped) => {
     if (pending) return;
     wakePet();
-    if (dropped.kind === "text") { takeHanded(handover(dropped.text, dropped.label)); return; }
+    if (dropped.kind === "text") { takeHanded(handover(dropped.text, dropped.label, dropped.name)); return; }
     if (dropped.kind === "unreadable") { setReply({ text: dropped.reason, status: "done" }); return; }
     prepareChatImage(dropped.file, newId())
       .then((image) => petWindow.openChatWithImage(image))
@@ -577,17 +577,33 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   );
 }
 
-/** Text the user copied, in the bubble above the pet, with what can be done with it. */
-function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; ref?: Ref<HTMLDivElement> }) {
-  const size = `${handed.label} · ${[...handed.text].length}${handed.trimmed ? "+" : ""} 字`;
+/** Line glyphs for where handed text came from: a page for a file, quotes for copied or dragged text. */
+function HandedGlyph({ file }: { file: boolean }) {
   return (
-    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={size} title={size}>
-      <span className="speech-bubble__spark" aria-hidden="true">✦</span>
+    <svg className="handed__glyph" viewBox="0 0 16 16" aria-hidden="true">
+      {file
+        ? <><path d="M9.5 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V5.5Z" /><path d="M9.5 2v3.5H13M5.5 8.5h5M5.5 11h3" /></>
+        : <path d="M3 9.5c0-2.5 1-4.2 3-5M3 9.5h2.5V12H3ZM9 9.5c0-2.5 1-4.2 3-5M9 9.5h2.5V12H9Z" />}
+    </svg>
+  );
+}
+
+/** Text the user copied or dragged onto the pet, in the bubble above it, with what can be done with it. */
+function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; ref?: Ref<HTMLDivElement> }) {
+  const title = handed.name ?? handed.label;
+  const size = `${[...handed.text].length.toLocaleString("zh-CN")}${handed.trimmed ? "+" : ""} 字`;
+  return (
+    <div ref={ref} className="speech-bubble speech-bubble--reply speech-bubble--handed" role="group" aria-label={`${handed.label}，${size}`}>
       <span className="speech-bubble__body">
-        <span className="handed__main">
-          <span className="speech-bubble__text handed__text">{handoverPreview(handed.text)}</span>
-          <button type="button" className="handed__close" aria-label="不用了" title="不用了" onClick={chat.dismissHanded}>×</button>
+        <span className="handed__head">
+          <HandedGlyph file={handed.name !== undefined} />
+          <strong className="handed__title" title={title}>{title}</strong>
+          <span className="handed__size">{size}</span>
+          <button type="button" className="handed__close" aria-label="不用了" title="不用了" onClick={chat.dismissHanded}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7" /></svg>
+          </button>
         </span>
+        <span className="handed__excerpt">{handoverPreview(handed.text)}</span>
         <span className="handed__foot">
           {suggestions(handed.text).map((action) => <button key={action} type="button" disabled={chat.pending} onClick={() => chat.runAction(action)}>{ACTION_LABELS[action]}</button>)}
           {!chat.open && <button type="button" className="handed__ask" disabled={chat.pending} onClick={chat.askAbout}>问它…</button>}

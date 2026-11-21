@@ -8,7 +8,8 @@ export interface DropContent {
 
 /** What was dragged onto the pet, sorted by local rules: no model call to decide. */
 export type Dropped =
-  | { kind: "text"; text: string; label: string }
+  /** `name`: the file it was read from, when it came as a file. */
+  | { kind: "text"; text: string; label: string; name?: string }
   /** A picture the chat window can look at. */
   | { kind: "image"; file: File }
   /** Something the pet cannot take, with what to tell the user. */
@@ -76,7 +77,7 @@ async function readTextFile(file: File, how: HandedHow): Promise<Dropped> {
     const text = await file.slice(0, READ_BYTES).text();
     // A NUL byte: a binary file with a text-like name.
     if (text.includes("\u0000")) return { kind: "unreadable", reason: CANNOT_READ };
-    return text.trim() ? { kind: "text", text, label: nameLabel(file.name, how) } : { kind: "unreadable", reason: EMPTY };
+    return text.trim() ? { kind: "text", text, label: nameLabel(file.name, how), name: file.name } : { kind: "unreadable", reason: EMPTY };
   } catch (error) {
     // A folder, or a file that went away.
     console.warn("Could not read the dropped file", error);

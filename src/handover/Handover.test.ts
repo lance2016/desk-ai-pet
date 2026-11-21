@@ -24,8 +24,13 @@ describe("handover", () => {
     expect(handedMessage("翻译", { text: "hi", trimmed: true, label: HANDED_LABEL })).toContain("【刚复制的内容，太长只保留了开头】");
   });
 
+  it("keeps the name of a handed file", () => {
+    expect(handover("body", "拖进来的文件：a.md", "a.md")).toEqual({ text: "body", trimmed: false, label: "拖进来的文件：a.md", name: "a.md" });
+  });
+
   it("shows the start of the text on one line", () => {
     expect(handoverPreview("第一行\n\n第二行")).toBe("第一行 第二行");
+    expect(handoverPreview("# 接口文档\n> 日期：11-19\n- 一条 `POST /api` **要紧**\n2. snake_case")).toBe("接口文档 日期：11-19 一条 POST /api 要紧 snake_case");
     expect(handoverPreview("长".repeat(100))).toBe(`${"长".repeat(HANDOVER_LIMITS.previewChars)}…`);
   });
 });

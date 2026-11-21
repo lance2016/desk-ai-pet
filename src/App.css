@@ -441,20 +441,26 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .speech-bubble__saved.is-failed { color: #8a5a12; background: #fdf3e1; }
 .speech-bubble--reply.is-error::after { border-color: #f0beb6; }
 
-/* Handed text above the pet: what came along, and what can be done with it. Two rows keep it inside the room above the pet. */
+/* Handed text above the pet: where it came from, its start, and what can be done with it. Three short rows fit the room above the pet. */
 .speech-bubble--handed { cursor: default; }
-.speech-bubble--handed:hover { border-color: #e3ddf5; }
-.handed__main { display: flex; align-items: flex-start; gap: 6px; }
-.speech-bubble__text.handed__text { flex: 1; min-width: 0; -webkit-line-clamp: 2; }
-.handed__close { flex: none; width: 18px; height: 18px; margin: -1px -4px 0 0; padding: 0; display: grid; place-items: center; color: #8f88b8; background: none; border: 0; border-radius: 50%; font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
-.handed__close:hover { color: var(--ui-accent-strong); background: var(--ui-accent-soft); }
-.handed__foot { display: flex; align-items: center; gap: 4px; }
-.handed__foot button { flex: none; padding: 2px 8px; color: var(--ui-accent-strong); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: 6px; font: inherit; font-size: 11px; cursor: pointer; }
-.handed__foot button:hover:not(:disabled) { background: var(--ui-accent-soft); }
+.speech-bubble--handed:hover { border-color: var(--ui-border-strong); }
+.speech-bubble--handed .speech-bubble__body { flex: 1; }
+.handed__head { display: flex; align-items: center; gap: 8px; height: 20px; }
+.handed__glyph { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--ui-text-secondary); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.handed__title { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--ui-text); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.handed__size { flex: 1 0 auto; color: var(--ui-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.handed__close { flex: none; width: 20px; height: 20px; margin-right: -4px; padding: 0; display: grid; place-items: center; color: var(--ui-text-muted); background: none; border: 0; border-radius: var(--ui-radius-control); cursor: pointer; transition: color var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease); }
+.handed__close svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.handed__close:hover { color: var(--ui-text); background: var(--ui-fill-strong); }
+.handed__excerpt { overflow: hidden; color: var(--ui-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.handed__foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.handed__foot button { flex: none; height: 24px; padding: 0 10px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-control); font: inherit; font-size: 12px; cursor: pointer; transition: background-color var(--ui-duration-fast) var(--ui-ease); }
+.handed__foot button:hover:not(:disabled) { background: var(--ui-fill); }
+.handed__foot button:active:not(:disabled) { background: var(--ui-fill-strong); }
 .handed__foot button:disabled { opacity: .45; cursor: default; }
 .handed__foot button:focus-visible, .handed__close:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
-.handed__foot .handed__ask { margin-left: auto; color: #8f88b8; border-color: transparent; background: none; }
-.handed__foot .handed__ask:hover:not(:disabled) { color: var(--ui-accent-strong); }
+.handed__foot .handed__ask { margin-left: auto; padding: 0 4px; color: var(--ui-text-secondary); border-color: transparent; background: none; }
+.handed__foot .handed__ask:hover:not(:disabled) { color: var(--ui-accent-strong); background: none; }
 
 /* The chat button: always there, quiet until hovered or until something was copied in another app. */
 .chat-launcher { position: absolute; z-index: 3; width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 50%; opacity: .78; cursor: pointer; pointer-events: auto; transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }

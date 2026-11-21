@@ -11,6 +11,8 @@ export interface Handover {
   trimmed: boolean;
   /** Where it came from, as the card and the data block call it. */
   label: string;
+  /** The file it was read from, when it came as a file. */
+  name?: string;
 }
 
 /** What the buttons under handed text do. "keep" saves it as a note without asking the model. */
@@ -38,10 +40,10 @@ export const ACTION_QUESTIONS: Record<Exclude<HandoverAction, "keep">, string> =
   summarize: "用几条要点总结这段。",
 };
 
-export function handover(handed: string, label: string = HANDED_LABEL): Handover {
+export function handover(handed: string, label: string = HANDED_LABEL, name?: string): Handover {
   const text = handed.trim();
   const kept = clip(text, HANDOVER_LIMITS.chars);
-  return { text: kept, trimmed: kept !== text, label };
+  return { text: kept, trimmed: kept !== text, label, ...(name ? { name } : {}) };
 }
 
 /** A Chinese character weighs like a foreign word, so an English error message inside a Chinese sentence stays Chinese. */
@@ -75,7 +77,9 @@ export function handedQuestion(message: string, label: string): string {
 
 /** The start of the text on one line, for the card above the pet. */
 export function handoverPreview(text: string): string {
-  const line = text.replace(/\s+/g, " ").trim();
+  // Markdown marks read as noise in one line: headings, quotes, list markers, code ticks and bold.
+  const plain = text.split("\n").map((row) => row.replace(/^\s*(?:#{1,6}|>|[-*+]|\d+[.)])\s+/, "")).join("\n").replace(/`+|\*\*/g, "");
+  const line = plain.replace(/\s+/g, " ").trim();
   const kept = clip(line, HANDOVER_LIMITS.previewChars);
   return kept === line ? line : `${kept}…`;
 }
