@@ -237,7 +237,7 @@ __pet.requestAction("dance");
 
 资源包中的配置是默认值。普通用户可以在系统托盘或宠物右键菜单打开“设置…”，在「Dock」页修改显示名称、图标、显隐和顺序，也可以上传小于 512 KB 的 PNG/JPG/WebP 图标。用户的改动保存在本机；“恢复默认 Dock”会清除改动并回到资源包配置。
 
-内置快捷图标包括 `feed`、`carrot`、`gift`、`wooden_fish`、`mallet`、`bell`、`rest`、`bed`、`sun`、`timer`、`hourglass`、`book`、`sparkle`、`chat`、`checklist`、`note` 和 `clipboard`。组件只允许命令枚举映射到固定事件，用户配置不能更改命令行为。
+内置快捷图标包括 `feed`、`carrot`、`gift`、`wooden_fish`、`mallet`、`bell`、`rest`、`bed`、`sun`、`timer`、`hourglass`、`book`、`sparkle`、`chat`、`checklist`、`note`、`clipboard`、`gear` 和 `sliders`。组件只允许命令枚举映射到固定事件，用户配置不能更改命令行为。
 
 ## 新增一个角色
 

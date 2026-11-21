@@ -50,6 +50,8 @@ export const CONTROL_ICON_PRESETS = [
   "checklist",
   "note",
   "clipboard",
+  "gear",
+  "sliders",
 ] as const;
 
 export type ControlIconPreset = (typeof CONTROL_ICON_PRESETS)[number];

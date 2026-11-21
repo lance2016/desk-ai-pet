@@ -53,6 +53,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     switch (control.command) {
       case "today_open": void petWindow.openToday().catch((error) => console.error("Failed to open today", error)); break;
       case "notes_open": void petWindow.openNotes().catch((error) => console.error("Failed to open notes", error)); break;
+      case "settings_open": void petWindow.openSettings().catch((error) => console.error("Failed to open settings", error)); break;
       case "focus_toggle": runtime.bus.emit("pet.focus_toggled", {}); break;
       case "feed": runtime.bus.emit("pet.fed", {}); break;
       case "wooden_fish": runtime.bus.emit("pet.wooden_fish", {}); break;

@@ -7,7 +7,7 @@ import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
 
 /**
  * The bar under the pet: one ordered list of buttons. App
- * buttons (today, notes) exist for every character; chat has its own button
+ * buttons (today, notes, settings) exist for every character; chat has its own button
  * beside the pet (`ChatLauncher`), so a saved chat button is dropped. The character's own
  * buttons come from its manifest; actions are added from the action library.
  */
@@ -17,7 +17,7 @@ const MAX_LABEL_CHARS = 12;
 const MAX_ENTRIES = 120;
 const CUSTOM_ICON_DATA_URL = /^data:image\/(png|jpeg|webp);base64,/;
 
-export type DockCommand = PetControl["command"] | "today_open" | "notes_open";
+export type DockCommand = PetControl["command"] | "today_open" | "notes_open" | "settings_open";
 
 /** A button's defaults, before the user's changes. */
 export interface DockControl {
@@ -35,7 +35,11 @@ export type DockItem =
 export const APP_CONTROLS: readonly DockControl[] = [
   { id: "today", label: "提醒", icon: "bell", command: "today_open" },
   { id: "notes", label: "备忘", icon: "note", command: "notes_open" },
+  { id: "settings", label: "设置", icon: "gear", command: "settings_open" },
 ];
+
+/** App buttons that start hidden: they are rarely used, and the bar has room for only a few. */
+const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["settings"]);
 
 /** Defaults the app buttons had before; saved ones that still match them follow the new defaults. */
 const FORMER_DEFAULTS: Record<string, { label: string; icon?: string }> = {
@@ -80,7 +84,7 @@ function legacyEntries(packId: string, storage: Storage): Entry[] {
   const controls = parseStored(legacyControlsSchema, storage.getItem(characterKey(packId, CHARACTER_DATA.controlPreferences)), "control preferences") ?? [];
   const actions = parseStored(legacyActionsSchema, storage.getItem(characterKey(packId, CHARACTER_DATA.actionShortcuts)), "action shortcuts") ?? [];
   return [
-    ...APP_CONTROLS.map((control): Entry => ({ kind: "control", id: control.id, label: control.label, icon: control.icon, enabled: true })),
+    ...APP_CONTROLS.filter((control) => !OFF_BY_DEFAULT.has(control.id)).map((control): Entry => ({ kind: "control", id: control.id, label: control.label, icon: control.icon, enabled: true })),
     ...[...controls].sort((a, b) => a.order - b.order).map(({ id, label, icon, enabled }): Entry => ({ kind: "control", id, label, icon, enabled })),
     ...actions.map((id): Entry => ({ kind: "action", id, enabled: true })),
   ];
@@ -107,8 +111,9 @@ function resolve(entries: readonly Entry[], controls: readonly DockControl[], ac
     }
     seen.add(key);
   }
-  const added = controls.filter((control) => !seen.has(`control:${control.id}`)).map((control): DockItem => ({ ...control, kind: "control", enabled: true }));
-  return [...items, ...added];
+  const added = controls.filter((control) => !seen.has(`control:${control.id}`)).map((control): DockItem => ({ ...control, kind: "control", enabled: !OFF_BY_DEFAULT.has(control.id) }));
+  // Hidden ones go last, so turning one on later does not push it in front of the buttons in use.
+  return [...items, ...added.filter((item) => item.enabled), ...added.filter((item) => !item.enabled)];
 }
 
 /** Places on the bar under the pet; it has to fit a narrow window. */
