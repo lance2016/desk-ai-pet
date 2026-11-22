@@ -11,6 +11,8 @@ pub struct SelectionFloat {
     enabled: AtomicBool,
     expanded: AtomicBool,
     text: Mutex<Option<String>>,
+    /// The selection monitor, asleep while the float is off; turning it on wakes it.
+    monitor: Mutex<Option<std::thread::Thread>>,
 }
 
 /// Must match the `selection-float` window width in `tauri.conf.json`.
@@ -138,8 +140,10 @@ fn hide_selection_float(app: &AppHandle) {
 
 #[tauri::command]
 pub fn set_selection_float(app: AppHandle, enabled: bool) {
-    app.state::<SelectionFloat>().enabled.store(enabled, Ordering::Relaxed);
-    if !enabled { hide_selection_float(&app); }
+    let float = app.state::<SelectionFloat>();
+    float.enabled.store(enabled, Ordering::Relaxed);
+    if !enabled { hide_selection_float(&app); return; }
+    if let Some(monitor) = float.monitor.lock().ok().and_then(|monitor| monitor.clone()) { monitor.unpark(); }
 }
 
 #[tauri::command]
@@ -190,15 +194,20 @@ pub fn start_selection_monitor(app: AppHandle) {
     const POLL: Duration = Duration::from_millis(40);
     const LIFETIME: Duration = Duration::from_secs(8);
     thread::spawn(move || {
+        if let Ok(mut monitor) = app.state::<SelectionFloat>().monitor.lock() { *monitor = Some(thread::current()); }
         let mut down: Option<(f64, f64)> = None;
         let mut down_in_float = false;
         let mut visible_at: Option<Instant> = None;
         let mut previous_click: Option<(Instant, (f64, f64))> = None;
         loop {
             thread::sleep(POLL);
-            if !app.state::<SelectionFloat>().enabled.load(Ordering::Relaxed) || !accessibility::trusted() {
+            let enabled = app.state::<SelectionFloat>().enabled.load(Ordering::Relaxed);
+            if !enabled || !accessibility::trusted() {
                 if visible_at.is_some() { hide_selection_float(&app); }
-                down = None; down_in_float = false; visible_at = None; previous_click = None; continue;
+                down = None; down_in_float = false; visible_at = None; previous_click = None;
+                // Off, it sleeps until `set_selection_float` turns it on; on without the permission it keeps looking.
+                if !enabled { thread::park(); }
+                continue;
             }
             let (Ok(cursor), Ok(Some(primary))) = (app.cursor_position(), app.primary_monitor()) else { continue };
             let point = (cursor.x / primary.scale_factor(), cursor.y / primary.scale_factor());

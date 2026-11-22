@@ -16,6 +16,12 @@ const MAX_FPS = 30;
 /** The sleep loop barely moves; drawing it less often saves power while the pet naps. */
 const SLEEP_ACTION = "sleep";
 const SLEEP_MAX_FPS = 12;
+/**
+ * A single picture that only breathes (the idle pose) changes by about a pixel a frame: half the
+ * rate looks the same and halves what the app, the page and the GPU spend while the pet stands there.
+ */
+const CALM_MAX_FPS = 15;
+const CALM_MOTIONS: ReadonlySet<string | undefined> = new Set([undefined, "none", "breathe"]);
 /** A `randomFlip` action faces either way equally often. */
 const FLIP_CHANCE = 0.5;
 
@@ -215,7 +221,7 @@ export class PixiRenderer implements PetRenderer {
       this.layerSprites.push({ definition: layer.definition, frames: layer.frames, sprite });
     }
     this.scene.sortChildren();
-    if (this.app) this.app.ticker.maxFPS = animationId === SLEEP_ACTION ? SLEEP_MAX_FPS : MAX_FPS;
+    if (this.app) this.app.ticker.maxFPS = maxFps(animationId, animation);
     const carried = this.playback ? this.lastMotion : null;
     const facedLeft = this.facesLeft();
     this.playback = { animation, elapsedMs: 0 };
@@ -453,4 +459,10 @@ export class PixiRenderer implements PetRenderer {
     }
     this.layerSprites.length = 0;
   }
+}
+
+/** How often an action needs drawing: the nap and a still, breathing picture less than the rest. */
+function maxFps(animationId: string, { entry, frames, layers }: { entry: { motion?: string }; frames: readonly unknown[]; layers: readonly unknown[] }): number {
+  if (animationId === SLEEP_ACTION) return SLEEP_MAX_FPS;
+  return frames.length === 1 && layers.length === 0 && CALM_MOTIONS.has(entry.motion) ? CALM_MAX_FPS : MAX_FPS;
 }
