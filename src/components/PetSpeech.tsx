@@ -4,7 +4,7 @@ import { SpeechQueue, fitSpeech, speechDuration } from "../core/SpeechQueue";
 import { codingSessionsSnapshot, subscribeCodingSessions } from "../agents/codingStore";
 import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
-import { CodingCard } from "./CodingCard";
+import { CodingCard, codingHasNews, useCodingNow } from "./CodingCard";
 import { speechShown } from "./speechShown";
 
 interface PetSpeechProps {
@@ -99,6 +99,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   /** What the pet last said by itself, as the bubble shows it: a click on that line answers it. */
   const [ownLine, setOwnLine] = useState<string | null>(null);
   const coding = useSyncExternalStore(subscribeCodingSessions, codingSessionsSnapshot);
+  const codingNow = useCodingNow(coding);
 
   useEffect(() => {
     const queue = new SpeechQueue(setLine);
@@ -115,8 +116,9 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   }, [runtime]);
 
   const { line: passing, standing } = speechShown(line, alert, Boolean(reply));
-  // The coding card joins the row as soon as a session is known: with nothing going on it is a small way in.
-  const badgeShown = (chips.length > 0 || coding.length > 0) && !hideBadge;
+  // The coding card joins the row only while a session has something to say.
+  const codingShown = codingHasNews(coding, codingNow);
+  const badgeShown = (chips.length > 0 || codingShown) && !hideBadge;
   const idleShown = Boolean(idle) && passing === null && standing === null;
   const answerable = passing !== null && passing === ownLine;
   useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, answerable, onLayoutChange]);
@@ -130,7 +132,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
     <div ref={badgeRef} className="status-row">
       {chips.map((chip) => <Chip key={chip.activity?.id ?? chip.id} chip={chip} onFocusClick={() => runtime.bus.emit("pet.focus_badge_clicked", {})} onActivityClick={(id) => runtime.bus.emit("pet.activity_chip_clicked", { id })} />)}
       {/* Beside other pills, or with little room under the pet, it keeps to one line. */}
-      {coding.length > 0 && <CodingCard sessions={coding} compact={chips.length > 0 || Boolean(tight)} />}
+      {codingShown && <CodingCard sessions={coding} now={codingNow} compact={chips.length > 0 || Boolean(tight)} />}
     </div>
   );
   if (reply) {

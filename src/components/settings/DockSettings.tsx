@@ -17,6 +17,7 @@ const ICON_MAX_SIDE = 128;
 const ICON_OPTIONS: Record<DockCommand, ControlIconPreset[]> = {
   today_open: ["bell", "checklist", "timer"],
   notes_open: ["note", "clipboard", "book"],
+  coding_open: ["terminal", "sparkle", "chat"],
   settings_open: ["gear", "sliders"],
   focus_toggle: ["timer", "hourglass", "book"],
   feed: ["feed", "carrot", "gift"],
@@ -26,6 +27,7 @@ const ICON_OPTIONS: Record<DockCommand, ControlIconPreset[]> = {
 const DESCRIPTIONS: Record<DockCommand, string> = {
   today_open: "打开提醒列表",
   notes_open: "打开备忘列表",
+  coding_open: "打开 Claude Code 会话列表",
   settings_open: "打开设置",
   focus_toggle: "开始 25 分钟专注",
   feed: "给宠物喂点吃的",
@@ -35,7 +37,7 @@ const DESCRIPTIONS: Record<DockCommand, string> = {
 /** What each icon is called, for screen readers. */
 const ICON_NAMES: Record<ControlIconPreset, string> = {
   feed: "饭碗", carrot: "胡萝卜", gift: "礼物", wooden_fish: "木鱼", mallet: "木槌", bell: "铃铛", rest: "月亮", bed: "床",
-  sun: "太阳", timer: "计时器", hourglass: "沙漏", book: "书", sparkle: "星星", chat: "对话", checklist: "清单", note: "便签", clipboard: "剪贴板", gear: "齿轮", sliders: "滑块",
+  sun: "太阳", timer: "计时器", hourglass: "沙漏", book: "书", sparkle: "星星", chat: "对话", checklist: "清单", note: "便签", clipboard: "剪贴板", terminal: "终端", gear: "齿轮", sliders: "滑块",
 };
 
 type ControlItem = Extract<DockItem, { kind: "control" }>;

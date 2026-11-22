@@ -50,6 +50,7 @@ export const CONTROL_ICON_PRESETS = [
   "checklist",
   "note",
   "clipboard",
+  "terminal",
   "gear",
   "sliders",
 ] as const;

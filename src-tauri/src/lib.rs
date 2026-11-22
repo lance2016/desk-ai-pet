@@ -18,6 +18,8 @@ mod proxy;
 mod quick_chat;
 mod request_log;
 mod secrets;
+#[cfg(target_os = "macos")]
+mod split_highlight;
 mod system;
 mod translation;
 mod worklog;
@@ -53,6 +55,7 @@ const DND_ID: &str = "dnd";
 const QUIT_ID: &str = "quit";
 const SETTINGS_ID: &str = "settings";
 const NOTES_ID: &str = "notes";
+const CODING_ID: &str = "coding";
 const REVIEW_ID: &str = "review";
 const TRANSLATE_ID: &str = "translate";
 const MAIL_CODE_ID: &str = "mail_code";
@@ -202,6 +205,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let chat = item(CHAT_ID, "打开聊天窗口")?;
     let today = item(TODAY_ID, "提醒")?;
     let notes = item(NOTES_ID, "备忘")?;
+    let coding = item(CODING_ID, "Claude Code 会话")?;
     let review = item(REVIEW_ID, "今日回顾")?;
     let translate = item(TRANSLATE_ID, "翻译…")?;
     let mail_code = item(MAIL_CODE_ID, MAIL_CODE_LABEL)?;
@@ -230,6 +234,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &chat,
             &today,
             &notes,
+            &coding,
             &review,
             &translate,
             &mail_code,
@@ -335,9 +340,10 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             "emit focus event",
             app.emit_to(MAIN_WINDOW, FOCUS_EVENT, !menu.focus_running.load(Ordering::Relaxed)),
         ),
-        NOTES_ID => {
-            if let Err(error) = show_beside_pet(app, NOTES_WINDOW) {
-                log::warn!("failed to open notes: {error}");
+        NOTES_ID | CODING_ID => {
+            let label = if id == NOTES_ID { NOTES_WINDOW } else { CODING_WINDOW };
+            if let Err(error) = show_beside_pet(app, label) {
+                log::warn!("failed to open {label}: {error}");
             }
         }
         // The check mark has already been flipped by the time this fires.

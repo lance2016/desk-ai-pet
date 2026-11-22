@@ -11,8 +11,8 @@ const ids = (items: DockItem[]) => items.map((item) => `${item.kind}:${item.id}$
 
 describe("dock", () => {
   it("starts with the app buttons, then the character's", () => {
-    expect(ids(loadDock("girl", controls, actions, createMemoryStorage()))).toEqual(["control:today", "control:notes", "control:focus", "control:settings(off)"]);
-    expect(APP_CONTROLS.map((control) => control.command)).toEqual(["today_open", "notes_open", "settings_open"]);
+    expect(ids(loadDock("girl", controls, actions, createMemoryStorage()))).toEqual(["control:today", "control:notes", "control:focus", "control:coding(off)", "control:settings(off)"]);
+    expect(APP_CONTROLS.map((control) => control.command)).toEqual(["today_open", "notes_open", "coding_open", "settings_open"]);
   });
 
   it("saves order, visibility, labels and actions together", () => {
@@ -26,9 +26,9 @@ describe("dock", () => {
     ];
     saveDock("girl", items, storage);
     const loaded = loadDock("girl", controls, actions, storage);
-    expect(ids(loaded)).toEqual(["control:focus(off)", "action:happy", "control:today", "control:notes", "control:settings(off)"]);
+    expect(ids(loaded)).toEqual(["control:focus(off)", "action:happy", "control:today", "control:notes", "control:coding(off)", "control:settings(off)"]);
     expect(loaded[2]).toMatchObject({ kind: "control", label: "待办" });
-    expect(loadDock("cat", controls, actions, storage)).toHaveLength(4);
+    expect(loadDock("cat", controls, actions, storage)).toHaveLength(5);
   });
 
   it("renames app buttons the user never renamed", () => {
@@ -52,7 +52,7 @@ describe("dock", () => {
         { kind: "control", id: "chat", label: "聊天", icon: "chat", enabled: true },
       ]),
     });
-    expect(ids(loadDock("girl", controls, actions, storage))).toEqual(["control:today", "control:notes", "control:focus", "control:settings(off)"]);
+    expect(ids(loadDock("girl", controls, actions, storage))).toEqual(["control:today", "control:notes", "control:focus", "control:coding(off)", "control:settings(off)"]);
   });
 
   it("keeps an empty label from being saved", () => {
@@ -68,7 +68,7 @@ describe("dock", () => {
       [characterKey("girl", CHARACTER_DATA.actionShortcuts)]: JSON.stringify(["happy"]),
     });
     const items = loadDock("girl", controls, actions, storage);
-    expect(ids(items)).toEqual(["control:today", "control:notes", "control:focus(off)", "action:happy", "control:settings(off)"]);
+    expect(ids(items)).toEqual(["control:today", "control:notes", "control:focus(off)", "action:happy", "control:coding(off)", "control:settings(off)"]);
     expect(items[2]).toMatchObject({ label: "番茄", icon: "hourglass" });
   });
 
@@ -78,17 +78,17 @@ describe("dock", () => {
     expect(ids(added).slice(-1)[0]).toBe("action:happy");
     expect(ids(setDockAction(added, "happy", false)).slice(-1)[0]).toBe("action:happy(off)");
     expect(ids(setDockAction(setDockAction(added, "happy", false), "happy", true)).slice(-1)[0]).toBe("action:happy");
-    expect(base).toHaveLength(4);
+    expect(base).toHaveLength(5);
   });
 
   it("forgets every change on reset", () => {
     const storage = createMemoryStorage({ [characterKey("girl", CHARACTER_DATA.actionShortcuts)]: JSON.stringify(["happy"]) });
     saveDock("girl", [], storage);
     resetDock("girl", storage);
-    expect(ids(loadDock("girl", controls, actions, storage))).toEqual(["control:today", "control:notes", "control:focus", "control:settings(off)"]);
+    expect(ids(loadDock("girl", controls, actions, storage))).toEqual(["control:today", "control:notes", "control:focus", "control:coding(off)", "control:settings(off)"]);
   });
 
-  it("adds the settings button turned off to a saved dock, and keeps it on once shown", () => {
+  it("adds the coding and settings buttons turned off to a saved dock, and keeps it on once shown", () => {
     const storage = createMemoryStorage({
       [characterKey("girl", CHARACTER_DATA.dock)]: JSON.stringify([
         { kind: "control", id: "today", label: "提醒", icon: "bell", enabled: true },
@@ -96,7 +96,7 @@ describe("dock", () => {
       ]),
     });
     const items = loadDock("girl", controls, actions, storage);
-    expect(ids(items)).toEqual(["control:today", "control:focus", "control:notes", "control:settings(off)"]);
+    expect(ids(items)).toEqual(["control:today", "control:focus", "control:notes", "control:coding(off)", "control:settings(off)"]);
     saveDock("girl", items.map((item) => (item.id === "settings" ? { ...item, enabled: true } : item)), storage);
     expect(ids(loadDock("girl", controls, actions, storage)).slice(-1)[0]).toBe("control:settings");
   });

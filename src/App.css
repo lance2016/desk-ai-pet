@@ -444,9 +444,8 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .coding-card__head .status-chip__dot { margin: 0 2px; }
 .coding-mark { flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .coding-mark--quiet { box-sizing: border-box; width: 6px; height: 6px; margin: 0 3px; border: 1.5px solid currentColor; border-radius: 50%; opacity: .6; }
-/* One line: beside other pills, at a screen edge, or with nothing going on. */
+/* One line: beside other pills, or at a screen edge. */
 .coding-pill { max-width: 208px; padding-left: 6px; }
-.coding-pill:not([class*="coding-pill--"]) { padding-left: 9px; color: var(--ui-text-muted); }
 .coding-pill__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .coding-pill__more { flex: none; color: var(--ui-text-muted); }
 

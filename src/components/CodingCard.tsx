@@ -7,6 +7,13 @@ import { useNow } from "./useNow";
 /** Whole minutes are shown, and a result stops being news after a few of them. */
 const TICK_MS = 15_000;
 
+/** The time the card goes by, kept up to date while a session is at work or has news that will go stale. */
+export const useCodingNow = (sessions: readonly CodingSession[]): number =>
+  useNow(sessions.some((session) => session.turnEndedAt !== undefined || session.turn === "working"), TICK_MS);
+
+/** Whether the card has anything to say: a session at work, waiting for the user, or just done. */
+export const codingHasNews = (sessions: readonly CodingSession[], now: number): boolean => overview(sessions, now).headline !== null;
+
 const openCoding = () => void petWindow.openCoding().catch((error: unknown) => console.error("Failed to open the coding sessions", error));
 
 /** How the session's turn stands, as a small mark: spinning while it works, still otherwise. */
@@ -52,17 +59,16 @@ function Full({ title, line }: { title: string; line: string }) {
 /**
  * Claude Code's sessions under the quick buttons, as one card about the session
  * that most needs the user: who it is and how things stand, what it is about,
- * and where. With nothing going on it is a small pill, and beside other pills
- * it keeps to one line. A click opens all the sessions.
+ * and where. Beside other pills it keeps to one line. With nothing going on it
+ * is not there: the sessions are a quick button or a menu item away. A click opens all the sessions.
  */
-export function CodingCard({ sessions, compact }: { sessions: readonly CodingSession[]; compact: boolean }) {
-  const now = useNow(sessions.some((session) => session.turnEndedAt !== undefined || session.turn === "working"), TICK_MS);
+export function CodingCard({ sessions, compact, now }: { sessions: readonly CodingSession[]; compact: boolean; now: number }) {
   const titleRef = useRef<HTMLElement>(null);
   const metaRef = useRef<HTMLElement>(null);
   const cut = useCut([titleRef, metaRef]);
   const view = overview(sessions, now);
   const head = view.headline;
-  if (!head) return <button type="button" className="status-chip coding-pill" title="看看 Claude Code 的会话" onClick={openCoding}>Claude Code</button>;
+  if (!head) return null;
 
   const title = sessionTitle(head);
   const state = standing(view, head, now);

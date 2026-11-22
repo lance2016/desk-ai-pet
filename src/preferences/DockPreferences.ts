@@ -7,7 +7,7 @@ import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
 
 /**
  * The bar under the pet: one ordered list of buttons. App
- * buttons (today, notes, settings) exist for every character; chat has its own button
+ * buttons (today, notes, coding, settings) exist for every character; chat has its own button
  * beside the pet (`ChatLauncher`), so a saved chat button is dropped. The character's own
  * buttons come from its manifest; actions are added from the action library.
  */
@@ -17,7 +17,7 @@ const MAX_LABEL_CHARS = 12;
 const MAX_ENTRIES = 120;
 const CUSTOM_ICON_DATA_URL = /^data:image\/(png|jpeg|webp);base64,/;
 
-export type DockCommand = PetControl["command"] | "today_open" | "notes_open" | "settings_open";
+export type DockCommand = PetControl["command"] | "today_open" | "notes_open" | "coding_open" | "settings_open";
 
 /** A button's defaults, before the user's changes. */
 export interface DockControl {
@@ -35,11 +35,12 @@ export type DockItem =
 export const APP_CONTROLS: readonly DockControl[] = [
   { id: "today", label: "提醒", icon: "bell", command: "today_open" },
   { id: "notes", label: "备忘", icon: "note", command: "notes_open" },
+  { id: "coding", label: "Claude Code", icon: "terminal", command: "coding_open" },
   { id: "settings", label: "设置", icon: "gear", command: "settings_open" },
 ];
 
 /** App buttons that start hidden: they are rarely used, and the bar has room for only a few. */
-const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["settings"]);
+const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["coding", "settings"]);
 
 /** Defaults the app buttons had before; saved ones that still match them follow the new defaults. */
 const FORMER_DEFAULTS: Record<string, { label: string; icon?: string }> = {

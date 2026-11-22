@@ -83,36 +83,40 @@ const GHOSTTY: &str = "com.mitchellh.ghostty";
 /// The hook runs a shell that runs it, under Claude Code: that many processes up at most to find the terminal.
 const TTY_ANCESTORS: usize = 4;
 /// Focuses the Ghostty terminal on the device given as the only argument: its window, its tab and its split.
-/// Never compiled from a string with the device in it. Ghostty's `focus` (1.4) does not unzoom: when another
-/// split of the tab is zoomed the focus stays put, so that split is unzoomed first, as Ghostty does itself when
-/// moving between splits (`split-preserve-zoom` left at its default). If the focus still does not move, the zoom
-/// is put back. `focus` returns before it is done, hence the pauses.
+/// Never compiled from a string with the device in it. Ghostty lists its windows front to back and `repeat with`
+/// hands out references by position, so once a window is focused the same reference means another window:
+/// the terminal, its tab and its window are found by their stable ids first, and only those ids are used after.
+/// Ghostty's `focus` (1.4) does not unzoom: when another split of the tab is zoomed the focus stays put, so that
+/// split is unzoomed first, as Ghostty does itself when moving between splits (`split-preserve-zoom` left at its
+/// default). If the focus still does not move, the zoom is put back. `focus` returns before it is done, hence the pauses.
 const GHOSTTY_FOCUS: &str = r#"on run argv
   set wanted to item 1 of argv
   tell application id "com.mitchellh.ghostty"
+    set found to missing value
     repeat with w in windows
       repeat with tb in tabs of w
         repeat with candidate in terminals of tb
-          if tty of candidate is wanted then
-            set target to id of candidate
-            focus candidate
-            delay 0.3
-            if id of focused terminal of tb is not target then
-              set shown to focused terminal of tb
-              perform action "toggle_split_zoom" on shown
-              delay 0.3
-              focus candidate
-              delay 0.3
-              if id of focused terminal of tb is not target then perform action "toggle_split_zoom" on shown
-            end if
-            activate
-            return "focused"
-          end if
+          if found is missing value and tty of candidate is wanted then set found to {id of w, id of tb, id of candidate}
         end repeat
       end repeat
     end repeat
+    if found is missing value then return "missing"
+    set {windowId, tabId, targetId} to found
+    set target to terminal id targetId
+    set place to tab id tabId of window id windowId
+    focus target
+    delay 0.3
+    if id of focused terminal of place is not targetId then
+      set shown to terminal id (id of focused terminal of place)
+      perform action "toggle_split_zoom" on shown
+      delay 0.3
+      focus target
+      delay 0.3
+      if id of focused terminal of place is not targetId then perform action "toggle_split_zoom" on shown
+    end if
+    activate
+    return "focused"
   end tell
-  return "missing"
 end run"#;
 /// The end of the transcript looked at; the lines after an interruption are short.
 const TAIL_BYTES: u64 = 64 * 1024;
@@ -627,7 +631,11 @@ pub async fn agent_reveal(app: AppHandle, session: String) -> Result<(), String>
     let host = host.ok_or(NOT_FOUND)?;
     if let (GHOSTTY, Some(tty)) = (host.as_str(), tty.as_deref()) {
         match focus_ghostty(tty) {
-            Ok(true) => return Ok(()),
+            Ok(true) => {
+                #[cfg(target_os = "macos")]
+                crate::split_highlight::flash(&app, GHOSTTY);
+                return Ok(());
+            }
             // Closed since, or the user said no to letting AI Pet control Ghostty: the app is the next best thing.
             Ok(false) => log::warn!("No Ghostty terminal on the session's device any more; bringing Ghostty forward"),
             Err(error) => log::warn!("Could not focus the session's Ghostty terminal: {error}"),
