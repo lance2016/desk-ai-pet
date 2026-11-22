@@ -153,7 +153,7 @@
       "tier": "interactive",
       "scene": "tasks",
       "label": "记一笔",
-      "description": "新加了提醒或备忘时，你自己加的、AI 记的都算",
+      "description": "新加了提醒或备忘时，你自己加的、AI 记的都算；Claude Code 开始干活时也写一下",
       "pose": "站着，一只手托着翻开的小本子，另一只手拿笔正在写，低头看着本子，神情认真，嘴角带一点笑。",
       "motion": "tilt",
       "duration": 2200,

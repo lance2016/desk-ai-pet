@@ -1,0 +1,94 @@
+/*
+ * The coding panel is a sibling of the today and notes panels: same popover
+ * material, tokens and HUD from TodayPanel.css. Only what differs is here.
+ */
+.coding-panel {
+  --amber: #a15c00;
+  --green: #1f8a4c;
+}
+@media (prefers-color-scheme: dark) {
+  .coding-panel {
+    --amber: #f0b45a;
+    --green: #62cf8d;
+  }
+}
+
+/* The first group sits right under the header. */
+.coding-panel .today-list > .today-section:first-child { margin-top: 4px; }
+
+/* A session is one big target: its mark, then what it is about, where, and how it stands. */
+.coding-row { align-items: stretch; padding: 0; }
+.coding-row + .coding-row::before { left: 34px; }
+.coding-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-row);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.coding-row__main:focus-visible, .coding-notice button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-row__main:active { background: var(--fill-strong); }
+/* The mark sits on the title's line. */
+.coding-row__mark { flex: none; width: 18px; height: 18px; display: grid; place-items: center; color: var(--label-3); }
+.coding-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.coding-row__top { display: flex; align-items: flex-start; gap: 8px; }
+/* A long title takes a second line rather than being cut at once. */
+.coding-row__top strong {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 500;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.coding-row__time { flex: none; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 18px; white-space: nowrap; }
+.coding-row__where { overflow: hidden; color: var(--label-2); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.coding-row__line {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--label-2);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+/* Only what needs the user, or went wrong, takes a colour. */
+.coding-row--working .coding-row__mark { color: var(--accent); }
+.coding-row--working .coding-row__line { color: var(--label); }
+.coding-row--waiting :is(.coding-row__mark, .coding-row__line, .coding-row__time) { color: var(--amber); }
+.coding-row--failed :is(.coding-row__mark, .coding-row__line) { color: var(--red); }
+.coding-row--completed .coding-row__mark { color: var(--green); }
+.coding-panel .status-chip__spinner { border-color: var(--accent-wash); border-top-color: var(--accent); }
+
+/* Copying the command that reopens the session waits at the right edge until the row is pointed at. */
+.coding-row__tools { position: absolute; top: 4px; right: 4px; display: flex; opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
+.coding-row:hover .coding-row__tools, .coding-row__tools:focus-within { opacity: 1; }
+/* The button takes the time's place, and the title gives way to it. */
+.coding-row:hover .coding-row__time, .coding-row:focus-within .coding-row__time { display: none; }
+.coding-row:has(.coding-row__tools):is(:hover, :focus-within) .coding-row__top { padding-right: 24px; }
+.coding-tool { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-control); cursor: default; }
+.coding-tool:hover { color: var(--label); background: var(--fill-strong); }
+.coding-tool:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-row__tools .today-glyph { width: 14px; height: 14px; }
+
+/* Said once above the list, as plain words: the sessions below may be out of date. */
+.coding-notice { display: flex; align-items: center; gap: 8px; margin: 0 8px 4px; color: var(--label-2); font-size: 12px; }
+.coding-notice button { flex: none; height: 24px; margin-left: auto; padding: 0 8px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font: inherit; font-weight: 500; cursor: default; }
+.coding-notice button:hover { background: var(--fill-strong); }
+.coding-panel .today-empty p { text-wrap: balance; }
+.coding-connect { margin-top: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .coding-row__tools { transition: none; }
+}

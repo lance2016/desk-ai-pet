@@ -1,8 +1,10 @@
-import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
 import { SpeechQueue, fitSpeech, speechDuration } from "../core/SpeechQueue";
+import { codingSessionsSnapshot, subscribeCodingSessions } from "../agents/codingStore";
 import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
+import { CodingCard } from "./CodingCard";
 import { speechShown } from "./speechShown";
 
 interface PetSpeechProps {
@@ -18,6 +20,8 @@ interface PetSpeechProps {
   /** Shown above the pet only while nothing is said there, such as the chat button. */
   idle?: ReactNode;
   hideBadge?: boolean;
+  /** There is little room under the pet (at a screen edge, or with the window hanging off the bottom): the coding card keeps to one line. */
+  tight?: boolean;
 }
 
 type StandingAlert = PetEvents["pet.alert"] & { text: string };
@@ -88,12 +92,13 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
  * until one of its buttons is. A line the pet said by itself can be clicked to
  * answer it. Each part of the status row does its own thing.
  */
-export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge }: PetSpeechProps) {
+export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge, tight }: PetSpeechProps) {
   const [line, setLine] = useState<string | null>(null);
   const [alert, setAlert] = useState<StandingAlert | null>(null);
   const [chips, setChips] = useState<StatusChip[]>([]);
   /** What the pet last said by itself, as the bubble shows it: a click on that line answers it. */
   const [ownLine, setOwnLine] = useState<string | null>(null);
+  const coding = useSyncExternalStore(subscribeCodingSessions, codingSessionsSnapshot);
 
   useEffect(() => {
     const queue = new SpeechQueue(setLine);
@@ -110,7 +115,8 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   }, [runtime]);
 
   const { line: passing, standing } = speechShown(line, alert, Boolean(reply));
-  const badgeShown = chips.length > 0 && !hideBadge;
+  // The coding card joins the row as soon as a session is known: with nothing going on it is a small way in.
+  const badgeShown = (chips.length > 0 || coding.length > 0) && !hideBadge;
   const idleShown = Boolean(idle) && passing === null && standing === null;
   const answerable = passing !== null && passing === ownLine;
   useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, answerable, onLayoutChange]);
@@ -123,6 +129,8 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   const statusRow = badgeShown && (
     <div ref={badgeRef} className="status-row">
       {chips.map((chip) => <Chip key={chip.activity?.id ?? chip.id} chip={chip} onFocusClick={() => runtime.bus.emit("pet.focus_badge_clicked", {})} onActivityClick={(id) => runtime.bus.emit("pet.activity_chip_clicked", { id })} />)}
+      {/* Beside other pills, or with little room under the pet, it keeps to one line. */}
+      {coding.length > 0 && <CodingCard sessions={coding} compact={chips.length > 0 || Boolean(tight)} />}
     </div>
   );
   if (reply) {
@@ -138,8 +146,8 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   const glyph = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
   const icon = reminder ? <span className="speech-bubble__tile">{glyph}</span> : glyph;
   const heading = standing?.heading && <span className="speech-bubble__heading">{standing.heading}</span>;
-  // A question about something other than reminders looks calm and holds still.
-  const look = reminder ? " speech-bubble--remind" : standing?.choices ? " speech-bubble--ask" : "";
+  // A question about something other than reminders looks calm and holds still. News with a way to it (an agent waiting) keeps the look of news.
+  const look = reminder ? " speech-bubble--remind" : standing?.choices && standing.icon !== "agent" ? " speech-bubble--ask" : "";
   const lastChoice = (standing?.choices?.length ?? 0) - 1;
   return (
     <>

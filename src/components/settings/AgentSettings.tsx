@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { agentPlatform, type ClaudeHooksState } from "../../platform/agents";
+import { loadCodingReactions, saveCodingReactions } from "../../preferences/CodingPreferences";
 import { ConfirmButton } from "../ConfirmButton";
 
 const HAS_CHINESE = /[一-鿿]/;
@@ -20,8 +21,8 @@ function ago(at: number, now: number): string {
 
 function describe(state: ClaudeHooksState | undefined, now: number): string {
   if (state === undefined) return "检查中";
-  if (!state.connected) return "连上后，宠物脚下会显示 Claude Code 在干活还是在等你";
-  if (!state.current) return "AI Pet 换了位置，重新连接一下才收得到";
+  if (!state.connected) return "连上后，宠物脚下会显示每个会话在做什么、哪个在等你";
+  if (!state.current) return "AI Pet 换了位置，或新版本多接了事件，重新连接一下才收得全";
   return state.lastReportAt === null ? "已连接，新开的 Claude Code 会话才会报上来" : `已连接，最近一次收到：${ago(state.lastReportAt, now)}`;
 }
 
@@ -30,6 +31,8 @@ export function AgentSettings() {
   const [state, setState] = useState<ClaudeHooksState | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [reacts, setReacts] = useState(loadCodingReactions);
+  const toggleReacts = () => { saveCodingReactions(!reacts); setReacts(!reacts); };
   const refresh = useCallback(() => agentPlatform.state().then(setState).catch((reason: unknown) => setStatus(failure(reason, "读取 Claude Code 设置"))), []);
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -46,7 +49,7 @@ export function AgentSettings() {
     ? (
       <ConfirmButton className="settings-button settings-button--small" disabled={busy || state === undefined} confirm={{
         message: state?.connected ? "重新连接 Claude Code？" : "连接 Claude Code？",
-        detail: "会在 ~/.claude/settings.json 里加几条钩子，改之前先备份成 settings.json.ai-pet-backup。钩子在后台运行，不会拖慢 Claude Code；只报项目名、状态和工具名，不报你说的话、命令和代码。你自己的设置和别的钩子都不动，随时可以断开。",
+        detail: "会在 ~/.claude/settings.json 里加几条钩子，改之前先备份成 settings.json.ai-pet-backup。钩子在后台运行，不会拖慢 Claude Code。它只把这些交给宠物，都留在这台电脑上：项目名和分支、你每次输入的第一行（当任务名）、工具名和它在改的文件名、Claude 最后一条回复的第一行。命令、代码和工具输出不报。你自己的设置和别的钩子都不动，随时可以断开。",
         action: state?.connected ? "重新连接" : "连接",
       }} onConfirm={connect}>{state?.connected ? "重新连接" : "连接"}</ConfirmButton>
     )
@@ -58,6 +61,10 @@ export function AgentSettings() {
       <div className="settings-row">
         <div className="settings-row__body"><strong>Claude Code</strong><span>{describe(state, Date.now())}</span></div>
         {action}
+      </div>
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>宠物跟着反应</strong><span>有会话等你、做完或出错时，宠物会做动作、说一句。关掉后只在脚下的卡片上显示</span></div>
+        <button type="button" role="switch" aria-label="宠物跟着反应" aria-checked={reacts} className={reacts ? "toggle is-on" : "toggle"} onClick={toggleReacts}><span /></button>
       </div>
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}

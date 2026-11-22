@@ -82,8 +82,9 @@ const SETTINGS_WINDOW: &str = "settings";
 const CHAT_WINDOW: &str = "chat";
 const TODAY_WINDOW: &str = "today";
 const NOTES_WINDOW: &str = "notes";
-/// The reminder and note popovers: only one is open at a time, and a click outside puts both away.
-const POPOVERS: [&str; 2] = [TODAY_WINDOW, NOTES_WINDOW];
+const CODING_WINDOW: &str = "coding";
+/// The reminder, note and coding popovers: only one is open at a time, and a click outside puts them away.
+const POPOVERS: [&str; 3] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW];
 /// After a popover loses focus, how long to wait before putting away every popover without it:
 /// by then the window that took the focus has it, so the one the user just opened is kept.
 const POPOVER_SWEEP_DELAY: std::time::Duration = std::time::Duration::from_millis(150);
@@ -626,6 +627,12 @@ fn open_notes(app: AppHandle) -> Result<(), String> {
     show_beside_pet(&app, NOTES_WINDOW)
 }
 
+/// Opens the Claude Code sessions beside the pet.
+#[tauri::command]
+fn open_coding(app: AppHandle) -> Result<(), String> {
+    show_beside_pet(&app, CODING_WINDOW)
+}
+
 /// Shows the settings window, optionally on one section, such as "ai" from the chat window.
 #[tauri::command]
 fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> {
@@ -736,7 +743,7 @@ pub fn run() {
                     }
                 });
             }
-            // The today and notes panels behave like popovers: they go away when they lose focus.
+            // The today, notes and coding panels behave like popovers: they go away when they lose focus.
             for label in POPOVERS {
                 if let Some(panel) = app.get_webview_window(label) {
                     #[cfg(target_os = "macos")]
@@ -806,6 +813,7 @@ pub fn run() {
             open_chat,
             open_today,
             open_notes,
+            open_coding,
             open_settings,
             set_pet_dnd,
             quick_chat::set_quick_chat_shortcut,
@@ -836,7 +844,9 @@ pub fn run() {
             mail_code::mail_remove_account,
             mail_code::mail_code_cancel,
             mail_code::mail_code_try,
-            agent_hooks::agent_interrupted,
+            agent_hooks::agent_turn_over,
+            agent_hooks::agent_title,
+            agent_hooks::agent_reveal,
             claude_settings::claude_hooks_state,
             claude_settings::claude_hooks_connect,
             claude_settings::claude_hooks_disconnect,

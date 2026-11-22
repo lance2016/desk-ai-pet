@@ -38,7 +38,7 @@ import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
 import { mailCodePlatform } from "./platform/mailCode";
 import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivity";
-import { followClaude } from "./agents/followClaude";
+import { followClaude, revealClaude } from "./agents/followClaude";
 import { STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
 import { PixiRenderer } from "./renderer/PixiRenderer";
 import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
@@ -470,10 +470,15 @@ export default function App({ packId }: AppProps) {
     return () => stops.forEach((stop) => stop());
   }, [runtime]);
 
-  // Claude Code sessions, from its hooks: a chip while one works, a line when one waits for the user or is done.
+  // Claude Code sessions, from its hooks: the coding card shows them, and the pet reacts when one waits for the user or is done.
+  // "回到终端" on the pet's line about a session brings its terminal forward.
   useEffect(() => {
     if (!runtime) return;
-    return followClaude((update) => runtime.bus.emit("pet.activity", update));
+    const stops = [
+      followClaude((update) => runtime.bus.emit("pet.activity", update)),
+      runtime.bus.on("pet.activity_opened", ({ id }) => revealClaude(id)),
+    ];
+    return () => stops.forEach((stop) => stop());
   }, [runtime]);
 
   // The global quick chat shortcut. Settings changes it directly; this restores it at launch.
@@ -671,7 +676,8 @@ export default function App({ packId }: AppProps) {
       runtime.bus.on("pet.dock_changed", schedule),
     ];
     const observer = new ResizeObserver(schedule);
-    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current]) if (element) observer.observe(element);
+    // The status row widens when a chip starts showing minutes.
+    for (const element of [controlsRef.current, quickBarRef.current, quickReplyRef.current, launcherRef.current, badgeRef.current]) if (element) observer.observe(element);
     const controlsElement = controlsRef.current;
     const controlsMutations = controlsElement ? new MutationObserver(schedule) : null;
     controlsMutations?.observe(controlsElement!, { childList: true, subtree: true, attributes: true });
@@ -722,7 +728,7 @@ export default function App({ packId }: AppProps) {
         {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
       {runtime && barShown && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}

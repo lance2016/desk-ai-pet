@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>点 Claude Code 的会话时，AI Pet 请 Ghostty 切到运行这个会话的那个窗口和标签页。</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>AI Pet 使用麦克风录制你主动说出的语音，以便转换为文字并发送给 MiMo 识别。</string>
 </dict>

@@ -1277,6 +1277,57 @@ describe("activities", () => {
     expect(last(badges)).toBe("Claude");
   });
 
+  it("sits down to write when an agent sets to work, once, and not for each agent or soon again", () => {
+    const { bus, renderer, badges, pass } = withScenes();
+    const coding = (id: string, state: ActivityUpdate["state"]): ActivityUpdate => ({ id, state, label: "ai-pet", icon: "agent", noChip: true });
+    bus.emit("pet.activity", coding("claude:a", "running"));
+    expect(renderer.last).toBe("write");
+    // Shown on the coding card, so no chip of its own.
+    expect(badges).toEqual([]);
+    pass(5_000);
+    expect(renderer.last).toBe("idle");
+    bus.emit("pet.activity", coding("claude:b", "running"));
+    expect(renderer.last).toBe("idle");
+    // Both stop and one starts again a moment later: too soon to look up for.
+    bus.emit("pet.activity", coding("claude:a", "cancelled"));
+    bus.emit("pet.activity", coding("claude:b", "cancelled"));
+    bus.emit("pet.activity", coding("claude:a", "running"));
+    expect(renderer.last).toBe("idle");
+    bus.emit("pet.activity", coding("claude:a", "cancelled"));
+    pass(BEHAVIOR_CONFIG.agentWorkGapMs);
+    // It dozed off meanwhile, and is not woken for this; once up, the next start counts again.
+    bus.emit("pet.activity", coding("claude:a", "running"));
+    expect(renderer.last).toBe("sleep");
+    bus.emit("pet.activity", coding("claude:a", "cancelled"));
+    bus.emit("pet.wake_up", {});
+    pass(BEHAVIOR_CONFIG.agentWorkGapMs / 2);
+    bus.emit("pet.wake_up", {});
+    pass(BEHAVIOR_CONFIG.agentWorkGapMs / 2);
+    bus.emit("pet.wake_up", {});
+    pass(5_000);
+    bus.emit("pet.activity", coding("claude:a", "running"));
+    expect(renderer.last).toBe("write");
+    // Something else running, such as a wait for a mail code, is not work to sit down for.
+    const other = withScenes();
+    other.bus.emit("pet.activity", agent("running"));
+    expect(other.renderer.last).toBe("idle");
+  });
+
+  it("puts a button on an activity's line that names it for its reporter, then puts the line away", () => {
+    const { bus } = withScenes();
+    const shown = watchAlert(bus);
+    const opened: string[] = [];
+    bus.on("pet.activity_opened", ({ id }) => opened.push(id));
+    bus.emit("pet.activity", agent("waiting", { id: "claude:a", text: "ai-pet 里的 Claude 有话问你", opens: "回到终端" }));
+    expect(last(shown)).toMatchObject({ text: "ai-pet 里的 Claude 有话问你", choices: [{ label: "收起", event: "pet.alert_dismissed" }, { label: "回到终端", event: "pet.activity_open_requested" }] });
+    bus.emit("pet.activity_open_requested", {});
+    expect(opened).toEqual(["claude:a"]);
+    expect(last(shown)?.text).toBeNull();
+    // Nothing on the line: nothing to open.
+    bus.emit("pet.activity_open_requested", {});
+    expect(opened).toHaveLength(1);
+  });
+
   it("wakes the pet for an activity that waits for the user or is done", () => {
     for (const state of ["waiting", "done"] as const) {
       const { bus, state: pet } = withScenes();

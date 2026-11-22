@@ -27,6 +27,11 @@ src/
 │   ├── Activity.ts          外来活动上报的校验（`activityUpdateSchema`）和长度上限
 │   ├── ActivityBoard.ts     进行中的事：哪些有徽标、现在该把哪一件放进常驻气泡
 │   └── mailCodeActivity.ts  「查收验证码」的每一步对应哪个活动状态、说哪句话
+├── agents/
+│   ├── CodingSession.ts     一个编码会话的数据（Zod 校验）、排序和状态用词
+│   ├── ClaudeSessions.ts    会话管理：把 Claude Code 的钩子事件变成会话和活动，处理乱序、打断、超时
+│   ├── codingStore.ts       会话存本机，宠物窗口和 coding 窗口共用
+│   └── followClaude.ts      把会话管理接到平台事件、存储、活动和工作日志上
 ├── renderer/
 │   ├── PetRenderer.ts       渲染接口
 │   ├── PixiRenderer.ts      PixiJS 实现
@@ -200,8 +205,10 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.chat_phase` | `{ phase: "idle" \| "listening" \| "thinking" \| "talking" \| "failed" }`，对话进行到哪一步 | `useQuickChat`、`App`（转发聊天窗口的） |
 | `pet.noted` | 无，新增了一条提醒或备忘 | `App`（比较存储变化） |
 | `pet.item_done` | 无，勾掉了一条提醒 | `App`（比较存储变化） |
-| `pet.activity` | `ActivityUpdate`：`{ id, state, label, icon, text?, cancellable? }`，一件进行中的事走到哪了；`state` 只有 `running`、`waiting`（等用户确认）、`done`、`failed`、`cancelled`，见「活动」 | `App`（把「查收验证码」的原生事件用 `mailCodeActivity` 转过来） |
+| `pet.activity` | `ActivityUpdate`：`{ id, state, label, icon, text?, cancellable?, noChip?, opens? }`，一件进行中的事走到哪了；`state` 只有 `running`、`waiting`（等用户确认）、`done`、`failed`、`cancelled`，见「活动」 | `App`（把「查收验证码」的原生事件用 `mailCodeActivity` 转过来） |
 | `pet.activity_chip_clicked` | `{ id }`，点了某个可取消活动的徽标；谁上报的这件事，谁负责停掉它 | `PetSpeech` |
+| `pet.activity_open_requested` | `{}`，点了活动常驻气泡上的 `opens` 按钮 | `PetSpeech` |
+| `pet.activity_opened` | `{ id }`，带用户去这件事那里（如 Claude Code 会话的终端）；谁上报的这件事，谁去做 | `BehaviorEngine` |
 | `pet.hovered` | 无，光标移到了宠物上 | `App` |
 | `pet.user_active` | `{ at }`，用户最近一次碰键盘或鼠标的时间（任何应用里），每 10 秒读一次系统空闲时长 | `App` |
 | `pet.drag_started` | 无 | `PetStage` |
@@ -282,13 +289,13 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 ## 舞台
 
-宠物窗口比角色大，是一块透明舞台。角色区域四周的留白由 `STAGE_MARGIN`（`platform/stageGeometry.ts`）定义：两侧让聊天按钮和较宽的气泡放得下，头顶放气泡，脚下放快捷按钮底栏或快速聊天输入条（同一时间只有一个）。窗口大小等于角色区域（清单 `canvas` × `scale` × 用户尺寸）加上留白。
+宠物窗口比角色大，是一块透明舞台。角色区域四周的留白由 `STAGE_MARGIN`（`platform/stageGeometry.ts`）定义：两侧让聊天按钮和较宽的气泡放得下，头顶放气泡，脚下放快捷按钮底栏或快速聊天输入条（同一时间只有一个），底栏下面是状态行和 Coding 状态卡（底栏始终紧贴脚下，状态行从底栏下沿往下排）。窗口大小等于角色区域（清单 `canvas` × `scale` × 用户尺寸）加上留白。
 
 - 渲染画布只占角色区域（`.pet-frame`），点击检测和动作轮廓都相对于它计算；命中区域表按留白偏移后再放进整窗。
 - 限制在屏幕内、判断贴边、贴边对齐都按角色区域计算，窗口的留白可以伸出屏幕。几何计算是 `stageGeometry.ts` 里的纯函数。
 - 窗口伸出屏幕的宽度通过 `petWindow.offscreenInsets()` 读出，写进 `--visible-left`、`--visible-right`。气泡和底栏只在屏幕可见的范围内布局，宠物贴边时底栏和聊天按钮都收起。
 - 探头时气泡及状态徽标靠近对应屏幕边缘，气泡尾巴指向角色；贴边状态变化时重新计算提醒气泡的可点击区域。
-- 普通气泡只显示，不接收鼠标，不进入命中区域表。底栏（平时半透明也照样能点）和打开的「互动」菜单、聊天按钮、常驻气泡和状态行显示时加入命中区域表；状态行里每一块各管各的：专注和休息倒计时发 `pet.focus_badge_clicked`，「提醒 N」打开提醒面板，活动的小块在可取消时发 `pet.activity_chip_clicked`（「等验证码」由 `App` 调 `mail_code_cancel`），不可取消时只是标签，「勿扰」也只是标签。状态行在底栏上方；专注时底栏收起，它落到水波下方（`.app--focus`）；贴边时回到窗口底部。
+- 普通气泡只显示，不接收鼠标，不进入命中区域表。底栏（平时半透明也照样能点）和打开的「互动」菜单、聊天按钮、常驻气泡和状态行显示时加入命中区域表；状态行里每一块各管各的：专注和休息倒计时发 `pet.focus_badge_clicked`，「提醒 N」打开提醒面板，活动的小块在可取消时发 `pet.activity_chip_clicked`（「等验证码」由 `App` 调 `mail_code_cancel`），不可取消时只是标签；Claude Code 的会话不出小块，合成一张状态卡，见「Claude Code 的状态」，「勿扰」也只是标签。状态行在底栏下面，上沿固定在窗口底部往上 72px 处，往下排：底部留白（`STAGE_MARGIN.bottom`）是 132px，底栏中心固定在脚下 33px（`.dock-area`），按钮顶到脚是 10～14px，按钮底到状态行留 8～12px，三行的状态卡（66px 高）正好放进剩下的空间。窗口伸出屏幕下沿时，头 46px 什么都不用动（这时状态卡收成一行，下面本来就空着），再多才把底栏和状态行一起往上推（`--overhang`），所以宠物站在屏幕最下面时，底栏盖住它的高度和以前一样。以前它在底栏上方，压着鞋、贴着按钮，按钮的悬停标签还会盖住它。状态行的大小会变（多一块、状态卡展开或收成一行），所以它也在命中区域的 `ResizeObserver` 里。专注时底栏收起，它上移到水波下方（`.app--focus`）；贴边时在原来底栏的高度、靠屏幕里面的那个角。
 - `SpeechQueue` 一次只显示一句，按字数决定停留时间（2.5～8 秒），最多排队 3 句，超出时丢掉最早排队的。
 
 ## 专注陪伴
@@ -311,7 +318,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 一件在宠物之外进行的事（等验证码，以后的编码 Agent）用「活动」告诉宠物。上报方只说事情走到哪了，宠物怎么表现由 `BehaviorEngine` 统一决定。不做任务规划，宠物也不替用户确认。
 
-- **上报。** 往总线发 `pet.activity`，内容是 `ActivityUpdate`：`id`（同一件事用同一个，新的一条替换旧的）、`state`、`label`（徽标上的几个字）、`icon`（常驻气泡的图标，取值是 `ALERT_ICONS`）、可选的 `text`（常驻气泡里的话）和 `cancellable`。来自宠物窗口之外的上报（原生事件、别的程序）先用 `activityUpdateSchema`（`src/activity/Activity.ts`）校验，长度上限在 `ACTIVITY_LIMITS`。
+- **上报。** 往总线发 `pet.activity`，内容是 `ActivityUpdate`：`id`（同一件事用同一个，新的一条替换旧的）、`state`、`label`（徽标上的几个字）、`icon`（常驻气泡的图标，取值是 `ALERT_ICONS`）、可选的 `text`（常驻气泡里的话）、`cancellable`、`noChip`（这件事在别处有自己的显示，状态行里不出徽标；Claude Code 的会话都带）和 `opens`（常驻气泡上加一个这样写的按钮，左边是「收起」；点它发 `pet.activity_open_requested`，引擎认出气泡上是哪一件，发 `pet.activity_opened { id }` 并收起气泡，由上报方自己去做）。来自宠物窗口之外的上报（原生事件、别的程序）先用 `activityUpdateSchema`（`src/activity/Activity.ts`）校验，长度上限在 `ACTIVITY_LIMITS`。
 - **五个状态。**
 
   | `state` | 徽标 | 常驻气泡 | 宠物的反应 |
@@ -322,6 +329,8 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
   | `failed` 失败 | 去掉 | `text` | 播 `confused`，不叫醒、不从边上出来 |
   | `cancelled` 取消 | 去掉 | 没有，并收起这件事已有的气泡 | 没有 |
 
+  图标是 `agent` 的活动（编码 Agent）多一条：之前没有 Agent 在跑、这一个开始 `running` 时，宠物播一次 `write`，不叫醒、不从边上出来；之后陆续开工的不再播，两次之间至少隔 10 分钟（`BEHAVIOR_CONFIG.agentWorkGapMs`）。
+
 - **记账。** `ActivityBoard`（`src/activity/ActivityBoard.ts`）只管记：哪些活动有徽标（`chips()`，先来的在前），现在该把哪一件放进常驻气泡（`notice()`，等用户确认的排在结果前面）。内容完全一样的重复上报不算数（`report()` 返回 `false`），宠物不会为同一件事叫两次。结果被点掉后这件事就忘了；等确认的被点掉后徽标还在，气泡不再出来，除非它换了一句话。只存在内存里，重启后没有。
 - **不受勿扰和专注限制。** 活动是用户自己发起的事，等确认和结果随时都叫。
 - **取消。** `cancellable` 的徽标是按钮，点一下发 `pet.activity_chip_clicked`。引擎不处理这个事件：上报方自己订阅，认出自己的 `id` 后去停，停完再报 `cancelled`。
@@ -329,14 +338,43 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 ### Claude Code 的状态
 
-宠物不内置编码 Agent，只接 Claude Code 自己的钩子，每个会话一个活动。
+宠物不内置编码 Agent，只接 Claude Code 自己的钩子。分三层：原生端收事件，`src/agents/` 把事件变成会话（`CodingSession`），界面只读会话，不碰钩子原文。
 
-- **转发。** 钩子执行的就是宠物的主程序：`ai-pet --agent-hook claude`。`run()` 一开始看到这个参数就不启动应用（`agent_hooks::forward_if_hook`），从 stdin 读事件，只留事件名、`session_id`、项目文件夹名、`tool_name`、`notification_type`、失败种类和会话记录的路径，写一行到应用数据目录下 `agent/hooks.sock`（文件夹 0700，只有用户自己能连），然后退出。永远退出码 0、不往 stdout 写东西，所以影响不了 Claude Code；宠物没开时连不上，直接退出。实测一次约 7 毫秒（冷启动约 0.7 秒）。钩子都是 `async`，Claude Code 不等它。
-- **收。** 应用启动时 `agent_hooks::listen` 在后台线程收这些行，校验后发 `pet://agent` 给宠物窗口，不带会话记录的路径（路径留在原生端，只认 `~/.claude/projects/` 下的 `.jsonl`）。有另一份 AI Pet 在收（开发版和安装版同时开）时让给它。
-- **翻译成活动。** `ClaudeSessions`（`src/agents/`）是纯逻辑：`UserPromptSubmit` 和 `PostToolUse` 是 `running`；`PermissionRequest` 是 `waiting`，话里只写工具名（`AskUserQuestion` 说「有话问你」，`ExitPlanMode` 说「写好计划了」），`Notification` 的 `permission_prompt` 只在前面没来请求时兜底（它晚 6 秒才到）；`Stop` 时这一轮超过 30 秒报带用时的 `done`，更短的报 `cancelled`，悄悄去掉；`StopFailure` 报 `failed` 并说原因；`SessionEnd` 报 `cancelled`。在等的会话只有被问的那个工具（按 `tool_name`）的 `PostToolUse` 才回到 `running`，一起跑的别的工具不算；子代理的事件（原生端看到 `agent_id` 就带上 `subagent`）只算会话还活着，不开新会话、不改状态。已知的不准：用户点了允许以后，Claude Code 要等这个工具跑完才发 `PostToolUse`，所以允许了一个跑十分钟的构建，琥珀色会一直留到构建结束。`followClaude` 把它接到平台事件上，用 `activityUpdateSchema` 校验后发 `pet.activity`；报 `done` 的那一轮记进工作日志（`agent_turn_done`，来源 `agent`，文字是项目名）。
-- **Esc 打断。** Claude Code 在用户按 Esc（打断这一轮，或在确认框里拒绝）时不发任何钩子。所以 `followClaude` 每 5 秒对还在跑或在等的会话调 `agent_interrupted`：原生端读这个会话记录的末尾 64 KB，找 `type` 是 `user`、带 `[Request interrupted by user` 且时间晚于上一个钩子事件的那一行，只回答是或否，读到的内容不记日志、不保存。这个格式没有文档，Claude Code 改了就会失效，失效后靠下面的超时和下一句话恢复。
-- **超时。** 在跑的会话 30 分钟没有任何事件就去掉（一个工具可以跑很久不发事件，所以不能更短）；在等的 3 小时。只在内存里，宠物重启后等下一个事件再出现。
-- **装钩子。** 「设置 → 小工具 → 编码助手」调 `claude_hooks_connect`（`claude_settings.rs`）：读 `~/.claude/settings.json`，去掉旧的我们的钩子，每个事件加一条，命令里带 `--agent-hook claude`，`[ -x 路径 ]` 判断应用还在才执行。写之前备份成 `settings.json.ai-pet-backup`，先写临时文件再改名，新文件沿用原文件的权限（里面可能有 API Key；原来没有就是 0600），设置文件是链接时写到它指向的地方。只有装好的应用能连接：开发版的路径随构建消失，没挪进「应用程序」的会被系统放到临时位置（`AppTranslocation`），下次启动路径就变了。`serde_json` 开了 `preserve_order`，用户的键顺序不变。`claude_hooks_disconnect` 只去掉带这个参数的钩子。`claude_hooks_state` 告诉设置页连没连、路径对不对（应用挪过位置要重连）、最近一次收到的时间。Claude Code 在会话开始时读钩子，所以开着的会话要重开。
+```
+Claude Code 钩子 ──► ai-pet --agent-hook claude ──► agent/hooks.sock
+                                                         │ agent_hooks.rs（校验，留下记录路径和所在应用）
+                                                         ▼ pet://agent
+followClaude ──► ClaudeSessions（会话管理，纯逻辑）
+   │                 │ list()：CodingSession[]            │ report()：ActivityUpdate
+   │                 ▼                                    ▼
+   │        ai-pet:coding-sessions:v1            pet.activity ──► BehaviorEngine
+   │        （本机存储，两个窗口共用）               （动作、常驻气泡，不出徽标）
+   │                 ├──► CodingCard（宠物脚下的状态卡）
+   │                 └──► CodingPanel（coding 窗口，全部会话）
+   └── 每 5 秒：agent_turn_over（打断、漏掉的 Stop）、agent_title（会话标题）、expire（超时）
+```
+
+- **转发。** 钩子执行的就是宠物的主程序：`ai-pet --agent-hook claude`。`run()` 一开始看到这个参数就不启动应用（`agent_hooks::forward_if_hook`），从 stdin 读事件，写一行到应用数据目录下 `agent/hooks.sock`（文件夹 0700，只有用户自己能连），然后退出。永远退出码 0、不往 stdout 写东西，所以影响不了 Claude Code（`SessionStart` 的 stdout 会被当成上下文，`PreToolUse`、`PermissionRequest` 不出声就不替用户做决定，官方文档都这样写）；宠物没开时连不上，直接退出。钩子都是 `async`，Claude Code 不等它。
+  接九个事件：`SessionStart`、`UserPromptSubmit`、`PreToolUse`、`PermissionRequest`、`PostToolUse`、`Notification`、`Stop`、`StopFailure`、`SessionEnd`。每行留下：事件名、`session_id`、项目文件夹名、`tool_name`、`notification_type`、失败种类、会话记录的路径、所在应用，加上 `Work` 里的几样，每样只是一行短字：钩子运行的时间 `at`、用户这次输入的第一行 `task`（跳过以 `<` 开头的行，截到 80 字）、用户给会话起的名字 `title`、工具在动的文件名或 Claude 自己写的步骤说明 `detail`（只在 `PreToolUse` 和 `PermissionRequest` 上；文件类工具取文件名，`Bash`、`Agent` 取 `description`）、分支 `branch`（读 `.git/HEAD`，worktree 跟着 `gitdir` 找）、Claude 最后一条回复的第一行 `summary`（只在 `Stop` 上，截到 160 字）。命令、代码、工具输出、完整路径都不转发，`agent_hooks.rs` 有测试守着。
+  项目文件夹名取环境变量 `CLAUDE_PROJECT_DIR` 的最后一段，没有才用事件里的 `cwd`：`cwd` 会跟着 shell 的 `cd` 变。所在应用取 macOS 给从应用里启动的程序设的 `__CFBundleIdentifier`（Ghostty、终端、VS Code 都有），只收像包标识符的写法，宠物自己的不收。所在终端取 Claude Code 的终端设备号（`controlling_tty`）：钩子程序自己没有终端，所以用 `proc_pidinfo` 沿父进程往上最多找 4 层，再在 `/dev` 下按设备号找到 `ttys…` 的名字，只收 `/dev/ttys` 加数字的写法。
+- **收。** 应用启动时 `agent_hooks::listen` 在后台线程收这些行，校验后发 `pet://agent` 给宠物窗口，不带会话记录的路径和所在应用（两样都留在原生端，路径只认 `~/.claude/projects/` 下的 `.jsonl`），只多一个 `revealable` 说知不知道所在应用。每个会话的记录路径、所在应用和终端设备号存在 `agent/sessions.json`（0600），启动时读回并重新校验，所以宠物重启后还能核对会话、找到终端；`SessionEnd` 时删掉。钩子程序写完就退出，应用接到连接时对端多半已经关了，这时 `set_read_timeout` 报 `EINVAL` 也照样读。有另一份 AI Pet 在收（开发版和安装版同时开）时让给它。
+- **会话管理。** `ClaudeSessions`（`src/agents/ClaudeSessions.ts`）是纯逻辑，按 `session_id` 存 `CodingSession`（`CodingSession.ts`，Zod 校验）。会话的生命周期和一轮对话分开记：`ended` 只表示收到过 `SessionEnd`；`turn` 是这一轮的状态，七种：`working`、`waiting`、`completed`、`failed`、`interrupted`、`idle`、`unknown`。`completed` 只说这一轮结束了，界面上写「这一轮做完了」，不写任务完成。
+  - `SessionStart`：没见过的会话记成 `idle`；已经在跑的不动（压缩上下文时会在一轮中间再发一次）。
+  - `UserPromptSubmit`：`working`，记下 `task` 和这一轮开始的时间，清掉上一轮的结果。
+  - `PreToolUse`：更新 `activity`（「修改 App.tsx」「阅读 x.ts」「搜索代码」，`Bash` 用 Claude 写的说明；`TodoWrite` 这类记账工具不改）。会话没在跑时算补上漏掉的开头。
+  - `PermissionRequest`：`waiting`，`asking` 写清要什么（「想改 App.tsx，等你点头」「有话问你」「写好计划了，等你过目」）；`Notification` 的 `permission_prompt` 只在前面没来请求时兜底。在等的会话只有被问的那个工具的 `PostToolUse` 才回到 `working`，一起跑的别的工具不算。
+  - `Stop`：`completed`，`result` 是回复的第一行。`StopFailure`：`failed`，`result` 是原因。`SessionEnd`：`ended`，还在跑的那一轮变成 `idle`，已经有结果的保留结果。
+  - 子代理的事件（带 `subagent`）只算会话还活着，不开新会话、不改状态。
+  - **乱序和重复。** 钩子在后台跑，可能晚到或到两次。每个事件按钩子自己记的 `at` 排：早于这一轮开始或结束时间的直接丢掉，所以晚到的工具事件不会把已经结束的一轮救活，上一轮的 `Stop` 也结束不了新的一轮。对已经结束的一轮再来一个 `Stop` 不起作用。
+  - 一轮结束后会话不删，留作「最近会话」：最多 8 个、24 小时（`CLAUDE_CONFIG.recentKept`、`recentMs`），还在跑或在等的不占名额。
+- **存和恢复。** `followClaude` 每次变化后把 `list()` 存进全局 key `ai-pet:coding-sessions:v1`（`codingStore.ts`，BroadcastChannel 加 `storage` 事件通知两个窗口）。启动时读回，对还在跑或在等的先调 `agent_turn_over`：记录里说这一轮已经结束或被打断就照此收尾，否则才把它的活动重新报给引擎。
+- **标题。** 会话的名字优先用用户自己起的（事件里的 `session_title`），其次是 Claude Code 写在会话记录里的 `ai-title`（`agent_title` 读记录末尾 64 KB 取最后一条，每 5 秒对在跑的会话读一次），都没有时用这一轮的 `task`。
+- **Esc 打断。** Claude Code 在用户按 Esc（打断这一轮，或在确认框里拒绝）时不发任何钩子（文档只写了 `Stop` 不发，其余是 2.1.330 实测）。所以 `followClaude` 每 5 秒对还在跑或在等的会话调 `agent_turn_over`：原生端读这个会话记录的末尾 64 KB，找时间晚于上一个钩子事件的两种行：`type` 是 `user`、以 `[Request interrupted by user` 开头的是打断（会话记成 `interrupted`），`type` 是 `system`、`subtype` 是 `turn_duration` 的是这一轮正常结束了（用来兜住没收到的 `Stop`）。两种都有时按最后一行算，读到的内容不记日志、不保存。这两个格式和 `ai-title` 都没有文档，Claude Code 改了就会失效，失效后靠下面的超时和下一句话恢复，标题退回用 `task`。
+- **超时。** 在跑的会话 30 分钟没有任何事件、在等的 3 小时，`expire` 把这一轮记成 `unknown`（界面上写「状态未知：很久没有动静，可能还在跑，也可能已经退出」），不说它做完了：一个工具可以跑很久不发事件，终端被直接关掉时 `SessionEnd` 也不保证会来。它之后再来事件就回到 `working`。
+- **宠物的反应。** `ClaudeSessions.report()` 只在状态变化时返回一个 `ActivityUpdate`（都带 `noChip`，图标 `agent`；`waiting` 和 `failed` 在知道所在应用时还带 `opens: "回到终端"`，常驻气泡上就多一个按钮，点它引擎发 `pet.activity_opened`，`App` 交给 `revealClaude`，走和面板一样的 `agent_reveal`），`followClaude` 用 `activityUpdateSchema` 校验后发 `pet.activity`：变成 `working` 报 `running`，第一个开工的会话让宠物写一下（见「活动」）；`waiting` 带一句「ai-pet 里的 Claude 想用 Bash，等你点头」；一轮超过 30 秒的 `Stop` 报带用时的 `done`，并记进工作日志（`agent_turn_done`，来源 `agent`，文字是完整的项目名），更短的报 `cancelled` 悄悄收掉；`failed` 带原因。每一次工具调用不产生活动，所以不会引出动作和气泡。「设置 → 小工具 → 编码助手 → 宠物跟着反应」（`CodingPreferences.ts`）关掉后，`followClaude` 把每个活动都换成 `cancelled`，宠物什么也不做，状态卡照常。
+- **状态卡。** `CodingCard`（`components/CodingCard.tsx`）在状态行里，读本机存储的会话，用 `overview()` 挑一个最该看的：先是等用户的（等得最久的在前），再是 5 分钟内出错的，再是在跑的，最后是 5 分钟内刚结束的；都没有就是一粒写着「Claude Code」的小胶囊，过期的结果不再顶上来。有会话可说时是一张固定宽高的三行卡片：第一行是状态小标、「Claude Code」和状态（多个会话在跑时写「1 个等你，2 个在工作」，只有一个时写「在工作 4 分」），第二行是会话的名字，第三行是项目名加当前活动、要你确认的事或结果，没有这些时是分支。旁边有别的状态块、宠物贴边、窗口伸出屏幕下沿时（`PetSpeech` 的 `tight`）收成一行。标题或第三行被截断时（每次渲染后量 `scrollWidth`），悬停在卡片上方显示全文（`.coding-full`）：宠物窗口不激活应用，系统自己的提示框在这里不出来。面板里的标题最多两行，全文、当前状态和点击后会怎样放在这一行的 `title` 里（面板拿了键盘，系统提示框能出来）。点它调 `petWindow.openCoding()`。
+- **Workspace 面板。** `coding` 窗口（`components/coding/CodingPanel.tsx`）和提醒、备忘是同一种不激活应用的弹层（`POPOVERS`）。顶上一句总览，下面分三组：需要你处理、正在工作、最近。每行是名字、项目和分支、当前状态、用时。点一行：原生端知道所在应用时调 `agent_reveal`。所在应用是 Ghostty、又知道终端设备号时，用 `osascript` 跑 `GHOSTTY_FOCUS`：在 Ghostty 的脚本字典（1.4 起有，每个 `terminal` 都有 `tty`）里找设备号相同的终端，`focus` 它，Ghostty 自己切到那个窗口、标签页和 split。Ghostty 的 `focus` 不管放大：同一标签页里另一个 split 被放大（`toggle_split_zoom`）时，目标不在画面上，焦点移不过去。脚本读回标签页的 `focused terminal`，不是目标就对放大的那个再执行一次 `toggle_split_zoom` 取消放大，然后重新 `focus`，和 Ghostty 自己用快捷键切换 split 时的默认做法（`split-preserve-zoom` 不含 `navigation`）一样；还是不对就再 toggle 一次，把布局还原。`focus` 是异步的，每步之间等 0.3 秒。把放大转给目标 split 的做法试过，读回的焦点不对，没有用。设备号只作为参数传进脚本，不拼进脚本文字。第一次会弹系统授权「AI Pet 想要控制 Ghostty」（说明文字在 `src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`）；用户拒绝、Ghostty 太旧没有脚本字典、那个终端已经关了，都退回 `open -b 包标识符`，只把应用切到前面。别的终端（系统终端、VS Code）都只能切到应用；不知道时（会话已结束、重启后还没来新事件）复制 `claude --resume <session_id>`。知道所在应用的行悬停时另有一个复制恢复命令的按钮。没有会话时按 `claude_hooks_state` 说明是没连接、要重连还是还没有会话。
+- **装钩子。** 「设置 → 小工具 → 编码助手」调 `claude_hooks_connect`（`claude_settings.rs`）：读 `~/.claude/settings.json`，去掉旧的我们的钩子，`EVENTS` 里每个事件加一条，命令里带 `--agent-hook claude`，`[ -x 路径 ]` 判断应用还在才执行。写之前备份成 `settings.json.ai-pet-backup`，先写临时文件再改名，新文件沿用原文件的权限（里面可能有 API Key；原来没有就是 0600），设置文件是链接时写到它指向的地方。只有装好的应用能连接：开发版的路径随构建消失，没挪进「应用程序」的会被系统放到临时位置（`AppTranslocation`），下次启动路径就变了。`serde_json` 开了 `preserve_order`，用户的键顺序不变。`claude_hooks_disconnect` 只去掉带这个参数的钩子。`claude_hooks_state` 告诉设置页连没连、九个事件是不是都指向这份应用（应用挪过位置、或新版本多接了事件都要重连）、最近一次收到的时间。Claude Code 在会话开始时读钩子，所以开着的会话要重开。
 
 ## 提醒和备忘
 

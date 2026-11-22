@@ -9,7 +9,8 @@ interface Entry {
 const ongoing = (update: ActivityUpdate) => update.state === "running" || update.state === "waiting";
 
 const sameReport = (a: ActivityUpdate, b: ActivityUpdate) =>
-  a.state === b.state && a.label === b.label && a.text === b.text && a.icon === b.icon && (a.cancellable ?? false) === (b.cancellable ?? false);
+  a.state === b.state && a.label === b.label && a.text === b.text && a.icon === b.icon && (a.cancellable ?? false) === (b.cancellable ?? false)
+  && (a.noChip ?? false) === (b.noChip ?? false) && a.opens === b.opens;
 
 /**
  * The things going on that the pet shows: a chip at its feet while one runs or
@@ -29,13 +30,18 @@ export class ActivityBoard {
     return true;
   }
 
-  /** One chip for each activity still going, oldest first. */
+  /** One chip for each activity still going, oldest first; none for those shown somewhere of their own. */
   chips(): StatusChip[] {
-    return this.entries.filter((entry) => ongoing(entry.update)).map(({ update }) => ({
+    return this.entries.filter((entry) => ongoing(entry.update) && !entry.update.noChip).map(({ update }) => ({
       id: "activity",
       label: update.label,
       activity: { id: update.id, waiting: update.state === "waiting", cancellable: update.cancellable ?? false },
     }));
+  }
+
+  /** Whether an activity with this icon is running: the engine reacts to the first one starting, not to each. */
+  running(icon: ActivityUpdate["icon"]): boolean {
+    return this.entries.some((entry) => entry.update.state === "running" && entry.update.icon === icon);
   }
 
   /** The activity whose line should stand now: one waiting for the user first, then results, oldest first. */

@@ -1,16 +1,26 @@
 import { ACTIVITY_LIMITS } from "../activity/Activity";
+import type { TurnOver } from "../platform/agents";
 import type { ActivityUpdate, AgentReport } from "../types";
+import { SESSION_LIMITS, isLive, type CodingSession } from "./CodingSession";
 
 export const CLAUDE_CONFIG = {
   /** A turn shorter than this ends quietly: the user most likely watched it. */
   shortTurnMs: 30_000,
-  /** One tool can run this long without a hook event (a long build); after that the chip goes. */
+  /** One tool can run this long without a hook event (a long build); after that the pet no longer says it works. */
   staleRunningMs: 30 * 60_000,
-  /** A question can wait while the user is away; a session killed with its terminal sends nothing, so it goes in the end. */
+  /** A question can wait while the user is away; a session killed with its terminal sends nothing, so it is let go in the end. */
   staleWaitingMs: 3 * 60 * 60_000,
+  /** Sessions no longer working or waiting stay listed this long, and at most this many. */
+  recentMs: 24 * 60 * 60_000,
+  recentKept: 8,
 };
 
-/** How much of a folder or tool name the standing line takes. */
+/** Each session's activity id is this followed by its session id. */
+export const CLAUDE_ACTIVITY_PREFIX = "claude:";
+/** The button on the pet's line about a session the pet can take the user back to. */
+const BACK_TO_TERMINAL = "回到终端";
+
+/** How much of a folder or tool name a line takes. */
 const NAME_CHARS = 24;
 const LABEL_FALLBACK = "Claude";
 
@@ -27,14 +37,12 @@ const FAILURE_FALLBACK = "出错了";
 /** Notifications that mean Claude is stuck until the user answers. */
 const ASKING = new Set(["permission_prompt", "elicitation_dialog"]);
 
-interface Session {
-  project: string;
-  turnStartedAt: number;
-  lastEventAt: number;
-  waiting: boolean;
-  /** The tool it asked to use; its PostToolUse means the user answered. Unknown after a bare notification. */
-  waitingFor?: string;
-}
+const CHANGING = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
+const SEARCHING = new Set(["Grep", "Glob"]);
+const LOOKING_UP = new Set(["WebFetch", "WebSearch"]);
+const DELEGATING = new Set(["Agent", "Task"]);
+/** Bookkeeping tools: what it was on before still says more. */
+const UNREMARKABLE = new Set(["TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "ToolSearch"]);
 
 /** `text` cut to `max` UTF-16 units, as the schema counts, without splitting a character; the last one an ellipsis when cut. */
 function fit(text: string, max: number): string {
@@ -57,100 +65,251 @@ function duration(ms: number): string {
   return minutes % 60 === 0 ? `${minutes / 60} 小时` : `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`;
 }
 
+/** What a tool about to run is doing, in a few words; undefined when it says nothing new. `detail` is its file or its described step. */
+function describeTool(tool: string, detail: string | undefined): string | undefined {
+  if (UNREMARKABLE.has(tool)) return undefined;
+  if (CHANGING.has(tool)) return detail ? `修改 ${detail}` : "修改文件";
+  if (tool === "Read") return detail ? `阅读 ${detail}` : "阅读文件";
+  if (tool === "Bash") return detail ?? "运行命令";
+  if (SEARCHING.has(tool)) return "搜索代码";
+  if (LOOKING_UP.has(tool)) return "查资料";
+  if (DELEGATING.has(tool)) return detail ? `子任务：${detail}` : "分派子任务";
+  return `使用 ${toolName(tool)}`;
+}
+
+/** What it wants from the user. `detail` is the tool's file or described step. */
+function describeAsk(tool: string | undefined, detail: string | undefined): string {
+  if (tool === "AskUserQuestion") return "有话问你";
+  if (tool === "ExitPlanMode") return "写好计划了，等你过目";
+  if (tool && CHANGING.has(tool) && detail) return `想改 ${detail}，等你点头`;
+  if (tool === "Read" && detail) return `想读 ${detail}，等你点头`;
+  if (tool && detail) return `想用 ${toolName(tool)}（${detail}），等你点头`;
+  if (tool) return `想用 ${toolName(tool)}，等你点头`;
+  return "在等你确认";
+}
+
 /**
- * The Claude Code sessions the pet is following, one activity each. Turns the
- * hook events the native side forwards into `ActivityUpdate`s; the engine
- * decides how the pet shows them. Only in memory: after a restart a session
- * comes back with its next event.
+ * The Claude Code sessions the pet is following. Turns the hook events the
+ * native side forwards into `CodingSession`s, which the coding card and panel
+ * show, and into one `ActivityUpdate` per change of state, to which the pet
+ * reacts. A session outlives its turns: once a turn ends it stays listed as a
+ * recent session until it is old or pushed out.
  *
- * Claude Code sends nothing when the user presses Esc, so `checks()` lists the
- * sessions whose transcript should be looked at, and `expire()` lets go of
- * sessions quiet for too long.
+ * Hooks run in the background, so an event can arrive late or twice; each is
+ * placed by the time its hook ran. Claude Code sends nothing when the user
+ * presses Esc or the terminal is closed, so `checks()` lists the sessions whose
+ * transcript should be looked at, and `expire()` stops saying a session works
+ * when nothing has been heard for too long, without claiming it finished.
  */
 export class ClaudeSessions {
-  private sessions = new Map<string, Session>();
+  private sessions = new Map<string, CodingSession>();
+  /** Sessions the user named: Claude Code's own title does not replace that. */
+  private named = new Set<string>();
 
-  /** Takes a hook event. Returns what to report, or null when the pet shows nothing new. */
+  /** `restored`: the sessions as they were when the pet last ran. */
+  constructor(restored: readonly CodingSession[] = []) {
+    for (const session of restored) this.sessions.set(session.id, session);
+  }
+
+  /** The sessions as they stand, the latest first. */
+  list(): CodingSession[] {
+    return [...this.sessions.values()].sort((a, b) => b.lastEventAt - a.lastEventAt);
+  }
+
+  /** Takes a hook event. Returns what the pet should react to, or null when its state did not change. */
   report(report: AgentReport, now: number): ActivityUpdate | null {
-    const known = this.sessions.get(report.session);
+    // 0 comes from a hook that could not tell the time.
+    const at = report.at || now;
+    const before = this.sessions.get(report.session);
+    // It ran before this turn began or after it ended: a straggler that says nothing new.
+    if (before && at < Math.max(before.turnStartedAt ?? 0, before.turnEndedAt ?? 0)) return null;
+    if (report.title) this.named.add(report.session);
+    const known = before && this.refreshed(before, report, at);
     switch (report.event) {
+      case "SessionStart":
+        // Also sent mid-turn after a compaction: a session already known keeps its turn.
+        this.sessions.set(report.session, known ?? this.fresh(report, at, "idle"));
+        return null;
       case "UserPromptSubmit":
-        return this.start(report, { project: report.project, turnStartedAt: now, lastEventAt: now, waiting: false });
-      case "PermissionRequest":
-        return this.ask(report, known, now, report.tool);
-      case "Notification":
-        if (!ASKING.has(report.notification ?? "") || known?.waiting) return this.touch(report.session, known, now);
-        return this.ask(report, known, now, undefined);
+        return this.work(report, known, at, true);
+      case "PreToolUse": {
+        if (report.subagent || known?.turn === "waiting") return this.touch(known);
+        const activity = report.tool ? describeTool(report.tool, report.detail) : undefined;
+        const update = this.work(report, known, at, false);
+        const session = this.sessions.get(report.session);
+        if (session && activity) this.sessions.set(report.session, { ...session, activity: fit(activity, SESSION_LIMITS.line) });
+        return update;
+      }
       case "PostToolUse":
         // A subagent's tool or one running alongside says nothing about the question still open.
-        if (report.subagent || (known && (!known.waiting || (known.waitingFor !== undefined && known.waitingFor !== report.tool)))) return this.touch(report.session, known, now);
-        return this.start(report, { project: report.project, turnStartedAt: known?.turnStartedAt ?? now, lastEventAt: now, waiting: false });
+        if (report.subagent || known?.turn === "working" || (known?.turn === "waiting" && known.waitingFor !== undefined && known.waitingFor !== report.tool)) return this.touch(known);
+        return this.work(report, known, at, false);
+      case "PermissionRequest":
+        return this.ask(report, known, at, report.tool);
+      case "Notification":
+        if (!ASKING.has(report.notification ?? "") || known?.turn === "waiting") return this.touch(known);
+        return this.ask(report, known, at, undefined);
       case "Stop":
+        // A second Stop for a turn already over changes nothing.
+        if (known && !isLive(known)) return this.touch(known);
+        return this.finish(known ?? this.fresh(report, at, "idle"), at, report.summary);
+      case "StopFailure": {
+        const reason = FAILURES[report.error ?? ""] ?? FAILURE_FALLBACK;
+        const session = this.over(known ?? this.fresh(report, at, "idle"), "failed", at, reason);
+        return this.withWayBack(session, this.update(session, "failed", `${this.side(session.project)} 那边停下了：${reason}`));
+      }
+      case "SessionEnd": {
         if (!known) return null;
-        this.sessions.delete(report.session);
-        if (now - known.turnStartedAt < CLAUDE_CONFIG.shortTurnMs) return this.update(report.session, known.project, "cancelled");
-        return this.update(report.session, known.project, "done", `${this.side(known.project)} 那边做完了，用了 ${duration(now - known.turnStartedAt)}`);
-      case "StopFailure":
-        this.sessions.delete(report.session);
-        return this.update(report.session, report.project, "failed", `${this.side(report.project)} 那边停下了：${FAILURES[report.error ?? ""] ?? FAILURE_FALLBACK}`);
-      case "SessionEnd":
-        if (!known) return null;
-        this.sessions.delete(report.session);
-        return this.update(report.session, known.project, "cancelled");
+        const wasLive = isLive(known);
+        this.sessions.set(known.id, { ...this.settled(known), turn: wasLive ? "idle" : known.turn, ended: true, revealable: false });
+        return wasLive ? this.update(known, "cancelled") : null;
+      }
     }
   }
 
-  /** The transcript shows the user interrupted the turn after `since`. Ignored when an event came in meanwhile. */
-  interrupted(session: string, since: number): ActivityUpdate | null {
+  /**
+   * The transcript shows the turn was over after `since`: interrupted with Esc, or
+   * ended with a Stop the pet never got. Ignored when an event came in meanwhile.
+   */
+  turnOver(session: string, since: number, how: NonNullable<TurnOver>, now: number): ActivityUpdate | null {
     const known = this.sessions.get(session);
-    if (!known || known.lastEventAt !== since) return null;
-    this.sessions.delete(session);
-    return this.update(session, known.project, "cancelled");
+    if (!known || !isLive(known) || known.lastEventAt !== since) return null;
+    if (how === "ended") return this.finish(known, now, undefined);
+    return this.update(this.over(known, "interrupted", now, undefined), "cancelled");
   }
 
-  /** Sessions working or waiting, with the time of their last event: their transcripts may show an interruption. */
+  /** Claude Code's own name for the session. A name the user gave it stays. Returns whether anything changed. */
+  rename(session: string, name: string): boolean {
+    const known = this.sessions.get(session);
+    const next = fit(name.trim(), SESSION_LIMITS.name);
+    if (!known || !next || this.named.has(session) || known.name === next) return false;
+    this.sessions.set(session, { ...known, name: next });
+    return true;
+  }
+
+  /** Sessions working or waiting, with the time of their last event: their transcripts may show the turn is over. */
   checks(): { session: string; since: number }[] {
-    return [...this.sessions].map(([session, known]) => ({ session, since: known.lastEventAt }));
+    return this.list().filter(isLive).map((session) => ({ session: session.id, since: session.lastEventAt }));
   }
 
-  /** Lets go of sessions quiet for too long. */
+  /** What the pet should be showing for a session still working or waiting, as after a restart. */
+  activity(session: string): ActivityUpdate | null {
+    const known = this.sessions.get(session);
+    if (!known || !isLive(known)) return null;
+    return known.turn === "waiting" ? this.withWayBack(known, this.update(known, "waiting", this.askLine(known))) : this.update(known, "running");
+  }
+
+  /**
+   * Stops saying a session works or waits when nothing was heard for too long: its
+   * state is then unknown, not finished. Drops recent sessions that are old or too many.
+   */
   expire(now: number): ActivityUpdate[] {
-    return [...this.sessions].flatMap(([session, known]) => {
-      const limit = known.waiting ? CLAUDE_CONFIG.staleWaitingMs : CLAUDE_CONFIG.staleRunningMs;
+    const updates = this.list().filter(isLive).flatMap((known) => {
+      const limit = known.turn === "waiting" ? CLAUDE_CONFIG.staleWaitingMs : CLAUDE_CONFIG.staleRunningMs;
       if (now - known.lastEventAt <= limit) return [];
-      this.sessions.delete(session);
-      return [this.update(session, known.project, "cancelled")];
+      this.sessions.set(known.id, { ...this.settled(known), turn: "unknown" });
+      return [this.update(known, "cancelled")];
     });
+    const recent = this.list().filter((session) => !isLive(session));
+    for (const [index, session] of recent.entries()) {
+      if (index < CLAUDE_CONFIG.recentKept && now - session.lastEventAt <= CLAUDE_CONFIG.recentMs) continue;
+      this.sessions.delete(session.id);
+      this.named.delete(session.id);
+    }
+    return updates;
   }
 
-  private start(report: AgentReport, session: Session): ActivityUpdate {
-    this.sessions.set(report.session, session);
-    return this.update(report.session, session.project, "running");
+  /** A session first heard of with this event. */
+  private fresh(report: AgentReport, at: number, turn: CodingSession["turn"]): CodingSession {
+    return this.refreshed({ id: report.session, provider: "claude-code", project: report.project, turn, ended: false, revealable: false, lastEventAt: at }, report, at);
   }
 
-  private ask(report: AgentReport, known: Session | undefined, now: number, tool: string | undefined): ActivityUpdate {
-    this.sessions.set(report.session, { project: report.project, turnStartedAt: known?.turnStartedAt ?? now, lastEventAt: now, waiting: true, ...(tool ? { waitingFor: tool } : {}) });
-    const who = report.project ? `${this.side(report.project)} 里的 Claude` : LABEL_FALLBACK;
-    const text = tool === "AskUserQuestion" ? `${who} 有话问你`
-      : tool === "ExitPlanMode" ? `${who} 写好计划了，等你过目`
-      : tool ? `${who} 想用 ${toolName(tool)}，等你点头`
-      : `${who} 在等你确认`;
-    return this.update(report.session, report.project, "waiting", text);
+  /** `known` with what any event says about its session: it is alive, where it runs, its branch and name. */
+  private refreshed(known: CodingSession, report: AgentReport, at: number): CodingSession {
+    return {
+      ...known,
+      project: report.project || known.project,
+      ended: false,
+      revealable: report.revealable ?? known.revealable,
+      lastEventAt: Math.max(known.lastEventAt, at),
+      ...(report.branch ? { branch: fit(report.branch, SESSION_LIMITS.name) } : {}),
+      ...(report.title ? { name: fit(report.title, SESSION_LIMITS.name) } : {}),
+    };
   }
 
-  /** Something happened that changes nothing on the pet; the session is not quiet. */
-  private touch(id: string, known: Session | undefined, now: number): null {
-    if (known) this.sessions.set(id, { ...known, lastEventAt: now });
+  /** Something happened that changes nothing the pet reacts to; the session is not quiet. */
+  private touch(known: CodingSession | undefined): null {
+    if (known) this.sessions.set(known.id, known);
     return null;
   }
 
-  /** Which session the line is about: its folder, or "Claude" without one. */
+  /** `known` without what belonged to the turn in progress. */
+  private settled(known: CodingSession): CodingSession {
+    const { activity: _activity, asking: _asking, waitingFor: _waitingFor, ...rest } = known;
+    return rest;
+  }
+
+  /** It is at work. `prompted`: the user just asked, so a new turn starts; otherwise one starts only if none was going. */
+  private work(report: AgentReport, known: CodingSession | undefined, at: number, prompted: boolean): ActivityUpdate | null {
+    const base = known ?? this.fresh(report, at, "idle");
+    const starting = prompted || !isLive(base);
+    const wasWorking = base.turn === "working";
+    const { result: _result, turnEndedAt: _turnEndedAt, ...carried } = this.settled(base);
+    const session: CodingSession = starting
+      ? { ...carried, turn: "working", turnStartedAt: at, ...(report.task ? { task: fit(report.task, SESSION_LIMITS.name) } : {}) }
+      : { ...this.settled(base), turn: "working", ...(base.activity ? { activity: base.activity } : {}) };
+    this.sessions.set(session.id, session);
+    return wasWorking && !prompted ? null : this.update(session, "running");
+  }
+
+  private ask(report: AgentReport, known: CodingSession | undefined, at: number, tool: string | undefined): ActivityUpdate {
+    const base = known ?? this.fresh(report, at, "idle");
+    const { waitingFor: _waitingFor, ...carried } = base;
+    const session: CodingSession = {
+      ...carried,
+      // Asked out of the blue (the pet missed the start): the turn is counted from here.
+      ...(isLive(base) ? {} : { turnStartedAt: at, turnEndedAt: undefined, result: undefined }),
+      turn: "waiting",
+      asking: fit(describeAsk(tool, report.detail), SESSION_LIMITS.line),
+      ...(tool ? { waitingFor: tool } : {}),
+    };
+    this.sessions.set(session.id, session);
+    return this.withWayBack(session, this.update(session, "waiting", this.askLine(session)));
+  }
+
+  /** The turn ended: a long one is told about, a short one goes quietly. */
+  private finish(known: CodingSession, at: number, summary: string | undefined): ActivityUpdate {
+    const took = known.turnStartedAt === undefined ? 0 : at - known.turnStartedAt;
+    const session = this.over(known, "completed", at, summary);
+    if (took < CLAUDE_CONFIG.shortTurnMs) return this.update(session, "cancelled");
+    return this.update(session, "done", `${this.side(session.project)} 那边这一轮做完了，用了 ${duration(took)}`);
+  }
+
+  /** Records how the turn ended. */
+  private over(known: CodingSession, turn: "completed" | "failed" | "interrupted", at: number, result: string | undefined): CodingSession {
+    const { result: _result, ...rest } = this.settled(known);
+    const session: CodingSession = { ...rest, turn, turnEndedAt: at, lastEventAt: Math.max(known.lastEventAt, at), ...(result ? { result: fit(result, SESSION_LIMITS.line) } : {}) };
+    this.sessions.set(session.id, session);
+    return session;
+  }
+
+  private askLine(session: CodingSession): string {
+    const who = session.project ? `${this.side(session.project)} 里的 Claude` : LABEL_FALLBACK;
+    return `${who} ${session.asking ?? "在等你确认"}`;
+  }
+
+  /** Which session a line is about: its folder, or "Claude" without one. */
   private side(project: string): string {
     return project ? fit(project, NAME_CHARS) : LABEL_FALLBACK;
   }
 
-  private update(session: string, project: string, state: ActivityUpdate["state"], text?: string): ActivityUpdate {
-    const update: ActivityUpdate = { id: `claude:${session}`, state, label: fit(project || LABEL_FALLBACK, ACTIVITY_LIMITS.label), icon: "agent" };
-    return text ? { ...update, text } : update;
+  /** A line about something the user has to see in the terminal gets a button back to it, when the pet knows where that is. */
+  private withWayBack(session: CodingSession, update: ActivityUpdate): ActivityUpdate {
+    return session.revealable ? { ...update, opens: BACK_TO_TERMINAL } : update;
+  }
+
+  private update(session: CodingSession, state: ActivityUpdate["state"], text?: string): ActivityUpdate {
+    const update: ActivityUpdate = { id: `${CLAUDE_ACTIVITY_PREFIX}${session.id}`, state, label: fit(session.project || LABEL_FALLBACK, ACTIVITY_LIMITS.label), icon: "agent", noChip: true };
+    return text ? { ...update, text: fit(text, ACTIVITY_LIMITS.text) } : update;
   }
 }

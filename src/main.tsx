@@ -4,6 +4,7 @@ import App from "./App";
 import { ChatPage } from "./components/chat/ChatPage";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { NotesPanel } from "./components/notes/NotesPanel";
+import { CodingPanel } from "./components/coding/CodingPanel";
 import { TodayPanel } from "./components/today/TodayPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TranslationPanel } from "./components/translation/TranslationPanel";
@@ -24,6 +25,7 @@ function Root() {
   if (view === "settings") return <SettingsPage packId={packId} />;
   if (view === "today") return <TodayPanel />;
   if (view === "notes") return <NotesPanel />;
+  if (view === "coding") return <CodingPanel />;
   if (view === "translation") return <TranslationPanel />;
   if (view === "selection-float") return <SelectionFloat />;
   if (view === "chat") return <ChatPage key={packId} packId={packId} />;

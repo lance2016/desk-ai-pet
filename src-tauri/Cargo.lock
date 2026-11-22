@@ -22,6 +22,7 @@ name = "ai-pet"
 version = "1.16.1"
 dependencies = [
  "imap",
+ "libc",
  "log",
  "mail-parser",
  "native-tls",

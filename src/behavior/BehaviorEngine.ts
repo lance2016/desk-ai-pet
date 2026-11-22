@@ -30,6 +30,9 @@ const DONE_ACTION = "happy";
 const CONFUSED_ACTION = "confused";
 /** Played when an activity is done, such as a verification code copied for the user. */
 const ACTIVITY_DONE_ACTION = "happy";
+/** Played once when an agent sets to work while none was at it; the ones that follow go unremarked. */
+const AGENT_WORK_ACTION = "write";
+const AGENT_ICON = "agent";
 /** How the pet reacts when an activity gets to a state; nothing while it just runs or when it is called off. */
 const ACTIVITY_ACTIONS: Partial<Record<ActivityState, string>> = { waiting: REMIND_ACTION, done: ACTIVITY_DONE_ACTION, failed: CONFUSED_ACTION };
 /** Played shortly before the pet dozes off. */
@@ -55,6 +58,8 @@ const FOCUS_LINES = {
   restOver: "休息好啦，要不要再来一轮？",
 };
 
+/** Putting an activity's line away; the other button takes the user to it. */
+const ACTIVITY_DISMISS: AlertChoice = { label: "收起", event: "pet.alert_dismissed" };
 /** The answers on the standing line when the user asks to stop a round, or clicks the rest countdown. */
 const FOCUS_CHOICES = {
   stop: [
@@ -141,6 +146,8 @@ export const BEHAVIOR_CONFIG = {
   cheerGapMs: 10_000,
   /** Shortest time between two glances at the cursor. */
   glanceGapMs: 30_000,
+  /** The pet sits down to write when an agent sets to work, at most this often. */
+  agentWorkGapMs: 10 * 60_000,
 };
 
 /** A reminder whose time has come. */
@@ -198,6 +205,8 @@ export class BehaviorEngine {
   private readonly activities = new ActivityBoard();
   /** Reminders on the standing line, until the user clicks it away. */
   private alerted: DueReminder[] = [];
+  /** When the pet last sat down to write because an agent set to work. */
+  private agentWorkAt = Number.NEGATIVE_INFINITY;
   /** "Focus done" waits on the standing line too, after any reminders. */
   private focusNotice: string | null = null;
   /** Earlier reminders the morning greeting offered to move to today, until the user answers. */
@@ -242,6 +251,7 @@ export class BehaviorEngine {
       bus.on("pet.focus_stopped", () => this.onFocusStopped()),
       bus.on("pet.focus_badge_clicked", () => this.onFocusBadgeClicked()),
       bus.on("pet.alert_dismissed", () => this.dismissAlert()),
+      bus.on("pet.activity_open_requested", () => this.openActivity()),
       bus.on("pet.reminders_done", () => this.answerReminders("done")),
       bus.on("pet.reminders_snoozed", () => this.answerReminders("snoozed")),
       bus.on("pet.leftovers_moved", () => this.moveLeftovers()),
@@ -443,8 +453,14 @@ export class BehaviorEngine {
   private onActivity(update: ActivityUpdate): void {
     const now = Date.now();
     const shown = this.activities.notice();
+    const agentsBusy = this.activities.running(AGENT_ICON);
     if (!this.activities.report(update)) return;
     this.showBadge(now);
+    // Agents start and stop all day: only the first to get going is worth looking up for, and not again for a while.
+    if (update.state === "running" && update.icon === AGENT_ICON && !agentsBusy && now - this.agentWorkAt > BEHAVIOR_CONFIG.agentWorkGapMs) {
+      this.agentWorkAt = now;
+      this.react(AGENT_WORK_ACTION);
+    }
     const action = ACTIVITY_ACTIONS[update.state];
     // The pet stays out until the line is clicked away, so there has to be one; a failure is not worth coming out for.
     if (action !== undefined && update.text && update.state !== "failed") this.callOut(now, action);
@@ -694,7 +710,8 @@ export class BehaviorEngine {
     }
     const activity = this.activities.notice();
     if (activity?.text) {
-      bus.emit("pet.alert", { text: activity.text, icon: activity.icon });
+      const choices = activity.opens ? { choices: [ACTIVITY_DISMISS, { label: activity.opens, event: "pet.activity_open_requested" } satisfies AlertChoice] } : {};
+      bus.emit("pet.alert", { text: activity.text, icon: activity.icon, ...choices });
       return;
     }
     if (this.moveOffer.length > 0) {
@@ -766,6 +783,14 @@ export class BehaviorEngine {
     this.say(MOVE_LINES.moved);
     this.showAlert(now);
     if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterAlertMs };
+  }
+
+  /** The user asked to go to the activity on the standing line: its reporter takes them there, and the line is put away. */
+  private openActivity(): void {
+    const top = this.activities.notice();
+    if (top === null) return;
+    this.deps.bus.emit("pet.activity_opened", { id: top.id });
+    this.dismissAlert();
   }
 
   /** Takes down what the standing line shows; what was waiting behind it comes up next. */

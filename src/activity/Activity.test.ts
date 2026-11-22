@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_LIMITS, activityUpdateSchema } from "./Activity";
+import { ACTIVITY_LIMITS, activityUpdateSchema, elapsedText } from "./Activity";
 
 const valid = { id: "agent:7f3a", state: "waiting", label: "等你确认", icon: "mail", text: "要运行 rm -rf dist" };
 
@@ -21,5 +21,14 @@ describe("activityUpdateSchema", () => {
 
   it("drops fields it does not know", () => {
     expect(activityUpdateSchema.parse({ ...valid, command: "rm -rf /" })).toEqual(valid);
+  });
+});
+
+describe("elapsedText", () => {
+  it("says nothing for the first minute, then minutes, then hours", () => {
+    expect(elapsedText(59_999)).toBeNull();
+    expect(elapsedText(4 * 60_000 + 30_000)).toBe("4 分");
+    expect(elapsedText(60 * 60_000)).toBe("1 小时");
+    expect(elapsedText(65 * 60_000)).toBe("1 小时 5 分");
   });
 });

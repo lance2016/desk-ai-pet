@@ -38,7 +38,9 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
 11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。原生的 `llm.rs` 只管本机加密 API Key、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 
-12. **在宠物之外进行的事用「活动」上报。** 等验证码、以后的编码 Agent 这类事，只往总线发 `pet.activity`（`ActivityUpdate`，五个状态：`running`、`waiting`、`done`、`failed`、`cancelled`），徽标、常驻气泡和宠物的反应由 `BehaviorEngine` 统一决定。不要为一件新的事在 `BehaviorEngine` 里另加一套徽标和气泡的字段，也不要在组件里直接调平台接口去取消：点徽标只发 `pet.activity_chip_clicked`，由上报方自己处理。来自宠物窗口之外的上报先过 `activityUpdateSchema`。新的气泡图标要同时加进 `ALERT_ICONS`（`src/types.ts`）和 `PetSpeech.tsx` 里的同名图标表。
+12. **在宠物之外进行的事用「活动」上报。** 等验证码、以后的编码 Agent 这类事，只往总线发 `pet.activity`（`ActivityUpdate`，五个状态：`running`、`waiting`、`done`、`failed`、`cancelled`），徽标、常驻气泡和宠物的反应由 `BehaviorEngine` 统一决定。不要为一件新的事在 `BehaviorEngine` 里另加一套徽标和气泡的字段，也不要在组件里直接调平台接口去取消：点徽标只发 `pet.activity_chip_clicked`，由上报方自己处理；常驻气泡上要一个「去那里」的按钮，就在活动里带 `opens`，点了发 `pet.activity_opened`，同样由上报方处理。来自宠物窗口之外的上报先过 `activityUpdateSchema`。新的气泡图标要同时加进 `ALERT_ICONS`（`src/types.ts`）和 `PetSpeech.tsx` 里的同名图标表。
+
+13. **编码会话的界面只读 `CodingSession`。** Claude Code 的钩子事件只在 `src/agents/ClaudeSessions.ts` 里解读，变成 `CodingSession`（会话）和 `ActivityUpdate`（宠物的反应）。状态卡（`CodingCard`）和面板（`CodingPanel`）只读 `codingStore` 里的会话，不读 `AgentReport`，也不自己推断状态。会话的生命周期（`ended`）和一轮对话的状态（`turn`）分开记：`Stop` 只说明这一轮结束了，界面上不能写成任务完成；很久没事件只能记成 `unknown`，不能记成做完。每一次工具调用只更新会话的 `activity`，不能产生活动（否则宠物会跟着每个工具做动作）。没有真实数据的东西（进度百分比、改了几个文件、测试结果）不显示。以后接别的 Agent（Codex）时，给它写自己的事件解读，产出同一种 `CodingSession`，`provider` 填它自己的名字。
 
 ## 界面用词
 
@@ -92,9 +94,13 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 回归集用的接口地址、本机 API Key 格式、工具轮数 | `ENDPOINT`、`apiKey`、`MAX_ROUNDS`（`evals/runChat.ts`） | `PROVIDERS`（`llm.rs`）、`tauri.conf.json` 的 `identifier`、`api_keys.rs` 的加密格式、`MAX_ROUNDS`（`src/ai/chatRun.ts`） |
 | 记忆编号的写法（`m1`、`m2`…） | `REF_PREFIX`（`src/facts/FactStore.ts`） | `src/skills/remember.ts` 里 `replaces`、`ref` 参数说明的例子 |
 | 用户动作 ID 带连字符，不能被 AI 选用 | `ID_PATTERN`（`src/actions/UserActions.ts`） | `ACTION_ID`（`src/ai/skill.ts`）不允许连字符 |
-| Claude Code 状态的事件名、命令名和字段 | `src/platform/agents.ts`（`pet://agent`、`reportSchema`、`agent_interrupted`、`claude_hooks_*`）、`AGENT_EVENTS`（`src/types.ts`） | `src-tauri/src/agent_hooks.rs` 的 `EVENT`、`EVENTS`、`Forwarded`，`claude_settings.rs`，`lib.rs` 的 `invoke_handler` |
+| Claude Code 状态的事件名、命令名和字段 | `src/platform/agents.ts`（`pet://agent`、`reportSchema`、`agent_turn_over`、`agent_title`、`agent_reveal`、`claude_hooks_*`）、`AGENT_EVENTS` 和 `AgentReport`（`src/types.ts`） | `src-tauri/src/agent_hooks.rs` 的 `EVENT`、`EVENTS`、`Forwarded`、`Work`、`Report`，`claude_settings.rs`，`lib.rs` 的 `invoke_handler` |
+| 钩子转发的字数上限 | `MAX_TASK_CHARS`、`MAX_SUMMARY_CHARS`、`MAX_FORWARDED_CHARS`（`agent_hooks.rs`，按字符） | `reportSchema`（`src/platform/agents.ts`）和 `SESSION_LIMITS`（`src/agents/CodingSession.ts`，按 UTF-16，所以是两倍） |
+| Coding 面板窗口 | `tauri.conf.json` 的 `coding` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=coding` 路由、`lib.rs` 的 `CODING_WINDOW`、`POPOVERS` 和 `open_coding`，`petWindow.ts` 的 `OPEN_CODING_COMMAND` |
+| 状态行和状态卡的位置 | `STAGE_MARGIN.bottom`（132，`stageGeometry.ts`） | `.dock-area`、`.status-row`（`src/App.css`：底栏中心在脚下 33px，状态行上沿在窗口底部往上 72px）、`.coding-card` 的高度（66px） |
+| Ghostty 定位终端 | `GHOSTTY`、`GHOSTTY_FOCUS`（`agent_hooks.rs`，用 Ghostty 脚本字典里 `terminal` 的 `tty`、`focus`，`tab` 的 `focused terminal` 和 `perform action "toggle_split_zoom"`，1.4.0 实测；没有文档承诺不变） | Ghostty 的 `Ghostty.sdef`；`src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`（没有它系统不弹授权） |
 | 钩子的 socket 位置 | `agent_hooks.rs` 的 `IDENTIFIER`（转发时应用没启动，拿不到配置） | `tauri.conf.json` 的 `identifier` |
-| 打断的标记 | `INTERRUPT_MARK`（`agent_hooks.rs`，Claude Code 写进会话记录的原文，没有文档） | Claude Code 自己的输出；它改了这里就失效，`ARCHITECTURE.md`「Claude Code 的状态」写了失效后的表现 |
+| 打断、一轮结束和会话标题的标记 | `INTERRUPT_MARK`、`TURN_END_MARK`、`TITLE_MARK` 和 `TITLE_FIELD`（`agent_hooks.rs`，Claude Code 写进会话记录的原文、`subtype` 和 `ai-title` 行，没有文档） | Claude Code 自己的输出；它改了这里就失效，`ARCHITECTURE.md`「Claude Code 的状态」写了失效后的表现 |
 | 「短回合」的时长 | `CLAUDE_CONFIG.shortTurnMs`（`src/agents/ClaudeSessions.ts`） | `featureGuide.json`、`README.md`、`docs/USER_GUIDE.md` 里写的「半分钟」 |
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
 | 「认不出验证码？」的长度上限 | `TRY_TEXT_LIMIT`（`src/components/settings/MailCodeTester.tsx`，按 UTF-16） | `MAX_TRY_CHARS`（`src-tauri/src/mail_code.rs`，按字符；前端的上限能保证不超） |
@@ -178,7 +184,12 @@ pnpm exec tsc --noEmit && pnpm test
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - Claude Code 的钩子执行的是宠物主程序本身（`--agent-hook claude`）。`run()` 的第一件事必须是 `agent_hooks::forward_if_hook()`，在它前面加任何东西（日志、插件、Tauri 初始化），每个钩子都会多花时间，还可能弹出 Dock 图标。转发模式永远退出码 0、不写 stdout：Claude Code 在 `Stop`、`UserPromptSubmit` 上会把 stdout 的 JSON 和退出码 2 当成指令。
-- Claude Code 在用户按 Esc 时什么钩子都不发（打断这一轮、在确认框里拒绝都一样，2.1.330 实测），`idle_prompt` 也只在正常结束后才来。打断只能靠读会话记录末尾的 `[Request interrupted by user`（`agent_interrupted`）。不要靠「几分钟没事件」判断：一个工具可以跑半小时不发事件。
+- 钩子程序往 socket 写完一行就退出，应用接到连接时对端多半已经关了。macOS 对这种 socket 调 `set_read_timeout` 会报 `EINVAL`，内容其实还能读。1.16.0 把这个错误当失败丢掉了整条事件，表现为小牌出得晚、结束了还在转、多数时候根本不出。`read_line` 现在放过这个错误（`agent_hooks.rs` 有测试）；测这条通路要用真的钩子程序发，自己连上 socket 不关再写是测不出来的。
+- 钩子在后台运行（`async`），事件可能晚到、乱序或到两次。`ClaudeSessions` 按钩子程序自己记的时间 `at` 排，早于这一轮开始或结束的直接丢掉。测试会话逻辑时要带上 `at` 写乱序的用例，只按到达顺序测是测不出来的。新接一个事件要想清楚它晚到时会怎样。
+- 钩子现在会转发用户输入的第一行、文件名和回复的第一行。这些只能显示在界面上、存在 `ai-pet:coding-sessions:v1`，不能传给 `console.warn`/`console.error`（会进日志文件），也不能发给模型。原生端不转发命令、代码、工具输出和完整路径，改 `forwarded_line` 时保持这一点，测试 `names_a_tools_file_or_step_and_never_its_command` 守着。
+- 宠物窗口里半透明的底色会透出桌面。状态卡的琥珀色底是叠在 `--ui-surface` 上的（`linear-gradient(tint, tint), surface`）；深色模式下 `--ui-warning-soft` 这类变量是带透明度的，直接当背景用卡片就成了透明的。
+- 「回到终端」能精确到 Ghostty 的窗口和标签页，靠的是钩子记下的终端设备号（`controlling_tty`）。钩子程序是 Claude Code 用管道启动的，自己没有终端，`ps -o tty` 看是 `??`，要沿父进程往上找；不要改成读 stdin 的 tty。`osascript` 失败（用户拒绝了「控制 Ghostty」、终端已关）时一定要退回 `open -b`，不能让按钮点了没反应。Ghostty 的 `focus` 遇到同标签页里别的 split 被放大时会落空，脚本靠读回 `focused terminal` 发现并先取消放大，改脚本时别丢了这一步。测这些不要动用户现有的窗口：用 `new window with configuration`（`command` 设成 `/bin/sleep 90`）开临时窗口，在里面分屏、放大、开标签页，测完用 `close window` 关掉（`close` 是关终端的，对窗口不起作用），再列一遍窗口确认关了。
+- Claude Code 在用户按 Esc 时什么钩子都不发（打断这一轮、在确认框里拒绝都一样，2.1.330 实测），`idle_prompt` 也只在正常结束后才来。打断只能靠读会话记录末尾的 `[Request interrupted by user`（`agent_turn_over`）。不要靠「几分钟没事件」判断：一个工具可以跑半小时不发事件。
 - 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。
 - 启动时恢复贴边，必须等 `App` 订阅了 `pet.dock_changed` 再发 `pet.drag_ended`。事件总线不重放，发早了引擎和渲染器已经贴边、`App` 不知道，表现为宠物在边上探头，快捷按钮却出现在离它很远的另一侧。

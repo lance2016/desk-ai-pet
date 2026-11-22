@@ -15,6 +15,25 @@ describe("ActivityBoard", () => {
     ]);
   });
 
+  it("gives no chip to an activity shown somewhere of its own, and still tells its news", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "running", { noChip: true }));
+    expect(board.chips()).toEqual([]);
+    board.report(build("a", "waiting", { noChip: true, text: "等你点头" }));
+    expect(board.chips()).toEqual([]);
+    expect(board.notice()?.text).toBe("等你点头");
+  });
+
+  it("says whether an activity of a kind is running", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "running", { icon: "agent" }));
+    board.report(build("b", "waiting", { icon: "timer" }));
+    expect(board.running("agent")).toBe(true);
+    expect(board.running("timer")).toBe(false);
+    board.report(build("a", "cancelled", { icon: "agent" }));
+    expect(board.running("agent")).toBe(false);
+  });
+
   it("keeps a chip in its place when its activity moves on", () => {
     const board = new ActivityBoard();
     board.report(build("a", "running"));

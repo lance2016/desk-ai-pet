@@ -39,6 +39,11 @@ body {
 .app {
   position: relative;
   height: 100%;
+  /*
+   * How far the bar and the status row move up when the window hangs off the bottom of the screen.
+   * The first 46px cost nothing: the coding card keeps to one line there, which leaves that much room under it.
+   */
+  --overhang: max(0px, var(--visible-bottom, 0px) - 46px);
 }
 
 .pet-frame {
@@ -294,14 +299,15 @@ body {
 @keyframes speech-in { from { opacity: 0; translate: 0 4px; scale: .96; } }
 @keyframes speech-out { to { opacity: 0; scale: .97; } }
 
-/* The status row at the pet's feet: one small pill per thing going on, each doing its own thing when clicked. */
+/* The status row under the quick buttons: one small pill per thing going on, each doing its own thing when clicked. */
 .status-row {
   position: absolute;
-  z-index: 2;
+  /* Above the bar, so a pill's hint can open over the buttons. */
+  z-index: 3;
   left: max(var(--visible-left), var(--stage-side));
   right: max(var(--visible-right), var(--stage-side));
-  /* Just above the bar, a little into the room under the pet; at an edge the bar is gone and it drops to the bottom. */
-  bottom: calc(var(--stage-bottom) + var(--visible-bottom, 0px) - 10px);
+  /* Just below the bar and growing downwards, so pills and the coding card start from the same line whatever their height. */
+  top: calc(100% - 72px - var(--overhang));
   width: max-content;
   max-width: calc(100% - var(--visible-left) - var(--visible-right) - 16px);
   margin-inline: auto;
@@ -311,8 +317,9 @@ body {
   gap: 4px;
   pointer-events: auto;
 }
-.app--docked-left .status-row { left: calc(var(--visible-left) + 8px); right: auto; bottom: calc(8px + var(--visible-bottom, 0px)); margin: 0; justify-content: flex-start; }
-.app--docked-right .status-row { right: calc(var(--visible-right) + 8px); left: auto; bottom: calc(8px + var(--visible-bottom, 0px)); margin: 0; justify-content: flex-end; }
+/* At an edge the bar is gone: the row sits in the corner beside the peeking pet, where the bar was. */
+.app--docked-left .status-row { left: calc(var(--visible-left) + 8px); right: auto; top: auto; bottom: max(var(--stage-bottom) - 76px, var(--visible-bottom, 0px) + 8px); margin: 0; justify-content: flex-start; }
+.app--docked-right .status-row { right: calc(var(--visible-right) + 8px); left: auto; top: auto; bottom: max(var(--stage-bottom) - 76px, var(--visible-bottom, 0px) + 8px); margin: 0; justify-content: flex-end; }
 .status-chip {
   display: inline-flex;
   align-items: center;
@@ -345,8 +352,8 @@ button.status-chip:active { transform: scale(.97); }
 .status-chip--focus { position: relative; }
 .status-chip--focus::after { content: attr(data-hint); position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 4px 8px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; font-weight: 400; line-height: 1.2; white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .status-chip--focus:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
-/* While focusing the bar is gone: the row drops below the pool of light. */
-.app--focus .status-row { bottom: calc(var(--visible-bottom, 0px) + 8px); }
+/* While focusing the bar is gone: the row moves up to just below the pool of light. */
+.app--focus .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
 .status-chip__ring circle { fill: none; stroke-width: 2.5; }
 .status-chip__ring-track { stroke: var(--ui-accent-soft); }
@@ -370,10 +377,84 @@ button.status-chip:active { transform: scale(.97); }
 button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text); }
 @keyframes chip-spin { to { transform: rotate(360deg); } }
 
+/*
+ * Claude Code's sessions, as one card under the quick buttons. Its size is fixed, so it does not
+ * jump as what it says changes. Its state shows in the mark and the word beside it; only one waiting
+ * for the user tints the whole card. The tint is laid over the surface: a see-through card would show the desktop.
+ */
+.coding-card {
+  box-sizing: border-box;
+  width: 236px;
+  padding: 6px 12px;
+  display: grid;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(25, 23, 35, .12);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
+  animation: speech-in var(--ui-duration) var(--ui-ease);
+}
+.coding-card:hover { border-color: var(--ui-accent-ring); }
+.coding-card:active { transform: scale(.985); }
+.coding-card:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+/* The whole of a cut title, above the card or pill while pointed at, like the labels over the quick buttons. */
+.coding-card, .coding-pill { position: relative; }
+.coding-full {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  z-index: 4;
+  box-sizing: border-box;
+  width: 236px;
+  padding: 6px 10px;
+  display: grid;
+  gap: 2px;
+  color: var(--ui-text-secondary);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-row);
+  box-shadow: 0 3px 10px rgba(25, 23, 35, .12);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 3px);
+  transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
+}
+.coding-full strong { color: var(--ui-text); font-size: 12px; font-weight: 500; line-height: 18px; }
+:is(.coding-card, .coding-pill):is(:hover, :focus-visible) .coding-full { opacity: 1; transform: translate(-50%, 0); }
+.coding-card__head { display: flex; align-items: center; gap: 6px; height: 16px; color: var(--ui-text-secondary); font-size: 11px; }
+.coding-card__who { font-weight: 500; }
+.coding-card__state { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.coding-card__title, .coding-card__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coding-card__title { height: 20px; font-size: 13px; font-weight: 500; line-height: 20px; }
+.coding-card__meta { height: 16px; color: var(--ui-text-muted); font-size: 11px; line-height: 16px; }
+.coding-card--waiting, .coding-pill--waiting { background: linear-gradient(var(--ui-warning-soft), var(--ui-warning-soft)), var(--ui-surface); }
+.coding-card--waiting :is(.status-chip__dot, .coding-card__state, .coding-card__meta), .coding-pill--waiting { color: var(--ui-warning); }
+.coding-card--failed :is(.coding-mark, .coding-card__state, .coding-card__meta), .coding-pill--failed { color: var(--ui-danger); }
+.coding-card--completed :is(.coding-mark, .coding-card__state), .coding-pill--completed .coding-mark { color: var(--ui-positive); }
+.coding-card__head .status-chip__dot { margin: 0 2px; }
+.coding-mark { flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.coding-mark--quiet { box-sizing: border-box; width: 6px; height: 6px; margin: 0 3px; border: 1.5px solid currentColor; border-radius: 50%; opacity: .6; }
+/* One line: beside other pills, at a screen edge, or with nothing going on. */
+.coding-pill { max-width: 208px; padding-left: 6px; }
+.coding-pill:not([class*="coding-pill--"]) { padding-left: 9px; color: var(--ui-text-muted); }
+.coding-pill__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.coding-pill__more { flex: none; color: var(--ui-text-muted); }
+
 /* The floating action cluster stays inside the visible part of the transparent window. */
 .dock-area {
-  bottom: var(--visible-bottom, 0px);
-  height: calc(var(--stage-bottom) + 12px);
+  /* The buttons' centre sits 33px under the feet, their tops 10–14px clear of them, whatever room the status row and the coding card take below. */
+  bottom: calc(var(--stage-bottom) - 84px + var(--overhang));
+  height: 102px;
   align-items: center;
   z-index: 2;
 }
@@ -554,6 +635,6 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   .speech-bubble__tile .speech-bubble__bell { animation: none; }
   /* Still shows it is waiting, just without spinning. */
   .status-chip__spinner { animation: none; border-color: var(--ui-accent); }
-  .status-chip__ring-fill, button.status-chip, .status-chip--focus::after { transition: none; }
-  button.status-chip:active { transform: none; }
+  .status-chip__ring-fill, button.status-chip, .status-chip--focus::after, .coding-card, .coding-full { transition: none; }
+  button.status-chip:active, .coding-card:active { transform: none; }
 }

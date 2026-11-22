@@ -16,7 +16,20 @@ const reportSchema = z.object({
   notification: z.string().min(1).max(64).optional(),
   error: z.string().min(1).max(64).optional(),
   subagent: z.boolean().optional(),
+  revealable: z.boolean().optional(),
+  at: z.number().nonnegative().optional(),
+  task: z.string().min(1).max(160).optional(),
+  title: z.string().min(1).max(160).optional(),
+  detail: z.string().min(1).max(128).optional(),
+  branch: z.string().min(1).max(128).optional(),
+  summary: z.string().min(1).max(320).optional(),
 }) satisfies z.ZodType<AgentReport>;
+
+/** How a turn ended by its transcript, when no Stop came: Esc, or a Stop the pet missed. */
+const turnOverSchema = z.enum(["interrupted", "ended"]).nullable();
+export type TurnOver = z.infer<typeof turnOverSchema>;
+
+const titleSchema = z.string().max(160).nullable();
 
 const stateSchema = z.object({
   /** Our hooks are in Claude Code's settings. */
@@ -43,10 +56,16 @@ export const agentPlatform = {
     });
     return () => { unlisten.then((stop) => stop()).catch((error: unknown) => console.error("Failed to stop listening for agent reports", error)); };
   },
-  /** Whether the session's transcript shows the user interrupted it after `since` (milliseconds). */
-  async interrupted(session: string, since: number): Promise<boolean> {
-    return isTauri() ? z.boolean().parse(await invoke("agent_interrupted", { session, since })) : false;
+  /** Whether the session's transcript shows its turn was interrupted or ended after `since` (milliseconds). */
+  async turnOver(session: string, since: number): Promise<TurnOver> {
+    return isTauri() ? turnOverSchema.parse(await invoke("agent_turn_over", { session, since })) : null;
   },
+  /** Claude Code's own name for the session, from its transcript; null when it has none there. */
+  async title(session: string): Promise<string | null> {
+    return isTauri() ? titleSchema.parse(await invoke("agent_title", { session })) : null;
+  },
+  /** Brings the app the session runs in (its terminal) to the front. Rejects with a message for the user. */
+  async reveal(session: string): Promise<void> { requireNative(); await invoke("agent_reveal", { session }); },
   async state(): Promise<ClaudeHooksState> {
     return isTauri() ? stateSchema.parse(await invoke("claude_hooks_state")) : { connected: false, current: false, lastReportAt: null };
   },

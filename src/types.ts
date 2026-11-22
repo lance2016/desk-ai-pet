@@ -139,26 +139,40 @@ export const ALERT_ICONS = ["mail", "timer", "agent"] as const;
 export type AlertIcon = (typeof ALERT_ICONS)[number];
 
 /** The Claude Code hook events the pet listens to. Must match `EVENTS` in src-tauri/src/agent_hooks.rs. */
-export const AGENT_EVENTS = ["UserPromptSubmit", "PermissionRequest", "PostToolUse", "Notification", "Stop", "StopFailure", "SessionEnd"] as const;
+export const AGENT_EVENTS = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "PostToolUse", "Notification", "Stop", "StopFailure", "SessionEnd"] as const;
 export type AgentEvent = (typeof AGENT_EVENTS)[number];
 
 /**
  * One Claude Code hook event, cut down by the native side to what the pet
- * shows: no prompts, commands, replies or file contents. `project` is the last
- * part of the session's folder.
+ * shows: one short line each for what was asked, what a tool is on and how the
+ * turn ended; no commands, code or tool output. `project` is the last part of
+ * the session's folder.
  */
 export interface AgentReport {
   event: AgentEvent;
   session: string;
   project: string;
-  /** The tool it wants to use (PermissionRequest), or used (PostToolUse). */
+  /** The tool it is about to use (PreToolUse), wants to use (PermissionRequest), or used (PostToolUse). */
   tool?: string;
+  /** When the hook ran, in milliseconds. Hooks run in the background, so events can arrive out of order. */
+  at?: number;
+  /** The first line of what the user asked (UserPromptSubmit). */
+  task?: string;
+  /** The name the user gave the session. */
+  title?: string;
+  /** The file the tool works on, or its step as Claude described it (PreToolUse, PermissionRequest). */
+  detail?: string;
+  branch?: string;
+  /** The first line of Claude's last reply (Stop). */
+  summary?: string;
   /** Such as "permission_prompt" (Notification). */
   notification?: string;
   /** Such as "rate_limit" (StopFailure). */
   error?: string;
   /** The event comes from a subagent of the session. */
   subagent?: boolean;
+  /** The native side knows the app the session runs in and can bring it forward. */
+  revealable?: boolean;
 }
 
 /**
@@ -185,6 +199,10 @@ export interface ActivityUpdate {
   text?: string;
   /** The chip is a button that asks to stop it (`pet.activity_chip_clicked`). */
   cancellable?: boolean;
+  /** It is shown somewhere of its own (the coding card), so it gets no chip in the status row. */
+  noChip?: boolean;
+  /** Its standing line gets a button saying this, such as "回到终端" (`pet.activity_opened`; whoever reports it does it). */
+  opens?: string;
 }
 
 /** One part of the status row at the pet's feet. Each part is its own button, or a plain label. */
@@ -202,7 +220,7 @@ export interface StatusChip {
 /** A button on the standing line. Clicking it reports `event`; the engine decides what follows. */
 export interface AlertChoice {
   label: string;
-  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled" | "pet.reminders_done" | "pet.reminders_snoozed" | "pet.leftovers_moved";
+  event: "pet.alert_dismissed" | "pet.focus_stopped" | "pet.focus_toggled" | "pet.reminders_done" | "pet.reminders_snoozed" | "pet.leftovers_moved" | "pet.activity_open_requested";
   /** Throws something away, such as the running focus round. */
   destructive?: boolean;
 }
@@ -223,6 +241,10 @@ export interface PetEvents {
   "pet.activity": ActivityUpdate;
   /** The chip of a cancellable activity was clicked; whoever reports that activity stops it. */
   "pet.activity_chip_clicked": { id: string };
+  /** The button on an activity's standing line was clicked; the engine names the activity in `pet.activity_opened`. */
+  "pet.activity_open_requested": Record<string, never>;
+  /** Take the user to this activity (an agent's terminal); whoever reports it does it. */
+  "pet.activity_opened": { id: string };
   /** The cursor came onto the pet. */
   "pet.hovered": Record<string, never>;
   /** When the user last touched the keyboard or mouse anywhere, polled from the system now and then. */

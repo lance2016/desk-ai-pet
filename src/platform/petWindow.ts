@@ -33,6 +33,7 @@ const DND_EVENT = "pet://dnd";
 const SET_DND_COMMAND = "set_pet_dnd";
 const OPEN_TODAY_COMMAND = "open_today";
 const OPEN_NOTES_COMMAND = "open_notes";
+const OPEN_CODING_COMMAND = "open_coding";
 const OPEN_SETTINGS_COMMAND = "open_settings";
 const SETTINGS_SECTION_EVENT = "pet://settings-section";
 /** Must match the event and commands in src-tauri/src/quick_chat.rs. */
@@ -463,6 +464,12 @@ export const petWindow = {
     if (!isTauri()) { window.open("/?window=notes", "_blank"); return; }
     if (noteId) await emitTo("notes", NOTE_EVENT, noteId);
     await invoke(OPEN_NOTES_COMMAND);
+  },
+
+  /** Opens the Claude Code sessions next to the pet. */
+  async openCoding(): Promise<void> {
+    if (!isTauri()) { window.open("/?window=coding", "_blank"); return; }
+    await invoke(OPEN_CODING_COMMAND);
   },
 
   /** Calls `handler` with the note another window asked the notes panel to point out. */
