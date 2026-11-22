@@ -21,7 +21,7 @@ describe("settings navigation", () => {
     expect(DEVELOPER_GROUP.items.map(({ id }) => id)).toEqual(["developer"]);
   });
 
-  it("places character details under Characters and diagnostics under About", () => {
-    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about" });
+  it("places character details under Characters, diagnostics under About and cloned voices under AI", () => {
+    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about", voices: "ai" });
   });
 });

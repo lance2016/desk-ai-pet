@@ -13,6 +13,7 @@ mod llm;
 mod mail_code;
 mod mail_extract;
 mod mimo;
+mod mimo_voices;
 mod navigation_guard;
 mod proxy;
 mod quick_chat;
@@ -863,6 +864,9 @@ pub fn run() {
             mimo::mimo_transcribe,
             mimo::mimo_transcribe_cancel,
             mimo::mimo_synthesize,
+            mimo_voices::mimo_voice_list,
+            mimo_voices::mimo_voice_add,
+            mimo_voices::mimo_voice_remove,
             show_pet_menu,
             get_pet_on_top,
             set_pet_on_top,

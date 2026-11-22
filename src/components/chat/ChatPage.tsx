@@ -30,8 +30,9 @@ import { PeekPicture } from "../PeekPicture";
 import { ChatHistory } from "./ChatHistory";
 import { ChatMarkdown, ChatPlainText } from "./ChatMarkdown";
 import { MAX_RECORD_SECONDS, useVoiceInput, type VoiceProblem } from "./useVoiceInput";
+import { useReadAloud } from "./useReadAloud";
 import { canShortcut } from "../../preferences/ActionPreferences";
-import { loadVoiceLanguage } from "../../preferences/VoicePreferences";
+import { loadVoiceLanguage, loadVoicePreferences } from "../../preferences/VoicePreferences";
 import { petWindow } from "../../platform/petWindow";
 import type { ChatPhase } from "../../types";
 import "./ChatPage.css";
@@ -57,6 +58,7 @@ const COPIED_MS = 1_500;
 const CUT_OFF_MARK = "（太长了，没说完）";
 const STOPPED_MARK = "（已停止）";
 const STORAGE_FULL = "聊天记录存满了，删掉几段旧聊天再试。";
+const READ_ALOUD_FAILED = "朗读没能完成，可以再点一次，或者稍后再试。";
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 const sameMessages = (a: readonly ChatMessage[], b: readonly ChatMessage[]) => a.length === b.length && a.every((message, index) =>
@@ -76,7 +78,7 @@ const WEB_PROGRESS: Record<string, string> = {
   "search-failed": "这一轮搜索未返回结果…",
 };
 
-function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" | "image" | "globe" | "attach" | "file" }) {
+function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" | "image" | "globe" | "attach" | "file" | "speaker" }) {
   const paths = {
     mic: <><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></>,
     stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
@@ -88,6 +90,7 @@ function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "s
     image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="9" r="1.5" /><path d="m4 17 4-4 3 3 5-5 4 4" /></>,
     attach: <path d="m20 11.5-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7" />,
     file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
+    speaker: <><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4Z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>,
     copy: <><rect x="8" y="8" width="11" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h1" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
   } as const;
@@ -196,9 +199,19 @@ export function ChatPage({ packId }: { packId: string }) {
   });
   const recording = voice.phase === "recording";
   const transcribing = voice.phase === "transcribing";
+  // Reading a reply aloud is not a failed chat: a problem only shows in the error line, with a way to settings when the key is the trouble.
+  const reportReadAloudProblem = (detail: string) => {
+    const kind = classifyServiceError(detail);
+    console.warn("MiMo read-aloud failed", detail);
+    if (kind === "missing-key") setVoiceMissing(true);
+    setErrorFix(isKeyProblem(kind) || kind === "voice" ? "voice" : null);
+    setError(kind === "other" ? READ_ALOUD_FAILED : serviceErrorMessage("MiMo", kind));
+  };
+  const readerVoice = useCallback(() => loadVoicePreferences(packId, personaRef.current), [packId]);
+  const readAloud = useReadAloud({ voice: readerVoice, onProblem: reportReadAloudProblem });
 
   // The pet is told where the conversation stands: it thinks until the reply starts, and stays with the user for the rest.
-  const chatPhase: ChatPhase = recording ? "listening" : transcribing || (pending && !reply) ? "thinking" : pending ? "talking" : "idle";
+  const chatPhase: ChatPhase = recording ? "listening" : transcribing || (pending && !reply) ? "thinking" : pending || readAloud.reading ? "talking" : "idle";
   const typingReportedAt = useRef(0);
   // `voice.seconds` ticks while recording, which keeps "listening" alive for a long recording.
   useEffect(() => reportChatPhase(chatPhase), [chatPhase, voice.seconds]);
@@ -208,6 +221,9 @@ export function ChatPage({ packId }: { packId: string }) {
     reportChatPhase("listening");
   }, [draft, chatPhase]);
   useEffect(() => { if (failure) reportChatPhase("failed"); }, [failure]);
+  // A reply is told apart by its place in the chat shown, so another chat stops the reading.
+  const stopReading = readAloud.stop;
+  useEffect(() => stopReading(), [threadId, stopReading]);
 
   useEffect(() => { document.documentElement.classList.add("chat-window"); document.body.classList.add("chat-window"); return () => { document.documentElement.classList.remove("chat-window"); document.body.classList.remove("chat-window"); }; }, []);
   useEffect(() => {
@@ -536,9 +552,14 @@ export function ChatPage({ packId }: { packId: string }) {
     const tooLong = markdownToPlain(content).length > NOTE_LIMITS.text;
     const label = saved ? "已存进备忘，点一下查看" : tooLong ? `超过 ${NOTE_LIMITS.text} 字，不能存进备忘` : "存进备忘";
     const copyLabel = copied === index ? "已复制" : "复制";
+    const reading = readAloud.reading?.key === index ? readAloud.reading.phase : null;
+    const readLabel = reading === "preparing" ? "正在准备朗读，点一下取消" : reading === "playing" ? "停止朗读" : "朗读";
     return <div className="chat-row__actions">
       <button type="button" className={copied === index ? "chat-row__action is-saved" : "chat-row__action"} onClick={() => copyMessage(content, index)} aria-label={copyLabel} title={copyLabel}><Icon name="copy" /></button>
       <button type="button" className={saved ? "chat-row__action is-saved" : "chat-row__action"} disabled={tooLong} onClick={() => noteMessage(content)} aria-label={label} title={label}><ControlIcon name={saved ? "checklist" : "note"} /></button>
+      <button type="button" className={reading ? "chat-row__action is-saved" : "chat-row__action"} onClick={() => readAloud.toggle(index, markdownToPlain(content))} aria-label={readLabel} title={readLabel}>
+        {reading === "preparing" ? <span className="chat-row__spinner" aria-hidden="true" /> : <Icon name={reading === "playing" ? "stop" : "speaker"} />}
+      </button>
     </div>;
   };
   const assistantRow = (content: string, key?: number, web?: WebReply) => <div key={key} className="chat-row chat-row--assistant">

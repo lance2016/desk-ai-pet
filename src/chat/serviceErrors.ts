@@ -4,7 +4,7 @@
  * messages of `failureMessage` (`src/ai/provider.ts`), `src-tauri/src/llm.rs`,
  * `src-tauri/src/mimo.rs` and `src-tauri/src/api_keys.rs`.
  */
-export type ServiceError = "missing-key" | "bad-key" | "model" | "key-storage" | "billing" | "rate" | "busy" | "rejected" | "running" | "network" | "other";
+export type ServiceError = "missing-key" | "bad-key" | "model" | "key-storage" | "billing" | "rate" | "busy" | "rejected" | "running" | "voice" | "network" | "other";
 
 const RULES: ReadonlyArray<[ServiceError, RegExp]> = [
   ["missing-key", /not configured|请先.*配置.*API Key/],
@@ -16,6 +16,7 @@ const RULES: ReadonlyArray<[ServiceError, RegExp]> = [
   ["busy", /服务繁忙/],
   ["rejected", /发不出去/],
   ["running", /还在回复/],
+  ["voice", /克隆的声音|这段声音/],
   ["network", /网络|network|中断|request failed/i],
 ];
 
@@ -35,6 +36,7 @@ export function serviceErrorMessage(service: "DeepSeek" | "MiMo", kind: ServiceE
     case "busy": return `${service} 服务繁忙，稍后再试。`;
     case "rejected": return "这条消息发不出去，换个说法或新开一段聊天。";
     case "running": return "上一条还在回复，稍等一下。";
+    case "voice": return "这个克隆的声音用不了，去设置里换一个声音，或者重新录一段。";
     case "network": return `连不上 ${service}，检查网络后再试一次。`;
     case "other": return `${service} 出了点问题，请稍后再试。`;
   }

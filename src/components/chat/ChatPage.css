@@ -164,6 +164,8 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-row__action:hover:not(:disabled) { color: var(--accent-strong); background: var(--accent-wash); }
 .chat-row__action.is-saved { color: var(--accent-strong); }
 .chat-row__action:disabled { opacity: .35; cursor: default; }
+/* Waiting for the first sound of a reply read aloud; it keeps turning, so reduced motion leaves it be. */
+.chat-row__spinner { width: 11px; height: 11px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: chat-spin 900ms linear infinite; }
 
 /* Composer: one rounded field with the mic inside, the send button beside it. */
 .chat-composer { position: relative; display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px 14px; }

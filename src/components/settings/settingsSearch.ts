@@ -42,6 +42,10 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "chat", title: "规则与能力", keywords: "提示词 工具 定义 修改能力 AI" },
   { section: "general", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 debug" },
   { section: "ai", title: "小米 MiMo", keywords: "语音 语音输入 API Key 麦克风" },
+  { section: "ai", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
+  { section: "ai", title: "声音", keywords: "音色 朗读 男声 女声 换声音 试听 克隆" },
+  { section: "ai", title: "语气", keywords: "朗读 语速 情绪 风格 音色描述" },
+  { section: "voices", title: "添加声音", keywords: "克隆 复刻 音色 录音 自己的声音 上传 wav mp3" },
   { section: "chat", title: "语音识别语言", keywords: "中文 英文 自动 识别" },
   { section: "companion", title: "深夜关心", keywords: "熬夜 早点睡 关心时间 几点" },
   { section: "companion", title: "定时勿扰时照样深夜关心" },
@@ -91,7 +95,7 @@ export const SEARCH_SKIPPED: readonly string[] = [
   "角色设定", "新建角色…",
   "右键我", "点我一下", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "拼好的完整提示词", "最近发出的请求",
-  "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "语音输入", "关心", "勿扰", "应用", "宠物",
+  "AI 可以使用的能力", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "应用", "宠物",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限", "诊断",
 ];
 

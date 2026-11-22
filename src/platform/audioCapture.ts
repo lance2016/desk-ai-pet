@@ -1,6 +1,7 @@
 export type AudioCapture = { stop: () => Promise<{ base64: string; seconds: number }> };
 
-export async function startAudioCapture(onLimit: () => void): Promise<AudioCapture> {
+/** Records from the microphone until stopped, or until `maxSeconds` have been recorded, when `onLimit` is called. */
+export async function startAudioCapture(onLimit: () => void, maxSeconds = 120): Promise<AudioCapture> {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("当前系统暂不支持录音。");
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   let context: AudioContext;
@@ -10,7 +11,7 @@ export async function startAudioCapture(onLimit: () => void): Promise<AudioCaptu
   const processor = context.createScriptProcessor(4096, 1, 1);
   const chunks: Float32Array[] = [];
   let sampleCount = 0;
-  const maxSamples = context.sampleRate * 120;
+  const maxSamples = context.sampleRate * maxSeconds;
   let ended = false;
   processor.onaudioprocess = (event) => {
     event.outputBuffer.getChannelData(0).fill(0);

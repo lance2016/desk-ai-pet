@@ -9,7 +9,7 @@ use std::{
     },
     thread,
 };
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, State, Window};
 
 const ENDPOINT: &str = "https://api.xiaomimimo.com/v1/chat/completions";
 const SPEECH_EVENT: &str = "pet://mimo-audio";
@@ -39,9 +39,10 @@ impl MimoSpeechState {
     }
 }
 
-fn emit_speech(app: &AppHandle, id: &str, kind: &str, data: &str) {
+/// Audio goes back to the window that asked for it: the chat reads replies, settings plays a sample.
+fn emit_speech(app: &AppHandle, window: &str, id: &str, kind: &str, data: &str) {
     let _ = app.emit_to(
-        "chat",
+        window,
         SPEECH_EVENT,
         json!({"id":id,"kind":kind,"data":data}),
     );
@@ -200,6 +201,7 @@ pub async fn mimo_transcribe(
 #[tauri::command]
 pub async fn mimo_synthesize(
     app: AppHandle,
+    window: Window,
     state: State<'_, Arc<MimoSpeechState>>,
     request_id: String,
     text: String,
@@ -217,14 +219,23 @@ pub async fn mimo_synthesize(
     if text.trim().is_empty() || text.chars().count() > 3_000 || style.chars().count() > 200 {
         return Err("朗读文字或语气描述无效".into());
     }
-    if !matches!(
-        voice.as_str(),
-        "mimo_default" | "冰糖" | "茉莉" | "苏打" | "白桦" | "Mia" | "Chloe" | "Milo" | "Dean"
-    ) {
+    let cloned = voice.strip_prefix(crate::mimo_voices::VOICE_PREFIX).map(str::to_owned);
+    if cloned.is_none()
+        && !matches!(
+            voice.as_str(),
+            "mimo_default" | "冰糖" | "茉莉" | "苏打" | "白桦" | "Mia" | "Chloe" | "Milo" | "Dean"
+        )
+    {
         return Err("暂不支持所选 MiMo 音色".into());
     }
     let state = state.inner().clone();
+    let target = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
+        // A cloned voice is its sample, sent along each time to the model that clones.
+        let (model, voice) = match cloned {
+            Some(id) => ("mimo-v2.5-tts-voiceclone", crate::mimo_voices::sample_data_url(&app, &id)?),
+            None => ("mimo-v2.5-tts", voice),
+        };
         let messages = if style.trim().is_empty() {
             json!([{"role":"assistant","content":text}])
         } else {
@@ -232,10 +243,11 @@ pub async fn mimo_synthesize(
         };
         stream_synthesis(
             app,
+            target,
             state,
             request_id,
             json!({
-                "model":"mimo-v2.5-tts", "messages":messages,
+                "model":model, "messages":messages,
                 "audio":{"format":"pcm16","voice":voice}, "stream":true
             }),
         )
@@ -246,6 +258,7 @@ pub async fn mimo_synthesize(
 
 fn stream_synthesis(
     app: AppHandle,
+    window: String,
     state: Arc<MimoSpeechState>,
     request_id: String,
     body: Value,
@@ -285,6 +298,7 @@ fn stream_synthesis(
             return Err("无法发送 MiMo 语音请求".into());
         }
     }
+    let cloning = body["model"] == "mimo-v2.5-tts-voiceclone";
     let stdout = child.stdout.take().ok_or("无法读取 MiMo 语音流")?;
     let stderr = child.stderr.take();
     let child = Arc::new(Mutex::new(child));
@@ -331,7 +345,7 @@ fn stream_synthesis(
                         .filter(|audio| !audio.is_empty())
                     {
                         chunks += 1;
-                        emit_speech(&app, &request_id, "chunk", audio);
+                        emit_speech(&app, &window, &request_id, "chunk", audio);
                     }
                 }
             }
@@ -355,9 +369,9 @@ fn stream_synthesis(
             running.remove(&request_id);
         }
         if cancelled.load(Ordering::Relaxed) {
-            emit_speech(&app, &request_id, "cancelled", "");
+            emit_speech(&app, &window, &request_id, "cancelled", "");
         } else if !response_error && chunks > 0 && status.is_some_and(|status| status.success()) {
-            emit_speech(&app, &request_id, "done", "");
+            emit_speech(&app, &window, &request_id, "done", "");
         } else {
             let message = if details.contains("401") || details.contains("403") {
                 "MiMo API Key 无效，请在设置中检查。"
@@ -365,10 +379,12 @@ fn stream_synthesis(
                 "MiMo 账户余额不足，请检查账户。"
             } else if details.contains("429") {
                 "MiMo 请求过于频繁，请稍后重试。"
+            } else if cloning && details.contains("400") {
+                "MiMo 没能用这段声音朗读，换一段更清楚的录音再试。"
             } else {
                 "MiMo 语音流中断，请检查网络后重试。"
             };
-            emit_speech(&app, &request_id, "error", message);
+            emit_speech(&app, &window, &request_id, "error", message);
         }
     });
     Ok(())

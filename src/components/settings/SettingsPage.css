@@ -176,6 +176,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--chat { --tile: var(--tile-green); }
 .settings-nav__icon--ai, .settings-nav__icon--privacy { --tile: var(--tile-blue); }
 .settings-nav__icon--memory { --tile: var(--tile-orange); }
+.settings-nav__icon--voices { --tile: var(--tile-red); }
 .settings-nav__icon--tools { --tile: var(--tile-teal); }
 .settings-nav__icon--guide { --tile: var(--tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
@@ -685,8 +686,8 @@ button.dock-row__body { cursor: pointer; }
 
 /* ---------- Sheets: first-run guide and picture cropper ---------- */
 /* Sheets open the same way everywhere: the scrim fades in and the card settles into place, without a bounce. The action preview joins in from ActionLibrary.css. */
-.welcome, .cropper, .whats-new, .action-preview { animation: scrim-in var(--ui-duration) var(--ui-ease); }
-.welcome__card, .cropper__card, .whats-new__card, .action-preview__dialog { animation: sheet-in var(--ui-duration-slow) var(--ui-ease); }
+.welcome, .cropper, .whats-new, .action-preview, .voice-clone { animation: scrim-in var(--ui-duration) var(--ui-ease); }
+.welcome__card, .cropper__card, .whats-new__card, .action-preview__dialog, .voice-clone__card { animation: sheet-in var(--ui-duration-slow) var(--ui-ease); }
 @keyframes scrim-in { from { opacity: 0; } }
 @keyframes sheet-in { from { opacity: 0; scale: .97; } }
 @media (prefers-reduced-motion: reduce) { @keyframes sheet-in { from { opacity: 0; } } }
@@ -863,3 +864,40 @@ button.dock-row__body { cursor: pointer; }
   .settings-section { max-width: calc(var(--content-width) + 52px); padding: 0 26px 28px; }
   .settings-content > .settings-error { width: calc(100% - 52px); margin-left: auto; margin-right: auto; }
 }
+
+/* ---------- Read-aloud voice (VoiceSettings) and the sheet that adds a cloned voice (VoiceCloneSheet) ---------- */
+.settings-row > select + .voice-preview { min-width: 52px; }
+/* The sentence 试听 reads, so the user knows what they will hear. */
+.voice-sample { display: block; margin-top: 4px; color: var(--label-3); font-size: 11px; line-height: 1.5; quotes: "试听：「" "」"; }
+/* The style line spans the row: its label above, the field under it, the count and reset below. */
+.voice-style { flex-wrap: wrap; row-gap: 8px; }
+.voice-style > .settings-row__body { flex-basis: 100%; }
+.voice-style textarea { box-sizing: border-box; flex-basis: 100%; min-height: 52px; resize: vertical; padding: 6px 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: inherit; line-height: 1.5; }
+.voice-style textarea:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); border-color: var(--accent); }
+.voice-style__foot { flex-basis: 100%; display: flex; justify-content: space-between; align-items: center; }
+.voice-style__foot small { color: var(--label-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.voice-clone { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: var(--scrim); }
+.voice-clone__card { box-sizing: border-box; display: grid; gap: 12px; width: min(420px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; padding: 20px; background: var(--group); border-radius: 12px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3); }
+.voice-clone__card h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.voice-clone__card p { margin: 0; color: var(--label-2); font-size: 12px; line-height: 1.5; }
+.voice-clone__field { display: grid; gap: 6px; font-weight: 500; }
+.voice-clone__field input { box-sizing: border-box; height: 26px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: inherit; font-weight: 400; }
+.voice-clone__source { justify-self: start; }
+.voice-clone__panel { display: grid; gap: 8px; padding: 12px; background: var(--fill); border-radius: var(--radius-row); }
+.voice-clone__panel blockquote { margin: 0; color: var(--label); font-size: 13px; line-height: 1.7; }
+.voice-clone__row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.voice-clone__rec.is-on { color: var(--ui-action-text); background: var(--red); box-shadow: none; }
+.voice-clone__clock { color: var(--label-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.voice-clone__file { position: relative; overflow: hidden; }
+/* The file input stays focusable and clickable under its button-shaped label. */
+.voice-clone__file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.voice-clone__file:has(input:focus-visible) { box-shadow: var(--control-shadow), 0 0 0 3px var(--accent-ring); }
+.voice-clone__name { min-width: 0; overflow: hidden; color: var(--label-2); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.voice-clone__play { width: 100%; height: 32px; }
+.voice-clone__consent { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.5; }
+.voice-clone__consent input { flex: none; margin: 2px 0 0; accent-color: var(--accent); }
+.voice-clone__card .voice-clone__note { font-size: 11px; }
+.voice-clone__card .voice-clone__problem { padding: 8px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); }
+.voice-clone__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.voice-clone__actions .settings-button { min-width: 72px; height: 28px; }

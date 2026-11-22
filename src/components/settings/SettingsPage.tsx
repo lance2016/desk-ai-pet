@@ -14,6 +14,7 @@ import { systemPlatform } from "../../platform/system";
 import { CHAT_LIMITS } from "../../chat/ChatThreads";
 import { createLocalPetStorage } from "../../storage/PetStorage";
 import { AISettings } from "./AISettings";
+import { ClonedVoiceSettings } from "./ClonedVoiceSettings";
 import { ChatSettings } from "./ChatSettings";
 import { FactSettings } from "./FactSettings";
 import { ChatRequestLog } from "./ChatRequestLog";
@@ -75,6 +76,7 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     actions: <><path d="M12 20c-3 0-5-1.4-5-3.8 0-2 2.3-3.6 5-3.6s5 1.6 5 3.6c0 2.4-2 3.8-5 3.8Z" /><circle cx="5.5" cy="10" r="2" /><circle cx="10" cy="6" r="2" /><circle cx="15" cy="6" r="2" /><circle cx="19" cy="10" r="2" /></>,
     chat: <><path d="M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5Z" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
+    voices: <><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></>,
     memory: <><path d="M7 3h10v18l-5-4-5 4V3Z" /></>,
     tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
@@ -94,6 +96,7 @@ const STORED: readonly [string, string][] = [
   ["聊天记录", `每个角色最多留 ${CHAT_LIMITS.threads} 段，更早的自动删掉`],
   ["请求记录", "每次请求 AI 的用时和用量留 90 天，不含内容；开发者模式另存最近 100 次的完整内容。都不进备份"],
   ["API Key 和邮箱授权码", "API Key 在本机加密保存，邮箱授权码存在钥匙串里"],
+  ["克隆的声音", "录音或选的文件存在本机，不进备份"],
 ];
 const ONLINE: readonly [string, string, string][] = [
   ["DeepSeek · 聊天", `最近 ${CHAT_LIMITS.context} 条消息、你的称呼、角色设定和补充要求`, "聊天时"],
@@ -104,6 +107,7 @@ const ONLINE: readonly [string, string, string][] = [
   ["DeepSeek · 今日回顾", "今天勾掉和没处理的提醒、专注轮数、今天记的备忘", "需要归纳时"],
   ["DeepSeek · 划词", "只有选中的文字", "翻译、解释、总结、润色时"],
   ["小米 MiMo · 语音输入", "这段录音，识别完不保存", "说话时"],
+  ["小米 MiMo · 朗读", "这条回复的文字；用克隆的声音时还有那段声音片段", "点朗读或试听时"],
   ["163 邮箱", "只读最新几封邮件，不标已读", "查收时"],
   ["节假日数据", "不带个人信息", "缺数据时"],
   ["GitHub · 检查更新", "不带个人信息", "每天一次"],
@@ -390,7 +394,8 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} profileIcon={<span className="settings-nav__icon settings-nav__icon--characterProfile"><SettingsGlyph name="characterProfile" /></span>} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "chat" && packInfo && <ChatSettings key={packId} packId={packId} persona={persona} actions={packActions.filter(canShortcut).map((action) => action.id)} onError={setError} />}
-        {section === "ai" && <AISettings />}
+        {section === "ai" && <AISettings packId={packId} persona={persona} characterName={name || "这个角色"} clonesIcon={<span className="settings-nav__icon settings-nav__icon--voices"><SettingsGlyph name="voices" /></span>} onOpenClones={() => void go("voices")} />}
+        {section === "voices" && <ClonedVoiceSettings />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
         {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
         {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}

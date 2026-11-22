@@ -15,6 +15,11 @@ describe("classifyServiceError", () => {
     expect(classifyServiceError("MiMo 请求过于频繁，请稍后重试。")).toBe("rate");
   });
 
+  it("tells a cloned voice that cannot be used from a network problem", () => {
+    expect(classifyServiceError("这个克隆的声音已经删掉了，请在设置 → AI 服务里换一个声音。")).toBe("voice");
+    expect(classifyServiceError("MiMo 没能用这段声音朗读，换一段更清楚的录音再试。")).toBe("voice");
+  });
+
   it("treats connection failures as network errors", () => {
     expect(classifyServiceError("连接或回复中断，请检查网络后重试。")).toBe("network");
     expect(classifyServiceError("MiMo 请求失败，请检查网络和服务状态。")).toBe("network");

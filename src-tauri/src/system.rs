@@ -158,7 +158,7 @@ pub async fn save_character_package(app: AppHandle, contents: String, file_name:
 /// Writes a file so it is either complete or untouched: first a temporary file
 /// next to it, then a rename. A failure half way leaves no half backup behind,
 /// and an older backup of the same name stays until the new one is whole.
-fn write_whole(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_whole(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
     let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let temporary = path.with_file_name(format!(".{name}.partial"));
     let written = std::fs::write(&temporary, contents).and_then(|()| std::fs::rename(&temporary, path));

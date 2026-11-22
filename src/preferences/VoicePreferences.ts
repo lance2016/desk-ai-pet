@@ -1,11 +1,13 @@
 import { z } from "zod";
 import type { PetPersona } from "../assets/Manifest";
-import { MIMO_VOICES, PERSONA_LIMITS } from "../types";
+import { CLONED_VOICE_PATTERN, MIMO_VOICES, PERSONA_LIMITS } from "../types";
 import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
 
+/** One of MiMo's own voices, or `clone:<id>` for one the user cloned. */
+const voiceSchema = z.union([z.enum(MIMO_VOICES), z.string().regex(CLONED_VOICE_PATTERN)]);
 const schema = z.object({
   autoSpeak: z.boolean().default(false),
-  voice: z.enum(MIMO_VOICES).default("茉莉"),
+  voice: voiceSchema.default("茉莉"),
   style: z.string().max(PERSONA_LIMITS.voiceStyle).default("温柔、自然、亲切的年轻女声，语速适中，像熟悉的朋友在轻声陪伴。"),
   language: z.enum(["auto", "zh", "en"]).default("auto"),
 });
@@ -22,13 +24,33 @@ export function voiceDefaults(persona?: PetPersona): VoicePreferences {
   };
 }
 
+/** Saved preferences may leave the voice out: a cloned voice was deleted, and the character's own voice is back. */
+const savedSchema = schema.extend({ voice: voiceSchema.optional() });
+
 export function loadVoicePreferences(packId: string, persona?: PetPersona, storage: Storage = window.localStorage): VoicePreferences {
-  try { const raw = storage.getItem(key(packId)); return raw ? schema.parse(JSON.parse(raw)) : voiceDefaults(persona); }
+  try {
+    const raw = storage.getItem(key(packId));
+    if (!raw) return voiceDefaults(persona);
+    const saved = savedSchema.parse(JSON.parse(raw));
+    return { ...saved, voice: saved.voice ?? voiceDefaults(persona).voice };
+  }
   catch (error) { console.warn("Failed to read voice preferences", error); return voiceDefaults(persona); }
 }
 
 export function saveVoicePreferences(packId: string, value: VoicePreferences, storage: Storage = window.localStorage): void {
   storage.setItem(key(packId), JSON.stringify(schema.parse(value)));
+}
+
+/** A cloned voice was deleted: every character that used it goes back to its own voice, keeping the rest. */
+export function forgetVoice(voice: string, storage: Storage = window.localStorage): void {
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index))
+    .filter((name): name is string => name?.endsWith(`:${CHARACTER_DATA.voicePreferences}`) ?? false);
+  for (const name of keys) {
+    try {
+      const { voice: used, ...rest } = savedSchema.parse(JSON.parse(storage.getItem(name) ?? ""));
+      if (used === voice) storage.setItem(name, JSON.stringify(rest));
+    } catch (error) { console.warn("Skipping unreadable voice preferences", error); }
+  }
 }
 
 export function resetVoicePreferences(packId: string, storage: Storage = window.localStorage): void {
