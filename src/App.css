@@ -480,6 +480,12 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 
 /* The floating action cluster stays inside the visible part of the transparent window. */
 .dock-area {
+  /*
+   * Centred on the pet like the status row, not on the on-screen part of the window: near a screen edge
+   * both sides give up what the window hangs off by (at most the stage margin), so the bar stays under the pet.
+   */
+  left: max(var(--visible-left), min(var(--visible-right), var(--stage-side)));
+  right: max(var(--visible-right), min(var(--visible-left), var(--stage-side)));
   /* The buttons' centre sits 33px under the feet, their tops 10–14px clear of them, whatever room the status row and the coding card take below. */
   bottom: calc(var(--stage-bottom) - 84px + var(--overhang));
   height: 102px;
