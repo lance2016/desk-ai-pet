@@ -34,7 +34,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 6. **React 组件只发事件。** 不直接调用控制器，不直接改状态。聊天、提醒、备忘这些场景也一样：只报告发生了什么（`pet.chat_phase`、`pet.noted`、`pet.item_done`），播哪个动作由 `BehaviorEngine` 决定，不要在入口处自己 `requestAction`。
 7. **外部入口只有 `PetRuntime.requestAction()`。** 它不能改属性，也不能触发 `system` 类动作。以后的 AI、提醒都走这个入口。
 8. **状态不可变。** `PetState` 的快照每次更新都生成新对象。
-9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；提醒、备忘、Claude Code、设置是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮，Claude Code 和设置默认不显示（`OFF_BY_DEFAULT`）。聊天不进快捷按钮，用宠物旁边的聊天按钮（`ChatLauncher`）。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
+9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；提醒、备忘、Claude Code、常用链接、设置是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮，Claude Code、常用链接和设置默认不显示（`OFF_BY_DEFAULT`）。聊天不进快捷按钮，用宠物旁边的聊天按钮（`ChatLauncher`）。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
 11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。能力按用户认得的对象分组（提醒、备忘、今日回顾……），不按动词分。新能力要写给用户看的 `title`、`summary`（「设置 › 能力」只显示这些中文）和每个工具的 `label`（「工具定义」页显示在工具名下面），不在设置组件里另起名字；在 `ICONS`（`SkillSettings.tsx`）里给它一个图标。工具名、参数、规则原文只出现在开发者模式的「提示词」「工具定义」页，不放进普通页面。用户能关掉整组，开发者能关掉单个工具；工具离不开同组别的工具（改删前先查编号）就在工具上写 `requires`。提供哪些能力、哪些工具只看 `offeredSkills` 和 `offeredTools`，不要在别处另判断开关。原生的 `llm.rs` 只管本机加密 API Key、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 
@@ -97,6 +97,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | Claude Code 状态的事件名、命令名和字段 | `src/platform/agents.ts`（`pet://agent`、`reportSchema`、`agent_turn_over`、`agent_title`、`agent_reveal`、`claude_hooks_*`）、`AGENT_EVENTS` 和 `AgentReport`（`src/types.ts`） | `src-tauri/src/agent_hooks.rs` 的 `EVENT`、`EVENTS`、`Forwarded`、`Work`、`Report`，`claude_settings.rs`，`lib.rs` 的 `invoke_handler` |
 | 钩子转发的字数上限 | `MAX_TASK_CHARS`、`MAX_SUMMARY_CHARS`、`MAX_FORWARDED_CHARS`（`agent_hooks.rs`，按字符） | `reportSchema`（`src/platform/agents.ts`）和 `SESSION_LIMITS`（`src/agents/CodingSession.ts`，按 UTF-16，所以是两倍） |
 | Coding 面板窗口 | `tauri.conf.json` 的 `coding` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=coding` 路由、`lib.rs` 的 `CODING_WINDOW`、`POPOVERS` 和 `open_coding`，`petWindow.ts` 的 `OPEN_CODING_COMMAND` |
+| 常用链接窗口 | `tauri.conf.json`、`capabilities/default.json` 的 `links` 窗口 | `src/main.tsx` 的 `window=links`，`lib.rs` 的 `LINKS_WINDOW`、`POPOVERS`、`open_links`、`set_links_enabled`，以及 `petWindow.ts` 的同名命令 |
 | 状态行和状态卡的位置 | `STAGE_MARGIN.bottom`（132，`stageGeometry.ts`） | `.dock-area`、`.status-row`（`src/App.css`：底栏中心在脚下 33px，状态行上沿在窗口底部往上 72px）、`.coding-card` 的高度（66px） |
 | Ghostty 定位终端 | `GHOSTTY`、`GHOSTTY_FOCUS`（`agent_hooks.rs`，用 Ghostty 脚本字典里 `terminal` 的 `tty`、`focus`，`tab` 的 `focused terminal` 和 `perform action "toggle_split_zoom"`，1.4.0 实测；没有文档承诺不变） | Ghostty 的 `Ghostty.sdef`；`src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`（没有它系统不弹授权） |
 | 钩子的 socket 位置 | `agent_hooks.rs` 的 `IDENTIFIER`（转发时应用没启动，拿不到配置） | `tauri.conf.json` 的 `identifier` |

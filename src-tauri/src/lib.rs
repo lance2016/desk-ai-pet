@@ -59,6 +59,7 @@ const QUIT_ID: &str = "quit";
 const SETTINGS_ID: &str = "settings";
 const NOTES_ID: &str = "notes";
 const CODING_ID: &str = "coding";
+const LINKS_ID: &str = "links";
 const REVIEW_ID: &str = "review";
 const TRANSLATE_ID: &str = "translate";
 const MAIL_CODE_ID: &str = "mail_code";
@@ -89,8 +90,9 @@ const CHAT_WINDOW: &str = "chat";
 const TODAY_WINDOW: &str = "today";
 const NOTES_WINDOW: &str = "notes";
 const CODING_WINDOW: &str = "coding";
-/// The reminder, note and coding popovers: they open side by side and stay until closed.
-const POPOVERS: [&str; 3] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW];
+const LINKS_WINDOW: &str = "links";
+/// The panels open side by side and stay until closed.
+const POPOVERS: [&str; 4] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW, LINKS_WINDOW];
 
 /// The one menu shared by the tray icon and the pet's right-click menu.
 struct PetMenu {
@@ -98,6 +100,7 @@ struct PetMenu {
     visibility: MenuItem<Wry>,
     focus: MenuItem<Wry>,
     mail_code: MenuItem<Wry>,
+    links: MenuItem<Wry>,
     /** Whether a focus round or rest is running, so the item knows what a click means. */
     focus_running: AtomicBool,
     /// Whether the right-click menu is open. Opening it runs AppKit's menu loop, which still
@@ -206,6 +209,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let today = item(TODAY_ID, "提醒")?;
     let notes = item(NOTES_ID, "备忘")?;
     let coding = item(CODING_ID, "Claude Code 会话")?;
+    let links = item(LINKS_ID, "常用链接")?;
     let review = item(REVIEW_ID, "今日回顾")?;
     let translate = item(TRANSLATE_ID, "翻译…")?;
     let mail_code = item(MAIL_CODE_ID, MAIL_CODE_LABEL)?;
@@ -235,6 +239,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &today,
             &notes,
             &coding,
+            &links,
             &review,
             &translate,
             &mail_code,
@@ -252,7 +257,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &quit,
         ],
     )?;
-    Ok(PetMenu { menu, visibility, focus, mail_code, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
+    Ok(PetMenu { menu, visibility, focus, mail_code, links, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
 }
 
 /// The app's menu bar. It shows only while the settings window keeps the app in the Dock,
@@ -340,8 +345,12 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             "emit focus event",
             app.emit_to(MAIN_WINDOW, FOCUS_EVENT, !menu.focus_running.load(Ordering::Relaxed)),
         ),
-        NOTES_ID | CODING_ID => {
-            let label = if id == NOTES_ID { NOTES_WINDOW } else { CODING_WINDOW };
+        NOTES_ID | CODING_ID | LINKS_ID => {
+            let label = match id {
+                NOTES_ID => NOTES_WINDOW,
+                CODING_ID => CODING_WINDOW,
+                _ => LINKS_WINDOW,
+            };
             if let Err(error) = show_beside_pet(app, label) {
                 log::warn!("failed to open {label}: {error}");
             }
@@ -709,6 +718,25 @@ fn open_notes(app: AppHandle) -> Result<(), String> {
     show_beside_pet(&app, NOTES_WINDOW)
 }
 
+#[tauri::command]
+fn open_links(app: AppHandle, menu: State<'_, PetMenu>) -> Result<(), String> {
+    if !menu.links.is_enabled().map_err(|error| error.to_string())? {
+        return Ok(());
+    }
+    show_beside_pet(&app, LINKS_WINDOW)
+}
+
+#[tauri::command]
+fn set_links_enabled(app: AppHandle, menu: State<'_, PetMenu>, enabled: bool) -> Result<(), String> {
+    menu.links.set_enabled(enabled).map_err(|error| error.to_string())?;
+    if !enabled {
+        if let Some(panel) = app.get_webview_window(LINKS_WINDOW) {
+            panel.hide().map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 /// Opens the Claude Code sessions beside the pet.
 #[tauri::command]
 fn open_coding(app: AppHandle) -> Result<(), String> {
@@ -824,7 +852,7 @@ pub fn run() {
                     }
                 });
             }
-            // The today, notes and coding panels stay until closed (the close button, Escape),
+            // The panels stay until closed (the close button, Escape),
             // side by side with each other and with whatever the user is doing.
             for label in POPOVERS {
                 if let Some(panel) = app.get_webview_window(label) {
@@ -889,6 +917,8 @@ pub fn run() {
             open_chat,
             open_today,
             open_notes,
+            open_links,
+            set_links_enabled,
             open_coding,
             open_settings,
             set_pet_dnd,

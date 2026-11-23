@@ -264,7 +264,7 @@ export class ClaudeSessions {
   /** `known` with its last turn put away among the earlier ones and nothing of it left, so a new turn can start. */
   private putAway(known: CodingSession): CodingSession {
     const { task, result, turnStartedAt, turnEndedAt, earlier = [], ...rest } = this.settled(known);
-    if (task === undefined && turnStartedAt === undefined) return rest;
+    if (task === undefined && turnStartedAt === undefined && turnEndedAt === undefined) return rest;
     const past: PastTurn = {
       turn: known.turn,
       ...(task !== undefined ? { task } : {}),

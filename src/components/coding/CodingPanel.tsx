@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { elapsedText } from "../../activity/Activity";
+import { codingInbox, loadInboxMarks, saveInboxMark, SNOOZE_MS, type InboxItem } from "../../agents/codingInbox";
 import { byProject, isLive, pinnedFirst, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession, type ProjectGroup, type TurnState } from "../../agents/CodingSession";
 import { loadPinnedFolder, savePinnedFolder } from "../../agents/codingPin";
 import { codingSessionsSnapshot, subscribeCodingSessions } from "../../agents/codingStore";
@@ -13,6 +14,7 @@ import "./CodingPanel.css";
 
 const TICK_MS = 15_000;
 const HUD_MS = 2_400;
+const UNDO_MS = 5_000;
 const DAY_MS = 24 * 60 * 60_000;
 /** Where "编码助手" is in the settings window. */
 const SETTINGS_SECTION = "tools";
@@ -125,6 +127,10 @@ function TerminalGlyph() {
   return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M13 15h3.5" /></svg>;
 }
 
+function InboxGlyph() {
+  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13l3-7h10l3 7v5H4zM4 13h5l1 2h4l1-2h5" /></svg>;
+}
+
 function InfoGlyph() {
   return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.8v.1" /></svg>;
 }
@@ -217,17 +223,26 @@ function folderState(group: ProjectGroup): "waiting" | "working" | null {
 
 interface FoldersProps {
   groups: ProjectGroup[];
-  current: string;
+  current: string | null;
   pinned: string | null;
+  inboxCount: number;
+  onInbox: () => void;
   onPick: (project: string) => void;
 }
 
 /** Every folder at once, each with how it stands and how many sessions are open there: a click, or ⌘1 to ⌘9, switches to it. */
-function Folders({ groups, current, pinned, onPick }: FoldersProps) {
+function Folders({ groups, current, pinned, inboxCount, onInbox, onPick }: FoldersProps) {
   return (
     <nav className="coding-sidebar" aria-label="项目" data-tauri-drag-region>
       <h1 className="coding-sidebar__title" data-tauri-drag-region>Claude Code</h1>
       <ul>
+        <li>
+          <button type="button" className={`coding-folder${current === null ? " is-picked" : ""}`} aria-current={current === null ? "page" : undefined} onClick={onInbox}>
+            <span className="coding-row__mark coding-folder__mark"><InboxGlyph /></span>
+            <span className="coding-folder__name">待处理</span>
+            {inboxCount > 0 && <span className="coding-folder__count">{inboxCount}</span>}
+          </button>
+        </li>
         {groups.map((group, index) => {
           const state = folderState(group);
           const picked = group.project === current;
@@ -252,6 +267,45 @@ function Folders({ groups, current, pinned, onPick }: FoldersProps) {
         })}
       </ul>
     </nav>
+  );
+}
+
+interface InboxRowProps {
+  item: InboxItem;
+  now: number;
+  deferred?: boolean;
+  onBack: (session: CodingSession) => void;
+  onMark: (key: string, until: number | null) => void;
+}
+
+function InboxRow({ item, now, deferred = false, onBack, onMark }: InboxRowProps) {
+  const { session, turn, key, at, task, line } = item;
+  const status = turn === "waiting" ? "等你处理" : turn === "failed" ? "出错了" : "结果待看";
+  const project = session.project || FOLDER_FALLBACK;
+  const title = task ?? session.name ?? project;
+  const context = [title !== project && project, session.branch].filter(Boolean).join(" · ");
+  const description = line && line !== status ? `${status}：${line}` : status;
+  const openLabel = session.revealable ? "回到终端" : "复制恢复命令";
+  return (
+    <li className={`today-row coding-row coding-inbox-row coding-row--${turn}`}>
+      <button type="button" className="coding-row__main" title={[title, context, description, openLabel].filter(Boolean).join("\n")} onClick={() => onBack(session)}>
+        <span className="coding-row__mark"><TurnMark turn={turn} /></span>
+        <span className="coding-row__body">
+          <span className="coding-row__top"><strong>{title}</strong><span className="coding-row__time">{ago(at, now)}</span></span>
+          {context && <span className="coding-row__where">{context}</span>}
+          <span className="coding-row__line">{description}</span>
+          <span className="visually-hidden">{openLabel}</span>
+        </span>
+      </button>
+      {turn !== "waiting" && (
+        <div className="coding-inbox-row__actions">
+          {deferred
+            ? <button type="button" className="today-button" onClick={() => onMark(key, null)}>移回待处理</button>
+            : <button type="button" className="today-button" onClick={() => onMark(key, Date.now() + SNOOZE_MS)}>30 分钟后看</button>}
+          <button type="button" className="today-button" onClick={() => onMark(key, 0)}>标为已看</button>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -346,7 +400,9 @@ export function CodingPanel() {
   const sessions = useSyncExternalStore(subscribeCodingSessions, codingSessionsSnapshot);
   const now = useNow(true, TICK_MS);
   const [hooks, setHooks] = useState<ClaudeHooksState | undefined>(undefined);
-  const [hud, setHud] = useState<string | null>(null);
+  const [hud, setHud] = useState<{ text: string; undo?: { key: string; until: number | null } } | null>(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [marks, setMarks] = useState(() => loadInboxMarks());
   /** The folder the user switched to; until then, the one that needs them most. */
   const [chosen, setChosen] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
@@ -358,6 +414,7 @@ export function CodingPanel() {
   const groups = pinnedFirst(byProject(sessions), pinned);
   const group = groups.find((each) => each.project === chosen) ?? groups[0];
   const detail = picked === null ? undefined : sessions.find((session) => session.id === picked);
+  const inbox = codingInbox(sessions, marks, now);
 
   useEffect(() => {
     document.documentElement.classList.add("today-window");
@@ -367,6 +424,7 @@ export function CodingPanel() {
     };
     // The window is hidden, not closed: each time it shows, it starts from the folder that needs the user most.
     const startOver = () => {
+      setInboxOpen(false);
       setChosen(null);
       setPicked(null);
       readHooks();
@@ -375,6 +433,7 @@ export function CodingPanel() {
     window.addEventListener("focus", readHooks);
     // The card under the pet asks for the folder of the session it is about.
     const showFolder = (folder: string) => {
+      setInboxOpen(false);
       setChosen(folder);
       setPicked(null);
     };
@@ -388,6 +447,7 @@ export function CodingPanel() {
   }, []);
 
   const pick = (project: string) => {
+    setInboxOpen(false);
     setChosen(project);
     setPicked(null);
   };
@@ -421,24 +481,24 @@ export function CodingPanel() {
 
   useEffect(() => {
     if (hud === null) return;
-    const timer = setTimeout(() => setHud(null), HUD_MS);
+    const timer = setTimeout(() => setHud(null), hud.undo ? UNDO_MS : HUD_MS);
     return () => clearTimeout(timer);
   }, [hud]);
 
   const copy = async (session: CodingSession) => {
     try {
       await navigator.clipboard.writeText(resumeCommand(session));
-      setHud(`已复制 ${resumeCommand(session)}`);
+      setHud({ text: `已复制 ${resumeCommand(session)}` });
     } catch (reason) {
       console.error("Failed to copy a resume command", reason);
-      setHud("没能复制，请再试一次。");
+      setHud({ text: "没能复制，请再试一次。" });
     }
   };
   const reveal = (session: CodingSession) => {
     agentPlatform.reveal(session.id).then(hidePanel).catch((reason: unknown) => {
       console.error("Could not bring a Claude Code terminal forward", reason);
       const text = String(reason).replace(/^Error:\s*/, "");
-      setHud(HAS_CHINESE.test(text) ? text : "没能切到它所在的终端");
+      setHud({ text: HAS_CHINESE.test(text) ? text : "没能切到它所在的终端" });
     });
   };
   const goBack = (session: CodingSession) => (session.revealable ? reveal(session) : void copy(session));
@@ -453,7 +513,7 @@ export function CodingPanel() {
       setPinned(next);
     } catch (reason) {
       console.error("Failed to save the pinned folder", reason);
-      setHud("没能置顶，请再试一次。");
+      setHud({ text: "没能置顶，请再试一次。" });
     }
   };
   const fold = (project: string) => setUnfolded((before) => {
@@ -462,6 +522,22 @@ export function CodingPanel() {
     return next;
   });
 
+  const updateMark = (key: string, until: number | null, undoing = false) => {
+    try {
+      const previous = marks.find((mark) => mark.key === key)?.until ?? null;
+      setMarks(saveInboxMark(key, until, inbox.keys));
+      const text = undoing ? "已撤销" : until === 0 ? "已标为已看" : until === null ? "已移回待处理" : "30 分钟后回到待处理";
+      setHud({ text, undo: undoing ? undefined : { key, until: previous } });
+    } catch (reason) {
+      console.error("Failed to save the coding inbox mark", reason);
+      setHud({ text: "没能保存，请再试一次。" });
+    }
+  };
+  const openInbox = () => {
+    setInboxOpen(true);
+    setPicked(null);
+  };
+
   const stale = sessions.length > 0 && hooks !== undefined && !(hooks.connected && hooks.current);
   const notice = stale && (
     <p className="coding-notice">
@@ -469,7 +545,13 @@ export function CodingPanel() {
       <button type="button" onClick={openSettings}>{hooks.connected ? "重新连接" : "去连接"}</button>
     </p>
   );
-  const toast = hud && <div className="today-hud" role="status"><span>{hud}</span></div>;
+  const undo = hud?.undo;
+  const toast = hud && (
+    <div className="today-hud" role="status">
+      <span>{hud.text}</span>
+      {undo && <button type="button" onClick={() => updateMark(undo.key, undo.until, true)}>撤销</button>}
+    </div>
+  );
 
   if (!group) {
     return (
@@ -483,10 +565,34 @@ export function CodingPanel() {
 
   return (
     <main className="today-panel coding-panel coding-panel--split">
-      <Folders groups={groups} current={group.project} pinned={pinned} onPick={pick} />
+      <Folders groups={groups} current={inboxOpen ? null : group.project} pinned={pinned} inboxCount={inbox.pending.length} onInbox={openInbox} onPick={pick} />
       <div className="coding-main">
         {detail ? (
           <SessionDetail session={detail} now={now} onLeave={leaveDetail} onReveal={() => reveal(detail)} onCopy={() => void copy(detail)} />
+        ) : inboxOpen ? (
+          <>
+            <header className="today-header" data-tauri-drag-region>
+              <div className="today-header__titles" data-tauri-drag-region>
+                <h2 className="coding-main__name" data-tauri-drag-region>待处理</h2>
+              </div>
+            </header>
+            <section className="today-list" aria-label="所有项目的待处理会话">
+              {notice}
+              {inbox.pending.length > 0 ? (
+                <ul className="coding-rows">
+                  {inbox.pending.map((item) => <InboxRow key={item.key} item={item} now={now} onBack={goBack} onMark={updateMark} />)}
+                </ul>
+              ) : <p className="coding-inbox-empty">暂时没有待处理的会话</p>}
+              {inbox.later.length > 0 && (
+                <details className="coding-inbox-later">
+                  <summary>稍后看 · {inbox.later.length}</summary>
+                  <ul className="coding-rows">
+                    {inbox.later.map((item) => <InboxRow key={item.key} item={item} now={now} deferred onBack={goBack} onMark={updateMark} />)}
+                  </ul>
+                </details>
+              )}
+            </section>
+          </>
         ) : (
           <>
             <header className="today-header" data-tauri-drag-region>

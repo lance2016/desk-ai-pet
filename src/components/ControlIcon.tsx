@@ -25,6 +25,7 @@ export function ControlIcon({ name }: ControlIconProps) {
     chat: <><path d="M20 12a7.5 7.5 0 0 1-11 6.6L4 20l1.4-4.4A7.5 7.5 0 1 1 20 12Z" /><path d="M9 12h.01M12.5 12h.01M16 12h.01" /></>,
     checklist: <><path d="m4 6.5 1.5 1.5L8.5 5M4 12.5 5.5 14l3-3M4 18.5 5.5 20l3-3" /><path d="M11.5 6.5H20M11.5 12.5H20M11.5 18.5H20" /></>,
     note: <><path d="M5 4h14v11l-5 5H5z" /><path d="M14 20v-5h5M8.5 8.5h7M8.5 12h4" /></>,
+    link: <path d="m10 13 4-4M8 15l-1 1a3 3 0 0 1-4-4l4-4a3 3 0 0 1 4 0m2 2a3 3 0 0 0 4 0l4-4a3 3 0 0 0-4-4l-1 1" transform="translate(0 2)" />,
     // A terminal window with its prompt, like the coding panel's own glyph.
     terminal: <><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M13 15h3.5" /></>,
     // Lucide's "settings" gear.

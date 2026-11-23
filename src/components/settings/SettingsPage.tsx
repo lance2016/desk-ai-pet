@@ -44,6 +44,7 @@ import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
 import { ACCOUNT_SECTION, DEVELOPER_GROUP, NAV_GROUPS, SUB_PAGES, isSection, sectionLabel, type SettingsSection } from "./sections";
 import { CharacterAvatar } from "../CharacterAvatar";
+import { LinksSettings } from "../links/LinksPanel";
 import { Chevron } from "./Chevron";
 import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
 import { SETTINGS_INDEX } from "./settingsSearch";
@@ -64,7 +65,8 @@ const FIND_TRIES = 15;
 const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
   ai: "AI 对话 DeepSeek MiMo API Key 模型 语音",
   companion: "早安 问候 关心 勿扰 免打扰",
-  tools: "划词 翻译 编码助手 Claude Code 邮箱 邮件 验证码",
+  tools: "划词 翻译 编码助手 Claude Code 邮箱 邮件 验证码 常用链接",
+  links: "常用链接 网址 环境 域名 书签 地址",
   skills: "开关 关闭 提醒 备忘 日报 记忆 动作 安静 网页 链接",
   prompt: "系统提示词 system prompt 对话规则 修改规则 改写",
   toolDefs: "工具 tool function 函数 参数 schema 开关",
@@ -86,6 +88,7 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     voices: <><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></>,
     memory: <><path d="M7 3h10v18l-5-4-5 4V3Z" /></>,
     tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
+    links: <path d="m10 13 4-4M8 15l-1 1a3 3 0 0 1-4-4l4-4a3 3 0 0 1 4 0m2 2a3 3 0 0 0 4 0l4-4a3 3 0 0 0-4-4l-1 1" transform="translate(0 2)" />,
     privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
     guide: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" /></>,
     about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
@@ -408,8 +411,17 @@ export function SettingsPage({ packId }: { packId: string }) {
             <TranslationShortcutSettings onError={setError} />
             <AgentSettings />
             <MailSettings />
+            <div className="settings-group">
+              <button type="button" className="settings-row settings-link" onClick={() => go("links")}>
+                <span className="settings-nav__icon settings-nav__icon--links"><SettingsGlyph name="links" /></span>
+                <span className="settings-row__body"><strong>常用链接</strong><span>管理环境地址和常用工作入口</span></span>
+                <Chevron />
+              </button>
+            </div>
           </div>
         )}
+
+        {section === "links" && <LinksSettings />}
 
         {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}
 

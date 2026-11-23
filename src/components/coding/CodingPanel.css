@@ -31,6 +31,7 @@
 .coding-folder.is-picked { background: var(--picked); }
 .coding-folder:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
 .coding-folder__mark { width: 16px; height: 16px; }
+.coding-folder__mark .today-glyph { width: 14px; height: 14px; }
 .coding-folder .coding-folder__mark--waiting { color: var(--amber); }
 .coding-folder .coding-folder__mark--working { color: var(--accent); }
 .coding-folder__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -44,9 +45,14 @@
 .coding-main .today-header { padding-left: 16px; }
 .coding-main__name { margin: 0; color: var(--label); font-size: 17px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
 .coding-rows { margin: 0; padding: 0; list-style: none; }
+.coding-inbox-empty { margin: 12px 8px; color: var(--label-2); font-size: 12px; }
+.coding-inbox-later { margin-top: 8px; }
+.coding-inbox-later summary { padding: 6px 8px; color: var(--label-2); font-size: 12px; cursor: pointer; }
 
 /* A session is one big target, back to it: its mark, then what it is about and how it stands. Its detail is the button at the end. */
 .coding-row { padding: 0; }
+.coding-inbox-row { flex-direction: column; align-items: stretch; }
+.coding-inbox-row__actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 8px 34px; }
 .coding-row + .coding-row::before { left: 34px; }
 .coding-row__main {
   flex: 1;

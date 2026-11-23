@@ -135,6 +135,26 @@
         "skipTaskbar": true
       },
       {
+        "label": "links",
+        "title": "常用链接",
+        "url": "index.html?window=links",
+        "width": 420,
+        "height": 390,
+        "visible": false,
+        "resizable": false,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 16, "y": 26 },
+        "minimizable": false,
+        "maximizable": false,
+        "transparent": true,
+        "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true
+      },
+      {
         "label": "coding",
         "title": "Claude Code",
         "url": "index.html?window=coding",

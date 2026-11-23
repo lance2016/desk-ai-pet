@@ -8,6 +8,7 @@ import { dueReminders, leftoverReminders, loadAgenda, markReminded, moveToToday,
 import { agendaChange, hasNewId } from "./agenda/changes";
 import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
+import { linksEnabled, subscribeLinks } from "./links/LinkStore";
 import { loadNotes, subscribeNotes } from "./notes/NoteStore";
 import type { ReminderSource } from "./behavior/BehaviorEngine";
 import { Companion, PAT_REPLY } from "./companion";
@@ -139,6 +140,10 @@ interface AppProps {
 }
 
 export default function App({ packId }: AppProps) {
+  const showLinks = useSyncExternalStore(subscribeLinks, linksEnabled);
+  useEffect(() => {
+    void petWindow.setLinksEnabled(showLinks).catch((error: unknown) => console.error("Failed to update the links menu", error));
+  }, [showLinks]);
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);

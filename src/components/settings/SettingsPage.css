@@ -172,7 +172,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon svg { width: 14px; height: 14px; stroke-width: 2; }
 .settings-nav__icon--character, .settings-nav__icon--characterProfile { --tile: var(--tile-purple); }
 .settings-nav__icon--actions, .settings-nav__icon--companion { --tile: var(--tile-pink); }
-.settings-nav__icon--dock { --tile: var(--tile-indigo); }
+.settings-nav__icon--dock, .settings-nav__icon--links { --tile: var(--tile-indigo); }
 .settings-nav__icon--chat { --tile: var(--tile-green); }
 .settings-nav__icon--ai, .settings-nav__icon--privacy { --tile: var(--tile-blue); }
 .settings-nav__icon--memory { --tile: var(--tile-orange); }

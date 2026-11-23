@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
 import { barLayout, dockControls, loadDock, subscribeDock, type DockCommand, type DockItem } from "../preferences/DockPreferences";
+import { linksEnabled, subscribeLinks } from "../links/LinkStore";
 import { petWindow } from "../platform/petWindow";
 import { InteractIcon } from "./ControlIcon";
 import { ControlIconView } from "./ControlIconView";
@@ -25,6 +26,7 @@ interface PetControlsProps {
  */
 export function PetControls({ runtime, awake, ref }: PetControlsProps) {
   const snapshot = useSyncExternalStore(runtime.state.subscribe, runtime.state.get);
+  const showLinks = useSyncExternalStore(subscribeLinks, linksEnabled);
   const packId = runtime.manifest.id;
   const [items, setItems] = useState(() => loadDock(packId, dockControls(runtime.manifest.controls), runtime.manifest.animations));
   const sleeping = snapshot.activity === "sleeping";
@@ -54,6 +56,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
       case "today_open": void petWindow.openToday().catch((error) => console.error("Failed to open today", error)); break;
       case "notes_open": void petWindow.openNotes().catch((error) => console.error("Failed to open notes", error)); break;
       case "coding_open": void petWindow.openCoding().catch((error) => console.error("Failed to open the coding sessions", error)); break;
+      case "links_open": void petWindow.openLinks().catch((error) => console.error("Failed to open links", error)); break;
       case "settings_open": void petWindow.openSettings().catch((error) => console.error("Failed to open settings", error)); break;
       case "focus_toggle": runtime.bus.emit("pet.focus_toggled", {}); break;
       case "feed": runtime.bus.emit("pet.fed", {}); break;
@@ -62,7 +65,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     }
   };
 
-  const enabledItems = items.filter((item) => item.enabled);
+  const enabledItems = items.filter((item) => item.enabled && (showLinks || item.kind !== "control" || item.command !== "links_open"));
   // The same buttons under "动作" in the pet menu, for when the mouse cannot reach the bar.
   const menuItems = enabledItems.flatMap((item): Array<[string, string]> => {
     if (item.kind === "action") {

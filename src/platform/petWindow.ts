@@ -33,6 +33,8 @@ const DND_EVENT = "pet://dnd";
 const SET_DND_COMMAND = "set_pet_dnd";
 const OPEN_TODAY_COMMAND = "open_today";
 const OPEN_NOTES_COMMAND = "open_notes";
+const OPEN_LINKS_COMMAND = "open_links";
+const SET_LINKS_ENABLED_COMMAND = "set_links_enabled";
 const OPEN_CODING_COMMAND = "open_coding";
 const OPEN_SETTINGS_COMMAND = "open_settings";
 const SETTINGS_SECTION_EVENT = "pet://settings-section";
@@ -478,6 +480,15 @@ export const petWindow = {
     if (!isTauri()) { window.open("/?window=coding", "_blank"); return; }
     await invoke(OPEN_CODING_COMMAND);
     if (folder) await emitTo("coding", CODING_FOLDER_EVENT, folder);
+  },
+
+  async openLinks(): Promise<void> {
+    if (!isTauri()) { window.open("/?window=links", "_blank", "noopener"); return; }
+    await invoke(OPEN_LINKS_COMMAND);
+  },
+
+  async setLinksEnabled(enabled: boolean): Promise<void> {
+    if (isTauri()) await invoke(SET_LINKS_ENABLED_COMMAND, { enabled });
   },
 
   /** Calls `handler` with the folder another window asked the coding panel to show. */
