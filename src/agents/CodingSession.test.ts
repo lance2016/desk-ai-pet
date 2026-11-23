@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RESULT_FRESH_MS, byProject, overview, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession } from "./CodingSession";
+import { RESULT_FRESH_MS, byProject, overview, pinnedFirst, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession } from "./CodingSession";
 
 const NOW = 10_000_000;
 const build = (id: string, turn: CodingSession["turn"], extra: Partial<CodingSession> = {}): CodingSession =>
@@ -36,6 +36,24 @@ describe("overview", () => {
 
   it("still brings up a fresh result of a session that ended", () => {
     expect(overview([build("gone", "completed", { ended: true, revealable: false, turnEndedAt: NOW - 1000 })], NOW).headline?.id).toBe("gone");
+  });
+});
+
+describe("pinnedFirst", () => {
+  const groups = byProject([
+    build("ask", "waiting", { project: "ai-pet" }),
+    build("busy", "working", { project: "robot" }),
+    build("quiet", "completed", { project: "notes" }),
+  ]);
+  const names = (list: { project: string }[]) => list.map((group) => group.project);
+
+  it("puts the pinned folder first, ahead of one waiting, and keeps the rest in order", () => {
+    expect(names(pinnedFirst(groups, "notes"))).toEqual(["notes", "ai-pet", "robot"]);
+  });
+
+  it("changes nothing without a pin, or for a pinned folder with no sessions now", () => {
+    expect(names(pinnedFirst(groups, null))).toEqual(["ai-pet", "robot", "notes"]);
+    expect(names(pinnedFirst(groups, "gone"))).toEqual(["ai-pet", "robot", "notes"]);
   });
 });
 

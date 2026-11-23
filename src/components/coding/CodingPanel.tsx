@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { elapsedText } from "../../activity/Activity";
-import { byProject, isLive, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession, type ProjectGroup, type TurnState } from "../../agents/CodingSession";
+import { byProject, isLive, pinnedFirst, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession, type ProjectGroup, type TurnState } from "../../agents/CodingSession";
+import { loadPinnedFolder, savePinnedFolder } from "../../agents/codingPin";
 import { codingSessionsSnapshot, subscribeCodingSessions } from "../../agents/codingStore";
 import { agentPlatform, type ClaudeHooksState } from "../../platform/agents";
 import { petWindow } from "../../platform/petWindow";
 import { TurnMark } from "../CodingCard";
+import { useCloseShortcut } from "../keyboard";
 import { useNow } from "../useNow";
 import "../today/TodayPanel.css";
 import "./CodingPanel.css";
@@ -24,6 +26,11 @@ const NO_OUTCOME = "没等到这一轮的结果";
 
 const hidePanel = () => void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason));
 const openSettings = () => void petWindow.openSettings(SETTINGS_SECTION).catch((reason: unknown) => console.error("Failed to open the settings", reason));
+
+/** A push pin, leaning as one stuck in a board. */
+function PinGlyph({ className = "today-glyph" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 16 16" aria-hidden="true"><path d="M8.5 3.5l4 4M9.5 4.5L7 7M11.5 6.5L9 9M5.5 5.5l5 5M8 8l-4.5 4.5" /></svg>;
+}
 
 function ago(at: number, now: number): string {
   const minutes = Math.floor((now - at) / 60_000);
@@ -211,11 +218,12 @@ function folderState(group: ProjectGroup): "waiting" | "working" | null {
 interface FoldersProps {
   groups: ProjectGroup[];
   current: string;
+  pinned: string | null;
   onPick: (project: string) => void;
 }
 
 /** Every folder at once, each with how it stands and how many sessions are open there: a click, or ⌘1 to ⌘9, switches to it. */
-function Folders({ groups, current, onPick }: FoldersProps) {
+function Folders({ groups, current, pinned, onPick }: FoldersProps) {
   return (
     <nav className="coding-sidebar" aria-label="项目" data-tauri-drag-region>
       <h1 className="coding-sidebar__title" data-tauri-drag-region>Claude Code</h1>
@@ -230,12 +238,13 @@ function Folders({ groups, current, onPick }: FoldersProps) {
                 type="button"
                 className={`coding-folder${picked ? " is-picked" : ""}${group.open.length === 0 ? " is-quiet" : ""}`}
                 aria-current={picked ? "true" : undefined}
-                aria-label={`${folderName(group)}，${folderSummary(group)}`}
+                aria-label={`${folderName(group)}${group.project === pinned ? "（已置顶）" : ""}，${folderSummary(group)}`}
                 title={`${folderName(group)}${shortcut}`}
                 onClick={() => onPick(group.project)}
               >
                 <span className={`coding-row__mark coding-folder__mark coding-folder__mark--${state ?? "none"}`}>{state && <TurnMark turn={state} />}</span>
                 <span className="coding-folder__name">{folderName(group)}</span>
+                {group.project === pinned && <PinGlyph className="today-glyph coding-folder__pin" />}
                 {group.open.length > 0 && <span className="coding-folder__count">{group.open.length}</span>}
               </button>
             </li>
@@ -342,27 +351,39 @@ export function CodingPanel() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
+  /** The folder the user pinned: first in the list, and where the panel opens. */
+  const [pinned, setPinned] = useState<string | null>(() => loadPinnedFolder());
   /** The session whose detail was just left: its button gets the focus back. */
   const left = useRef<string | null>(null);
-  const groups = byProject(sessions);
+  const groups = pinnedFirst(byProject(sessions), pinned);
   const group = groups.find((each) => each.project === chosen) ?? groups[0];
   const detail = picked === null ? undefined : sessions.find((session) => session.id === picked);
 
   useEffect(() => {
     document.documentElement.classList.add("today-window");
     document.body.classList.add("today-window");
-    const refresh = () => {
-      // The window is hidden, not closed: each time it shows, it starts from the folder that needs the user most.
-      setChosen(null);
-      setPicked(null);
+    const readHooks = () => {
       void agentPlatform.state().then(setHooks).catch((reason: unknown) => console.warn("Could not read whether Claude Code is connected", reason));
     };
-    refresh();
-    window.addEventListener("focus", refresh);
+    // The window is hidden, not closed: each time it shows, it starts from the folder that needs the user most.
+    const startOver = () => {
+      setChosen(null);
+      setPicked(null);
+      readHooks();
+    };
+    readHooks();
+    window.addEventListener("focus", readHooks);
+    // The card under the pet asks for the folder of the session it is about.
+    const showFolder = (folder: string) => {
+      setChosen(folder);
+      setPicked(null);
+    };
+    const stops = [petWindow.onShown(startOver), petWindow.onCodingFolderRequested(showFolder)];
     return () => {
       document.documentElement.classList.remove("today-window");
       document.body.classList.remove("today-window");
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("focus", readHooks);
+      for (const stop of stops) stop();
     };
   }, []);
 
@@ -370,6 +391,8 @@ export function CodingPanel() {
     setChosen(project);
     setPicked(null);
   };
+
+  useCloseShortcut(hidePanel);
 
   // Escape leaves the detail first, then puts the panel away; ⌘1 to ⌘9 switch folders.
   useEffect(() => {
@@ -423,6 +446,16 @@ export function CodingPanel() {
     left.current = picked;
     setPicked(null);
   };
+  const togglePin = (project: string) => {
+    const next = pinned === project ? null : project;
+    try {
+      savePinnedFolder(next);
+      setPinned(next);
+    } catch (reason) {
+      console.error("Failed to save the pinned folder", reason);
+      setHud("没能置顶，请再试一次。");
+    }
+  };
   const fold = (project: string) => setUnfolded((before) => {
     const next = new Set(before);
     if (!next.delete(project)) next.add(project);
@@ -450,7 +483,7 @@ export function CodingPanel() {
 
   return (
     <main className="today-panel coding-panel coding-panel--split">
-      <Folders groups={groups} current={group.project} onPick={pick} />
+      <Folders groups={groups} current={group.project} pinned={pinned} onPick={pick} />
       <div className="coding-main">
         {detail ? (
           <SessionDetail session={detail} now={now} onLeave={leaveDetail} onReveal={() => reveal(detail)} onCopy={() => void copy(detail)} />
@@ -461,6 +494,16 @@ export function CodingPanel() {
                 <h2 className="coding-main__name" data-tauri-drag-region>{folderName(group)}</h2>
                 <p data-tauri-drag-region>{folderSummary(group)}</p>
               </div>
+              <button
+                type="button"
+                className={`coding-tool coding-pin${group.project === pinned ? " is-on" : ""}`}
+                aria-pressed={group.project === pinned}
+                aria-label="置顶"
+                title={group.project === pinned ? "取消置顶" : "置顶：放在最前，打开时先看这个文件夹"}
+                onClick={() => togglePin(group.project)}
+              >
+                <PinGlyph />
+              </button>
             </header>
             <section className="today-list" aria-label={`${folderName(group)} 的会话`}>
               {notice}

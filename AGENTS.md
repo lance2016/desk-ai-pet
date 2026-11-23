@@ -184,7 +184,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 时间框不要用 `<input type="time">`：WebKit 的分段时间框要先点中小时或分钟那一段才能打字，用户觉得「只能上下选」。用 `TimeField`（`src/components/TimeField.tsx`），能直接打 `2230`、`22:30`，上下键调光标所在的那一段。
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
-- 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。提醒、备忘、Claude Code 三个弹出层同一时间只开一个（`show_beside_pet` 先收起另一个）。点外面收起靠监听鼠标按下（`floating_panel::watch_presses`，本应用和别的应用里的点击都算），按在弹出层以外就收起（`hide_popovers_outside`）。不要退回只靠失焦事件：弹出层没拿到过焦点就永远收不到失焦，点别处也关不掉。以前补过一版「一个失焦后扫掉其它没焦点的」，来回切换几个弹出层再开专注时还是会留下一个关不掉。失焦收起仍保留，管 ⌘Tab 这种不点鼠标的切换。弹出层左上角是系统自己的红色关闭按钮（`tauri.conf.json` 里 `titleBarStyle: "Overlay"`），点了只隐藏（`lib.rs` 拦下 `CloseRequested`），和 Esc、点外面一样。黄绿两个按钮在 `apply_popover` 里隐藏，配置里也关了 `minimizable`、`maximizable`：应用平时是 `Accessory`，没有 Dock 图标，最小化后找不回来。不要自己画关闭按钮：试过右上角的 ×，那是 Windows 和网页的习惯。弹出层不在前台时红点是灰的，这是系统的样子。
+- 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。提醒、备忘、Claude Code 三个弹出层可以同时开着，是常驻的 panel 不是 popover（HIG 里 popover 一次只能一个、点外面就关，有了关闭按钮又想多开，就得是 panel）：点外面、失焦都不收起，不要加回来，否则点第二个面板时第一个会被当成「点到外面」收掉。三个都开在宠物旁边同一处，后开的按已开着的往右下错开（`lib.rs` 的 `cascade`、`CASCADE_STEP`），已经开着的再打开只拿到最前、不挪位置。面板「重新打开时」要做的事（Coding 回到最急的文件夹、提醒和备忘把光标放进输入框）挂在 `petWindow.onShown`（原生端从隐藏到显示时发 `pet://shown`）上，不要挂在窗口的 `focus` 上：几个面板来回点也会触发 `focus`，Coding 会跳回第一个文件夹，输入框会抢走刚点中的那一行。弹出层左上角是系统自己的红色关闭按钮（`tauri.conf.json` 里 `titleBarStyle: "Overlay"`），点了只隐藏（`lib.rs` 拦下 `CloseRequested`），和 Esc 一样。⌘W 也要由网页自己接（`useCloseShortcut`，`src/components/keyboard.ts`）：面板不激活应用，应用菜单收不到在面板里按的快捷键，菜单里的「关闭窗口」对它们不起作用。黄绿两个按钮在 `apply_popover` 里隐藏，配置里也关了 `minimizable`、`maximizable`：应用平时是 `Accessory`，没有 Dock 图标，最小化后找不回来。不要自己画关闭按钮：试过右上角的 ×，那是 Windows 和网页的习惯。弹出层不在前台时红点是灰的，这是系统的样子。
 - 弹出层拖动靠标题区的 `data-tauri-drag-region`（页头、标题那几个元素，侧栏空白处），不能指望系统标题栏。`titleBarStyle: "Overlay"` 下网页盖住了标题栏：面板是 key window 时（`take_keyboard` 刚打开它），按下事件交给网页，没有拖动区域就拖不动；先点一下别的窗口再回来，第一下点击不进网页、由系统当标题栏处理，又能拖了，看起来很诡异。新加的弹出层或新的页头也要带上这个属性。
 - 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才提前执行，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
@@ -216,6 +216,7 @@ pnpm exec tsc --noEmit && pnpm test
 **提醒**
 
 - 重复提醒的「本轮」是时间已经到了的最近一次；今天的时间没到，本轮还是上一次。所以错过的那次（勿扰、合盖）会一直算到点，直到被点掉、勾掉或下一次到点。重复提醒的 `doneAt` 存的是被勾掉的那一次，不是勾选时刻。
+- 头顶的常驻气泡只有一个位置，谁占由 `BehaviorEngine.standing()` 一处决定：到点提醒排在活动前面（只让刚点的专注确认排在它前面），活动的 `done` 只说一句、不常驻。以前活动排在提醒前，Claude Code 的「做完了」把到点提醒挡住，宠物摇着铃，气泡却在说 Claude。点掉、回答、跳转都要先问 `standing()` 显示的是不是自己，不要再各写一遍顺序。
 - 免打扰时段只管宠物主动说话，不拦提醒；只有手动勿扰和专注会把提醒压成徽标（`holdsReminders`、`advanceReminders`）。专注时宠物主动说的话在 `PetRuntime.allowProactive` 里拦掉，界面不再按专注过滤气泡：用户点出来的回应和确认气泡都要能显示。
 
 **渲染**

@@ -48,6 +48,8 @@ const SETTINGS_SECTION_EVENT: &str = "pet://settings-section";
 const REVEALED_EVENT: &str = "pet://revealed";
 /// The focus item in the menu was picked; the payload says whether to start a round. Must match `src/platform/petWindow.ts`.
 const FOCUS_EVENT: &str = "pet://focus";
+/// A popover put away is shown again; the payload is its label. Must match `src/platform/petWindow.ts`.
+const SHOWN_EVENT: &str = "pet://shown";
 const SCALE_ID_PREFIX: &str = "scale:";
 const TOGGLE_ID: &str = "toggle";
 const PAT_ID: &str = "pat";
@@ -87,7 +89,7 @@ const CHAT_WINDOW: &str = "chat";
 const TODAY_WINDOW: &str = "today";
 const NOTES_WINDOW: &str = "notes";
 const CODING_WINDOW: &str = "coding";
-/// The reminder, note and coding popovers: only one is open at a time, and a click outside puts them away.
+/// The reminder, note and coding popovers: they open side by side and stay until closed.
 const POPOVERS: [&str; 3] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW];
 
 /// The one menu shared by the tray icon and the pet's right-click menu.
@@ -506,6 +508,8 @@ struct Area {
 const STAGE_SIDE: f64 = 120.0;
 /// Room between the pet's own area (its window without `STAGE_SIDE`) and a window opened beside it.
 const BESIDE_GAP: f64 = 84.0;
+/// How far a popover opened over another is moved down and to the right.
+const CASCADE_STEP: f64 = 24.0;
 
 /// Where to put a window of `size` beside the pet: on the right if there is
 /// room, else on the left, kept inside the usable area (`work`, without the
@@ -518,6 +522,34 @@ fn beside(pet: Area, size: (f64, f64), work: Area) -> (f64, f64) {
     let before = pet.x - size.0 - BESIDE_GAP;
     let x = if after <= max_x { after } else { before }.clamp(work.x, max_x);
     (x, pet.y.clamp(work.y, max_y))
+}
+
+/// The first spot from `start`, one `CASCADE_STEP` down and to the right at a time,
+/// that no shown popover (`taken`) holds, kept inside `work`. Popovers all open
+/// beside the pet, so one opened over others is moved off them as macOS cascades windows.
+fn cascade(start: (f64, f64), size: (f64, f64), work: Area, taken: &[(f64, f64)]) -> (f64, f64) {
+    let max_x = (work.x + work.width - size.0).max(work.x);
+    let max_y = (work.y + work.height - size.1).max(work.y);
+    let spot = |step: usize| {
+        let shift = step as f64 * CASCADE_STEP;
+        ((start.0 + shift).clamp(work.x, max_x), (start.1 + shift).clamp(work.y, max_y))
+    };
+    let free = |(x, y): (f64, f64)| !taken.iter().any(|(tx, ty)| (tx - x).abs() < 1.0 && (ty - y).abs() < 1.0);
+    (0..=taken.len()).map(spot).find(|spot| free(*spot)).unwrap_or_else(|| spot(0))
+}
+
+/// Where each shown popover other than `label` is, in logical pixels.
+fn shown_popovers(app: &AppHandle, label: &str) -> Vec<(f64, f64)> {
+    POPOVERS
+        .iter()
+        .filter(|other| **other != label)
+        .filter_map(|other| app.get_webview_window(other))
+        .filter(|other| other.is_visible().unwrap_or(false))
+        .filter_map(|other| {
+            let position = other.outer_position().ok()?.to_logical::<f64>(other.scale_factor().ok()?);
+            Some((position.x, position.y))
+        })
+        .collect()
 }
 
 /// The usable area of the monitor under the middle of the pet, or the nearest
@@ -542,18 +574,6 @@ fn work_area_under(app: &AppHandle, pet: Area) -> Option<Area> {
         dx.hypot(dy)
     };
     areas.into_iter().min_by(|a, b| distance(a).total_cmp(&distance(b)))
-}
-
-/// Puts away every popover the mouse press did not land in. Losing the focus is not enough:
-/// a popover only hears that it lost the focus if it had it, and one left without it stayed up.
-#[cfg(target_os = "macos")]
-fn hide_popovers_outside(app: &AppHandle, pressed: isize) {
-    for label in POPOVERS {
-        let Some(popover) = app.get_webview_window(label) else { continue };
-        if popover.is_visible().unwrap_or(false) && floating_panel::window_number(&popover).ok() != Some(pressed) {
-            report("hide popover after a press outside", popover.hide());
-        }
-    }
 }
 
 /// Hands typing back to the app in front, and waits until that is done. Called before another app's window
@@ -588,11 +608,15 @@ pub(crate) fn hand_keyboard_back(app: &AppHandle) {
 }
 
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
+/// A popover opened over others is cascaded off them; one already shown is only
+/// brought to the front, where the user left it.
 fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     let window = app
         .get_webview_window(label)
         .ok_or_else(|| format!("{label} window is unavailable"))?;
-    if let Some(pet) = app.get_webview_window(MAIN_WINDOW) {
+    let popover = POPOVERS.contains(&label);
+    let already_shown = popover && window.is_visible().unwrap_or(false);
+    if let (false, Some(pet)) = (already_shown, app.get_webview_window(MAIN_WINDOW)) {
         if let (Ok(position), Ok(pet_size), Ok(pet_scale), Ok(size), Ok(scale)) = (
             pet.outer_position(),
             pet.outer_size(),
@@ -605,7 +629,12 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
             let pet_area = Area { x: origin.x + STAGE_SIDE, y: origin.y, width: extent.width - 2.0 * STAGE_SIDE, height: extent.height };
             let own = size.to_logical::<f64>(scale);
             if let Some(work) = work_area_under(app, pet_area) {
-                let (x, y) = beside(pet_area, (own.width, own.height), work);
+                let size = (own.width, own.height);
+                let mut spot = beside(pet_area, size, work);
+                if popover {
+                    spot = cascade(spot, size, work, &shown_popovers(app, label));
+                }
+                let (x, y) = spot;
                 report("place window beside the pet", window.set_position(tauri::LogicalPosition::new(x, y)));
             }
         }
@@ -613,14 +642,12 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     // The popovers are panels (see `setup`): focusing them must not activate the
     // app, or a user in a full-screen app is pulled out of it.
     #[cfg(target_os = "macos")]
-    if POPOVERS.contains(&label) {
-        // They open in the same spot, so only one is shown.
-        for other in POPOVERS.iter().filter(|other| **other != label) {
-            if let Some(other) = app.get_webview_window(other) {
-                report("hide the other popover", other.hide());
-            }
+    if popover {
+        floating_panel::take_keyboard(&window).map_err(|e| e.to_string())?;
+        if !already_shown {
+            report("emit shown event", app.emit(SHOWN_EVENT, label));
         }
-        return floating_panel::take_keyboard(&window).map_err(|e| e.to_string());
+        return Ok(());
     }
     // The chat window stays with the accessory app: unlike settings it does not switch to Regular.
     window.show().map_err(|e| e.to_string())?;
@@ -629,7 +656,7 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod beside_tests {
-    use super::{Area, beside, BESIDE_GAP};
+    use super::{Area, beside, cascade, BESIDE_GAP, CASCADE_STEP};
 
     const WORK: Area = Area { x: 0.0, y: 25.0, width: 1440.0, height: 800.0 };
 
@@ -645,6 +672,25 @@ mod beside_tests {
         let (x, y) = beside(pet, (360.0, 520.0), WORK);
         assert_eq!(x, 1100.0 - 360.0 - BESIDE_GAP);
         assert_eq!(y, 25.0 + 800.0 - 520.0);
+    }
+
+    #[test]
+    fn cascades_off_the_popovers_already_shown() {
+        let start = (500.0, 300.0);
+        assert_eq!(cascade(start, (360.0, 440.0), WORK, &[]), start);
+        let one = (500.0 + CASCADE_STEP, 300.0 + CASCADE_STEP);
+        assert_eq!(cascade(start, (360.0, 440.0), WORK, &[start]), one);
+        assert_eq!(cascade(start, (360.0, 440.0), WORK, &[start, one]), (500.0 + 2.0 * CASCADE_STEP, 300.0 + 2.0 * CASCADE_STEP));
+        // The spot of one closed in between is taken again.
+        assert_eq!(cascade(start, (360.0, 440.0), WORK, &[one]), start);
+    }
+
+    #[test]
+    fn cascades_inside_the_usable_area() {
+        let start = (1440.0 - 360.0, 25.0 + 800.0 - 440.0);
+        let (x, y) = cascade(start, (360.0, 440.0), WORK, &[start]);
+        assert!(x <= 1440.0 - 360.0 && y <= 25.0 + 800.0 - 440.0);
+        assert_eq!((x, y), start, "nowhere to move to, so it opens in the same spot");
     }
 }
 
@@ -778,25 +824,18 @@ pub fn run() {
                     }
                 });
             }
-            // The today, notes and coding panels behave like popovers: they go away on a press
-            // outside them or when they lose focus (⌘Tab).
-            #[cfg(target_os = "macos")]
-            {
-                let app_handle = app.handle().clone();
-                floating_panel::watch_presses(move |pressed| hide_popovers_outside(&app_handle, pressed));
-            }
+            // The today, notes and coding panels stay until closed (the close button, Escape),
+            // side by side with each other and with whatever the user is doing.
             for label in POPOVERS {
                 if let Some(panel) = app.get_webview_window(label) {
                     #[cfg(target_os = "macos")]
                     floating_panel::apply_popover(&panel)?;
                     let handle = panel.clone();
-                    panel.on_window_event(move |event| match event {
-                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                    panel.on_window_event(move |event| {
+                        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                             api.prevent_close();
                             report("hide panel", handle.hide());
                         }
-                        tauri::WindowEvent::Focused(false) => report("hide panel", handle.hide()),
-                        _ => {}
                     });
                 }
             }

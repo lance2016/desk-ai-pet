@@ -60,6 +60,8 @@ const FOCUS_LINES = {
 
 /** Putting an activity's line away; the other button takes the user to it. */
 const ACTIVITY_DISMISS: AlertChoice = { label: "收起", event: "pet.alert_dismissed" };
+/** The kinds of line the standing line can show, one at a time (`standing`). */
+type Standing = "focusPrompt" | "reminders" | "activity" | "moveOffer" | "focusNotice";
 /** The answers on the standing line when the user asks to stop a round, or clicks the rest countdown. */
 const FOCUS_CHOICES = {
   stop: [
@@ -464,9 +466,15 @@ export class BehaviorEngine {
       this.react(AGENT_WORK_ACTION);
     }
     const action = ACTIVITY_ACTIONS[update.state];
-    // The pet stays out until the line is clicked away, so there has to be one; a failure is not worth coming out for.
+    // Worth coming out for when there is something to tell; a failure is not.
     if (action !== undefined && update.text && update.state !== "failed") this.callOut(now, action);
     else if (action !== undefined) this.react(action);
+    // A success is said in passing, not stood on the line: the card at the pet's feet keeps it.
+    // Called out from the edge for it, the pet stays out while it says it, as after a greeting.
+    if (update.state === "done" && update.text) {
+      this.say(update.text);
+      if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs };
+    }
     if (this.activities.notice() !== shown) this.showAlert(now);
   }
 
@@ -651,7 +659,28 @@ export class BehaviorEngine {
   }
 
   private hasStandingLine(): boolean {
-    return this.focusPrompt !== null || this.activities.notice() !== null || this.moveOffer.length > 0 || this.alerted.length > 0 || this.focusNotice !== null;
+    return this.standing() !== null;
+  }
+
+  /**
+   * What the standing line shows now. The one line goes to what the user must act on and has nowhere
+   * else to see: a question they just asked, then due reminders (an agent waiting for the user still
+   * has its amber card), then activities, the offer to move reminders, and "focus done".
+   */
+  private standing(): Standing | null {
+    if (this.focusPrompt) return "focusPrompt";
+    if (this.alerted.length > 0) return "reminders";
+    if (this.activities.notice()) return "activity";
+    if (this.moveOffer.length > 0) return "moveOffer";
+    if (this.focusNotice !== null) return "focusNotice";
+    return null;
+  }
+
+  /** How many lines wait behind the one shown. */
+  private queued(): number {
+    const lines = Number(this.focusPrompt !== null) + Number(this.alerted.length > 0) + this.activities.noticeCount()
+      + Number(this.moveOffer.length > 0) + Number(this.focusNotice !== null);
+    return Math.max(lines - 1, 0);
   }
 
   private advanceFocus(now: number): void {
@@ -703,36 +732,44 @@ export class BehaviorEngine {
     }
   }
 
-  /** Puts a question about the focus round, an activity, the reminders, or else the focus notice on the standing line. */
+  /** Puts what `standing` picks on the standing line, saying how many more wait behind it. */
   private showAlert(now: number): void {
-    const { bus } = this.deps;
-    if (this.focusPrompt) {
-      // Only a press asks it, right after "好，我陪你专注…" perhaps: the user is waiting for it.
-      bus.emit("pet.alert", { text: this.focusPrompt.text, icon: "timer", choices: this.focusPrompt.choices, immediate: true });
-      return;
+    const queued = this.queued();
+    const more = queued > 0 ? { queued } : {};
+    const emit = (alert: PetEvents["pet.alert"]) => this.deps.bus.emit("pet.alert", { ...alert, ...more });
+    switch (this.standing()) {
+      case "focusPrompt": {
+        const prompt = this.focusPrompt!;
+        // Only a press asks it, right after "好，我陪你专注…" perhaps: the user is waiting for it.
+        emit({ text: prompt.text, icon: "timer", choices: prompt.choices, immediate: true });
+        return;
+      }
+      case "reminders": {
+        const shown = this.alerted;
+        const late = shown.some((reminder) => reminder.remindAt !== null && now - reminder.remindAt > BEHAVIOR_CONFIG.reminderLateMs);
+        const texts = shown.map((reminder) => reminder.text);
+        if (texts.length > MAX_NAMED_REMINDERS) {
+          emit({ heading: REMINDER_LINES.late, text: REMINDER_LINES.many(texts.slice(0, MAX_NAMED_REMINDERS), texts.length), more: true });
+          return;
+        }
+        emit({ heading: late ? REMINDER_LINES.late : REMINDER_LINES.onTime, text: REMINDER_LINES.named(texts), choices: reminderChoices(texts.length) });
+        return;
+      }
+      case "activity": {
+        const activity = this.activities.notice()!;
+        const choices = activity.opens ? { choices: [ACTIVITY_DISMISS, { label: activity.opens, event: "pet.activity_open_requested" } satisfies AlertChoice] } : {};
+        emit({ text: activity.text!, icon: activity.icon, ...choices });
+        return;
+      }
+      case "moveOffer":
+        emit({ heading: MOVE_LINES.heading, text: MOVE_LINES.named(this.moveOffer.map((reminder) => reminder.text)), choices: MOVE_CHOICES });
+        return;
+      case "focusNotice":
+        emit({ text: this.focusNotice!, icon: "timer" });
+        return;
+      case null:
+        this.deps.bus.emit("pet.alert", { text: null });
     }
-    const activity = this.activities.notice();
-    if (activity?.text) {
-      const choices = activity.opens ? { choices: [ACTIVITY_DISMISS, { label: activity.opens, event: "pet.activity_open_requested" } satisfies AlertChoice] } : {};
-      bus.emit("pet.alert", { text: activity.text, icon: activity.icon, ...choices });
-      return;
-    }
-    if (this.moveOffer.length > 0) {
-      bus.emit("pet.alert", { heading: MOVE_LINES.heading, text: MOVE_LINES.named(this.moveOffer.map((reminder) => reminder.text)), choices: MOVE_CHOICES });
-      return;
-    }
-    const shown = this.alerted;
-    if (shown.length === 0) {
-      bus.emit("pet.alert", this.focusNotice ? { text: this.focusNotice, icon: "timer" } : { text: null });
-      return;
-    }
-    const late = shown.some((reminder) => reminder.remindAt !== null && now - reminder.remindAt > BEHAVIOR_CONFIG.reminderLateMs);
-    const texts = shown.map((reminder) => reminder.text);
-    if (texts.length > MAX_NAMED_REMINDERS) {
-      this.deps.bus.emit("pet.alert", { heading: REMINDER_LINES.late, text: REMINDER_LINES.many(texts.slice(0, MAX_NAMED_REMINDERS), texts.length), more: true });
-      return;
-    }
-    this.deps.bus.emit("pet.alert", { heading: late ? REMINDER_LINES.late : REMINDER_LINES.onTime, text: REMINDER_LINES.named(texts), choices: reminderChoices(texts.length) });
   }
 
   /**
@@ -742,7 +779,7 @@ export class BehaviorEngine {
    */
   private answerReminders(answer: "done" | "snoozed"): void {
     const { reminders, state } = this.deps;
-    if (!reminders || this.alerted.length === 0 || this.focusPrompt || this.activities.notice()) return;
+    if (!reminders || this.standing() !== "reminders") return;
     const now = Date.now();
     const ids = this.alerted.map((reminder) => reminder.id);
     if (answer === "done") {
@@ -778,7 +815,7 @@ export class BehaviorEngine {
   /** "挪到今天": only while the offer is what the line shows. */
   private moveLeftovers(): void {
     const { reminders, state } = this.deps;
-    if (!reminders || this.moveOffer.length === 0 || this.focusPrompt || this.activities.notice()) return;
+    if (!reminders || this.standing() !== "moveOffer") return;
     const now = Date.now();
     reminders.moveToToday(this.moveOffer.map((reminder) => reminder.id), now);
     this.moveOffer = [];
@@ -791,7 +828,7 @@ export class BehaviorEngine {
   /** The user asked to go to the activity on the standing line: its reporter takes them there, and the line is put away. */
   private openActivity(): void {
     const top = this.activities.notice();
-    if (top === null) return;
+    if (top === null || this.standing() !== "activity") return;
     this.deps.bus.emit("pet.activity_opened", { id: top.id });
     this.dismissAlert();
   }
@@ -799,19 +836,25 @@ export class BehaviorEngine {
   /** Takes down what the standing line shows; what was waiting behind it comes up next. */
   private dismissAlert(): void {
     const now = Date.now();
-    if (this.focusPrompt) {
-      this.clearFocusPrompt();
-      return;
-    }
-    if (this.activities.notice()) {
-      this.activities.dismiss();
-    } else if (this.moveOffer.length > 0) {
-      this.moveOffer = [];
-    } else {
-      if (this.alerted.length === 0 && this.focusNotice === null) return;
-      if (this.alerted.length > 0) this.deps.reminders?.markReminded(this.alerted.map((reminder) => reminder.id), now);
-      this.alerted = [];
-      this.focusNotice = null;
+    switch (this.standing()) {
+      case "focusPrompt":
+        this.clearFocusPrompt();
+        return;
+      case "reminders":
+        this.deps.reminders?.markReminded(this.alerted.map((reminder) => reminder.id), now);
+        this.alerted = [];
+        break;
+      case "activity":
+        this.activities.dismiss();
+        break;
+      case "moveOffer":
+        this.moveOffer = [];
+        break;
+      case "focusNotice":
+        this.focusNotice = null;
+        break;
+      case null:
+        return;
     }
     this.deps.state.markInteraction(now);
     this.showAlert(now);

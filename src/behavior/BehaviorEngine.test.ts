@@ -1239,8 +1239,8 @@ describe("activities", () => {
     return shown;
   };
 
-  it("comes out from the edge and keeps the copied code up until it is clicked away", () => {
-    const { bus, renderer, docks, pass } = withScenes();
+  it("comes out from the edge, says the copied code in passing, and goes back without a line to click away", () => {
+    const { bus, renderer, docks, passSteps, said } = withScenes();
     const shown = watchAlert(bus);
     bus.emit("pet.drag_started", {});
     bus.emit("pet.drag_ended", { dockSide: "right" });
@@ -1248,24 +1248,40 @@ describe("activities", () => {
     mail(bus, { kind: "found", code: "384920", sender: "网易邮件中心", copied: true });
     expect(renderer.last).toBe("happy");
     expect(docks).toEqual(["right", null]);
-    expect(last(shown)).toEqual({ text: "验证码 384920，已复制（网易邮件中心）", icon: "mail" });
-    pass(BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs * 3);
+    expect(last(said)).toBe("验证码 384920，已复制（网易邮件中心）");
+    expect(shown.every((alert) => alert.text === null)).toBe(true);
+    // It stays out while it says it, then goes back by itself.
+    passSteps(BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs - 1_000);
     expect(docks).toEqual(["right", null]);
-    bus.emit("pet.alert_dismissed", {});
-    expect(last(shown)?.text).toBeNull();
-    pass(BEHAVIOR_CONFIG.backToEdgeAfterAlertMs);
+    passSteps(2_000);
     expect(last(docks)).toBe("right");
   });
 
-  it("shows the code ahead of due reminders, and the reminders once it is clicked away", () => {
+  it("keeps a due reminder on the line when a success comes in: the success is only said", () => {
     const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
-    const { bus, pass } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
+    const { bus, pass, said } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
     const shown = watchAlert(bus);
     pass(0);
     mail(bus, { kind: "found", code: "57743", sender: "Telegram", copied: true });
-    expect(last(shown)?.text).toBe("验证码 57743，已复制（Telegram）");
-    bus.emit("pet.alert_dismissed", {});
+    expect(last(said)).toBe("验证码 57743，已复制（Telegram）");
     expect(last(shown)).toMatchObject({ heading: "到点啦", text: "开会" });
+  });
+
+  it("puts a due reminder ahead of an activity's line, says one more waits, and shows it next", () => {
+    const due: DueReminder[] = [];
+    const reminders = fakeReminders(due);
+    const { bus, pass } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
+    const shown = watchAlert(bus);
+    bus.emit("pet.activity", agent("waiting", { text: "要运行 pnpm test，等你确认" }));
+    expect(last(shown)).toEqual({ text: "要运行 pnpm test，等你确认", icon: "timer" });
+    due.push({ id: "r1", text: "点外卖", remindAt: Date.now() });
+    pass(0);
+    expect(last(shown)).toMatchObject({ heading: "到点啦", text: "点外卖", queued: 1 });
+    // Its line is not the one shown: going to it does nothing.
+    bus.emit("pet.activity_open_requested", {});
+    bus.emit("pet.reminders_done", {});
+    expect(reminders.done).toEqual(["r1"]);
+    expect(last(shown)).toEqual({ text: "要运行 pnpm test，等你确认", icon: "timer" });
   });
 
   it("takes down the last answer when a new wait starts", () => {
@@ -1388,14 +1404,5 @@ describe("activities", () => {
     bus.emit("pet.focus_toggled", {});
     bus.emit("pet.activity", agent("waiting", { text: "等你确认" }));
     expect(last(shown)?.text).toBe("等你确认");
-  });
-
-  it("leaves the reminder buttons alone while an activity's line covers the reminders", () => {
-    const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
-    const { bus, pass } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
-    pass(0);
-    bus.emit("pet.activity", agent("done", { text: "做完了" }));
-    bus.emit("pet.reminders_done", {});
-    expect(reminders.done).toEqual([]);
   });
 });

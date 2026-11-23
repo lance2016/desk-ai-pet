@@ -57,12 +57,30 @@ describe("ActivityBoard", () => {
     expect(board.notice()).toBeNull();
   });
 
-  it("keeps a result up until it is dismissed, then forgets the activity", () => {
+  it("keeps a failure up until it is dismissed, then forgets the activity", () => {
     const board = new ActivityBoard();
-    board.report(build("a", "done", { text: "做完了" }));
-    expect(board.notice()?.text).toBe("做完了");
+    board.report(build("a", "failed", { text: "没成" }));
+    expect(board.notice()?.text).toBe("没成");
     board.dismiss();
     expect(board.notice()).toBeNull();
+  });
+
+  it("keeps no line for a success: it is only said in passing", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "waiting", { text: "等你点头" }));
+    expect(board.report(build("a", "done", { text: "做完了" }))).toBe(true);
+    expect(board.notice()).toBeNull();
+    expect(board.chips()).toEqual([]);
+  });
+
+  it("counts every line waiting to stand", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "failed", { text: "没成" }));
+    board.report(build("b", "waiting", { text: "等你点头" }));
+    board.report(build("c", "running", { text: "正在跑" }));
+    expect(board.noticeCount()).toBe(2);
+    board.dismiss();
+    expect(board.noticeCount()).toBe(1);
   });
 
   it("puts what waits for the user ahead of results", () => {

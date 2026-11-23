@@ -4,7 +4,7 @@ import { changeReminders } from "../../worklog/store";
 import { EVERY_DAY, repeatLabel, repeatSchema, type Repeat } from "../../agenda/Repeat";
 import { holidayCalendar, lastCoveredYear } from "../../agenda/Workdays";
 import { petWindow } from "../../platform/petWindow";
-import { escapeHidesPanel, isComposing } from "../keyboard";
+import { escapeHidesPanel, isComposing, useCloseShortcut } from "../keyboard";
 import { TimeField } from "../TimeField";
 import { loadQuietPreferences, subscribeQuietPreferences } from "../../preferences/QuietPreferences";
 import "./TodayPanel.css";
@@ -163,6 +163,8 @@ function Glyph({ name }: { name: "plus" | "check" | "close" | "moon" | "list" | 
   return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
 
+const hidePanel = () => void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason));
+
 /** Reminders: add, edit, tick off and delete here, or ask the pet in chat. */
 export function TodayPanel() {
   const [items, setItems] = useState<AgendaItem[]>(() => sortAgenda(loadAgenda(), Date.now()));
@@ -191,21 +193,23 @@ export function TodayPanel() {
       setItems(sortAgenda(loadAgenda(), now));
       setQuiet(loadQuietPreferences().doNotDisturb);
     };
-    // The window is hidden, not closed, so refresh whenever it shows again, and be ready to type unless editing.
-    const onFocus = () => {
+    // The window is hidden, not closed, so refresh whenever it is back, and be ready to type, unless editing, when it shows again.
+    const onShown = () => {
       refresh();
       if (!editingRef.current) addInput.current?.focus();
     };
     refresh();
-    window.addEventListener("focus", onFocus);
-    const stops = [subscribeAgenda(refresh), subscribeQuietPreferences(refresh)];
+    window.addEventListener("focus", refresh);
+    const stops = [subscribeAgenda(refresh), subscribeQuietPreferences(refresh), petWindow.onShown(onShown)];
     return () => {
       document.documentElement.classList.remove("today-window");
       document.body.classList.remove("today-window");
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", refresh);
       for (const stop of stops) stop();
     };
   }, []);
+
+  useCloseShortcut(hidePanel);
 
   // Esc from anywhere else in the panel puts it away, unless a reminder is open for editing.
   const isEditing = editing !== null;

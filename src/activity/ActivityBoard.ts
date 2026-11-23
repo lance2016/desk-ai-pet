@@ -14,8 +14,9 @@ const sameReport = (a: ActivityUpdate, b: ActivityUpdate) =>
 
 /**
  * The things going on that the pet shows: a chip at its feet while one runs or
- * waits for the user, and a standing line when one waits for the user or has
- * a result to tell. It only keeps track; the engine decides how the pet reacts.
+ * waits for the user, and a standing line when one waits for the user or failed.
+ * A success is only said in passing (the engine says it), so it is not kept: it
+ * would stand over a reminder the user has to act on. It only keeps track; the engine decides how the pet reacts.
  */
 export class ActivityBoard {
   private entries: Entry[] = [];
@@ -24,8 +25,8 @@ export class ActivityBoard {
   report(update: ActivityUpdate): boolean {
     const before = this.entries.find((entry) => entry.update.id === update.id);
     if (before ? sameReport(before.update, update) : update.state === "cancelled") return false;
-    // Over with nothing to tell: nothing is left to show.
-    const kept: Entry[] = ongoing(update) || (update.state !== "cancelled" && update.text) ? [{ update, seen: false }] : [];
+    // Over with nothing to tell, or done (said in passing): nothing is left to show.
+    const kept: Entry[] = ongoing(update) || (update.state === "failed" && update.text) ? [{ update, seen: false }] : [];
     this.entries = before ? this.entries.flatMap((entry) => entry === before ? kept : [entry]) : [...this.entries, ...kept];
     return true;
   }
@@ -44,10 +45,19 @@ export class ActivityBoard {
     return this.entries.some((entry) => entry.update.state === "running" && entry.update.icon === icon);
   }
 
-  /** The activity whose line should stand now: one waiting for the user first, then results, oldest first. */
+  /** The activity whose line should stand now: one waiting for the user first, then failures, oldest first. */
   notice(): ActivityUpdate | null {
-    const open = this.entries.filter((entry) => !entry.seen && entry.update.text && entry.update.state !== "running");
+    const open = this.notices();
     return (open.find((entry) => entry.update.state === "waiting") ?? open[0])?.update ?? null;
+  }
+
+  /** How many activities have a line to stand: the one `notice` gives and those behind it. */
+  noticeCount(): number {
+    return this.notices().length;
+  }
+
+  private notices(): Entry[] {
+    return this.entries.filter((entry) => !entry.seen && entry.update.text && entry.update.state !== "running");
   }
 
   /** The user clicked the standing line away. A result is forgotten; an activity still waiting keeps its chip. */

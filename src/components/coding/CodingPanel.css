@@ -36,6 +36,7 @@
 .coding-folder__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .coding-folder.is-picked .coding-folder__name { font-weight: 500; }
 .coding-folder.is-quiet .coding-folder__name { color: var(--label-2); }
+.coding-folder__pin { width: 12px; height: 12px; color: var(--label-3); }
 .coding-folder__count { flex: none; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .coding-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -102,6 +103,8 @@
 .coding-tool:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
 .coding-tool .today-glyph { width: 15px; height: 15px; }
 .coding-row__info { margin: 5px 4px 0 0; }
+/* On, it takes the accent colour, as a toggled toolbar button does. */
+.coding-pin.is-on { color: var(--accent); }
 
 /* Ended sessions wait folded at the end of their folder. */
 .coding-fold { width: 100%; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-row); font: inherit; font-size: 12px; text-align: left; cursor: default; }

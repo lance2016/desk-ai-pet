@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { useEffect, type KeyboardEvent } from "react";
 
 /**
  * Whether a key press still belongs to an input method, e.g. the Enter that
@@ -18,4 +18,25 @@ export function escapeHidesPanel(event: globalThis.KeyboardEvent): boolean {
   if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return false;
   const focused = document.activeElement;
   return !((focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement) && focused.value.trim());
+}
+
+/** Whether a key press is ⌘W, with no other modifier. */
+export function isCloseShortcut(event: globalThis.KeyboardEvent): boolean {
+  return event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "w";
+}
+
+/**
+ * Puts a popover away on ⌘W. The app menu's 关闭窗口 cannot: a popover does not activate
+ * the app, so the menu never sees the keys pressed in it.
+ */
+export function useCloseShortcut(close: () => void): void {
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (!isCloseShortcut(event)) return;
+      event.preventDefault();
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
 }

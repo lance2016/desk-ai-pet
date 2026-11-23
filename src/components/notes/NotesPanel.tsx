@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Keyb
 import { addNote, editNote, loadNotes, NOTE_LIMITS, noteTime, pushedOut, removeNote, restoreNote, searchNotes, setNotePinned, sortNotes, subscribeNotes, type Note } from "../../notes/NoteStore";
 import { changeNotes } from "../../worklog/store";
 import { petWindow } from "../../platform/petWindow";
-import { escapeHidesPanel, isComposing } from "../keyboard";
+import { escapeHidesPanel, isComposing, useCloseShortcut } from "../keyboard";
 import "../today/TodayPanel.css";
 import "./NotesPanel.css";
 
@@ -98,17 +98,19 @@ export function NotesPanel() {
     document.documentElement.classList.add("today-window");
     document.body.classList.add("today-window");
     const refresh = () => setNotes(sortNotes(loadNotes()));
-    // The window is hidden, not closed: refresh and get ready to type whenever it shows again.
-    const onFocus = () => { refresh(); addField.current?.focus(); };
-    window.addEventListener("focus", onFocus);
-    const stop = subscribeNotes(refresh);
+    // The window is hidden, not closed: refresh whenever it is back, and get ready to type when it shows again.
+    const onShown = () => { refresh(); addField.current?.focus(); };
+    window.addEventListener("focus", refresh);
+    const stops = [subscribeNotes(refresh), petWindow.onShown(onShown)];
     return () => {
       document.documentElement.classList.remove("today-window");
       document.body.classList.remove("today-window");
-      window.removeEventListener("focus", onFocus);
-      stop();
+      window.removeEventListener("focus", refresh);
+      for (const stop of stops) stop();
     };
   }, []);
+
+  useCloseShortcut(hidePanel);
 
   // Esc from anywhere else in the panel puts it away, unless a note is open for editing.
   const isEditing = editing !== null;

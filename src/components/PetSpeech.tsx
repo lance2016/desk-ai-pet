@@ -148,6 +148,14 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   const glyph = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
   const icon = reminder ? <span className="speech-bubble__tile">{glyph}</span> : glyph;
   const heading = standing?.heading && <span className="speech-bubble__heading">{standing.heading}</span>;
+  // Lines waiting behind this one: said quietly, so the user knows another comes once this one is answered.
+  const queued = standing?.queued ? `还有 ${standing.queued} 条` : null;
+  const choiceHeading = (standing?.heading || queued) && (
+    <span className="speech-bubble__heading">
+      {standing?.heading}
+      {queued && <span className="speech-bubble__queued">{standing?.heading ? `，${queued}` : queued}</span>}
+    </span>
+  );
   // A question about something other than reminders looks calm and holds still. News with a way to it (an agent waiting) keeps the look of news.
   const look = reminder ? " speech-bubble--remind" : standing?.choices && standing.icon !== "agent" ? " speech-bubble--ask" : "";
   const lastChoice = (standing?.choices?.length ?? 0) - 1;
@@ -171,7 +179,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
                   <span className="speech-bubble__alert-text">{standing.text}</span>
                   {/* The heading shares the button row: the room above the pet has no line to spare. */}
                   <span className="speech-bubble__choices">
-                    {heading}
+                    {choiceHeading}
                     {standing.choices.map((choice, index) => (
                       // As in a Mac alert, the answer most people pick is on the right and filled in.
                       <button key={choice.label} type="button" className={choice.destructive ? "is-destructive" : index === lastChoice ? "is-primary" : undefined} onClick={() => runtime.bus.emit(choice.event, {})}>{choice.label}</button>
@@ -182,7 +190,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
             ) : (
               <button type="button" className="speech-bubble__press" title={standing.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
                 {icon}
-                <span className="speech-bubble__body">{heading}<span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}</small></span>
+                <span className="speech-bubble__body">{heading}<span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}{queued && `，${queued}`}</small></span>
               </button>
             )}
           </div>

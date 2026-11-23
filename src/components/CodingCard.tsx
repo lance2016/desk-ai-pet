@@ -14,7 +14,8 @@ export const useCodingNow = (sessions: readonly CodingSession[]): number =>
 /** Whether the card has anything to say: a session at work, waiting for the user, or just done. */
 export const codingHasNews = (sessions: readonly CodingSession[], now: number): boolean => overview(sessions, now).headline !== null;
 
-const openCoding = () => void petWindow.openCoding().catch((error: unknown) => console.error("Failed to open the coding sessions", error));
+/** Opens the sessions on the folder of the one the card is about, not the pinned one: that is what the user clicked. */
+const openCoding = (folder: string) => void petWindow.openCoding(folder).catch((error: unknown) => console.error("Failed to open the coding sessions", error));
 
 /** How the session's turn stands, as a small mark: spinning while it works, still otherwise. */
 export function TurnMark({ turn }: { turn: CodingSession["turn"] }) {
@@ -70,7 +71,7 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
   const others = view.waiting.length + view.working.length - 1;
   if (compact) {
     return (
-      <button type="button" className={`status-chip coding-pill coding-pill--${head.turn}`} aria-label={`Claude Code，${state}：${title}`} title="看看 Claude Code 的会话" onClick={openCoding}>
+      <button type="button" className={`status-chip coding-pill coding-pill--${head.turn}`} aria-label={`Claude Code，${state}：${title}`} title="看看 Claude Code 的会话" onClick={() => openCoding(head.project)}>
         <TurnMark turn={head.turn} />
         {/* The mark alone would read a finished turn as a finished task. */}
         <span className="coding-pill__state">{stateWord(head)}</span>
@@ -83,7 +84,7 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
   const detail = stateLine(head) ?? head.branch;
   const meta = detail ? `${head.project} · ${detail}` : head.project;
   return (
-    <button type="button" className={`coding-card coding-card--${head.turn}`} aria-label={`Claude Code，${state}：${title}。点一下看全部会话`} onClick={openCoding}>
+    <button type="button" className={`coding-card coding-card--${head.turn}`} aria-label={`Claude Code，${state}：${title}。点一下看全部会话`} onClick={() => openCoding(head.project)}>
       <span className="coding-card__head">
         <TurnMark turn={head.turn} />
         <span className="coding-card__who">Claude Code</span>

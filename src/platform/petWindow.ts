@@ -57,6 +57,10 @@ const DOCK_MENU_EVENT = "pet://dock-item";
 const TODAY_ITEM_EVENT = "pet://today-item";
 /** Asks the notes panel to point out one note; sent between webviews only. */
 const NOTE_EVENT = "pet://note";
+/** A popover (today, notes, coding) put away is shown again; the payload is its label. Must match SHOWN_EVENT in src-tauri/src/lib.rs. */
+const SHOWN_EVENT = "pet://shown";
+/** The pet window asks the coding panel to show a folder; from one webview to another. */
+const CODING_FOLDER_EVENT = "pet://coding-folder";
 /** Asks the chat window to show one thread; sent between webviews only. */
 const CHAT_THREAD_EVENT = "pet://chat-thread";
 /** Like `CHAT_THREAD_EVENT`, and the chat window also answers the thread's last, unanswered message. */
@@ -466,10 +470,29 @@ export const petWindow = {
     await invoke(OPEN_NOTES_COMMAND);
   },
 
-  /** Opens the Claude Code sessions next to the pet. */
-  async openCoding(): Promise<void> {
+  /**
+   * Opens the Claude Code sessions next to the pet, on `folder` when given. The folder is asked
+   * for after the panel is shown: showing it again starts it over on the pinned folder.
+   */
+  async openCoding(folder?: string): Promise<void> {
     if (!isTauri()) { window.open("/?window=coding", "_blank"); return; }
     await invoke(OPEN_CODING_COMMAND);
+    if (folder) await emitTo("coding", CODING_FOLDER_EVENT, folder);
+  },
+
+  /** Calls `handler` with the folder another window asked the coding panel to show. */
+  onCodingFolderRequested(handler: (folder: string) => void): () => void {
+    return subscribe<string>(CODING_FOLDER_EVENT, handler);
+  },
+
+  /**
+   * Calls `handler` each time this popover is shown again after being put away. Not on taking the
+   * focus back: popovers stay open side by side, and moving between them is not opening one.
+   */
+  onShown(handler: () => void): () => void {
+    if (!isTauri()) return () => {};
+    const label = getCurrentWindow().label;
+    return subscribe<string>(SHOWN_EVENT, (shown) => { if (shown === label) handler(); });
   },
 
   /** Calls `handler` with the note another window asked the notes panel to point out. */

@@ -172,5 +172,11 @@ export function byProject(sessions: readonly CodingSession[]): ProjectGroup[] {
     .map(({ rank: _rank, last: _last, ...group }) => group);
 }
 
+/** The folder the user pinned goes first, the rest stay as they were. */
+export function pinnedFirst(groups: readonly ProjectGroup[], pinned: string | null): ProjectGroup[] {
+  const at = groups.findIndex((group) => group.project === pinned);
+  return at <= 0 ? [...groups] : [groups[at], ...groups.slice(0, at), ...groups.slice(at + 1)];
+}
+
 /** The command that opens the session again in a terminal. */
 export const resumeCommand = (session: CodingSession) => `claude --resume ${session.id}`;

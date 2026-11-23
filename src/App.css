@@ -288,6 +288,7 @@ body {
 .speech-bubble--remind small { margin-top: 3px; color: var(--ui-text-secondary); }
 .speech-bubble__heading { color: var(--ui-warning); font-size: 11px; font-weight: 500; line-height: 1.4; }
 .speech-bubble__choices .speech-bubble__heading { align-self: center; margin-right: auto; padding-right: 8px; }
+.speech-bubble__queued { color: var(--ui-text-secondary); font-weight: 400; }
 .speech-bubble__tile {
   flex: none;
   display: grid;
@@ -335,12 +336,18 @@ body {
   position: absolute;
   /* Above the bar, so a pill's hint can open over the buttons. */
   z-index: 3;
-  left: max(var(--visible-left), var(--stage-side));
-  right: max(var(--visible-right), var(--stage-side));
+  /*
+   * Centred on the pet, like the bar, even when wider than the pet (the coding card is, at a small scale):
+   * both sides give up as much as the window hangs off the screen on either side, so the window, which is
+   * symmetric about the pet, stays the frame. Insets of the stage margin left less room than the card, and
+   * an over-wide box sits on its left inset instead of in the middle.
+   */
+  left: max(var(--visible-left), var(--visible-right));
+  right: max(var(--visible-left), var(--visible-right));
   /* Just below the bar and growing downwards, so pills and the coding card start from the same line whatever their height. */
   top: calc(100% - 72px - var(--overhang));
   width: max-content;
-  max-width: calc(100% - var(--visible-left) - var(--visible-right) - 16px);
+  max-width: calc(100% - 2 * max(var(--visible-left), var(--visible-right)) - 16px);
   margin-inline: auto;
   display: flex;
   flex-wrap: wrap;

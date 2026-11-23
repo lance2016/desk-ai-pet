@@ -293,7 +293,8 @@ export interface PetEvents {
    */
   /** `heading`: a short word over the text, such as "到点啦" over a reminder's own words. */
   /** `immediate`: asked in answer to a press, so it shows at once over a passing line instead of waiting for it. */
-  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: AlertIcon; choices?: AlertChoice[]; immediate?: boolean };
+  /** `queued`: how many lines wait behind this one, shown after it is dismissed or answered. */
+  "pet.alert": { text: string | null; heading?: string; more?: boolean; icon?: AlertIcon; choices?: AlertChoice[]; immediate?: boolean; queued?: number };
   /** The user clicked the standing line away. */
   "pet.alert_dismissed": Record<string, never>;
   /** "完成" on the reminder line: tick off the reminders it names. */

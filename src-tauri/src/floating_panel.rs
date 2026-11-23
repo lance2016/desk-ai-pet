@@ -4,12 +4,9 @@
 //! app's full-screen space. Tauri creates an ordinary window, so it is turned
 //! into a panel after creation.
 
-use std::{ptr::NonNull, rc::Rc};
-
-use block2::RcBlock;
 use objc2::{ClassType, MainThreadOnly, define_class, ffi, runtime::AnyObject};
 use objc2_app_kit::{
-    NSEvent, NSEventMask, NSNormalWindowLevel, NSPanel, NSResponder, NSStatusWindowLevel, NSWindow,
+    NSNormalWindowLevel, NSPanel, NSResponder, NSStatusWindowLevel, NSWindow,
     NSWindowButton, NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use tauri::WebviewWindow;
@@ -132,33 +129,6 @@ pub fn release_keyboard(window: &WebviewWindow) -> tauri::Result<()> {
         }
     }
     Ok(())
-}
-
-/// Calls `on_press` with the number of the window under every mouse press, in
-/// this app or any other (another app's window never matches one of ours).
-/// Watching mouse presses needs no accessibility permission. Lasts for the
-/// app's life. Must be called on the main thread.
-pub fn watch_presses(on_press: impl Fn(isize) + 'static) {
-    let on_press = Rc::new(on_press);
-    let mask = NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown | NSEventMask::OtherMouseDown;
-    let elsewhere = on_press.clone();
-    // SAFETY (both handlers): AppKit hands them a valid event on the main thread.
-    let global = RcBlock::new(move |event: NonNull<NSEvent>| elsewhere(unsafe { event.as_ref() }.windowNumber()));
-    let local = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
-        on_press(unsafe { event.as_ref() }.windowNumber());
-        event.as_ptr()
-    });
-    // The monitors stay for the app's life, so their handles are never released.
-    std::mem::forget(NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &global));
-    // SAFETY: the handler passes on the event it was given, a valid pointer.
-    std::mem::forget(unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &local) });
-}
-
-/// The number AppKit gives the window, as `watch_presses` reports it.
-pub fn window_number(window: &WebviewWindow) -> tauri::Result<isize> {
-    let ns_window = window.ns_window()?.cast::<NSWindow>();
-    // SAFETY: Tauri hands out a valid NSWindow pointer that outlives this call.
-    Ok(unsafe { (*ns_window).windowNumber() })
 }
 
 /// Brings the pet to the front without making it the key window: a plain
