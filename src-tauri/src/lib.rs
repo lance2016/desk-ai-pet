@@ -89,9 +89,6 @@ const NOTES_WINDOW: &str = "notes";
 const CODING_WINDOW: &str = "coding";
 /// The reminder, note and coding popovers: only one is open at a time, and a click outside puts them away.
 const POPOVERS: [&str; 3] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW];
-/// After a popover loses focus, how long to wait before putting away every popover without it:
-/// by then the window that took the focus has it, so the one the user just opened is kept.
-const POPOVER_SWEEP_DELAY: std::time::Duration = std::time::Duration::from_millis(150);
 
 /// The one menu shared by the tray icon and the pet's right-click menu.
 struct PetMenu {
@@ -547,19 +544,16 @@ fn work_area_under(app: &AppHandle, pet: Area) -> Option<Area> {
     areas.into_iter().min_by(|a, b| distance(a).total_cmp(&distance(b)))
 }
 
-/// Puts away, a moment later, every popover that does not have the focus. A popover only
-/// hears that it lost the focus if it had it; one shown without it would otherwise stay up.
-fn sweep_popovers(app: AppHandle) {
-    std::thread::spawn(move || {
-        std::thread::sleep(POPOVER_SWEEP_DELAY);
-        for label in POPOVERS {
-            if let Some(popover) = app.get_webview_window(label) {
-                if popover.is_visible().unwrap_or(false) && !popover.is_focused().unwrap_or(false) {
-                    report("hide popover without focus", popover.hide());
-                }
-            }
+/// Puts away every popover the mouse press did not land in. Losing the focus is not enough:
+/// a popover only hears that it lost the focus if it had it, and one left without it stayed up.
+#[cfg(target_os = "macos")]
+fn hide_popovers_outside(app: &AppHandle, pressed: isize) {
+    for label in POPOVERS {
+        let Some(popover) = app.get_webview_window(label) else { continue };
+        if popover.is_visible().unwrap_or(false) && floating_panel::window_number(&popover).ok() != Some(pressed) {
+            report("hide popover after a press outside", popover.hide());
         }
-    });
+    }
 }
 
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
@@ -589,7 +583,7 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     // app, or a user in a full-screen app is pulled out of it.
     #[cfg(target_os = "macos")]
     if POPOVERS.contains(&label) {
-        // They open in the same spot; one left behind without focus would never hear the click outside.
+        // They open in the same spot, so only one is shown.
         for other in POPOVERS.iter().filter(|other| **other != label) {
             if let Some(other) = app.get_webview_window(other) {
                 report("hide the other popover", other.hide());
@@ -752,22 +746,24 @@ pub fn run() {
                     }
                 });
             }
-            // The today, notes and coding panels behave like popovers: they go away when they lose focus.
+            // The today, notes and coding panels behave like popovers: they go away on a press
+            // outside them or when they lose focus (⌘Tab).
+            #[cfg(target_os = "macos")]
+            {
+                let app_handle = app.handle().clone();
+                floating_panel::watch_presses(move |pressed| hide_popovers_outside(&app_handle, pressed));
+            }
             for label in POPOVERS {
                 if let Some(panel) = app.get_webview_window(label) {
                     #[cfg(target_os = "macos")]
                     floating_panel::apply_popover(&panel)?;
                     let handle = panel.clone();
-                    let app_handle = app.handle().clone();
                     panel.on_window_event(move |event| match event {
                         tauri::WindowEvent::CloseRequested { api, .. } => {
                             api.prevent_close();
                             report("hide panel", handle.hide());
                         }
-                        tauri::WindowEvent::Focused(false) => {
-                            report("hide panel", handle.hide());
-                            sweep_popovers(app_handle.clone());
-                        }
+                        tauri::WindowEvent::Focused(false) => report("hide panel", handle.hide()),
                         _ => {}
                     });
                 }

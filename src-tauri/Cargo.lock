@@ -22,6 +22,7 @@ name = "ai-pet"
 version = "1.19.1"
 dependencies = [
  "base64 0.22.1",
+ "block2",
  "imap",
  "libc",
  "log",
