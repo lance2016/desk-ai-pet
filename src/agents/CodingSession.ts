@@ -92,8 +92,10 @@ export interface CodingOverview {
   /** Waiting for the user, the one waiting longest first. */
   waiting: CodingSession[];
   working: CodingSession[];
-  /** Everything else, the latest first. */
+  /** Done for now with their terminal still known, so a click goes back to it; the latest first. */
   recent: CodingSession[];
+  /** Done for now with no terminal to go back to (the session ended): only its resume command is left. The latest first. */
+  closed: CodingSession[];
   /**
    * The one session the card is about: one waiting for the user, else a fresh
    * failure, else one at work, else a turn that just ended. Null when nothing
@@ -106,14 +108,20 @@ export interface CodingOverview {
 export function overview(sessions: readonly CodingSession[], now: number): CodingOverview {
   const waiting = sessions.filter((session) => session.turn === "waiting").sort((a, b) => a.lastEventAt - b.lastEventAt);
   const working = sessions.filter((session) => session.turn === "working").sort(latestFirst);
-  const recent = sessions.filter((session) => !isLive(session)).sort(latestFirst);
-  const news = recent.filter((session) => fresh(session, now));
+  const settled = sessions.filter((session) => !isLive(session)).sort(latestFirst);
+  const news = settled.filter((session) => fresh(session, now));
   const headline = waiting[0]
     ?? news.find((session) => session.turn === "failed")
     ?? working[0]
     ?? news.find((session) => session.turn === "completed")
     ?? null;
-  return { waiting, working, recent, headline };
+  return {
+    waiting,
+    working,
+    recent: settled.filter((session) => session.revealable),
+    closed: settled.filter((session) => !session.revealable),
+    headline,
+  };
 }
 
 /** The command that opens the session again in a terminal. */

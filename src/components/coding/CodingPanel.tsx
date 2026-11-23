@@ -50,26 +50,32 @@ function TerminalGlyph() {
   return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M13 15h3.5" /></svg>;
 }
 
-function Row({ session, now, onReveal, onCopy }: { session: CodingSession; now: number; onReveal: () => void; onCopy: () => void }) {
+function Row({ session, now, closed = false, onReveal, onCopy }: { session: CodingSession; now: number; closed?: boolean; onReveal: () => void; onCopy: () => void }) {
   const time = when(session, now);
-  const line = standing(session);
+  // A closed session is said once by its group; its last turn is old news, so it keeps to two short lines.
+  const line = closed ? null : standing(session);
   // Going back to its terminal is what a click does when the pet knows where the session runs; otherwise the way back is the command that reopens it.
   const primary = session.revealable ? onReveal : onCopy;
   const hint = session.revealable ? "点一下回到它所在的终端" : `点一下复制 ${resumeCommand(session)}，在终端里粘贴就能接着聊`;
-  // The title shows two lines at most; pointing at the row shows all of it, and what it is on.
+  // The title is cut short; pointing at the row shows all of it, and what it is on.
   const tip = [sessionTitle(session), line, hint].filter(Boolean).join("\n");
+  const said = closed ? "已关闭" : `${stateWord(session)}${line && isLive(session) ? `：${line}` : ""}`;
+  const does = session.revealable ? "点一下回到终端" : "点一下复制恢复命令";
   return (
-    <li className={`today-row coding-row coding-row--${session.turn}`}>
-      <button type="button" className="coding-row__main" title={tip} aria-label={`${sessionTitle(session)}，${stateWord(session)}${line && isLive(session) ? `：${line}` : ""}`} onClick={primary}>
+    <li className={`today-row coding-row coding-row--${session.turn}${closed ? " coding-row--closed" : ""}`}>
+      <button type="button" className="coding-row__main" title={tip} aria-label={`${sessionTitle(session)}，${said}，${does}`} onClick={primary}>
         <span className="coding-row__mark"><TurnMark turn={session.turn} /></span>
         <span className="coding-row__body">
           <span className="coding-row__top">
             <strong>{sessionTitle(session)}</strong>
-            {time && <span className="coding-row__time">{time}</span>}
+            {/* Kept even when empty: the copy button takes its place on hover, so the title never reflows. */}
+            <span className="coding-row__time">{time}</span>
           </span>
           <span className="coding-row__where">{session.project}{session.branch && <> · {session.branch}</>}</span>
           {line && <span className="coding-row__line">{line}</span>}
         </span>
+        {/* What a click does, always in sight: back to the terminal, or copy the command that reopens the session. */}
+        <span className="coding-row__does" aria-hidden="true">{session.revealable ? <TerminalGlyph /> : <CopyGlyph />}</span>
       </button>
       {session.revealable && (
         <span className="coding-row__tools">
@@ -106,8 +112,9 @@ function Empty({ hooks }: { hooks: ClaudeHooksState | undefined }) {
 
 /**
  * The Claude Code sessions, beside the pet: the ones waiting for the user first,
- * then the ones at work, then recent ones. A click on a session goes back to its
- * terminal, or copies the command that reopens it when the pet cannot tell where it runs.
+ * then the ones at work, then recent ones, then closed ones. A click on a session goes
+ * back to its terminal, or copies the command that reopens it when the pet cannot tell
+ * where it runs; closed sessions sit apart so the two never look alike.
  */
 export function CodingPanel() {
   const sessions = useSyncExternalStore(subscribeCodingSessions, codingSessionsSnapshot);
@@ -156,9 +163,9 @@ export function CodingPanel() {
   };
 
   const view = overview(sessions, now);
-  const row = (session: CodingSession) => <Row key={session.id} session={session} now={now} onReveal={() => reveal(session)} onCopy={() => void copy(session)} />;
+  const row = (session: CodingSession, closed = false) => <Row key={session.id} session={session} now={now} closed={closed} onReveal={() => reveal(session)} onCopy={() => void copy(session)} />;
   const stale = sessions.length > 0 && hooks !== undefined && !(hooks.connected && hooks.current);
-  const line = summary(view.waiting.length, view.working.length, view.recent.length);
+  const line = summary(view.waiting.length, view.working.length, view.recent.length + view.closed.length);
 
   return (
     <main className="today-panel coding-panel">
@@ -178,9 +185,15 @@ export function CodingPanel() {
         )}
         {sessions.length === 0 ? <Empty hooks={hooks} /> : (
           <>
-            {view.waiting.length > 0 && <><h2 className="today-section">需要你处理</h2><ul>{view.waiting.map(row)}</ul></>}
-            {view.working.length > 0 && <><h2 className="today-section">正在工作</h2><ul>{view.working.map(row)}</ul></>}
-            {view.recent.length > 0 && <><h2 className="today-section">最近</h2><ul>{view.recent.map(row)}</ul></>}
+            {view.waiting.length > 0 && <><h2 className="today-section">需要你处理</h2><ul>{view.waiting.map((session) => row(session))}</ul></>}
+            {view.working.length > 0 && <><h2 className="today-section">正在工作</h2><ul>{view.working.map((session) => row(session))}</ul></>}
+            {view.recent.length > 0 && <><h2 className="today-section">最近</h2><ul>{view.recent.map((session) => row(session))}</ul></>}
+            {view.closed.length > 0 && (
+              <>
+                <h2 className="today-section">已关闭</h2>
+                <ul>{view.closed.map((session) => row(session, true))}</ul>
+              </>
+            )}
           </>
         )}
       </section>

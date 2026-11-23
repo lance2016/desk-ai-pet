@@ -33,12 +33,24 @@ describe("overview", () => {
     const view = overview([stale, build("i", "idle"), build("x", "interrupted", { turnEndedAt: NOW - 1000 }), build("u", "unknown")], NOW);
     expect(view.headline).toBeNull();
     expect(view.recent).toHaveLength(4);
-    expect(overview([], NOW)).toEqual({ waiting: [], working: [], recent: [], headline: null });
+    expect(overview([], NOW)).toEqual({ waiting: [], working: [], recent: [], closed: [], headline: null });
   });
 
   it("lists recent sessions the latest first", () => {
     const view = overview([build("old", "completed", { lastEventAt: NOW - 9000 }), build("new", "idle", { lastEventAt: NOW - 10 })], NOW);
     expect(view.recent.map((session) => session.id)).toEqual(["new", "old"]);
+  });
+
+  it("sets apart the sessions with no terminal to go back to, still bringing up a fresh result", () => {
+    const view = overview([
+      build("open", "completed"),
+      build("gone", "completed", { ended: true, revealable: false, turnEndedAt: NOW - 1000 }),
+      build("live", "working", { revealable: false }),
+    ], NOW);
+    expect(view.recent.map((session) => session.id)).toEqual(["open"]);
+    expect(view.closed.map((session) => session.id)).toEqual(["gone"]);
+    expect(view.working.map((session) => session.id)).toEqual(["live"]);
+    expect(overview([build("gone", "completed", { revealable: false, turnEndedAt: NOW - 1000 })], NOW).headline?.id).toBe("gone");
   });
 });
 

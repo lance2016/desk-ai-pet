@@ -192,7 +192,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 钩子在后台运行（`async`），事件可能晚到、乱序或到两次。`ClaudeSessions` 按钩子程序自己记的时间 `at` 排，早于这一轮开始或结束的直接丢掉。测试会话逻辑时要带上 `at` 写乱序的用例，只按到达顺序测是测不出来的。新接一个事件要想清楚它晚到时会怎样。
 - 钩子现在会转发用户输入的第一行、文件名和回复的第一行。这些只能显示在界面上、存在 `ai-pet:coding-sessions:v1`，不能传给 `console.warn`/`console.error`（会进日志文件），也不能发给模型。原生端不转发命令、代码、工具输出和完整路径，改 `forwarded_line` 时保持这一点，测试 `names_a_tools_file_or_step_and_never_its_command` 守着。
 - 宠物窗口里半透明的底色会透出桌面。状态卡的琥珀色底是叠在 `--ui-surface` 上的（`linear-gradient(tint, tint), surface`）；深色模式下 `--ui-warning-soft` 这类变量是带透明度的，直接当背景用卡片就成了透明的。
-- 「回到终端」能精确到 Ghostty 的窗口和标签页，靠的是钩子记下的终端设备号（`controlling_tty`）。钩子程序是 Claude Code 用管道启动的，自己没有终端，`ps -o tty` 看是 `??`，要沿父进程往上找；不要改成读 stdin 的 tty。`osascript` 失败（用户拒绝了「控制 Ghostty」、终端已关）时一定要退回 `open -b`，不能让按钮点了没反应。Ghostty 的 `focus` 遇到同标签页里别的 split 被放大时会落空，脚本靠读回 `focused terminal` 发现并先取消放大，改脚本时别丢了这一步。切过去后的描边（`split_highlight.rs`）靠辅助功能读 Ghostty 聚焦的元素：窗口刚开或刚关的几秒内 Ghostty 会拿应用本身当聚焦元素，它也有位置和大小，所以只认 `AXTextArea`，不要去掉这个判断。脚本里只能按 ID 引用窗口、标签和终端（`window id …`、`terminal id …`）：`repeat with w in windows` 给的是按位置的引用，Ghostty 的窗口从前往后排，`focus` 一把目标窗口提到最前，同一个引用就指向了别的窗口。1.17.0 就是这样：读回焦点读的是别的窗口，以为没聚焦上，再按错的引用 `focus` 一次，最后停在原来那个窗口。测这些不要动用户现有的窗口：用 `new window with configuration`（`command` 设成 `/bin/sleep 90`）开临时窗口，在里面分屏、放大、开标签页，测完用 `close window` 关掉（`close` 是关终端的，对窗口不起作用），再列一遍窗口确认关了。
+- 「回到终端」能精确到 Ghostty 的窗口和标签页，靠的是钩子记下的终端设备号（`controlling_tty`）。钩子程序是 Claude Code 用管道启动的，自己没有终端，`ps -o tty` 看是 `??`，要沿父进程往上找；不要改成读 stdin 的 tty。`osascript` 失败（用户拒绝了「控制 Ghostty」、终端已关）时一定要退回 `open -b`，不能让按钮点了没反应。Ghostty 的 `focus` 遇到同标签页里别的 split 被放大时会落空，脚本靠读回 `focused terminal` 发现并先取消放大，改脚本时别丢了这一步。切过去后的描边（`split_highlight.rs`）靠辅助功能读 Ghostty 聚焦的元素：窗口刚开或刚关的几秒内 Ghostty 会拿应用本身当聚焦元素，它也有位置和大小，所以只认 `AXTextArea`，不要去掉这个判断。也不要在 `osascript` 返回后立刻读一次就画：`activate` 不等 Ghostty 到前面，要换桌面空间时更晚，2.0.0-preview 以前就这样，从别的应用点「回到终端」时常常不亮，日志里也没有任何记录。现在等它成了最前的应用、位置两次读数一样再画（`settled_frame`）。脚本里只能按 ID 引用窗口、标签和终端（`window id …`、`terminal id …`）：`repeat with w in windows` 给的是按位置的引用，Ghostty 的窗口从前往后排，`focus` 一把目标窗口提到最前，同一个引用就指向了别的窗口。1.17.0 就是这样：读回焦点读的是别的窗口，以为没聚焦上，再按错的引用 `focus` 一次，最后停在原来那个窗口。测这些不要动用户现有的窗口：用 `new window with configuration`（`command` 设成 `/bin/sleep 90`）开临时窗口，在里面分屏、放大、开标签页，测完用 `close window` 关掉（`close` 是关终端的，对窗口不起作用），再列一遍窗口确认关了。
 - Claude Code 在用户按 Esc 时什么钩子都不发（打断这一轮、在确认框里拒绝都一样，2.1.330 实测），`idle_prompt` 也只在正常结束后才来。打断只能靠读会话记录末尾的 `[Request interrupted by user`（`agent_turn_over`）。不要靠「几分钟没事件」判断：一个工具可以跑半小时不发事件。
 - 163 邮箱登录后必须先发 IMAP `ID` 命令，它会先回一行 `* ID (...)` 再回 OK。`imap` 2.x 依赖的解析库认不出这一行，当成断线，界面上只显示「163 邮箱出了点问题」。所以用的是 `imap` 3.x（`mail_code.rs` 的 `log_in` 有用 163 真实回复写的测试），不要降回 2.x。
 - 更新功能打包时需要私钥，所以 `createUpdaterArtifacts` 不写进 `tauri.conf.json`，只由 `release.sh` 在发布时用 `--config` 打开；写进配置文件会让没有私钥的 `pnpm install:app` 打包失败。
@@ -203,6 +203,7 @@ pnpm exec tsc --noEmit && pnpm test
 **鼠标**
 
 - 窗口不接收鼠标时，网页收不到任何鼠标事件，包括离开事件。菜单的显隐因此靠原生端发来的 `pet://hover`，不要改回 DOM 的悬停事件。
+- 同样的原因，宠物窗口里 CSS 的 `:hover` 会在光标离开后卡住：光标从状态卡移出宠物区域，窗口切成穿透，`:hover` 一直留着。会盖住别的东西的悬停浮层（状态卡的完整标题、专注胶囊的提示）要写成 `.app:not(.app--pointer-out) … :hover`，`app--pointer-out` 由 `pet://hover` 决定。2.0.0-preview 的状态卡预览就这样一直盖着快捷按钮。
 - 拖动由前端自己移动窗口，不用 `startDragging()`。交给系统拖动后网页收不到松手事件。
 - 拖动时窗口位置按原生光标算（`petWindow.getCursor()`），不能用 `PointerEvent.screenX/Y`。WebKit 的 `screenY` 从窗口所在那块屏幕的上沿算起，两块屏幕上下摆放时，窗口一换屏它就跳一整屏高，宠物在两块屏幕之间来回弹：看起来在闪、像有两个，也拖不过去。只判断是否开始拖（同一块屏幕上的几像素）时可以用。
 - 按下之后松手事件可能丢失。移动事件里要检查左键是否还按着，否则会出现窗口粘在光标上的问题。

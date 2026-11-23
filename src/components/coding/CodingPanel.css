@@ -71,12 +71,24 @@
 .coding-row--completed .coding-row__mark { color: var(--green); }
 .coding-panel .status-chip__spinner { border-color: var(--accent-wash); border-top-color: var(--accent); }
 
-/* Copying the command that reopens the session waits at the right edge until the row is pointed at. */
-.coding-row__tools { position: absolute; top: 4px; right: 4px; display: flex; opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
+/* Closed sessions keep to their name and place; the mark goes grey, since the turn it tells of is over with the session. */
+.coding-row--closed .coding-row__top strong { font-weight: 400; -webkit-line-clamp: 1; }
+.coding-row--closed .coding-row__mark { color: var(--label-3); }
+
+/* What a click on the row does, at its right edge on the title's line and always in sight. */
+.coding-row__does { flex: none; width: 18px; height: 18px; display: grid; place-items: center; color: var(--label-2); transition: color var(--ui-duration-fast) var(--ui-ease); }
+.coding-row__does .today-glyph { width: 15px; height: 15px; }
+.coding-row:hover .coding-row__does { color: var(--label); }
+
+/* Copying the command that reopens a session the row would take you back to waits beside that mark until the row is pointed at. */
+.coding-row__tools { position: absolute; top: 5px; right: 34px; display: flex; opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
 .coding-row:hover .coding-row__tools, .coding-row__tools:focus-within { opacity: 1; }
-/* The button takes the time's place, and the title gives way to it. */
-.coding-row:hover .coding-row__time, .coding-row:focus-within .coding-row__time { display: none; }
-.coding-row:has(.coding-row__tools):is(:hover, :focus-within) .coding-row__top { padding-right: 24px; }
+/*
+ * The button covers the time, which keeps its room: taking the time out would widen the title,
+ * a two-line title would fit on one, and the row would jump under the cursor.
+ */
+.coding-row:has(.coding-row__tools) .coding-row__time { min-width: 24px; text-align: right; }
+.coding-row:has(.coding-row__tools):is(:hover, :focus-within) .coding-row__time { visibility: hidden; }
 .coding-tool { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-control); cursor: default; }
 .coding-tool:hover { color: var(--label); background: var(--fill-strong); }
 .coding-tool:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
@@ -90,5 +102,5 @@
 .coding-connect { margin-top: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .coding-row__tools { transition: none; }
+  .coding-row__tools, .coding-row__does { transition: none; }
 }

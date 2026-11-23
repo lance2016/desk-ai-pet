@@ -380,7 +380,11 @@ button.status-chip:active { transform: scale(.97); }
 /* What a click does, above the pill, like the labels over the quick buttons. */
 .status-chip--focus { position: relative; }
 .status-chip--focus::after { content: attr(data-hint); position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 4px 8px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; font-weight: 400; line-height: 1.2; white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-.status-chip--focus:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
+/*
+ * Hints over the row open only while the cursor is really on the pet: once it leaves, the window lets the mouse
+ * through and the page never hears it go, so `:hover` would stay on and the hint would cover the quick buttons.
+ */
+.app:not(.app--pointer-out) .status-chip--focus:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
 /* While focusing the bar is gone: the row moves up to just below the pool of light. */
 .app--focus .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
@@ -459,7 +463,8 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
 }
 .coding-full strong { color: var(--ui-text); font-size: 12px; font-weight: 500; line-height: 18px; }
-:is(.coding-card, .coding-pill):is(:hover, :focus-visible) .coding-full { opacity: 1; transform: translate(-50%, 0); }
+/* It covers the quick buttons, so like a help tag it waits for the cursor to rest, and goes at once. */
+.app:not(.app--pointer-out) :is(.coding-card, .coding-pill):is(:hover, :focus-visible) .coding-full { opacity: 1; transform: translate(-50%, 0); transition-delay: 500ms; }
 .coding-card__head { display: flex; align-items: center; gap: 6px; height: 16px; color: var(--ui-text-secondary); font-size: 11px; }
 .coding-card__who { font-weight: 500; }
 .coding-card__state { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }

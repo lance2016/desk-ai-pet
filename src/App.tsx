@@ -725,7 +725,7 @@ export default function App({ packId }: AppProps) {
   } as CSSProperties;
 
   return (
-    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${speakingFrom ? ` app--speech-${speakingFrom}` : ""}${focusActive ? " app--focus" : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
+    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${speakingFrom ? ` app--speech-${speakingFrom}` : ""}${focusActive ? " app--focus" : ""}${hovered ? "" : " app--pointer-out"}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
         {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />

@@ -4,10 +4,15 @@
 //! through the accessibility API, which AI Pet already holds for selection translation; without that
 //! permission nothing is drawn and nothing is asked. The ring is a borderless panel of its own that takes
 //! no clicks and no focus: faded in, held, faded out. A new ring takes over from one still showing.
+//!
+//! Ghostty comes forward after the script that focused the terminal has returned (`activate` does not
+//! wait), sometimes switching spaces on the way. Read at once, its focused element is still the old
+//! window's, or the app itself; so the ring waits until Ghostty is the frontmost app and its focused
+//! terminal has stopped moving.
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use objc2::{rc::Retained, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
@@ -24,6 +29,9 @@ const RING_WIDTH: f64 = 4.0;
 const RING_RADIUS: f64 = 8.0;
 /// A focused element smaller than this is not a terminal worth ringing.
 const MIN_SIDE: f64 = 40.0;
+/// How often, and for how long, to look for the terminal to settle in front.
+const SETTLE_POLL: Duration = Duration::from_millis(100);
+const SETTLE_WITHIN: Duration = Duration::from_secs(2);
 
 /// Bumped by every ring, so the steps of one that was taken over do nothing.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
@@ -34,7 +42,7 @@ thread_local! {
 }
 
 /// Where a terminal is, in points from the top left of the main screen, as accessibility reports it.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Frame {
     x: f64,
     y: f64,
@@ -42,21 +50,44 @@ struct Frame {
     height: f64,
 }
 
-/// Rings the focused element of the app with this bundle identifier. Called after that app was brought forward.
+/// Rings the focused element of the app with this bundle identifier once it is in front. Called after that
+/// app was asked to come forward; returns at once and waits on a thread of its own.
 pub fn flash(app: &AppHandle, bundle_id: &str) {
-    let Some(frame) = pid_of(bundle_id).and_then(accessibility::focused_frame) else { return };
-    if frame.width < MIN_SIDE || frame.height < MIN_SIDE {
+    if !accessibility::trusted() {
         return;
     }
-    let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
-    report(app.run_on_main_thread(move || show(frame)));
+    let Some(pid) = pid_of(bundle_id) else { return };
     let app = app.clone();
     std::thread::spawn(move || {
+        let Some(frame) = settled_frame(pid) else {
+            log::warn!("The terminal did not settle in front in time; not ringing it");
+            return;
+        };
+        let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
+        report(app.run_on_main_thread(move || show(frame)));
         std::thread::sleep(FADE_IN + HOLD);
         report(app.run_on_main_thread(move || if current(generation) { with_ring(|ring| fade(ring, 0.0, FADE_OUT)) }));
         std::thread::sleep(FADE_OUT);
         report(app.run_on_main_thread(move || if current(generation) { with_ring(|ring| ring.orderOut(None)) }));
     });
+}
+
+/// The app's focused terminal once the app is frontmost and the terminal is where it was a poll ago; None if that takes too long.
+fn settled_frame(pid: i32) -> Option<Frame> {
+    let deadline = Instant::now() + SETTLE_WITHIN;
+    let mut last = None;
+    while Instant::now() < deadline {
+        let frame = (accessibility::frontmost_pid() == Some(pid))
+            .then(|| accessibility::focused_frame(pid))
+            .flatten()
+            .filter(|frame| frame.width >= MIN_SIDE && frame.height >= MIN_SIDE);
+        if frame.is_some() && frame == last {
+            return frame;
+        }
+        last = frame;
+        std::thread::sleep(SETTLE_POLL);
+    }
+    None
 }
 
 fn current(generation: u64) -> bool {
@@ -153,6 +184,8 @@ mod accessibility {
     unsafe extern "C" {
         fn AXIsProcessTrusted() -> bool;
         fn AXUIElementCreateApplication(pid: i32) -> CF;
+        fn AXUIElementCreateSystemWide() -> CF;
+        fn AXUIElementGetPid(element: CF, pid: *mut i32) -> i32;
         fn AXUIElementCopyAttributeValue(element: CF, attribute: CF, value: *mut CF) -> i32;
         fn AXValueGetValue(value: CF, kind: u32, out: *mut c_void) -> bool;
     }
@@ -169,9 +202,33 @@ mod accessibility {
     /// opens or closes Ghostty answers with the app itself, which has a frame too: that is not ringed.
     const TERMINAL_ROLE: &CStr = c"AXTextArea";
 
-    /// The app's focused element on screen; None without the accessibility permission. Never asks for it.
+    /// Whether AI Pet holds the accessibility permission. Never asks for it.
+    pub(super) fn trusted() -> bool {
+        unsafe { AXIsProcessTrusted() }
+    }
+
+    /// The process of the app in front, as accessibility sees it now. Read live: AppKit's own answer
+    /// is only brought up to date on the main thread.
+    pub(super) fn frontmost_pid() -> Option<i32> {
+        // SAFETY: the system-wide element and the copied app are released once, and only read while held.
+        unsafe {
+            let system = AXUIElementCreateSystemWide();
+            if system.is_null() {
+                return None;
+            }
+            let front = attribute(system, c"AXFocusedApplication");
+            CFRelease(system);
+            let front = front?;
+            let mut pid = 0;
+            let result = AXUIElementGetPid(front, &mut pid);
+            CFRelease(front);
+            (result == 0).then_some(pid)
+        }
+    }
+
+    /// The app's focused element on screen; None without the accessibility permission.
     pub(super) fn focused_frame(pid: i32) -> Option<Frame> {
-        if !unsafe { AXIsProcessTrusted() } {
+        if !trusted() {
             return None;
         }
         // SAFETY: every CF object created or copied here is released once, and only read while held.
