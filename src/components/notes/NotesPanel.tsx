@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Keyb
 import { addNote, editNote, loadNotes, NOTE_LIMITS, noteTime, pushedOut, removeNote, restoreNote, searchNotes, setNotePinned, sortNotes, subscribeNotes, type Note } from "../../notes/NoteStore";
 import { changeNotes } from "../../worklog/store";
 import { petWindow } from "../../platform/petWindow";
-import { isComposing } from "../keyboard";
+import { escapeHidesPanel, isComposing } from "../keyboard";
 import "../today/TodayPanel.css";
 import "./NotesPanel.css";
 
@@ -47,7 +47,7 @@ function NoteBody({ note, now, expanded, onToggle, onCopy }: { note: Note; now: 
   }, [note.text, expanded]);
   return (
     <div className="note-row__body">
-      <button type="button" className="note-row__main" title="点击复制" onClick={onCopy}>
+      <button type="button" className="note-row__main" title="点一下复制" onClick={onCopy}>
         <span ref={textRef} className={expanded ? "note-row__text is-expanded" : "note-row__text"}>{note.text}</span>
       </button>
       <span className="note-row__meta">
@@ -110,6 +110,15 @@ export function NotesPanel() {
     };
   }, []);
 
+  // Esc from anywhere else in the panel puts it away, unless a note is open for editing.
+  const isEditing = editing !== null;
+  useEffect(() => {
+    if (isEditing) return;
+    const onKey = (event: globalThis.KeyboardEvent) => { if (escapeHidesPanel(event)) hidePanel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isEditing]);
+
   // Chat asks to show a note it just saved: clear the search so it is visible, then highlight it.
   useEffect(() => petWindow.onNoteRequested((id) => {
     setNotes(sortNotes(loadNotes()));
@@ -167,7 +176,7 @@ export function NotesPanel() {
       setFlashId(note.id);
     } catch (reason) {
       console.error("Failed to copy a note", reason);
-      setError("没能复制到剪贴板，请再试一次。");
+      setError("没能复制，请再试一次。");
     }
   };
 

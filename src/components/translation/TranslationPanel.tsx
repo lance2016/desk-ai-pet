@@ -4,6 +4,7 @@ import { translationPlatform } from "../../platform/translation";
 import { loadChatModel } from "../../preferences/ChatModel";
 import { classifyServiceError, isKeyProblem } from "../../chat/serviceErrors";
 import { petWindow } from "../../platform/petWindow";
+import { isComposing } from "../keyboard";
 import "./TranslationPanel.css";
 
 const MAX_BYTES = 16_000;
@@ -73,7 +74,7 @@ export function TranslationPanel() {
   };
   const close = () => { const id = request.current; request.current = null; if (id) void ai.cancel(id).catch(() => {}); setPending(false); void translationPlatform.hide(); };
   const copy = async () => { try { await navigator.clipboard.writeText(result); setMessage("已复制译文。"); } catch (error) { console.error("Could not copy translation", error); setMessage("没能复制，请再试一次。"); } };
-  return <main className="translation" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); close(); } else if (event.key === "Enter" && event.metaKey && !event.nativeEvent.isComposing) { event.preventDefault(); void translate(); } }}>
+  return <main className="translation" onKeyDown={(event) => { if (isComposing(event)) return; if (event.key === "Escape") { event.preventDefault(); close(); } else if (event.key === "Enter" && event.metaKey && !event.nativeEvent.isComposing) { event.preventDefault(); void translate(); } }}>
     <p className="translation-hint">选中文字后按快捷键，或在这里粘贴。按 Esc 关闭。</p>
     <div className="translation-language"><span>自动识别</span><span aria-hidden="true">→</span><select value={target} aria-label="目标语言" onChange={(event) => setTarget(event.target.value as Target)}><option value="zh">中文</option><option value="en">英文</option></select></div>
     <textarea ref={sourceRef} value={source} onChange={(event) => setSource(event.target.value)} placeholder="输入或粘贴要翻译的文字" aria-label="原文" />

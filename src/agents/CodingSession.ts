@@ -92,9 +92,9 @@ export interface CodingOverview {
   /** Waiting for the user, the one waiting longest first. */
   waiting: CodingSession[];
   working: CodingSession[];
-  /** Done for now with their terminal still known, so a click goes back to it; the latest first. */
+  /** Done for now, the session still open; the latest first. A click goes back to its terminal when that is known. */
   recent: CodingSession[];
-  /** Done for now with no terminal to go back to (the session ended): only its resume command is left. The latest first. */
+  /** The session ended: only its resume command is left. The latest first. */
   closed: CodingSession[];
   /**
    * The one session the card is about: one waiting for the user, else a fresh
@@ -118,8 +118,8 @@ export function overview(sessions: readonly CodingSession[], now: number): Codin
   return {
     waiting,
     working,
-    recent: settled.filter((session) => session.revealable),
-    closed: settled.filter((session) => !session.revealable),
+    recent: settled.filter((session) => !session.ended),
+    closed: settled.filter((session) => session.ended),
     headline,
   };
 }

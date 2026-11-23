@@ -202,12 +202,14 @@ body {
 .speech-bubble--alert {
   /* Wider than a passing line, so the longest reminder plus the hint still fits above the pet. */
   max-width: min(300px, calc(100% - 16px));
-  color: #5a2f1e;
-  background: #fff8e8;
-  border: 1.5px solid #f3b44a;
-  box-shadow: 0 4px 14px #c47b1a40;
+  color: var(--ink);
+  /* The same opaque bubble as reminders and questions, so it reads in dark mode and the tail hides the border. */
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border-strong);
+  box-shadow: var(--ui-shadow-popover);
   pointer-events: auto;
-  animation: speech-in var(--ui-duration) var(--ui-ease), alert-nudge 4s ease-in-out 1s infinite;
+  /* A few wiggles to draw the eye, then it holds still; the bell keeps its own motion. */
+  animation: speech-in var(--ui-duration) var(--ui-ease), alert-nudge 4s ease-in-out 1s 3;
 }
 /* The whole line is one button that clicks it away; it fills the bubble so every pixel of it answers. */
 .speech-bubble__press {
@@ -253,8 +255,8 @@ body {
 .speech-bubble__choices button.is-destructive { color: var(--ui-danger); background: var(--ui-danger-soft); }
 .speech-bubble__choices button.is-destructive:hover { filter: brightness(.98); }
 .speech-bubble__choices button.is-destructive:active { filter: brightness(.94); }
-.speech-bubble--alert::after { border-color: #f3b44a; border-width: 0 1.5px 1.5px 0; border-style: solid; }
-.speech-bubble--alert small { display: block; margin-top: 2px; color: #8a5a1c; font-size: 11px; }
+.speech-bubble--alert::after { border-color: var(--ui-border-strong); border-width: 0 1px 1px 0; border-style: solid; }
+.speech-bubble--alert small { display: block; margin-top: 2px; color: var(--ui-text-secondary); font-size: 11px; }
 /* The room above the pet is short: a long line is cut rather than pushed off the top of the window. */
 .speech-bubble__alert-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .speech-bubble__bell {
@@ -530,6 +532,9 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .pet-bar__item--stop:hover, .pet-bar__item--stop:focus-visible { color: var(--ui-action-text); background: var(--ui-action-bg); }
 .pet-bar__item--stop::after { color: var(--ui-text); }
 .pet-bar__item.pet-bar__item--stop:focus-visible { outline-offset: 2px; }
+/* "互动" while its menu is open: pressed in, and its own label gives way to the menu. Tinted over the surface, which dark mode needs. */
+.pet-bar__item.is-active { background: linear-gradient(var(--ui-accent-soft), var(--ui-accent-soft)), var(--ui-surface); border-color: var(--ui-accent-ring); box-shadow: inset 0 1px 2px rgba(25, 23, 35, .12); }
+.pet-bar__item.is-active::after, .pet-bar__item.is-active:is(:hover, :focus-visible)::after { opacity: 0; }
 .pet-bar__item:focus-visible, .pet-bar__menu button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
 /* "互动": the actions and the buttons that did not fit, in a compact floating menu. */
 .pet-bar__menu { position: absolute; left: 50%; bottom: calc(100% + 9px); min-width: 140px; max-height: 180px; overflow-y: auto; padding: 5px; display: grid; gap: 1px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 12px; box-shadow: 0 6px 18px rgba(25, 23, 35, .16); transform: translateX(-50%); /* Its box starts at the bar's center and is shifted back by half: that left edge is where it grows from. */ transform-origin: 0 100%; animation: speech-in var(--ui-duration) var(--ui-ease); }
@@ -551,16 +556,16 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.speech-bubble--reply.is-error { color: #8a2c2c; background: #fff4f2; border-color: #f0beb6; }
+/* The tint is laid over the opaque surface: the dark tokens are translucent and would let the desktop through. */
+.speech-bubble--reply.is-error { color: var(--ui-danger); background: linear-gradient(var(--ui-danger-soft), var(--ui-danger-soft)), var(--ui-surface); border-color: var(--ui-border-strong); }
 .speech-bubble__body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 /* Room above the pet is limited: the reply gives up lines to the extra row. */
 .speech-bubble--reply.has-extra .speech-bubble__text { -webkit-line-clamp: 2; }
-.speech-bubble__fix { color: #8a5a1c; font-size: 11px; }
+.speech-bubble__fix { color: var(--ui-warning); font-size: 11px; }
 .speech-bubble__saved { display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; color: var(--ui-accent-strong); background: var(--ui-accent-soft); border-radius: 8px; font-size: 11px; }
 .speech-bubble__saved span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .speech-bubble__saved button { flex: none; padding: 2px 8px; color: var(--ui-accent-strong); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: 6px; font: inherit; font-size: 11px; cursor: pointer; }
-.speech-bubble__saved.is-failed { color: #8a5a12; background: #fdf3e1; }
-.speech-bubble--reply.is-error::after { border-color: #f0beb6; }
+.speech-bubble__saved.is-failed { color: var(--ui-warning); background: var(--ui-warning-soft); }
 
 /* Handed text above the pet: where it came from, its start, and what can be done with it. Three short rows fit the room above the pet. */
 .speech-bubble--handed { cursor: default; }
@@ -592,14 +597,19 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .chat-launcher:hover, .chat-launcher.is-hinting { opacity: 1; }
 .chat-launcher:hover { transform: scale(1.06); }
 .chat-launcher:active { transform: scale(.96); }
-.chat-launcher:focus-visible { outline: 2px solid #8874d8; outline-offset: 2px; }
+.chat-launcher:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+/* The pet's panel never shows native tooltips, so the button names itself on hover, as the quick buttons do. Above it, in the room above the pet, which it only has while nothing is said there. */
+.chat-launcher::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 4px); width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
+.chat-launcher:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
 /* Just beside the head of the resting pose (--head-*: room between the head and the pet's area), its top level
    with the ears, reaching down from the room above the pet; it gives way to anything said there.
    On the left it turns to face the pet. */
 .chat-launcher--right { right: calc(var(--stage-side) + var(--head-right) - 44px - var(--visible-right, 0px)); bottom: calc(var(--visible-top, 0px) - var(--head-top) - 28px); }
 .chat-launcher--left { left: calc(var(--stage-side) + var(--head-left) - 44px - var(--visible-left, 0px)); bottom: calc(var(--visible-top, 0px) - var(--head-top) - 28px); }
 .chat-launcher--left img { transform: scaleX(-1); }
-.chat-launcher.is-hinting { animation: launcher-hint 1.6s ease-in-out infinite; }
+/* A copy, or a line the pet said by itself: a few bounces, then it stays lit until the hint is over. */
+.chat-launcher.is-hinting { animation: launcher-hint 1.6s ease-in-out 3; }
+.chat-launcher.is-hinting img { filter: drop-shadow(0 0 5px var(--ui-accent-ring)) drop-shadow(0 2px 4px rgba(53, 43, 102, .22)); }
 @keyframes launcher-hint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
 /* Quick chat stays in the bottom stage margin, separate from the floating controls. */
@@ -631,7 +641,7 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   -webkit-user-select: text;
   user-select: text;
 }
-.quick-chat input::placeholder { color: #a39cc4; }
+.quick-chat input::placeholder { color: var(--ui-text-muted); }
 .quick-chat button {
   width: 28px;
   height: 28px;
@@ -667,7 +677,7 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   .chat-launcher.is-hinting { animation: none; }
   .focus-aura, .focus-aura__ripple { animation: none; }
   .focus-aura--exiting, .focus-aura__arc { transition: none; }
-  .pet-bar, .pet-bar__item, .pet-bar__item::after, .chat-launcher { transition: none; }
+  .pet-bar, .pet-bar__item, .pet-bar__item::after, .chat-launcher, .chat-launcher::after { transition: none; }
   /* What appears still fades in and out, but holds still: nothing rises, grows, wiggles or rings. */
   @keyframes speech-in { from { opacity: 0; } }
   @keyframes speech-out { to { opacity: 0; } }

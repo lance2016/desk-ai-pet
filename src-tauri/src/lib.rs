@@ -591,7 +591,9 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
         }
         return floating_panel::take_keyboard(&window).map_err(|e| e.to_string());
     }
-    show_settings_window(&app, &window).map_err(|e| e.to_string())
+    // The chat window stays with the accessory app: unlike settings it does not switch to Regular.
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -649,8 +651,7 @@ fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> 
         app.emit_to(SETTINGS_WINDOW, SETTINGS_SECTION_EVENT, section)
             .map_err(|e| e.to_string())?;
     }
-    window.show().map_err(|e| e.to_string())?;
-    window.set_focus().map_err(|e| e.to_string())
+    show_settings_window(&app, &window).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

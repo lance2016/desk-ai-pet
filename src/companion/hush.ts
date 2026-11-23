@@ -13,6 +13,8 @@ export function nextMorning(now: number, morningTime: string): number {
   const minutes = minutesOf(morningTime);
   if (morning.getHours() >= NIGHT_END_HOUR) morning.setDate(morning.getDate() + 1);
   morning.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  // A morning time before NIGHT_END_HOUR may already be past tonight (03:30, asked at 03:45): then it is the next one.
+  if (morning.getTime() <= now) morning.setDate(morning.getDate() + 1);
   return morning.getTime();
 }
 

@@ -41,13 +41,15 @@ describe("overview", () => {
     expect(view.recent.map((session) => session.id)).toEqual(["new", "old"]);
   });
 
-  it("sets apart the sessions with no terminal to go back to, still bringing up a fresh result", () => {
+  it("sets apart the sessions that ended, still bringing up a fresh result", () => {
     const view = overview([
       build("open", "completed"),
+      // Still open, only its terminal is unknown (over ssh): not closed.
+      build("remote", "completed", { revealable: false, lastEventAt: NOW - 20 }),
       build("gone", "completed", { ended: true, revealable: false, turnEndedAt: NOW - 1000 }),
       build("live", "working", { revealable: false }),
     ], NOW);
-    expect(view.recent.map((session) => session.id)).toEqual(["open"]);
+    expect(view.recent.map((session) => session.id)).toEqual(["remote", "open"]);
     expect(view.closed.map((session) => session.id)).toEqual(["gone"]);
     expect(view.working.map((session) => session.id)).toEqual(["live"]);
     expect(overview([build("gone", "completed", { revealable: false, turnEndedAt: NOW - 1000 })], NOW).headline?.id).toBe("gone");

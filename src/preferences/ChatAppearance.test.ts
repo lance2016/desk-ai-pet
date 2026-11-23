@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createMemoryStorage } from "../testing/fixtures";
 import { CHARACTER_DATA, characterKey } from "./CharacterPreferences";
-import { chatPictureActions, DEFAULT_CHAT_APPEARANCE, loadChatAppearance, pictureFor, resetChatAppearance, saveChatAppearance } from "./ChatAppearance";
+import { chatPictureActions, chosenPeek, DEFAULT_CHAT_APPEARANCE, loadChatAppearance, pictureFor, resetChatAppearance, saveChatAppearance } from "./ChatAppearance";
 
 const IMAGES = { idle: "/pets/a/idle.png", happy: "/pets/a/happy.png" };
 const UPLOAD = "data:image/png;base64,AAAA";
@@ -30,6 +30,17 @@ describe("chat appearance", () => {
     // An action the character no longer has falls back to idle.
     expect(pictureFor({ action: "gone" }, IMAGES)).toEqual({ src: IMAGES.idle, fromAction: true });
     expect(pictureFor({ action: "gone" }, {})).toBeNull();
+  });
+
+  it("turns the chat figure off without losing its picture, and still reads the old way of hiding it", () => {
+    const storage = createMemoryStorage();
+    const value = { avatar: DEFAULT_CHAT_APPEARANCE.avatar, peek: { dataUrl: UPLOAD }, peekHidden: true };
+    saveChatAppearance("cat", value, storage);
+    const loaded = loadChatAppearance("cat", storage);
+    expect(loaded).toEqual(value);
+    expect(chosenPeek(loaded)).toBe("hidden");
+    expect(chosenPeek({ ...loaded, peekHidden: false })).toEqual({ dataUrl: UPLOAD });
+    expect(chosenPeek({ avatar: DEFAULT_CHAT_APPEARANCE.avatar, peek: "hidden" })).toBe("hidden");
   });
 
   it("keeps a crop with the picture", () => {

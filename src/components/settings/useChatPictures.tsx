@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type ReactNode } from "react";
 import { coverCrop, headCrop, topCrop, type PictureCrop } from "../../appearance/pictureCrop";
-import { FRAME_ASPECT, MAX_DATA_URL_CHARS, loadChatAppearance, pictureFor, saveChatAppearance, type ChatAppearance, type ChatPicture } from "../../preferences/ChatAppearance";
+import { DEFAULT_CHAT_APPEARANCE, FRAME_ASPECT, MAX_DATA_URL_CHARS, loadChatAppearance, pictureFor, saveChatAppearance, type ChatAppearance, type ChatPicture } from "../../preferences/ChatAppearance";
 import { PictureCropper } from "./PictureCropper";
 import { shrinkImage } from "./shrinkImage";
 
@@ -46,6 +46,8 @@ export function useChatPictures(packId: string, actionImages: Record<string, str
     catch (reason) { console.error("Could not save the chat pictures", reason); setStatus("没能保存：图片太多了，删掉几张自定义图标或头像再试。"); }
   };
   const set = (slot: ChatPictureSlot, picture: ChatPicture | "hidden") => update({ ...appearance, [slot]: picture });
+  /** Turns the chat figure off or on; its picture stays. The old "hidden" kept none, so it comes back as the default. */
+  const setPeekHidden = (hidden: boolean) => update({ ...appearance, peekHidden: hidden, ...(appearance.peek === "hidden" ? { peek: DEFAULT_CHAT_APPEARANCE.peek } : {}) });
   /** Opens the cropper on the slot's current picture. */
   const edit = async (slot: ChatPictureSlot) => {
     const picture = appearance[slot];
@@ -77,7 +79,11 @@ export function useChatPictures(packId: string, actionImages: Record<string, str
   // Keyed by the picture, so choosing another one inside the cropper starts it afresh.
   const cropper: ReactNode = editing && <PictureCropper key={editing.src} title={CROPPER_TITLES[editing.slot]} src={editing.src} crop={editing.crop} fallback={editing.fallback} frameAspect={FRAME_ASPECT[editing.slot]} round={editing.slot === "avatar"}
     onReplace={(event) => void upload(event, editing.slot)}
-    onCancel={() => setEditing(null)} onConfirm={(crop) => { set(editing.slot, { ...editing.picture, crop }); setEditing(null); }} />;
+    onCancel={() => setEditing(null)} onConfirm={(crop) => {
+      // A new chat figure is meant to be seen, so choosing one turns the figure back on.
+      update({ ...appearance, [editing.slot]: { ...editing.picture, crop }, ...(editing.slot === "peek" ? { peekHidden: false } : {}) });
+      setEditing(null);
+    }} />;
 
-  return { appearance, status, set, edit, upload, cropper };
+  return { appearance, status, set, setPeekHidden, edit, upload, cropper };
 }

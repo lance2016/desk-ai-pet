@@ -196,6 +196,25 @@ describe("ClaudeSessions", () => {
     expect(only(done).ended).toBe(false);
   });
 
+  it("keeps an ended session ended when a tool's hook from before the end arrives after it", () => {
+    const sessions = working(1000);
+    sessions.report(report("PreToolUse", { tool: "Bash", at: 2000 }), 2000);
+    sessions.report(report("SessionEnd", { at: 4000 }), 4000);
+    expect(sessions.report(report("PostToolUse", { tool: "Bash", at: 3000 }), 4100)).toBeNull();
+    expect(only(sessions)).toMatchObject({ turn: "idle", ended: true });
+    // Resumed later: it comes back.
+    sessions.report(report("SessionStart", { at: 9000 }), 9000);
+    expect(only(sessions).ended).toBe(false);
+  });
+
+  it("names a turn by its prompt even when the turn's first tool got through first", () => {
+    const sessions = working(1000);
+    sessions.report(report("Stop", { at: 2000 }), 2000);
+    sessions.report(report("PreToolUse", { tool: "Read", at: 5001 }), 5002);
+    expect(sessions.report(report("UserPromptSubmit", { at: 5000, task: "修设置页" }), 5003)).toBeNull();
+    expect(only(sessions)).toMatchObject({ turn: "working", task: "修设置页", turnStartedAt: 5000 });
+  });
+
   it("calls a turn off when the transcript says the user interrupted it, unless something happened since", () => {
     const sessions = working(1000);
     expect(sessions.checks()).toEqual([{ session: SESSION, since: 1000 }]);

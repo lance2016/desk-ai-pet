@@ -144,8 +144,13 @@ fn validate(address: &str, password: &str) -> Result<(), String> {
 
 /// The saved 163 addresses; empty when no mailbox is set up.
 #[tauri::command]
-pub fn mail_accounts(app: AppHandle) -> Result<Vec<String>, String> {
-    Ok(load_accounts(&app)?.into_iter().map(|account| account.address).collect())
+pub async fn mail_accounts(app: AppHandle) -> Result<Vec<String>, String> {
+    // The keychain can be slow or wait on a prompt; keep it off the main thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(load_accounts(&app)?.into_iter().map(|account| account.address).collect())
+    })
+    .await
+    .map_err(|_| MAIL_ERROR.to_string())?
 }
 
 /// Logs in with the address and authorization code, and saves them only when 163 lets us in.
@@ -190,10 +195,14 @@ fn try_text(subject: &str, body: &str) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn mail_remove_account(app: AppHandle, address: String) -> Result<(), String> {
-    let mut accounts = load_accounts(&app)?;
-    accounts.retain(|account| account.address != address);
-    save_accounts(&app, &accounts)
+pub async fn mail_remove_account(app: AppHandle, address: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut accounts = load_accounts(&app)?;
+        accounts.retain(|account| account.address != address);
+        save_accounts(&app, &accounts)
+    })
+    .await
+    .map_err(|_| MAIL_ERROR.to_string())?
 }
 
 fn network(step: &str, error: impl Display) -> String {

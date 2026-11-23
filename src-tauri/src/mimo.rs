@@ -37,6 +37,15 @@ impl MimoSpeechState {
             }
         }
     }
+
+    /// Removes the request under `id` if it is still the one `cancelled` belongs to.
+    fn forget(&self, id: &str, cancelled: &Arc<AtomicBool>) {
+        if let Ok(mut running) = self.0.lock() {
+            if running.get(id).is_some_and(|request| Arc::ptr_eq(&request.cancelled, cancelled)) {
+                running.remove(id);
+            }
+        }
+    }
 }
 
 /// Audio goes back to the window that asked for it: the chat reads replies, settings plays a sample.
@@ -88,9 +97,14 @@ pub fn mimo_clear_key(app: AppHandle) -> Result<(), String> {
 }
 
 /// Sends one request and waits for the answer. It is registered in `state`
-/// under `TRANSCRIBE_ID`, so the user can cancel it.
+/// under `TRANSCRIBE_ID` as soon as curl starts, so the user can cancel it; one runs at a time.
 fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Value, String> {
     let key = crate::api_keys::store(app)?.load(PROVIDER)?.ok_or("请先在设置 → AI 服务中配置 MiMo API Key")?;
+    // Held while curl starts, so the check and the registration are one step.
+    let mut running = state.0.lock().map_err(|_| "语音请求状态不可用")?;
+    if running.contains_key(TRANSCRIBE_ID) {
+        return Err("上一段语音还在识别，请稍后再试。".into());
+    }
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",
@@ -113,33 +127,39 @@ fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Valu
         .stderr(Stdio::null())
         .spawn()
         .map_err(|_| "无法启动 MiMo 请求".to_string())?;
+    let input = child.stdin.take();
+    let stdout = child.stdout.take();
+    let child = Arc::new(Mutex::new(child));
+    let cancelled = Arc::new(AtomicBool::new(false));
+    running.insert(
+        TRANSCRIBE_ID.into(),
+        RunningSpeech { child: child.clone(), cancelled: cancelled.clone() },
+    );
+    drop(running);
     let config = format!(
         "header = \"api-key: {}\"\nheader = \"Content-Type: application/json\"\ndata = \"{}\"\nwrite-out = \"\\n%{{http_code}}\"\n",
         config_quote(&key),
         config_quote(&body.to_string())
     );
-    if let Some(mut input) = child.stdin.take() {
-        if input.write_all(config.as_bytes()).is_err() {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("无法发送 MiMo 请求".into());
+    let sent = input.is_some_and(|mut input| input.write_all(config.as_bytes()).is_ok());
+    let mut raw = Vec::new();
+    match stdout {
+        Some(mut stdout) if sent => {
+            let _ = stdout.read_to_end(&mut raw);
+        }
+        _ => {
+            if let Ok(mut process) = child.lock() {
+                let _ = process.kill();
+            }
         }
     }
-    let mut stdout = child.stdout.take().ok_or("无法读取 MiMo 响应")?;
-    let child = Arc::new(Mutex::new(child));
-    let cancelled = Arc::new(AtomicBool::new(false));
-    state.0.lock().map_err(|_| "语音请求状态不可用")?.insert(
-        TRANSCRIBE_ID.into(),
-        RunningSpeech { child: child.clone(), cancelled: cancelled.clone() },
-    );
-    let mut raw = Vec::new();
-    let _ = stdout.read_to_end(&mut raw);
     let exit = child.lock().ok().and_then(|mut process| process.wait().ok());
-    if let Ok(mut running) = state.0.lock() {
-        running.remove(TRANSCRIBE_ID);
-    }
+    state.forget(TRANSCRIBE_ID, &cancelled);
     if cancelled.load(Ordering::Relaxed) {
         return Err(CANCELLED.into());
+    }
+    if !sent {
+        return Err("无法发送 MiMo 请求".into());
     }
     let mut response = String::from_utf8_lossy(&raw).into_owned();
     let status = response
@@ -265,6 +285,12 @@ fn stream_synthesis(
 ) -> Result<(), String> {
     let key =
         crate::api_keys::store(&app)?.load(PROVIDER)?.ok_or("请先在设置 → AI 服务中配置 MiMo API Key")?;
+    // Checked and registered while curl starts, so a repeated id never starts a second curl
+    // and a cancel that comes while the request is being sent still finds it.
+    let mut running = state.0.lock().map_err(|_| "语音请求状态不可用")?;
+    if running.contains_key(&request_id) {
+        return Err("语音请求编号重复".into());
+    }
     let mut child = Command::new("/usr/bin/curl")
         .args([
             "--disable",
@@ -286,27 +312,11 @@ fn stream_synthesis(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|_| "无法启动 MiMo 语音请求".to_string())?;
-    let config = format!(
-        "header = \"api-key: {}\"\nheader = \"Content-Type: application/json\"\ndata = \"{}\"\n",
-        config_quote(&key),
-        config_quote(&body.to_string())
-    );
-    if let Some(mut input) = child.stdin.take() {
-        if input.write_all(config.as_bytes()).is_err() {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("无法发送 MiMo 语音请求".into());
-        }
-    }
-    let cloning = body["model"] == "mimo-v2.5-tts-voiceclone";
-    let stdout = child.stdout.take().ok_or("无法读取 MiMo 语音流")?;
+    let input = child.stdin.take();
+    let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let child = Arc::new(Mutex::new(child));
     let cancelled = Arc::new(AtomicBool::new(false));
-    let mut running = state.0.lock().map_err(|_| "语音请求状态不可用")?;
-    if running.contains_key(&request_id) {
-        return Err("语音请求编号重复".into());
-    }
     running.insert(
         request_id.clone(),
         RunningSpeech {
@@ -315,6 +325,24 @@ fn stream_synthesis(
         },
     );
     drop(running);
+    let config = format!(
+        "header = \"api-key: {}\"\nheader = \"Content-Type: application/json\"\ndata = \"{}\"\n",
+        config_quote(&key),
+        config_quote(&body.to_string())
+    );
+    let sent = input.is_some_and(|mut input| input.write_all(config.as_bytes()).is_ok());
+    let stdout = match stdout {
+        Some(stdout) if sent => stdout,
+        _ => {
+            if let Ok(mut process) = child.lock() {
+                let _ = process.kill();
+                let _ = process.wait();
+            }
+            state.forget(&request_id, &cancelled);
+            return Err(if sent { "无法读取 MiMo 语音流" } else { "无法发送 MiMo 语音请求" }.into());
+        }
+    };
+    let cloning = body["model"] == "mimo-v2.5-tts-voiceclone";
 
     thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
@@ -365,9 +393,7 @@ fn stream_synthesis(
         if let Some(mut stderr) = stderr {
             let _ = stderr.read_to_string(&mut details);
         }
-        if let Ok(mut running) = state.0.lock() {
-            running.remove(&request_id);
-        }
+        state.forget(&request_id, &cancelled);
         if cancelled.load(Ordering::Relaxed) {
             emit_speech(&app, &window, &request_id, "cancelled", "");
         } else if !response_error && chunks > 0 && status.is_some_and(|status| status.success()) {

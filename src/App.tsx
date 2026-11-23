@@ -41,7 +41,7 @@ import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivit
 import { followClaude, revealClaude } from "./agents/followClaude";
 import { speechSide, STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
 import { PixiRenderer } from "./renderer/PixiRenderer";
-import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
+import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences, type ChatLauncher as ChatLauncherStyle } from "./preferences/DisplayPreferences";
 import { isQuietAt, loadQuietPreferences, saveQuietPreferences } from "./preferences/QuietPreferences";
 import { loadQuickChatShortcut, quickChatShortcutLabel } from "./preferences/QuickChatPreferences";
 import { recordActionTrigger } from "./preferences/ActionTriggerStats";
@@ -58,7 +58,8 @@ const RESTING_ACTION = "idle";
 const DEFAULT_SCALE = 1;
 /** Set once the pet has told a new user how to play with it. */
 const INTRO_KEY = "ai-pet:intro-tips:v1";
-const INTRO_LINES = ["点我一下就能聊天", "按住我是摸摸头，右键还有更多"];
+/** How to start a chat depends on where the chat button is: with none, a click on the pet opens it. */
+const introLines = (launcher: ChatLauncherStyle) => [launcher === "none" ? "点我一下就能聊天" : "点我头旁边的小气泡就能聊天", "按住我是摸摸头，右键还有更多"];
 /** What "今日回顾" in the pet menu asks in a new chat; the model looks up today's record to answer it. */
 const REVIEW_REQUEST = "帮我回顾一下今天，写成能直接贴进日报的几条。";
 
@@ -100,6 +101,8 @@ function changeAgenda(change: (items: AgendaItem[]) => AgendaItem[], failure: st
     agendaCache = changeReminders(change, "user");
   } catch (error) {
     console.error(failure, error);
+    // Storage may be full. Keep the change for this run, or the same reminder rings again every tick and cannot be put away.
+    try { agendaCache = change(cachedAgenda()); } catch (inner) { console.error("Could not apply the reminder change in memory either", inner); }
   }
 }
 
@@ -204,7 +207,6 @@ export default function App({ packId }: AppProps) {
         }
         created = instance;
         setRuntime(instance);
-        if (fallbackNotice) { instance.say(fallbackNotice); fallbackNotice = null; }
         // Lets you try `__pet.requestAction("happy")` from the dev console.
         if (import.meta.env.DEV) Object.assign(window, { __pet: instance });
       })
@@ -245,6 +247,13 @@ export default function App({ packId }: AppProps) {
       .catch((error: unknown) => console.warn("Could not start the welcome guide", error));
   }, []);
 
+  // Said once the speech bubble listens: the bus does not replay, and children subscribe in their effects, which run before this one.
+  useEffect(() => {
+    if (!runtime || !fallbackNotice) return;
+    runtime.say(fallbackNotice);
+    fallbackNotice = null;
+  }, [runtime]);
+
   // The first time the pet is up, it says how to play with it. Once only, whoever set the key up.
   // Later starts after an update, it says once that it was updated instead.
   useEffect(() => {
@@ -260,7 +269,7 @@ export default function App({ packId }: AppProps) {
       console.warn("Could not remember the intro tips", error);
       return;
     }
-    for (const line of INTRO_LINES) runtime.say(line);
+    for (const line of introLines(loadDisplayPreferences().chatLauncher)) runtime.say(line);
   }, [runtime]);
 
   // Mentions a newer version now and then. Not in development: there is nothing installed to replace.

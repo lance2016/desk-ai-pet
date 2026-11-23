@@ -125,11 +125,22 @@ export function SettingsPage({ packId }: { packId: string }) {
   // Other windows can ask for a section, e.g. the chat window opens "ai" when the key is missing.
   const [section, setSection] = useState<SettingsSection>(() => { const asked = new URLSearchParams(window.location.search).get("section"); return isSection(asked) ? asked : "character"; });
   const contentRef = useRef<HTMLElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  // Errors stick right under the page title, whose height changes with the page (sub pages add a way back).
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const content = contentRef.current;
+    if (!header || !content) return;
+    const measure = () => content.style.setProperty("--header-height", `${header.offsetHeight}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   // Every page shares one scroller. A page shorter than where the last one was scrolled to would open part way down, or blank.
   useLayoutEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
   }, [section]);
-  useEffect(() => petWindow.onSettingsSection((asked) => { if (isSection(asked)) setSection(asked); }), []);
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [persona, setPersona] = useState<PetPersona | undefined>(undefined);
   const [scale, setScale] = useState(() => storage.loadScale() ?? 1);
@@ -292,6 +303,10 @@ export function SettingsPage({ packId }: { packId: string }) {
     setError(null);
     return true;
   };
+  // A page asked for from another window goes through `go` too, so unsaved action edits still warn first.
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => petWindow.onSettingsSection((asked) => { if (isSection(asked)) goRef.current(asked); }), []);
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
@@ -352,7 +367,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
       <section className="settings-content" ref={contentRef}>
         {/* The character page's portrait and name are its title. */}
-        <header data-tauri-drag-region className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
+        <header ref={headerRef} data-tauri-drag-region className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
           {parent && <div className="settings-header__back"><button type="button" className="settings-back" onClick={() => go(parent)}>‹ {sectionLabel(parent)}</button></div>}
           <h1 data-tauri-drag-region>{title}</h1>
         </header>

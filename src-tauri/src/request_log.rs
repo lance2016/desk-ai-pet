@@ -9,6 +9,7 @@ use rusqlite::{Connection, params};
 use serde::Deserialize;
 use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::Manager;
 
 use crate::database::Database;
 
@@ -105,9 +106,14 @@ pub fn llm_log_put(database: tauri::State<'_, Database>, entry: Value) -> Result
     database.with(|connection| put_entry(connection, &id, at, &text))
 }
 
+/// Async and off the main thread: the entries can add up to many megabytes.
 #[tauri::command]
-pub fn llm_log_list(database: tauri::State<'_, Database>) -> Result<Value, String> {
-    database.with(|connection| entries(connection)).map(Value::Array)
+pub async fn llm_log_list(app: tauri::AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Database>().with(|connection| entries(connection)).map(Value::Array)
+    })
+    .await
+    .map_err(|_| "Request log task failed".to_string())?
 }
 
 #[tauri::command]

@@ -29,7 +29,7 @@ export function CopyButton({ text, children, className, title, onMessage }: Prop
       onMessage("");
     } catch (error) {
       console.error("Could not copy to the clipboard", error);
-      onMessage("没能复制到剪贴板，请再试一次。");
+      onMessage("没能复制，请再试一次。");
     }
   };
 

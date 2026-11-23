@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import { startAudioCapture, type AudioCapture } from "../../platform/audioCapture";
 import { mimoPlatform, type ClonedVoice } from "../../platform/mimo";
+import { isComposing } from "../keyboard";
 import { moveRadioChoice } from "./radioKeys";
 
 /** A sample longer than this adds nothing to the clone and only makes every request bigger. */
@@ -129,9 +130,9 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
       setSaving(false);
     }
   };
-  // Esc closes like 取消; Tab stays inside the sheet.
+  // Esc closes like 取消, but not once there is a sample to lose: then only 取消 does. Tab stays inside the sheet.
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+    if (event.key === "Escape") { if (!isComposing(event) && !sample && !recording) { event.preventDefault(); onClose(); } return; }
     if (event.key !== "Tab" || !card.current) return;
     const focusable = Array.from(card.current.querySelectorAll<HTMLElement>("input, button, textarea, audio, select")).filter((item) => !item.hasAttribute("disabled"));
     const first = focusable[0], last = focusable[focusable.length - 1];

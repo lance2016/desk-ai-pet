@@ -211,4 +211,5 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 
 @keyframes chat-pulse { 50% { opacity: .55; } }
 @keyframes chat-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .chat-page *, .chat-page *::before { animation: none !important; transition: none !important; } }
+/* Spinners keep turning: they only say something is still going on. */
+@media (prefers-reduced-motion: reduce) { .chat-page *:not(.chat-spinner, .chat-row__spinner), .chat-page *::before { animation: none !important; transition: none !important; } }

@@ -316,6 +316,8 @@ export class BehaviorEngine {
     const snapshot = state.get();
     // In a conversation or a focus round the pet keeps the user company: no wandering off, no dozing.
     if (this.inConversation(now) || this.heldPose(now) !== null) return;
+    // Called out for a line that went away by itself (answered in the terminal, ticked off in the panel): back to the edge as after a click.
+    if (this.returnTo?.at === null && !this.hasStandingLine()) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterAlertMs };
     if (this.returnTo?.at != null && now >= this.returnTo.at && !this.hasStandingLine()) {
       const side = this.returnTo.side;
       this.returnTo = null;
@@ -520,7 +522,8 @@ export class BehaviorEngine {
     state.markInteraction(now);
     if (controller.current?.id === DRAG_ACTION) controller.stop();
     if (dockSide && state.get().activity === "awake" && this.pendingActions.length > 0) {
-      this.returnTo = { side: dockSide, at: null };
+      // Put by the edge by the user: it goes there as soon as what is queued has played.
+      this.returnTo = { side: dockSide, at: now };
       this.setDock(null);
       this.scheduleIdleAction(now);
       return;

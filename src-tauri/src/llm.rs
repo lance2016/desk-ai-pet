@@ -6,10 +6,10 @@ use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     io::{BufRead, BufReader, Read, Write},
-    process::{Child, ChildStderr, Command, Stdio},
+    process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread,
 };
@@ -29,6 +29,9 @@ const COMPLETE_MAX_SECONDS: &str = "20";
 /// told by its status code, not by digits found in an error text.
 const STATUS_MARKER: &str = "__ai_pet_http_status__";
 const WRITE_OUT_STATUS: &str = "write-out = \"\\n__ai_pet_http_status__%{http_code}\\n\"\n";
+/// Ids of `llm_complete` requests in `LlmState`; the colon keeps them apart from the webview's ids.
+const COMPLETE_ID_PREFIX: &str = "complete:";
+static COMPLETE_COUNT: AtomicU64 = AtomicU64::new(0);
 
 /// A model service the app may send the user's key to. Must match `PROVIDERS` in `src/ai/providers.ts`.
 struct Provider {
@@ -55,7 +58,8 @@ struct Running {
     window: String,
 }
 
-/// The streamed requests still running, by request id.
+/// The requests still running, by request id: the streamed ones under the webview's id,
+/// the others under `COMPLETE_ID_PREFIX` and a number.
 #[derive(Default)]
 pub struct LlmState(Mutex<HashMap<String, Running>>);
 
@@ -136,9 +140,9 @@ fn status_line(line: &str) -> Option<Option<u16>> {
     Some(code.parse::<u16>().ok().filter(|code| *code != 0))
 }
 
-/// Starts curl for one request. The key and body go in through stdin, never the command line.
-fn spawn_curl(provider: &Provider, key: &str, body: &str, limits: &[&str]) -> Result<Child, String> {
-    let mut child = Command::new("/usr/bin/curl")
+/// Starts curl for one request; `send` then hands it the key and body.
+fn spawn_curl(provider: &Provider, limits: &[&str]) -> Result<Child, String> {
+    Command::new("/usr/bin/curl")
         .args(["--disable", "--config", "-", "--silent", "--show-error", "--fail-with-body", "--connect-timeout", CONNECT_TIMEOUT, "--proto", "=https"])
         .args(limits)
         .arg(provider.endpoint)
@@ -147,20 +151,55 @@ fn spawn_curl(provider: &Provider, key: &str, body: &str, limits: &[&str]) -> Re
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|_| "Cannot start the network request".to_string())?;
+        .map_err(|_| "Cannot start the network request".to_string())
+}
+
+/// Writes the key and body to curl's stdin, never the command line, and closes it.
+/// Called without holding `LlmState`: the body can be megabytes.
+fn send(input: Option<ChildStdin>, key: &str, body: &str) -> bool {
     let config = format!(
         "header = \"Authorization: Bearer {}\"\nheader = \"Content-Type: application/json\"\ndata = \"{}\"\n{WRITE_OUT_STATUS}",
         config_quote(key),
         config_quote(body)
     );
-    if let Some(mut input) = child.stdin.take() {
-        if input.write_all(config.as_bytes()).is_err() {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("Failed to start the network request".into());
-        }
+    input.is_some_and(|mut input| input.write_all(config.as_bytes()).is_ok())
+}
+
+/// A curl that has started and is registered, before anything is sent to it.
+struct Started {
+    child: Arc<Mutex<Child>>,
+    cancelled: Arc<AtomicBool>,
+    input: Option<ChildStdin>,
+    stdout: ChildStdout,
+    stderr: Option<ChildStderr>,
+}
+
+/// Starts curl and registers it under `id`, so it can be cancelled from the moment it runs.
+fn start(state: &LlmState, provider: &Provider, id: &str, window: &str, limits: &[&str]) -> Result<Started, String> {
+    let mut running = state.0.lock().map_err(|_| "Request state unavailable")?;
+    if running.contains_key(id) {
+        return Err("Duplicate request id".into());
     }
-    Ok(child)
+    let mut child = spawn_curl(provider, limits)?;
+    let input = child.stdin.take();
+    let stdout = child.stdout.take().ok_or("Cannot read response")?;
+    let stderr = child.stderr.take();
+    let child = Arc::new(Mutex::new(child));
+    let cancelled = Arc::new(AtomicBool::new(false));
+    running.insert(id.to_owned(), Running { child: child.clone(), cancelled: cancelled.clone(), window: window.to_owned() });
+    Ok(Started { child, cancelled, input, stdout, stderr })
+}
+
+/// Stops a request that could not be sent and forgets it.
+fn abandon(state: &LlmState, id: &str, child: &Arc<Mutex<Child>>) -> String {
+    if let Ok(mut process) = child.lock() {
+        let _ = process.kill();
+        let _ = process.wait();
+    }
+    if let Ok(mut running) = state.0.lock() {
+        running.remove(id);
+    }
+    "Failed to start the network request".into()
 }
 
 fn emit(app: &AppHandle, window: &str, payload: Value) {
@@ -190,17 +229,11 @@ pub async fn llm_stream(
 
 fn start_stream(app: AppHandle, window: String, state: Arc<LlmState>, provider: &'static Provider, id: String, body: String) -> Result<(), String> {
     let key = load_key(&app, provider)?;
-    let mut running = state.0.lock().map_err(|_| "Request state unavailable")?;
-    if running.contains_key(&id) {
-        return Err("Duplicate request id".into());
+    let limits = ["--no-buffer", "--speed-limit", "1", "--speed-time", STALL_SECONDS, "--max-time", STREAM_MAX_SECONDS];
+    let Started { child, cancelled, input, stdout, stderr } = start(&state, provider, &id, &window, &limits)?;
+    if !send(input, &key, &body) {
+        return Err(abandon(&state, &id, &child));
     }
-    let mut child = spawn_curl(provider, &key, &body, &["--no-buffer", "--speed-limit", "1", "--speed-time", STALL_SECONDS, "--max-time", STREAM_MAX_SECONDS])?;
-    let stdout = child.stdout.take().ok_or("Cannot read response")?;
-    let stderr = child.stderr.take();
-    let child = Arc::new(Mutex::new(child));
-    let cancelled = Arc::new(AtomicBool::new(false));
-    running.insert(id.clone(), Running { child: child.clone(), cancelled: cancelled.clone(), window: window.clone() });
-    drop(running);
     thread::spawn(move || {
         let status = forward_lines(BufReader::new(stdout), |data| {
             if !cancelled.load(Ordering::Relaxed) {
@@ -260,19 +293,30 @@ pub fn llm_cancel(state: State<'_, Arc<LlmState>>, request_id: String) -> Result
 }
 
 /// Sends one request without streaming and returns the HTTP status and the reply body.
+/// It is registered in `LlmState` too, so quitting stops it.
 #[tauri::command]
-pub async fn llm_complete(app: AppHandle, provider: String, body: Value) -> Result<Value, String> {
+pub async fn llm_complete(app: AppHandle, state: State<'_, Arc<LlmState>>, provider: String, body: Value) -> Result<Value, String> {
     let provider = self::provider(&provider)?;
     let body = request_body(&body)?;
+    let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let key = load_key(&app, provider)?;
-        let child = spawn_curl(provider, &key, &body, &["--max-time", COMPLETE_MAX_SECONDS])?;
-        let output = child.wait_with_output().map_err(|_| "Cannot read the reply".to_string())?;
-        let (reply, status) = split_status(&String::from_utf8_lossy(&output.stdout));
-        if !output.status.success() {
-            log::warn!("Model request failed ({status:?}): {}", String::from_utf8_lossy(&output.stderr).trim());
+        let id = format!("{COMPLETE_ID_PREFIX}{}", COMPLETE_COUNT.fetch_add(1, Ordering::Relaxed));
+        let Started { child, input, mut stdout, stderr, .. } = start(&state, provider, &id, "", &["--max-time", COMPLETE_MAX_SECONDS])?;
+        if !send(input, &key, &body) {
+            return Err(abandon(&state, &id, &child));
         }
-        Ok(json!({"status": status, "ok": output.status.success(), "body": reply}))
+        let mut raw = Vec::new();
+        let _ = stdout.read_to_end(&mut raw);
+        let (ok, details) = finish(&child, stderr);
+        if let Ok(mut running) = state.0.lock() {
+            running.remove(&id);
+        }
+        let (reply, status) = split_status(&String::from_utf8_lossy(&raw));
+        if !ok {
+            log::warn!("Model request failed ({status:?}): {}", details.trim());
+        }
+        Ok(json!({"status": status, "ok": ok, "body": reply}))
     })
     .await
     .map_err(|_| "Request task failed".to_string())?

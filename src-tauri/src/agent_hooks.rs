@@ -243,6 +243,9 @@ struct Followed {
     app: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     tty: Option<String>,
+    /// When the pet first heard of the session, in milliseconds since the epoch: the oldest goes first when full.
+    #[serde(default)]
+    since: u64,
 }
 
 #[derive(Default)]
@@ -462,16 +465,26 @@ fn load_sessions(path: &Path) -> HashMap<String, Followed> {
         .filter(|(session, _)| session_id(session))
         .map(|(session, followed)| {
             let transcript = followed.transcript.as_deref().and_then(Path::to_str).and_then(transcript_path);
-            (session, Followed { transcript, app: followed.app.filter(|app| app_id(app)), tty: followed.tty.filter(|tty| tty_path(tty)) })
+            (session, Followed { transcript, app: followed.app.filter(|app| app_id(app)), tty: followed.tty.filter(|tty| tty_path(tty)), since: followed.since })
         })
         .take(MAX_SESSIONS)
         .collect()
 }
 
+/// Written to a temporary file and renamed over the old one, so a crash mid-write cannot leave half a file.
 fn save_sessions(path: &Path, sessions: &HashMap<String, Followed>) -> std::io::Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
     let text = serde_json::to_string(sessions)?;
-    fs::OpenOptions::new().write(true).create(true).truncate(true).mode(PRIVATE_FILE_MODE).open(path)?.write_all(text.as_bytes())
+    let temp = path.with_extension("tmp");
+    fs::OpenOptions::new().write(true).create(true).truncate(true).mode(PRIVATE_FILE_MODE).open(&temp)?.write_all(text.as_bytes())?;
+    fs::rename(&temp, path)
+}
+
+/// Forgets the session heard of longest ago, to make room for a new one.
+fn forget_oldest(sessions: &mut HashMap<String, Followed>) {
+    if let Some(oldest) = sessions.iter().min_by_key(|(_, followed)| followed.since).map(|(session, _)| session.clone()) {
+        sessions.remove(&oldest);
+    }
 }
 
 fn bind(path: &Path) -> std::io::Result<UnixListener> {
@@ -532,9 +545,9 @@ fn take(app: &AppHandle, forwarded: Forwarded) {
             false
         } else {
             if sessions.len() >= MAX_SESSIONS && before.is_none() {
-                sessions.clear();
+                forget_oldest(&mut sessions);
             }
-            let followed = sessions.entry(forwarded.session.clone()).or_default();
+            let followed = sessions.entry(forwarded.session.clone()).or_insert_with(|| Followed { since: now_ms(), ..Followed::default() });
             if let Some(path) = forwarded.transcript.as_deref().and_then(transcript_path) {
                 followed.transcript = Some(path);
             }
@@ -622,36 +635,41 @@ fn title_in(tail: &str) -> Option<String> {
 }
 
 /// Brings the session's terminal to the front: in Ghostty its own window and tab, elsewhere the app.
-/// Rejects with a message for the user. Async so waiting on `osascript` or `open` does not hold up the main thread.
+/// Rejects with a message for the user. Async, and the waiting on `osascript` or `open` is on a blocking thread.
 #[tauri::command]
 pub async fn agent_reveal(app: AppHandle, session: String) -> Result<(), String> {
     const NOT_FOUND: &str = "找不到这个会话所在的终端。";
     let followed = app.state::<AgentHooks>().sessions.lock().unwrap_or_else(PoisonError::into_inner).get(&session).cloned();
     let Followed { app: host, tty, .. } = followed.unwrap_or_default();
     let host = host.ok_or(NOT_FOUND)?;
-    if let (GHOSTTY, Some(tty)) = (host.as_str(), tty.as_deref()) {
-        match focus_ghostty(tty) {
-            Ok(true) => {
-                #[cfg(target_os = "macos")]
-                crate::split_highlight::flash(&app, GHOSTTY);
-                return Ok(());
+    // An async command still runs on the async runtime: the blocking waits go to their own thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        if let (GHOSTTY, Some(tty)) = (host.as_str(), tty.as_deref()) {
+            match focus_ghostty(tty) {
+                Ok(true) => {
+                    #[cfg(target_os = "macos")]
+                    crate::split_highlight::flash(&app, GHOSTTY);
+                    return Ok(());
+                }
+                // Closed since, or the user said no to letting AI Pet control Ghostty: the app is the next best thing.
+                Ok(false) => log::warn!("No Ghostty terminal on the session's device any more; bringing Ghostty forward"),
+                Err(error) => log::warn!("Could not focus the session's Ghostty terminal: {error}"),
             }
-            // Closed since, or the user said no to letting AI Pet control Ghostty: the app is the next best thing.
-            Ok(false) => log::warn!("No Ghostty terminal on the session's device any more; bringing Ghostty forward"),
-            Err(error) => log::warn!("Could not focus the session's Ghostty terminal: {error}"),
         }
-    }
-    match std::process::Command::new("/usr/bin/open").args(["-b", &host]).output() {
-        Ok(output) if output.status.success() => Ok(()),
-        Ok(output) => {
-            log::warn!("Could not bring {host} forward: {}", String::from_utf8_lossy(&output.stderr).trim());
-            Err(NOT_FOUND.into())
+        match std::process::Command::new("/usr/bin/open").args(["-b", &host]).output() {
+            Ok(output) if output.status.success() => Ok(()),
+            Ok(output) => {
+                log::warn!("Could not bring {host} forward: {}", String::from_utf8_lossy(&output.stderr).trim());
+                Err(NOT_FOUND.into())
+            }
+            Err(error) => {
+                log::error!("Could not run open for {host}: {error}");
+                Err(NOT_FOUND.into())
+            }
         }
-        Err(error) => {
-            log::error!("Could not run open for {host}: {error}");
-            Err(NOT_FOUND.into())
-        }
-    }
+    })
+    .await
+    .map_err(|_| NOT_FOUND.to_string())?
 }
 
 /// Asks Ghostty to focus its terminal on `tty`. Ok(false) when it has none; Err when it could not be asked.
@@ -849,17 +867,28 @@ mod tests {
         let path = std::env::temp_dir().join(format!("ai-pet-sessions-{}.json", std::process::id()));
         let transcript = PathBuf::from(format!("{home}/.claude/projects/p/abc-123.jsonl"));
         let mut sessions = HashMap::new();
-        sessions.insert("abc-123".to_owned(), Followed { transcript: Some(transcript.clone()), app: Some("com.apple.Terminal".into()), tty: Some("/dev/ttys004".into()) });
-        sessions.insert("def-456".to_owned(), Followed { transcript: Some("/etc/passwd".into()), app: Some("-a Calculator".into()), tty: Some("/etc/hosts".into()) });
+        sessions.insert("abc-123".to_owned(), Followed { transcript: Some(transcript.clone()), app: Some("com.apple.Terminal".into()), tty: Some("/dev/ttys004".into()), since: 7 });
+        sessions.insert("def-456".to_owned(), Followed { transcript: Some("/etc/passwd".into()), app: Some("-a Calculator".into()), tty: Some("/etc/hosts".into()), since: 0 });
         sessions.insert("../x".to_owned(), Followed::default());
         save_sessions(&path, &sessions).unwrap();
         assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, PRIVATE_FILE_MODE);
         let loaded = load_sessions(&path);
         assert_eq!(loaded.len(), 2);
-        assert!(loaded["abc-123"] == Followed { transcript: Some(transcript), app: Some("com.apple.Terminal".into()), tty: Some("/dev/ttys004".into()) });
+        assert!(loaded["abc-123"] == Followed { transcript: Some(transcript), app: Some("com.apple.Terminal".into()), tty: Some("/dev/ttys004".into()), since: 7 });
         assert!(loaded["def-456"] == Followed::default());
+        assert!(!path.with_extension("tmp").exists());
         fs::remove_file(&path).unwrap();
         assert!(load_sessions(&path).is_empty());
+    }
+
+    #[test]
+    fn makes_room_by_forgetting_only_the_oldest_session() {
+        let mut sessions: HashMap<String, Followed> =
+            (0..MAX_SESSIONS as u64).map(|at| (format!("s-{at}"), Followed { tty: Some("/dev/ttys001".into()), since: 100 + at, ..Followed::default() })).collect();
+        forget_oldest(&mut sessions);
+        assert_eq!(sessions.len(), MAX_SESSIONS - 1);
+        assert!(!sessions.contains_key("s-0"));
+        assert_eq!(sessions["s-1"].tty.as_deref(), Some("/dev/ttys001"));
     }
 
     #[test]

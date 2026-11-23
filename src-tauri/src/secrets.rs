@@ -176,8 +176,8 @@ pub fn clear(_: &str) -> Result<(), String> {
 pub fn clean_pasted_key(raw: &str) -> String {
     const QUOTES: &[char] = &['"', '\'', '`', '“', '”', '‘', '’'];
     let mut key = raw.trim().trim_matches(QUOTES).trim();
-    if key.len() > 7 && key[..7].eq_ignore_ascii_case("bearer ") {
-        key = key[7..].trim().trim_matches(QUOTES).trim();
+    if key.len() > 7 && key.get(..7).is_some_and(|head| head.eq_ignore_ascii_case("bearer ")) {
+        key = key.get(7..).unwrap_or_default().trim().trim_matches(QUOTES).trim();
     }
     key.to_owned()
 }
@@ -193,5 +193,12 @@ mod tests {
         assert_eq!(clean_pasted_key("“sk-abc123”"), "sk-abc123");
         assert_eq!(clean_pasted_key("Bearer sk-abc123"), "sk-abc123");
         assert_eq!(clean_pasted_key("bearer 'sk-abc123'"), "sk-abc123");
+    }
+
+    #[test]
+    fn keeps_text_that_starts_with_chinese() {
+        assert_eq!(clean_pasted_key("授权码abcdefgh"), "授权码abcdefgh");
+        assert_eq!(clean_pasted_key("  我的 Key：sk-abc123 "), "我的 Key：sk-abc123");
+        assert_eq!(clean_pasted_key("Bearer 授权码"), "授权码");
     }
 }

@@ -12,7 +12,7 @@ const LABELS = { copied: "看看刚复制的内容", spoke: "回它一句" };
 export function ChatLauncher({ side, hinting, onClick, ref }: { side: "left" | "right"; hinting: "copied" | "spoke" | null; onClick: () => void; ref?: Ref<HTMLButtonElement> }) {
   const label = hinting ? LABELS[hinting] : "聊聊天";
   return (
-    <button ref={ref} type="button" className={`chat-launcher chat-launcher--${side}${hinting ? " is-hinting" : ""}`} aria-label={label} title={label} onClick={onClick}>
+    <button ref={ref} type="button" className={`chat-launcher chat-launcher--${side}${hinting ? " is-hinting" : ""}`} aria-label={label} data-label={label} title={label} onClick={onClick}>
       <img src={ICON} alt="" draggable={false} />
     </button>
   );

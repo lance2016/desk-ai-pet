@@ -82,7 +82,7 @@ export function SelectionFloat() {
   const details = () => void translationPlatform.translateSelection(pending || action !== "translate" ? undefined : result).catch((error: unknown) => console.error("Could not open translation details", error));
   const openKeySettings = () => void petWindow.openSettings("ai").catch((error: unknown) => { console.error("Could not open settings", error); setMessage("没能打开设置，请从宠物的右键菜单打开。"); });
   const close = () => void translationPlatform.closeSelection().catch((error: unknown) => console.error("Could not close translation", error));
-  const copy = async () => { try { await navigator.clipboard.writeText(result); setMessage("已复制"); } catch (error) { console.error("Could not copy the result", error); setMessage("复制失败，请重试。"); } };
+  const copy = async () => { try { await navigator.clipboard.writeText(result); setMessage("已复制"); } catch (error) { console.error("Could not copy the result", error); setMessage("没能复制，请再试一次。"); } };
 
   if (!expanded) {
     return (

@@ -18,8 +18,10 @@ const pictureSchema = z.union([
 const schema = z.object({
   /** The round picture in the chat header and beside replies. */
   avatar: pictureSchema,
-  /** The character peeking over the chat composer. */
+  /** The character peeking over the chat composer. "hidden" is how older versions turned it off, dropping the picture. */
   peek: z.union([pictureSchema, z.literal("hidden")]),
+  /** The chat figure is turned off; `peek` keeps the chosen picture for when it is turned back on. */
+  peekHidden: z.boolean().optional(),
 });
 
 export type ChatPicture = z.infer<typeof pictureSchema>;
@@ -45,6 +47,11 @@ export function resetChatAppearance(packId: string, storage: Storage = window.lo
 export function chatPictureActions(appearance: ChatAppearance): string[] {
   const chosen = [appearance.avatar, appearance.peek].flatMap((picture) => picture !== "hidden" && "action" in picture ? [picture.action] : []);
   return [...new Set([PORTRAIT_ACTION, ...chosen])];
+}
+
+/** The chat figure to show, or "hidden" when it is turned off. */
+export function chosenPeek(appearance: ChatAppearance): ChatPicture | "hidden" {
+  return appearance.peekHidden ? "hidden" : appearance.peek;
 }
 
 export interface ShownPicture { src: string; fromAction: boolean; crop?: PictureCrop }

@@ -4,7 +4,7 @@ import { changeReminders } from "../../worklog/store";
 import { EVERY_DAY, repeatLabel, repeatSchema, type Repeat } from "../../agenda/Repeat";
 import { holidayCalendar, lastCoveredYear } from "../../agenda/Workdays";
 import { petWindow } from "../../platform/petWindow";
-import { isComposing } from "../keyboard";
+import { escapeHidesPanel, isComposing } from "../keyboard";
 import { TimeField } from "../TimeField";
 import { loadQuietPreferences, subscribeQuietPreferences } from "../../preferences/QuietPreferences";
 import "./TodayPanel.css";
@@ -207,6 +207,15 @@ export function TodayPanel() {
     };
   }, []);
 
+  // Esc from anywhere else in the panel puts it away, unless a reminder is open for editing.
+  const isEditing = editing !== null;
+  useEffect(() => {
+    if (isEditing) return;
+    const onKey = (event: globalThis.KeyboardEvent) => { if (escapeHidesPanel(event)) void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason)); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isEditing]);
+
   // Chat asks to fix what the AI understood: open that item for editing.
   useEffect(() => petWindow.onTodayItemRequested((id) => {
     const item = loadAgenda().find((entry) => entry.id === id);
@@ -310,7 +319,7 @@ export function TodayPanel() {
         <button type="button" role="checkbox" aria-checked={finished} aria-label={`${finished ? "标为未完成" : "完成"}：${item.text}`} className={overdue ? "today-check is-due" : "today-check"} onClick={() => change((list) => setAgendaItemDone(list, item.id, !finished, Date.now()))}>
           <Glyph name="check" />
         </button>
-        <button type="button" className="today-row__main" title="点击修改" onClick={() => setEditing({ id: item.id, draft: draftOf(item) })}>
+        <button type="button" className="today-row__main" title="点一下修改" onClick={() => setEditing({ id: item.id, draft: draftOf(item) })}>
           <span className="today-row__text">{item.text}</span>
           <span className="today-row__meta">
             <time className={overdue ? "today-row__time is-due" : "today-row__time"}>{reminderLabel(at, now)}{overdue && " · 已到点"}</time>

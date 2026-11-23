@@ -162,11 +162,15 @@ pub fn diagnostics_clear_logs(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn diagnostics_reveal_logs(app: AppHandle) -> Result<(), String> {
+pub async fn diagnostics_reveal_logs(app: AppHandle) -> Result<(), String> {
     let dir = log_dir(&app)?;
-    fs::create_dir_all(&dir).map_err(|error| format!("Cannot create the log folder: {error}"))?;
-    let status = Command::new("/usr/bin/open").arg(&dir).status().map_err(|error| format!("Cannot open the log folder: {error}"))?;
-    if status.success() { Ok(()) } else { Err("Cannot open the log folder".into()) }
+    tauri::async_runtime::spawn_blocking(move || {
+        fs::create_dir_all(&dir).map_err(|error| format!("Cannot create the log folder: {error}"))?;
+        let status = Command::new("/usr/bin/open").arg(&dir).status().map_err(|error| format!("Cannot open the log folder: {error}"))?;
+        if status.success() { Ok(()) } else { Err("Cannot open the log folder".into()) }
+    })
+    .await
+    .map_err(|_| "Cannot open the log folder".to_string())?
 }
 
 fn macos_version() -> String {

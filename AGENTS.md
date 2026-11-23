@@ -187,6 +187,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才提前执行，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
+- Rust 里不要按字节下标切用户给的字符串（`s[..7]`）：落在汉字中间就 panic，release 配置是 `panic = "abort"`，整个应用直接闪退。2.0.0-preview 粘贴「授权码abc…」就这样退出。用 `s.get(..n)`、`char_indices` 或先确认是 ASCII。
 - Claude Code 的钩子执行的是宠物主程序本身（`--agent-hook claude`）。`run()` 的第一件事必须是 `agent_hooks::forward_if_hook()`，在它前面加任何东西（日志、插件、Tauri 初始化），每个钩子都会多花时间，还可能弹出 Dock 图标。转发模式永远退出码 0、不写 stdout：Claude Code 在 `Stop`、`UserPromptSubmit` 上会把 stdout 的 JSON 和退出码 2 当成指令。
 - 钩子程序往 socket 写完一行就退出，应用接到连接时对端多半已经关了。macOS 对这种 socket 调 `set_read_timeout` 会报 `EINVAL`，内容其实还能读。1.16.0 把这个错误当失败丢掉了整条事件，表现为小牌出得晚、结束了还在转、多数时候根本不出。`read_line` 现在放过这个错误（`agent_hooks.rs` 有测试）；测这条通路要用真的钩子程序发，自己连上 socket 不关再写是测不出来的。
 - 钩子在后台运行（`async`），事件可能晚到、乱序或到两次。`ClaudeSessions` 按钩子程序自己记的时间 `at` 排，早于这一轮开始或结束的直接丢掉。测试会话逻辑时要带上 `at` 写乱序的用例，只按到达顺序测是测不出来的。新接一个事件要想清楚它晚到时会怎样。

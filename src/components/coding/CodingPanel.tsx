@@ -151,7 +151,7 @@ export function CodingPanel() {
       setHud(`已复制 ${resumeCommand(session)}`);
     } catch (reason) {
       console.error("Failed to copy a resume command", reason);
-      setHud("没能复制到剪贴板，请再试一次");
+      setHud("没能复制，请再试一次。");
     }
   };
   const reveal = (session: CodingSession) => {

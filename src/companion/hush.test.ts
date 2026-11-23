@@ -14,6 +14,10 @@ describe("nextMorning", () => {
   it("is this morning after midnight: the night is not over yet", () => {
     expect(nextMorning(at(18, 1, 30), "08:00")).toBe(at(18, 8));
   });
+
+  it("is the next one when an early morning time has already passed tonight", () => {
+    expect(nextMorning(at(18, 3, 45), "03:30")).toBe(at(19, 3, 30));
+  });
 });
 
 describe("hush", () => {

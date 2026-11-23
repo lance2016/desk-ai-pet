@@ -29,7 +29,7 @@ export function MimoKeySettings() {
   const saveKey = async (event: FormEvent) => {
     event.preventDefault(); if (!key.trim()) return;
     setBusy(true); setStatus("");
-    try { await mimoPlatform.saveKey(key); setConfigured(true); setKey(""); setStatus("已在本机加密保存。在聊天窗口点麦克风试一句，能识别出来就说明 Key 可用。"); }
+    try { await mimoPlatform.saveKey(key); setConfigured(true); setKey(""); setStatus("已在本机加密保存。在聊天窗口点麦克风试一句，能识别出来就说明 API Key 可用。"); }
     catch (reason) { setStatus(keyError(reason, "保存")); }
     finally { setBusy(false); }
   };

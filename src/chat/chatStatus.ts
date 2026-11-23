@@ -19,7 +19,7 @@ export interface ChatStatus {
 
 const FAILURES: Record<ChatFailure, ChatStatus> = {
   network: { label: "网络错误", tone: "error" },
-  "bad-key": { label: "Key 无效", tone: "error" },
+  "bad-key": { label: "API Key 无效", tone: "error" },
   model: { label: "模型名不对", tone: "error" },
   billing: { label: "余额不足", tone: "error" },
   rate: { label: "请求太频繁", tone: "warning" },

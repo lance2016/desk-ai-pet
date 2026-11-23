@@ -152,9 +152,13 @@ export function editAgendaItem(items: readonly AgendaItem[], id: string, edit: A
   return items.map((item) => {
     if (item.id !== id) return item;
     const unchanged = sameRepeat(repeat, item.repeat) && (repeat === null ? edit.remindAt === item.remindAt : clockOf(edit.remindAt) === clockOf(item.remindAt));
-    const remindAt = unchanged ? item.remindAt : startOf(edit.remindAt, repeat, now, calendar);
+    // Made a one-off without a new time: it comes once more when it would have come next, not at its first time long ago.
+    const remindAt = unchanged ? item.remindAt
+      : repeat === null && item.repeat !== null && edit.remindAt === item.remindAt ? nextOccurrence(item.repeat, item.remindAt, now, calendar) ?? edit.remindAt
+      : startOf(edit.remindAt, repeat, now, calendar);
     // A finished one-off moved to a time still to come is a new task: it is open again.
-    const reopened = !unchanged && repeat === null && remindAt > now;
+    // A changed repeating one starts over, so an occurrence ticked off before says nothing about the new ones.
+    const reopened = !unchanged && (repeat === null ? remindAt > now : true);
     const timing = unchanged ? { remindAt, remindedAt: item.remindedAt } : { remindAt, remindedAt: null, snoozedUntil: undefined, ...(reopened ? { doneAt: null } : {}) };
     return itemSchema.parse({ ...item, text: edit.text, repeat, ...timing });
   });

@@ -32,6 +32,7 @@ mod accessibility {
         fn AXUIElementCreateSystemWide() -> CF;
         fn AXUIElementCopyAttributeValue(element: CF, attribute: CF, value: *mut CF) -> i32;
         fn AXUIElementGetPid(element: CF, pid: *mut i32) -> i32;
+        fn AXUIElementSetMessagingTimeout(element: CF, seconds: f32) -> i32;
     }
     #[link(name = "CoreFoundation", kind = "framework")]
     unsafe extern "C" {
@@ -44,6 +45,9 @@ mod accessibility {
         fn CFStringGetCString(value: CF, buffer: *mut c_char, size: isize, encoding: u32) -> bool;
     }
     const UTF8: u32 = 0x0800_0100;
+    /// How long a read may wait on the app that has the selection. The default is
+    /// about 6 seconds, and the reads run on the main thread when the shortcut is pressed.
+    const AX_TIMEOUT_SECONDS: f32 = 1.0;
     unsafe fn attribute(element: CF, name: &CStr) -> Option<CF> {
         let key = unsafe { CFStringCreateWithCString(ptr::null(), name.as_ptr(), UTF8) };
         if key.is_null() { return None; }
@@ -68,6 +72,8 @@ mod accessibility {
         unsafe {
             let system = AXUIElementCreateSystemWide();
             if system.is_null() { return None; }
+            // On the system-wide element this is the default for every element read after it.
+            AXUIElementSetMessagingTimeout(system, AX_TIMEOUT_SECONDS);
             let focused = attribute(system, c"AXFocusedUIElement");
             CFRelease(system);
             let focused = focused?;
@@ -76,6 +82,7 @@ mod accessibility {
                 CFRelease(focused);
                 return None;
             }
+            AXUIElementSetMessagingTimeout(focused, AX_TIMEOUT_SECONDS);
             let role = attribute(focused, c"AXRole");
             let subrole = attribute(focused, c"AXSubrole");
             let mut secure = false;

@@ -23,6 +23,8 @@ const BACK_TO_TERMINAL = "回到终端";
 /** How much of a folder or tool name a line takes. */
 const NAME_CHARS = 24;
 const LABEL_FALLBACK = "Claude";
+/** How far a turn's prompt can trail its first tool and still be taken as that turn's. Hooks run in the background. */
+const LATE_PROMPT_MS = 10_000;
 
 /** What a failed turn's `error` means to the user. Anything else is "出错了". */
 const FAILURES: Record<string, string> = {
@@ -121,8 +123,16 @@ export class ClaudeSessions {
     // 0 comes from a hook that could not tell the time.
     const at = report.at || now;
     const before = this.sessions.get(report.session);
+    // The prompt that started this turn, overtaken by the turn's first tool: it only names the turn.
+    if (before && report.event === "UserPromptSubmit" && before.turn === "working" && before.turnStartedAt !== undefined
+      && at < before.turnStartedAt && before.turnStartedAt - at <= LATE_PROMPT_MS) {
+      this.sessions.set(before.id, { ...before, turnStartedAt: at, ...(report.task ? { task: fit(report.task, SESSION_LIMITS.name) } : {}) });
+      return null;
+    }
     // It ran before this turn began or after it ended: a straggler that says nothing new.
     if (before && at < Math.max(before.turnStartedAt ?? 0, before.turnEndedAt ?? 0)) return null;
+    // It ran before the session ended: only something after the end brings a session back.
+    if (before?.ended && at <= before.lastEventAt) return null;
     if (report.title) this.named.add(report.session);
     const known = before && this.refreshed(before, report, at);
     switch (report.event) {

@@ -7,8 +7,8 @@ import { BREATHE_SECONDS } from "../renderer/motions";
 const POOL = "/focus/platform.png";
 /** The progress arc follows the countdown, which changes once a second. */
 const TICK_MS = 1000;
-/** Keep the pool in place briefly while it fades. */
-export const FOCUS_EXIT_MS = 200;
+/** Keep the pool in place briefly while it fades: the medium motion duration, `--ui-duration` in `src/ui/tokens.css`. */
+export const FOCUS_EXIT_MS = 180;
 /**
  * The front half of the pool's outer ripple, in the picture's own pixels (640 × 204),
  * drawn from the right end to the left: time spent eats it from the left.

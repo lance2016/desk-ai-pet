@@ -103,11 +103,13 @@ fn open_with_system(target: &str) -> Result<(), String> {
 
 /// Opens a web link in the default browser; the app's windows never navigate away.
 #[tauri::command]
-pub fn open_link(url: String) -> Result<(), String> {
+pub async fn open_link(url: String) -> Result<(), String> {
     if !web_link(&url) {
         return Err("Refusing to open a link that is not a web address".into());
     }
-    open_with_system(&url)
+    tauri::async_runtime::spawn_blocking(move || open_with_system(&url))
+        .await
+        .map_err(|_| "Open link task failed".to_string())?
 }
 
 /// Opens the microphone privacy settings, after the user refused access.

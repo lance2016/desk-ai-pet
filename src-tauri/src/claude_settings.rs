@@ -3,7 +3,8 @@
 //!
 //! Ours are the hooks whose command carries `--agent-hook claude`; they run
 //! in the background (`async`), so Claude Code never waits for the pet. The
-//! file is copied to `settings.json.ai-pet-backup` before each change.
+//! file is copied to `settings.json.ai-pet-backup` before the first change;
+//! later changes keep that copy, so it stays the user's own file.
 
 use std::{
     fs,
@@ -145,7 +146,7 @@ fn read(path: &Path) -> Result<Value, &'static str> {
     }
 }
 
-/// Backs the file up, then replaces it in one step. A linked settings file is written where it points.
+/// Backs the file up unless a backup is already there, then replaces it in one step. A linked settings file is written where it points.
 fn write(path: &Path, settings: &Value) -> Result<(), &'static str> {
     let failed = |error: std::io::Error| {
         log::warn!("Could not write Claude Code's settings: {}", error.kind());
@@ -156,7 +157,10 @@ fn write(path: &Path, settings: &Value) -> Result<(), &'static str> {
         let target = fs::canonicalize(path).map_err(failed)?;
         let mut backup = target.clone().into_os_string();
         backup.push(BACKUP_SUFFIX);
-        fs::copy(&target, backup).map_err(failed)?;
+        // Only the first time: a later copy would hold our hooks and replace the user's original.
+        if !Path::new(&backup).exists() {
+            fs::copy(&target, &backup).map_err(failed)?;
+        }
         let mode = fs::metadata(&target).map_err(failed)?.permissions().mode();
         (target, mode)
     } else {
@@ -302,6 +306,8 @@ mod tests {
         write(&link, &json!({ "model": "sonnet" })).unwrap();
         assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
         assert_eq!(read(&link).unwrap(), json!({ "model": "sonnet" }));
+        assert_eq!(fs::read_to_string(folder.path().join("real.json.ai-pet-backup")).unwrap(), "{\"model\":\"opus\"}");
+        write(&link, &json!({ "model": "haiku" })).unwrap();
         assert_eq!(fs::read_to_string(folder.path().join("real.json.ai-pet-backup")).unwrap(), "{\"model\":\"opus\"}");
     }
 

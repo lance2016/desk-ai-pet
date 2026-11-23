@@ -332,6 +332,21 @@ describe("repeating reminders", () => {
     const once = editAgendaItem([reminded], "t", { text: "点外卖", remindAt: at(11, 21, 18), repeat: null }, at(11, 21, 12))[0];
     expect(once).toMatchObject({ remindAt: at(11, 21, 18), repeat: null, remindedAt: null });
   });
+
+  it("come once more at their next time when made one-off without a new time", () => {
+    // Saturday noon: the next workday is Monday.
+    const once = editAgendaItem([takeout()], "t", { text: "点外卖", remindAt: at(11, 16, 11), repeat: null }, at(11, 21, 12))[0];
+    expect(once).toMatchObject({ remindAt: at(11, 23, 11), repeat: null, remindedAt: null, doneAt: null });
+    expect(dueReminders([once], at(11, 21, 12))).toEqual([]);
+  });
+
+  it("open again when moved after an occurrence was ticked off, so they never ring while shown done", () => {
+    const done = setAgendaItemDone([takeout()], "t", true, at(11, 16, 12));
+    const moved = editAgendaItem(done, "t", { text: "点外卖", remindAt: at(11, 16, 18), repeat: "workdays" }, at(11, 16, 13))[0];
+    expect(moved).toMatchObject({ remindAt: at(11, 16, 18), doneAt: null });
+    expect(isDone(moved, at(11, 16, 18, 1))).toBe(false);
+    expect(dueReminders([moved], at(11, 16, 18, 1))).toHaveLength(1);
+  });
 });
 
 describe("moving leftovers to today", () => {

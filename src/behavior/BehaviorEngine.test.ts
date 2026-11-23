@@ -503,6 +503,29 @@ describe("hiding behind a screen edge", () => {
     expect(controller.current?.id).toBe("idle");
     expect(docks).toEqual([]);
   });
+
+  it("goes back to the edge when the line it came out for goes away by itself", () => {
+    const { bus, docks, passSteps } = setup({ extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "right" });
+    bus.emit("pet.activity", { id: "claude:1", state: "waiting", label: "Claude", icon: "agent", text: "要你确认" });
+    expect(docks).toEqual(["right", null]);
+    // Answered in the terminal: the line goes, nobody clicked it.
+    bus.emit("pet.activity", { id: "claude:1", state: "running", label: "Claude", icon: "agent" });
+    passSteps(10_000);
+    expect(docks).toEqual(["right", null, "right"]);
+  });
+
+  it("goes to the edge it was dropped at once a queued reaction has played", () => {
+    const { bus, controller, docks, passSteps } = setup({ extraAnimations: SCENE_ACTIONS });
+    controller.request("remind");
+    bus.emit("pet.noted", {});
+    bus.emit("pet.drag_started", {});
+    bus.emit("pet.drag_ended", { dockSide: "left" });
+    passSteps(10_000);
+    expect(docks).toEqual(["left"]);
+    expect(controller.current?.id).toBe("peek");
+  });
 });
 
 describe("sleeping and waking", () => {

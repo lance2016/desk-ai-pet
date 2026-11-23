@@ -5,6 +5,7 @@ import { petWindow } from "../../platform/petWindow";
 import { loadQuickChatShortcut, quickChatShortcutLabel } from "../../preferences/QuickChatPreferences";
 import { loadUserProfile, markOnboarded, saveUserProfile, USER_PROFILE_LIMITS } from "../../preferences/UserProfile";
 import { CharacterAvatar } from "../CharacterAvatar";
+import { isComposing } from "../keyboard";
 import { deepSeekProblem } from "./AISettings";
 
 interface Props {
@@ -57,7 +58,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
   };
   /** Esc skips the guide; Tab stays inside it. */
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); finish(false); return; }
+    if (event.key === "Escape") { if (!isComposing(event)) { event.preventDefault(); finish(false); } return; }
     if (event.key !== "Tab" || !card.current) return;
     const items = [...card.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
     if (items.length === 0) return;
@@ -91,7 +92,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
             <ol className="welcome__howto">
               <li>打开 <button type="button" className="welcome__link" onClick={openKeyPage}>DeepSeek 开放平台 ↗</button>，注册并登录</li>
               <li>充值一点余额（聊天花费很少）</li>
-              <li>在「API Keys」里新建一个 Key，复制下来</li>
+              <li>在「API Keys」里新建一个 API Key，复制下来</li>
               <li>粘贴到下面，点「保存」</li>
             </ol>
             <input type="password" autoComplete="off" value={key} autoFocus placeholder="粘贴 DeepSeek API Key，一般以 sk- 开头" onChange={(event) => setKey(event.currentTarget.value)} />
@@ -108,7 +109,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
         <h2 id="welcome-title">{called ? `准备好啦，${called}！` : "准备好啦！"}</h2>
         {keyWorks
           ? <ul className="welcome__tips">
-            <li><strong>点我一下</strong>就能聊天，脚下会出现输入框</li>
+            <li><strong>点我头旁边的小气泡</strong>就能聊天，脚下会出现输入框</li>
             {shortcut && <li>在任何应用里按 <kbd>{quickChatShortcutLabel(shortcut)}</kbd> 也能叫我</li>}
             <li><strong>右键我</strong>可以打开设置，也能退出</li>
           </ul>

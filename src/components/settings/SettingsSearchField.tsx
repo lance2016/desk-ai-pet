@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { isComposing } from "../keyboard";
 import { searchSettings, type SearchEntry } from "./settingsSearch";
 
 /** A search result: where it is, plus the line under its title. */
@@ -37,6 +38,7 @@ export function SettingsSearch({ entries, children, icon, onPick }: SettingsSear
 
   const pick = (entry: SearchResult, index: number) => { setActive(index); onPick(entry); };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposing(event)) return;
     if (event.key === "Escape") { event.preventDefault(); if (query) { setQuery(""); setActive(0); } else field.current?.blur(); return; }
     if (results.length === 0) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {

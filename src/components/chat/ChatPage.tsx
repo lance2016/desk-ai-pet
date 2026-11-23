@@ -19,7 +19,7 @@ import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
 import { chatPlatform, type ChatMessage } from "../../platform/chat";
 import { mimoPlatform } from "../../platform/mimo";
 import { systemPlatform } from "../../platform/system";
-import { chatPictureActions, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
+import { chatPictureActions, chosenPeek, loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
 import { characterPictures } from "../../appearance/characterPictures";
 import { characterName, requestPreferences } from "../../preferences/ChatPreferences";
 import { loadReadLinks, READ_LINKS_KEY } from "../../preferences/ReadLinkPreferences";
@@ -54,6 +54,8 @@ const STICK_TO_BOTTOM_PX = 24;
 /** How long a deleted chat can be brought back, and how long "已复制" shows. */
 const UNDO_MS = 6_000;
 const COPIED_MS = 1_500;
+/** The stop button takes the send button's place; clicks this soon after are the second half of a double-click on send. */
+const STOP_GUARD_MS = 400;
 /** Added to a reply the token limit cut off, and to one the user stopped. */
 const CUT_OFF_MARK = "（太长了，没说完）";
 const STOPPED_MARK = "（已停止）";
@@ -145,6 +147,8 @@ export function ChatPage({ packId }: { packId: string }) {
     : containsWebAddress(draft) ? "open"
       : webConversationStart(messages.slice(1 - CHAT_LIMITS.context)) >= 0 ? "follow" : undefined;
   const [pending, setPending] = useState(false);
+  const stopShownAt = useRef(0);
+  useEffect(() => { if (pending) stopShownAt.current = Date.now(); }, [pending]);
   const [ready, setReady] = useState(false);
   /** Whether the DeepSeek key is missing; null until checked. Missing shows a way to set one up. */
   const [keyMissing, setKeyMissing] = useState<boolean | null>(null);
@@ -521,7 +525,7 @@ export function ChatPage({ packId }: { packId: string }) {
   };
   // Nothing until the character loads, so the default picture does not flash before a custom one.
   const avatar = personaReady ? pictureFor(look.avatar, images) : null;
-  const peek = personaReady ? pictureFor(look.peek, images) : null;
+  const peek = personaReady ? pictureFor(chosenPeek(look), images) : null;
   const openNote = (id: string) => void petWindow.openNotes(id).catch((reason: unknown) => { console.error("Could not open notes", reason); setError("没能打开备忘，请从宠物的快捷按钮打开。"); });
   const openReminder = (id: string) => void petWindow.openToday(id).catch((reason: unknown) => { console.error("Could not open reminders", reason); setError("没能打开提醒，请从宠物的快捷按钮打开。"); });
   const undoLine = (index: number) => {
@@ -759,7 +763,7 @@ export function ChatPage({ packId }: { packId: string }) {
         </div>
       </div>
       {pending
-        ? <button className="chat-send" type="button" onClick={cancel} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
+        ? <button className="chat-send" type="button" onClick={() => { if (Date.now() - stopShownAt.current >= STOP_GUARD_MS) cancel(); }} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
         : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage && !draftFile) || preparingImage || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
     </form>
   </main>;

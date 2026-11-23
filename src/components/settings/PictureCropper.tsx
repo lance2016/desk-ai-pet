@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
+import { isComposing } from "../keyboard";
 import { CROP_LIMITS, panCrop, zoomCrop, type PictureCrop } from "../../appearance/pictureCrop";
 
 interface Props {
@@ -79,7 +80,7 @@ export function PictureCropper({ title, src, crop: initial, fallback, frameAspec
   };
   // The picture is ready to move with the keyboard as soon as the cropper opens; Esc closes it from anywhere in it.
   useEffect(() => { view.current?.focus(); }, []);
-  const escape = (event: KeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape") { event.preventDefault(); onCancel(); } };
+  const escape = (event: KeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape" && !isComposing(event)) { event.preventDefault(); onCancel(); } };
 
   return <div className="cropper" role="dialog" aria-modal="true" aria-labelledby="cropper-title" onKeyDown={escape}>
     <div className={large ? "cropper__card is-large" : "cropper__card"}>

@@ -80,7 +80,7 @@ fn check_sample(name: &str, audio_base64: &str, format: &str, seconds: f64) -> R
         return Err("声音片段的时长不对，请重新录一段。".into());
     }
     let head = STANDARD
-        .decode(&audio_base64[..audio_base64.len().min(16)])
+        .decode(audio_base64.get(..audio_base64.len().min(16)).unwrap_or_default())
         .map_err(|_| "声音片段读不出来，请换一个 wav 或 mp3 文件。".to_string())?;
     if STANDARD.decode(audio_base64).is_err() || sample_mime(format, &head).is_none() {
         return Err("只支持 wav 和 mp3 格式的声音片段。".into());
@@ -172,6 +172,7 @@ mod tests {
         assert!(check_sample("a", &wav, "mp3", 5.0).is_err());
         assert!(check_sample("a", &STANDARD.encode(b"<html>not audio!"), "wav", 5.0).is_err());
         assert!(check_sample("a", "not base64 at all!", "wav", 5.0).is_err());
+        assert!(check_sample("a", "AAAAAAAAAAAAAAA声音片段", "wav", 5.0).is_err());
     }
 
     #[test]

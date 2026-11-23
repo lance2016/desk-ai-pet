@@ -6,15 +6,18 @@
 
 use tauri::{Runtime, Url, plugin::TauriPlugin};
 
-/// Hosts the app's pages are served from: `tauri://localhost` when installed,
-/// the dev server while developing.
-const APP_HOSTS: [&str; 3] = ["localhost", "tauri.localhost", "127.0.0.1"];
+/// Host of the installed app's pages: `tauri://localhost` (`http://tauri.localhost` where Tauri serves over http).
+const APP_HOST: &str = "localhost";
+const HTTP_APP_HOST: &str = "tauri.localhost";
+/// Hosts of the dev server, allowed only in a debug build.
+const DEV_HOSTS: [&str; 2] = ["localhost", "127.0.0.1"];
 
-/// Whether a window may go to `url`: only the app's own pages.
-fn stays_in_app(url: &Url) -> bool {
+/// Whether a window may go to `url`: only the app's own pages, and the dev server when `dev`.
+fn stays_in_app(url: &Url, dev: bool) -> bool {
     match url.scheme() {
-        "tauri" | "about" => true,
-        "http" | "https" => url.host_str().is_some_and(|host| APP_HOSTS.contains(&host)),
+        "about" => true,
+        "tauri" => url.host_str() == Some(APP_HOST),
+        "http" | "https" => url.host_str().is_some_and(|host| host == HTTP_APP_HOST || (dev && DEV_HOSTS.contains(&host))),
         _ => false,
     }
 }
@@ -22,7 +25,7 @@ fn stays_in_app(url: &Url) -> bool {
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("navigation-guard")
         .on_navigation(|_, url| {
-            let allowed = stays_in_app(url);
+            let allowed = stays_in_app(url, cfg!(debug_assertions));
             if !allowed {
                 log::warn!("blocked a window from leaving the app (scheme {})", url.scheme());
             }
@@ -37,7 +40,11 @@ mod tests {
     use tauri::Url;
 
     fn allowed(url: &str) -> bool {
-        stays_in_app(&Url::parse(url).unwrap())
+        stays_in_app(&Url::parse(url).unwrap(), true)
+    }
+
+    fn allowed_installed(url: &str) -> bool {
+        stays_in_app(&Url::parse(url).unwrap(), false)
     }
 
     #[test]
@@ -49,9 +56,20 @@ mod tests {
     }
 
     #[test]
+    fn the_installed_app_loads_only_its_own_pages() {
+        assert!(allowed_installed("tauri://localhost/index.html?window=chat"));
+        assert!(allowed_installed("tauri://localhost/"));
+        assert!(allowed_installed("about:blank"));
+        assert!(!allowed_installed("http://localhost:1420/?window=settings"));
+        assert!(!allowed_installed("http://127.0.0.1:8080/"));
+    }
+
+    #[test]
     fn dropped_files_and_links_do_not() {
         assert!(!allowed("file:///Users/me/Desktop/notes.md"));
         assert!(!allowed("https://example.com/"));
         assert!(!allowed("http://localhost.example.com/"));
+        assert!(!allowed("tauri://example.com/index.html"));
+        assert!(!allowed("tauri://other/"));
     }
 }

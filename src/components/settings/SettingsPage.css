@@ -195,7 +195,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-result.is-active small { color: var(--accent-strong); opacity: .8; }
 .settings-results__empty { margin: 8px 9px; color: var(--label-2); font-size: 12px; line-height: 1.5; }
 /* A search result's row flashes once where it lands. */
-.is-search-hit { border-radius: var(--radius-row); animation: search-hit 1.6s ease-out; }
+.is-search-hit { border-radius: var(--radius-row); animation: search-hit 1.6s var(--ui-ease); }
 /* Rows sit flush with their group's padding; the flash reaches into it so it does not touch the text. */
 .settings-row.is-search-hit { margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
 @keyframes search-hit { 0%, 35% { background: var(--accent-wash); box-shadow: 0 0 0 2px var(--accent); } 100% { background: transparent; box-shadow: 0 0 0 2px transparent; } }
@@ -239,7 +239,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-divider { height: 1px; background: var(--separator); }
 .settings-footnote { margin: 8px 4px 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 /* Sticks under the page title, so an error from a row far down the page is still seen. */
-.settings-error { position: sticky; top: 46px; z-index: 4; margin: 0 0 12px; padding: 7px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); font-size: 12px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.settings-error { position: sticky; top: var(--header-height, 66px); z-index: 4; margin: 0 0 12px; padding: 7px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); font-size: 12px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 /* ---------- Controls ---------- */
@@ -639,6 +639,8 @@ button.dock-row__body { cursor: pointer; }
 .look-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .ai-settings .look-hide { font-size: 13px; }
 .ai-settings .look-hide.is-selected { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
+/* "恢复默认" is an inline link here: keep the card's button hover off it. */
+.look-row__head .text-link:hover:not(:disabled) { background: none; }
 
 .quiet-hours { display: flex; gap: 16px; padding: 0 0 12px; color: var(--label-2); font-size: 12px; }
 .quiet-hours label { display: flex; align-items: center; gap: 6px; }

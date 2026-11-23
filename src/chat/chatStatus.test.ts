@@ -17,7 +17,7 @@ describe("chatStatus", () => {
   it("tells a missing key apart from a network failure", () => {
     expect(chatStatus({ ...idle, keyMissing: true })).toEqual({ label: "未配置", tone: "warning" });
     expect(chatStatus({ ...idle, failure: "network" })).toEqual({ label: "网络错误", tone: "error" });
-    expect(chatStatus({ ...idle, failure: "bad-key" })).toEqual({ label: "Key 无效", tone: "error" });
+    expect(chatStatus({ ...idle, failure: "bad-key" })).toEqual({ label: "API Key 无效", tone: "error" });
   });
 
   it("names a failed transcription", () => {

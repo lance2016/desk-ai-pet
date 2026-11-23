@@ -45,10 +45,14 @@ const RESERVED_SHORTCUTS: [&str; 28] = [
 /// Longest accelerator the settings page can record, e.g. "Control+Alt+Shift+Super+BracketRight".
 const MAX_SHORTCUT_LEN: usize = 64;
 
-/// Called by the shortcut plugin for every press and release.
+/// The registered shortcuts: quick chat, then translation. `0` is read by
+/// `on_shortcut` on the main thread, so it is never held while the plugin
+/// registers (which may wait on the main thread). `1` keeps two changes from
+/// interleaving and is held across the whole change.
 #[derive(Default)]
-pub struct Shortcuts(Mutex<[Option<Shortcut>; 2]>);
+pub struct Shortcuts(Mutex<[Option<Shortcut>; 2]>, Mutex<()>);
 
+/// Called by the shortcut plugin for every press and release.
 pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state != ShortcutState::Pressed {
         return;
@@ -86,7 +90,8 @@ pub async fn set_translation_shortcut(app: AppHandle, shortcut: Option<String>) 
 fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Result<(), String> {
     let parsed = shortcut.as_deref().map(parse_shortcut).transpose()?;
     let state = app.state::<Shortcuts>();
-    let mut slots = state.0.lock().map_err(|_| "Shortcut state unavailable")?;
+    let _changing = state.1.lock().map_err(|_| "Shortcut state unavailable")?;
+    let slots = *state.0.lock().map_err(|_| "Shortcut state unavailable")?;
     if slots[index] == parsed { return Ok(()); }
     if parsed.is_some() && slots[1 - index] == parsed { return Err("Shortcut already in use".into()); }
     let manager = app.global_shortcut();
@@ -102,7 +107,7 @@ fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Resu
             return Err(error.to_string());
         }
     }
-    slots[index] = parsed;
+    state.0.lock().map_err(|_| "Shortcut state unavailable")?[index] = parsed;
     Ok(())
 }
 
