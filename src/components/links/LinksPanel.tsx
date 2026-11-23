@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { LINK_LIMITS, linksByGroup, linksEnabled, linkSchema, loadLinks, moveLink, moveLinkGroup, setLinksEnabled, subscribeLinks, updateLinks, type WorkLink } from "../../links/LinkStore";
+import { getLinkIcon } from "../../links/linkIcons";
 import { petWindow } from "../../platform/petWindow";
 import { systemPlatform } from "../../platform/system";
 import { isComposing, useCloseShortcut } from "../keyboard";
@@ -7,7 +8,7 @@ import "../today/TodayPanel.css";
 import "./LinksPanel.css";
 
 const UNDO_MS = 5_000;
-const BLANK_LINK = { name: "", url: "", group: "", tag: "" };
+const BLANK_LINK = { name: "", url: "", group: "", tag: "", description: "" };
 const hidePanel = () => void petWindow.hideSelf().catch((error: unknown) => console.error("Failed to hide links", error));
 
 function Glyph({ name }: { name: "globe" | "plus" | "search" | "open" | "more" }) {
@@ -19,6 +20,27 @@ function Glyph({ name }: { name: "globe" | "plus" | "search" | "open" | "more" }
     more: <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="3" />,
   };
   return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function SiteIcon({ url, enabled }: { url: string; enabled: boolean }) {
+  const slot = useRef<HTMLSpanElement>(null);
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    const element = slot.current;
+    if (!enabled || !element) return;
+    let active = true;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      observer.disconnect();
+      void getLinkIcon(url).then((icon) => { if (active) setSource(icon); });
+    });
+    observer.observe(element);
+    return () => { active = false; observer.disconnect(); };
+  }, [enabled, url]);
+
+  return <span ref={slot} className="links-site-icon" aria-hidden="true">
+    {source ? <img alt="" src={source} /> : <Glyph name="globe" />}
+  </span>;
 }
 
 export function LinksPanel() {
@@ -64,6 +86,7 @@ export function LinksSettings() {
 function LinksView({ managing = false }: { managing?: boolean }) {
   const [links, setLinks] = useState(() => loadLinks());
   const [query, setQuery] = useState("");
+  const [iconsEnabled, setIconsEnabled] = useState(managing && systemPlatform.isNative);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionsId, setActionsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<WorkLink | "new" | null>(null);
@@ -81,6 +104,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
   useEffect(() => {
     if (managing) return;
     return petWindow.onShown(() => {
+      setIconsEnabled(true);
       setEditing(null);
       setActionsId(null);
       setSelectedId(null);
@@ -200,7 +224,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
         />
       ) : (
         <>
-          <label className="links-search"><Glyph name="search" /><input ref={search} className="today-field" type="search" aria-label="搜索名称或地址" placeholder="搜索名称或地址" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label>
+          <label className="links-search"><Glyph name="search" /><input ref={search} className="today-field" type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label>
           <div className="links-list" ref={scroll}>
             {results.length === 0 && <div className="today-empty"><Glyph name="globe" /><strong>{links.length ? "没有匹配的链接" : "还没有常用链接"}</strong>{links.length === 0 && <button type="button" className="today-button today-button--primary" onClick={() => startEdit("new")}>添加链接</button>}</div>}
             {groups.map(([name, entries], groupIndex) => (
@@ -225,12 +249,18 @@ function LinksView({ managing = false }: { managing?: boolean }) {
                         save((items) => moveLink(items, id, link.id));
                       }}>
                       <div className={active?.id === link.id && !managing ? "links-row is-selected" : "links-row"}>
-                        <button type="button" className="links-row__main" title={link.url} draggable={canReorder}
+                        <button type="button" className="links-row__main" title={link.description ? `${link.url}\n${link.description}` : link.url} draggable={canReorder}
                           onDragStart={(event) => { dragged.current = link.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", link.id); }}
                           onDragEnd={() => { dragged.current = null; }}
                           onClick={() => void open(link)}>
-                          <Glyph name="globe" /><span className="links-row__name">{link.name}</span>
-                          {link.tag && <span className={link.tag.toLowerCase() === "prod" ? "links-tag is-production" : "links-tag"}>{link.tag}</span>}
+                          <SiteIcon key={link.url} url={link.url} enabled={iconsEnabled} />
+                          <span className="links-row__text">
+                            <span className="links-row__title">
+                              <span className="links-row__name">{link.name}</span>
+                              {link.tag && <span className={link.tag.toLowerCase() === "prod" ? "links-tag is-production" : "links-tag"}>{link.tag}</span>}
+                            </span>
+                            {link.description && <span className="links-row__description">{link.description}</span>}
+                          </span>
                           <span className="links-row__open"><Glyph name="open" /></span>
                         </button>
                         <button type="button" className="links-icon-button links-row__more" aria-label={`${link.name}的选项`} aria-expanded={actionsId === link.id} onClick={() => setActionsId(actionsId === link.id ? null : link.id)}><Glyph name="more" /></button>
@@ -281,6 +311,7 @@ function LinkForm({ initial, groups, isFull, onSave, onCancel }: {
       <label>分组<input name="group" className="today-field" list="work-link-groups" placeholder="未分组" defaultValue={fields.group} maxLength={LINK_LIMITS.group} /></label>
       <datalist id="work-link-groups">{groups.map((group) => <option key={group} value={group} />)}</datalist>
       <label>环境标签<input name="tag" className="today-field" placeholder="可选，例如 TEST" defaultValue={fields.tag} maxLength={LINK_LIMITS.tag} /></label>
+      <label>用途备注<input name="description" className="today-field" placeholder="可选，例如：查询居住证何时到期" defaultValue={fields.description} maxLength={LINK_LIMITS.description} /></label>
       {error && <p role="alert">{error}</p>}
       <div className="links-form__actions"><button type="button" className="today-button" onClick={onCancel}>取消</button><button type="submit" className="today-button today-button--primary">保存</button></div>
     </form>

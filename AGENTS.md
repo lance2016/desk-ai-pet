@@ -98,6 +98,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 钩子转发的字数上限 | `MAX_TASK_CHARS`、`MAX_SUMMARY_CHARS`、`MAX_FORWARDED_CHARS`（`agent_hooks.rs`，按字符） | `reportSchema`（`src/platform/agents.ts`）和 `SESSION_LIMITS`（`src/agents/CodingSession.ts`，按 UTF-16，所以是两倍） |
 | Coding 面板窗口 | `tauri.conf.json` 的 `coding` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=coding` 路由、`lib.rs` 的 `CODING_WINDOW`、`POPOVERS` 和 `open_coding`，`petWindow.ts` 的 `OPEN_CODING_COMMAND` |
 | 常用链接窗口 | `tauri.conf.json`、`capabilities/default.json` 的 `links` 窗口 | `src/main.tsx` 的 `window=links`，`lib.rs` 的 `LINKS_WINDOW`、`POPOVERS`、`open_links`、`set_links_enabled`，以及 `petWindow.ts` 的同名命令 |
+| 常用链接图标 | `src/platform/linkIcons.ts` 的 `link_icon_page`、`link_icon_image` | `src-tauri/src/link_icons.rs`、`lib.rs` 的 `invoke_handler` |
 | 状态行和状态卡的位置 | `STAGE_MARGIN.bottom`（132，`stageGeometry.ts`） | `.dock-area`、`.status-row`（`src/App.css`：底栏中心在脚下 33px，状态行上沿在窗口底部往上 72px）、`.coding-card` 的高度（66px） |
 | Ghostty 定位终端 | `GHOSTTY`、`GHOSTTY_FOCUS`（`agent_hooks.rs`，用 Ghostty 脚本字典里 `terminal` 的 `tty`、`focus`，`tab` 的 `focused terminal` 和 `perform action "toggle_split_zoom"`，1.4.0 实测；没有文档承诺不变） | Ghostty 的 `Ghostty.sdef`；`src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`（没有它系统不弹授权） |
 | 钩子的 socket 位置 | `agent_hooks.rs` 的 `IDENTIFIER`（转发时应用没启动，拿不到配置） | `tauri.conf.json` 的 `identifier` |
@@ -176,7 +177,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 应用平时是 `Accessory`（没有 Dock 图标和菜单栏）。设置窗口打开时切成 `Regular`，关掉切回（`show_settings_window`、`hide_settings_window`），这样它被挡住后能用 ⌘Tab 找回来。聊天窗口没有这样做：它常开着，怕应用长期处于 `Regular` 时宠物面板盖不到别的应用的全屏上方（未验证）。新的普通窗口要先想好走哪条。
 - 设置窗口打开时应用是 `Regular`，宠物仍是不激活应用的面板；在其它应用的全屏空间右键菜单前，先临时切到 `Accessory`，菜单关闭后恢复 `Regular`，否则原生菜单可能被全屏空间挡住。逻辑在 `show_pet_menu_native`。
 - 右键菜单在主线程上同步弹出，菜单开着时 AppKit 的菜单循环照样处理网页发来的命令。再右键一次会在菜单里面再弹同一个菜单，`muda` 发现菜单正被占用就直接 panic，应用闪退（`RefCell already borrowed`）。`show_pet_menu` 用 `popped_up` 挡住第二次；以后在菜单开着时可能被调用的命令，都不要去动顶层的 `menu`。
-- 设置窗口没有自己的标题栏（`tauri.conf.json` 的 `titleBarStyle: "Overlay"` 加 `hiddenTitle`），红绿灯压在侧栏左上角。侧栏顶部留了 40px（`.settings-sidebar::before`），列表在它下面滚动。拖动窗口靠 `data-tauri-drag-region`：侧栏的空白处、页头和页标题，权限是 `core:window:allow-start-dragging`。这个属性只对被点中的那个元素生效，不传给子元素；在页面顶部加新元素时，别把页头整个盖住，否则窗口拖不动。
+- 设置窗口没有自己的标题栏（`tauri.conf.json` 的 `titleBarStyle: "Overlay"` 加 `hiddenTitle`），红绿灯压在侧栏左上角。侧栏顶部留了 40px（`.settings-sidebar::before`），列表在它下面滚动。右侧页头用 `data-tauri-drag-region="deep"`，整个页头的留白可拖动，返回按钮仍可点击。侧栏用不带值的属性，直接按在侧栏空白处才生效。拖动权限是 `core:window:allow-start-dragging`。
 - 设置窗口是透明窗口，侧栏用系统自己的侧栏材质（`tauri.conf.json` 的 `transparent: true` 加 `windowEffects: sidebar`，`state` 是 `active`，窗口不在最前时也保持半透明）。页面只给内容区（`.settings-content`）和弹层上色，`html`、`body`、`.settings-page`、侧栏在安装包里都必须保持透明（`html.is-native`），否则材质被盖住；浏览器里没有材质，侧栏用 `--sidebar` 的灰色顶替。新加的整窗元素要么盖满窗口并有自己的底色（弹层），要么放进内容区。
 - 设置窗口的配色：浅灰页面 `--bg`、白色分组卡片 `--group`、中性的灰（不带紫或暖色）。侧栏选中项用系统强调色（CSS 的 `AccentColor`，用户在系统设置里选什么色就是什么色）配白字，窗口不在最前时变成中性灰（`html.is-inactive`，由窗口的 focus/blur 切换）；应用自己的紫色强调色只留给开关、链接、主按钮和焦点环。不要把卡片改成比页面深的灰：试过，灰卡片叠灰底再描边，看起来像线框图。会带人去别处的行（带 ›）在行首放一个彩色图标方块（`settings-nav__icon`）。
 - 看设置窗口在安装包里的真实样子：用 `CGWindowListCopyWindowInfo` 找到本应用名为「AI Pet 设置」的窗口号，`screencapture -x -o -l <窗口号>` 只截这一个窗口。窗口没开着时截不到，也不能替用户去点菜单；可以临时把配置里它的 `visible` 改成 `true` 起一次 `pnpm tauri dev` 截图，截完改回并关掉。

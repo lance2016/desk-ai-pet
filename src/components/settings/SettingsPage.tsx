@@ -46,6 +46,7 @@ import { ACCOUNT_SECTION, DEVELOPER_GROUP, NAV_GROUPS, SUB_PAGES, isSection, sec
 import { CharacterAvatar } from "../CharacterAvatar";
 import { LinksSettings } from "../links/LinksPanel";
 import { Chevron } from "./Chevron";
+import { SettingsBackButton } from "./SettingsBackButton";
 import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
 import { SETTINGS_INDEX } from "./settingsSearch";
 import { FeatureGuide } from "./FeatureGuide";
@@ -381,9 +382,9 @@ export function SettingsPage({ packId }: { packId: string }) {
 
       <section className="settings-content" ref={contentRef}>
         {/* The character page's portrait and name are its title. */}
-        <header ref={headerRef} data-tauri-drag-region className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
-          {parent && <div className="settings-header__back"><button type="button" className="settings-back" onClick={() => go(parent)}>‹ {sectionLabel(parent)}</button></div>}
-          <h1 data-tauri-drag-region>{title}</h1>
+        <header ref={headerRef} data-tauri-drag-region="deep" className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
+          {parent && <div className="settings-header__back"><SettingsBackButton destination={sectionLabel(parent)} onBack={() => go(parent)} /></div>}
+          <h1>{title}</h1>
         </header>
         {error && <p className="settings-error" role="status">{error}</p>}
 

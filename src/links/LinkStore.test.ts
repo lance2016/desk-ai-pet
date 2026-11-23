@@ -2,14 +2,21 @@ import { describe, expect, it } from "vitest";
 import { createMemoryStorage } from "../testing/fixtures";
 import { linksByGroup, linkSchema, loadLinks, moveLink, moveLinkGroup, updateLinks, type WorkLink } from "./LinkStore";
 
-const dev = { id: "74c77a45-f065-485f-9448-daca7be12344", name: "API 文档", url: "http://localhost:1420/docs", group: "AiMe", tag: "DEV" };
-const qa = { id: "c845d5f6-c78e-4f6d-b799-a4d1feebbe6c", name: "API 文档", url: "https://docs.example.test/api", group: "AiMe", tag: "TEST" };
-const logs = { id: "72ab551c-0339-4a25-a138-f7abc37fb2cf", name: "Phoenix", url: "https://logs.example.test", group: "工作台", tag: "" };
+const dev = { id: "74c77a45-f065-485f-9448-daca7be12344", name: "API 文档", url: "http://localhost:1420/docs", group: "AiMe", tag: "DEV", description: "" };
+const qa = { id: "c845d5f6-c78e-4f6d-b799-a4d1feebbe6c", name: "API 文档", url: "https://docs.example.test/api", group: "AiMe", tag: "TEST", description: "机器人功能验收" };
+const logs = { id: "72ab551c-0339-4a25-a138-f7abc37fb2cf", name: "Phoenix", url: "https://logs.example.test", group: "工作台", tag: "", description: "" };
 
 describe("saved links", () => {
   it("finds same-named environments by tag, address and group", () => {
     expect(linksByGroup([dev, qa, logs], "aime test").get("AiMe")).toEqual([qa]);
     expect(linksByGroup([dev, qa, logs], "localhost API").get("AiMe")).toEqual([dev]);
+    expect(linksByGroup([dev, qa, logs], "功能验收").get("AiMe")).toEqual([qa]);
+  });
+
+  it("loads links saved before descriptions were added", () => {
+    const { description: _description, ...legacy } = dev;
+    const storage = createMemoryStorage({ "ai-pet:links:v1": JSON.stringify([legacy]) });
+    expect(loadLinks(storage)).toEqual([dev]);
   });
 
   it("opens only HTTP or HTTPS URLs and accepts internal addresses", () => {

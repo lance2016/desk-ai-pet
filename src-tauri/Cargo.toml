@@ -17,6 +17,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 ring = "0.17"
 base64 = "0.22"
+url = "2"
 tempfile = "3"
 serde = { version = "1", features = ["derive"] }
 # `preserve_order`: Claude Code's settings file keeps its key order when the pet adds its hooks.

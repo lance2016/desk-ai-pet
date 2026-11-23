@@ -9,6 +9,7 @@ mod diagnostics;
 mod floating_panel;
 mod handover;
 mod holidays;
+mod link_icons;
 mod llm;
 mod mail_code;
 mod mail_extract;
@@ -918,6 +919,8 @@ pub fn run() {
             open_today,
             open_notes,
             open_links,
+            link_icons::link_icon_page,
+            link_icons::link_icon_image,
             set_links_enabled,
             open_coding,
             open_settings,

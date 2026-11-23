@@ -5,6 +5,7 @@
  */
 .settings-page {
   --bg: #f3f3f3;
+  --header-hover: color-mix(in srgb, var(--bg), white 65%);
   /* What the sidebar wears where the system material is not there: the browser during development. */
   --sidebar: #e9e9e9;
   --group: #ffffff;
@@ -77,6 +78,7 @@
 @media (prefers-color-scheme: dark) {
   .settings-page {
     --bg: #232323;
+    --header-hover: color-mix(in srgb, var(--bg), white 6%);
     --sidebar: #272727;
     --group: #2d2d2d;
     --group-border: rgba(255, 255, 255, .06);
@@ -206,15 +208,37 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 
 /* ---------- Content ---------- */
 .settings-content { flex: 1; min-width: 0; height: 100%; background: var(--bg); box-shadow: -1px 0 0 var(--separator); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.settings-header { position: sticky; top: 0; z-index: 5; padding: 24px 36px 16px; background: var(--bg); }
-/* A page opened from inside another: the way back sits above its title. */
-.settings-header__back { margin: -8px auto 4px; }
-.settings-page .settings-back { display: inline-block; margin-left: -6px; padding: 2px 6px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font-size: 13px; cursor: pointer; }
-.settings-page .settings-back:hover { background: var(--fill); }
-.settings-page .settings-back:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 16px 36px 14px;
+  background: var(--bg);
+  box-shadow: inset 0 -1px var(--separator);
+  transition: background-color var(--ui-duration-fast) var(--ui-ease);
+}
+@media (hover: hover) {
+  .settings-header:hover { background: var(--header-hover); }
+}
+.settings-header__back { margin: 0 auto 8px; }
+.settings-page .settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 11px 0 8px;
+  background: var(--fill);
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color var(--ui-duration-fast) var(--ui-ease);
+}
+.settings-back svg { width: 16px; height: 16px; flex: none; }
+.settings-back:not(:disabled):hover, .settings-back:not(:disabled):active { background: var(--fill-strong); }
+.settings-back:disabled { opacity: .45; cursor: default; }
 .settings-header h1 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -.35px; }
 /* The character page shows its name in the portrait card; the heading stays for VoiceOver only. */
-.settings-header--quiet { padding-bottom: 0; }
+.settings-header--quiet { min-height: 40px; padding-block: 0; }
 .settings-header--quiet h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .settings-section { box-sizing: border-box; max-width: 800px; padding: 0 36px 36px; }
 .settings-content > .settings-error { margin: 0 36px 12px; max-width: 728px; }
@@ -369,7 +393,6 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__header h2 { margin: 5px 0 2px; font-size: 15px; }
 .action-editor__header p, .action-editor__group p { color: var(--label-2); font-size: 11px; line-height: 1.6; }
 .action-editor__header p { margin: 0; }
-.action-editor__back { padding: 0; color: var(--accent-strong); background: none; border: 0; cursor: pointer; }
 .action-editor__preview { position: relative; height: 210px; display: grid; place-items: center; margin: 12px 0; color: var(--label-2); background: var(--fill); border-radius: var(--radius-group); }
 .action-editor__preview canvas { max-width: 100%; height: 210px; }
 .action-editor__replay { position: absolute; right: 10px; bottom: 10px; height: 22px; padding: 0 9px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: 12px; cursor: pointer; }
@@ -810,7 +833,6 @@ button.dock-row__body { cursor: pointer; }
 .settings-section__intro p { max-width: 75ch; }
 .action-editor { box-sizing: border-box; max-width: 1120px; padding: 0 36px 36px; }
 .action-editor__header { position: static; margin: 0 0 18px; padding: 0 0 14px; }
-.settings-page .action-editor__back { display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px; color: var(--accent-strong); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-control); font-weight: 500; }
 .action-editor__header h2 { margin-top: 12px; }
 .action-editor__dropzone { cursor: pointer; }
 .action-editor__preview { height: auto; min-height: 260px; padding: 24px; }
@@ -870,14 +892,13 @@ button.dock-row__body { cursor: pointer; }
 /* "显示全部" at the foot of a group that opens on its first rows. */
 .settings-page .settings-more { display: block; width: 100%; padding: 9px 0; color: var(--accent-strong); background: none; border: 0; border-top: 1px solid var(--separator); font-size: 12px; text-align: left; cursor: pointer; }
 .settings-page .settings-more:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); border-radius: var(--radius-control); }
-/* The log has the page to itself: its bar stays under the title while the page scrolls, and the list needs no scroller of its own.
-   86px is the sticky header of a sub page (back link plus title). */
-.diagnostics-page .log-viewer__bar { position: sticky; top: 86px; z-index: 4; padding: 6px 0; background: var(--bg); }
+/* The log toolbar sticks just beneath the measured settings header. */
+.diagnostics-page .log-viewer__bar { position: sticky; top: var(--header-height); z-index: 4; padding: 6px 0; background: var(--bg); }
 
 /* Keep the sidebar and readable content width usable at the window's minimum size. */
 @media (max-width: 1000px) {
   .settings-sidebar { flex-basis: 210px; padding: 0 10px 14px; }
-  .settings-header { padding: 20px 26px 14px; }
+  .settings-header { padding-inline: 26px; }
   .settings-section { max-width: calc(var(--content-width) + 52px); padding: 0 26px 28px; }
   .settings-content > .settings-error { width: calc(100% - 52px); margin-left: auto; margin-right: auto; }
 }

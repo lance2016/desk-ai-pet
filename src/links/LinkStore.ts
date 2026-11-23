@@ -4,7 +4,7 @@ import { readList } from "../storage/listStorage";
 const KEY = "ai-pet:links:v1";
 const ENABLED_KEY = "ai-pet:links-enabled:v1";
 const CHANGED = "pet:links-changed";
-export const LINK_LIMITS = { name: 100, url: 2048, group: 60, tag: 16, count: 200 } as const;
+export const LINK_LIMITS = { name: 100, url: 2048, group: 60, tag: 16, description: 200, count: 200 } as const;
 
 const webAddress = z.string().trim().max(LINK_LIMITS.url).transform((value) => value.replace(/^https?:/i, (scheme) => scheme.toLowerCase())).refine((value) => {
   if (!/^https?:\/\//i.test(value) || /[\s\u0000-\u001f\u007f]/u.test(value) || new TextEncoder().encode(value).length > LINK_LIMITS.url) return false;
@@ -21,6 +21,7 @@ export const linkSchema = z.object({
   name: z.string().trim().min(1, "请输入名称").max(LINK_LIMITS.name),
   url: webAddress,
   group: z.string().trim().max(LINK_LIMITS.group),
+  description: z.string().trim().max(LINK_LIMITS.description).default(""),
   tag: z.string().trim().max(LINK_LIMITS.tag),
 });
 
@@ -67,7 +68,7 @@ export function linksByGroup(links: readonly WorkLink[], query = ""): Map<string
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const groups = new Map<string, WorkLink[]>();
   for (const link of links) {
-    const text = [link.name, link.url, link.tag, link.group].join(" ").toLowerCase();
+    const text = [link.name, link.url, link.tag, link.group, link.description].join(" ").toLowerCase();
     if (!words.every((word) => text.includes(word))) continue;
     const group = groups.get(link.group) ?? [];
     group.push(link);

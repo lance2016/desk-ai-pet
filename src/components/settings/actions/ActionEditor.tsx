@@ -11,6 +11,7 @@ import { setUnsavedChanges } from "../unsavedChanges";
 import { LayerEditor } from "./LayerEditor";
 import { CopyButton } from "./CopyButton";
 import { PictureCropper } from "../PictureCropper";
+import { SettingsBackButton } from "../SettingsBackButton";
 import { placeFrames, readFirstFrame, type FirstFrame, type PickedFrames } from "./placePicture";
 import type { PictureCrop } from "../../../appearance/pictureCrop";
 import { cropFromPlacement, fittedPlacement, promptPlacement, restingPlacement, type Rect, type Size } from "../../../appearance/stagePlacement";
@@ -406,9 +407,11 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
     finally { setBusy(false); }
   };
   return <div ref={editorRef} className="action-editor" aria-label={title}>
-    <div className="action-editor__header"><div>{dirty
-      ? <ConfirmButton className="action-editor__back" disabled={busy} confirm={{ message: "放弃对这个动作的改动？", detail: "还没保存的名称、图片和动效会丢掉。", action: "放弃改动" }} onConfirm={onClose}>‹ 返回动作库</ConfirmButton>
-      : <button type="button" className="action-editor__back" disabled={busy} onClick={onClose}>‹ 返回动作库</button>}<h2>{title}</h2><p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p></div></div>
+    <div className="action-editor__header">
+      <SettingsBackButton destination="动作库" disabled={busy} confirm={dirty ? { message: "放弃对这个动作的改动？", detail: "还没保存的名称、图片和动效会丢掉。", action: "放弃改动" } : undefined} onBack={onClose} />
+      <h2>{title}</h2>
+      <p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p>
+    </div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
       <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>

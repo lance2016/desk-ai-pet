@@ -388,7 +388,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 
 ## 常用链接
 
-「常用链接」使用同一套列表和编辑表单，入口是独立的 `links` 窗口和「设置 → 小工具」下的管理页。窗口沿用提醒、备忘的非激活面板定位和材质。链接用 `LinkStore` 校验，按分组顺序保存到 `ai-pet:links:v1`，各窗口通过 storage 事件更新。打开时走 `systemPlatform.openLink`，启用状态由宠物窗口通过 `set_links_enabled` 同步给原生菜单。
+「常用链接」使用同一套列表和编辑表单，入口是独立的 `links` 窗口和「设置 → 小工具」下的管理页。窗口沿用提醒、备忘的非激活面板定位和材质。链接用 `LinkStore` 校验，按分组顺序保存到 `ai-pet:links:v1`，各窗口通过 storage 事件更新。打开时走 `systemPlatform.openLink`，启用状态由宠物窗口通过 `set_links_enabled` 同步给原生菜单。用途备注随链接保存，参与搜索。可见行通过 `platform/linkIcons.ts` 请求原生端读取页面的图标声明或站点根目录的 favicon，图标请求限同源，成功或失败都在当前窗口会话中缓存。
 
 ## 提醒和备忘
 
