@@ -1,4 +1,20 @@
 {
+  "2.0.0-preview-3": {
+    "features": [
+      {
+        "icon": "list",
+        "color": "indigo",
+        "title": "回到终端马上亮起来",
+        "detail": "在 Ghostty 里点 Claude Code 会话跳回去，那块分屏会马上亮一圈描边，不用再点一下终端；跳过去直接打字，字也会进到终端里。"
+      },
+      {
+        "icon": "chat",
+        "color": "orange",
+        "title": "状态卡不再冒出第二张卡",
+        "detail": "鼠标停在 Claude Code 状态卡上，不再弹出一个一样大的白框挡住快捷按钮；想看全文点一下卡片。收成一行时，停在上面会用小标签显示完整标题。"
+      }
+    ]
+  },
   "2.0.0-preview-2": {
     "features": [
       {
