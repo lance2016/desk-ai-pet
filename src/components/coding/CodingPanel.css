@@ -5,19 +5,47 @@
 .coding-panel {
   --amber: #a15c00;
   --green: #1f8a4c;
+  --picked: rgba(0, 0, 0, .12);
 }
 @media (prefers-color-scheme: dark) {
   .coding-panel {
     --amber: #f0b45a;
     --green: #62cf8d;
+    --picked: rgba(255, 255, 255, .15);
   }
+  /* The strong accent is too dark to read on the dark material. */
+  .coding-leave { color: var(--accent); }
 }
 
-/* The first group sits right under the header. */
-.coding-panel .today-list > .today-section:first-child { margin-top: 4px; }
+/*
+ * Folders down the side, the picked folder's sessions beside them, as Mail lays out
+ * its mailboxes: every folder and how it stands stays in sight, one click away.
+ */
+.coding-panel--split { flex-direction: row; }
+.coding-sidebar { flex: none; width: 136px; box-sizing: border-box; display: flex; flex-direction: column; padding: 16px 8px; overflow-y: auto; background: var(--fill); border-right: 1px solid var(--separator); }
+/* Starts after the system close button, which sits on its line. */
+.coding-sidebar__title { margin: 0 4px 12px calc(var(--title-after-close) - 8px); color: var(--label-2); font-size: 13px; font-weight: 600; line-height: 24px; white-space: nowrap; }
+.coding-sidebar ul { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.coding-folder { width: 100%; height: 28px; display: flex; align-items: center; gap: 4px; padding: 0 8px 0 4px; color: var(--label); background: none; border: 0; border-radius: var(--radius-control); font: inherit; text-align: left; cursor: default; transition: background-color var(--ui-duration-fast) var(--ui-ease); }
+.coding-folder:hover { background: var(--fill-strong); }
+.coding-folder.is-picked { background: var(--picked); }
+.coding-folder:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-folder__mark { width: 16px; height: 16px; }
+.coding-folder .coding-folder__mark--waiting { color: var(--amber); }
+.coding-folder .coding-folder__mark--working { color: var(--accent); }
+.coding-folder__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coding-folder.is-picked .coding-folder__name { font-weight: 500; }
+.coding-folder.is-quiet .coding-folder__name { color: var(--label-2); }
+.coding-folder__count { flex: none; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }
 
-/* A session is one big target: its mark, then what it is about, where, and how it stands. */
-.coding-row { align-items: stretch; padding: 0; }
+.coding-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* The close button is over the folder column, not here. */
+.coding-main .today-header { padding-left: 16px; }
+.coding-main__name { margin: 0; color: var(--label); font-size: 17px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
+.coding-rows { margin: 0; padding: 0; list-style: none; }
+
+/* A session is one big target, back to it: its mark, then what it is about and how it stands. Its detail is the button at the end. */
+.coding-row { padding: 0; }
 .coding-row + .coding-row::before { left: 34px; }
 .coding-row__main {
   flex: 1;
@@ -33,26 +61,19 @@
   text-align: left;
   cursor: default;
 }
-.coding-row__main:focus-visible, .coding-notice button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-row__main:focus-visible, .coding-notice button:focus-visible, .coding-leave:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
 .coding-row__main:active { background: var(--fill-strong); }
 /* The mark sits on the title's line. */
 .coding-row__mark { flex: none; width: 18px; height: 18px; display: grid; place-items: center; color: var(--label-3); }
 .coding-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .coding-row__top { display: flex; align-items: flex-start; gap: 8px; }
-/* A long title takes a second line rather than being cut at once. */
-.coding-row__top strong {
-  flex: 1;
-  min-width: 0;
-  display: -webkit-box;
-  overflow: hidden;
-  font-weight: 500;
-  line-height: 18px;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
+/* One line: the detail shows all of it. */
+.coding-row__top strong { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .coding-row__time { flex: none; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 18px; white-space: nowrap; }
 .coding-row__where { overflow: hidden; color: var(--label-2); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+/* What was asked last, in the user's own words. */
+.coding-row__asked { overflow: hidden; color: var(--label-2); font-size: 12px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.coding-row__you { color: var(--label-3); }
 .coding-row__line {
   display: -webkit-box;
   overflow: hidden;
@@ -71,28 +92,66 @@
 .coding-row--completed .coding-row__mark { color: var(--green); }
 .coding-panel .status-chip__spinner { border-color: var(--accent-wash); border-top-color: var(--accent); }
 
-/* Closed sessions keep to their name and place; the mark goes grey, since the turn it tells of is over with the session. */
-.coding-row--closed .coding-row__top strong { font-weight: 400; -webkit-line-clamp: 1; }
+/* Closed sessions keep to their name; the mark goes grey, since the turn it tells of is over with the session. */
+.coding-row--closed .coding-row__top strong { font-weight: 400; }
 .coding-row--closed .coding-row__mark { color: var(--label-3); }
 
-/* What a click on the row does, at its right edge on the title's line and always in sight. */
-.coding-row__does { flex: none; width: 18px; height: 18px; display: grid; place-items: center; color: var(--label-2); transition: color var(--ui-duration-fast) var(--ui-ease); }
-.coding-row__does .today-glyph { width: 15px; height: 15px; }
-.coding-row:hover .coding-row__does { color: var(--label); }
-
-/* Copying the command that reopens a session the row would take you back to waits beside that mark until the row is pointed at. */
-.coding-row__tools { position: absolute; top: 5px; right: 34px; display: flex; opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
-.coding-row:hover .coding-row__tools, .coding-row__tools:focus-within { opacity: 1; }
-/*
- * The button covers the time, which keeps its room: taking the time out would widen the title,
- * a two-line title would fit on one, and the row would jump under the cursor.
- */
-.coding-row:has(.coding-row__tools) .coding-row__time { min-width: 24px; text-align: right; }
-.coding-row:has(.coding-row__tools):is(:hover, :focus-within) .coding-row__time { visibility: hidden; }
-.coding-tool { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-control); cursor: default; }
+/* The detail button, always in sight on the title's line. */
+.coding-tool { flex: none; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-control); cursor: default; transition: color var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease); }
 .coding-tool:hover { color: var(--label); background: var(--fill-strong); }
 .coding-tool:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
-.coding-row__tools .today-glyph { width: 14px; height: 14px; }
+.coding-tool .today-glyph { width: 15px; height: 15px; }
+.coding-row__info { margin: 5px 4px 0 0; }
+
+/* Ended sessions wait folded at the end of their folder. */
+.coding-fold { width: 100%; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-row); font: inherit; font-size: 12px; text-align: left; cursor: default; }
+.coding-fold:hover { background: var(--fill); }
+.coding-fold:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-fold__glyph { width: 12px; height: 12px; margin: 0 3px; transition: transform var(--ui-duration) var(--ui-ease); }
+.coding-fold.is-open .coding-fold__glyph { transform: rotate(90deg); }
+
+/* The detail: the way back to the list, the session, the way back to it, then its turns. */
+.coding-detail { padding: 12px 16px; border-bottom: 1px solid var(--separator); }
+.coding-leave { display: inline-flex; align-items: center; gap: 2px; height: 24px; margin-left: -6px; padding: 0 8px 0 2px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font: inherit; cursor: default; }
+.coding-leave:hover { background: var(--fill-strong); }
+.coding-detail__title {
+  display: -webkit-box;
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--label);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.coding-detail__state { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: 4px 0 0; color: var(--label-2); font-size: 12px; }
+.coding-detail__state .coding-row__mark { width: 14px; height: 14px; }
+.coding-detail__branch { margin-left: 8px; }
+.coding-detail__state--working .coding-row__mark { color: var(--accent); }
+.coding-detail__state--waiting :is(.coding-row__mark, span) { color: var(--amber); }
+.coding-detail__state--failed .coding-row__mark { color: var(--red); }
+.coding-detail__state--completed .coding-row__mark { color: var(--green); }
+.coding-detail__actions { display: flex; gap: 8px; margin-top: 12px; }
+.coding-detail__note { margin: 8px 0 0; color: var(--label-2); font-size: 11px; }
+
+/* Laid out from the bottom (column-reverse), so it opens on the latest turn. */
+.coding-turns { flex: 1; min-height: 0; display: flex; flex-direction: column-reverse; padding: 0 16px 56px; overflow-y: auto; }
+.coding-turns ol { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.coding-turns__note { margin: 12px 0; color: var(--label-2); font-size: 11px; text-align: center; }
+.coding-turn { display: flex; flex-direction: column; }
+/* What the user asked sits on the right, as their own message does in a chat. */
+.coding-turn__asked { align-self: flex-end; max-width: 84%; margin: 0; padding: 6px 10px; color: var(--label); background: var(--accent-wash); border-radius: 12px 12px 4px 12px; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.coding-turn__reply { display: flex; gap: 6px; margin-top: 6px; }
+.coding-turn__reply .coding-row__mark { width: 14px; height: 17px; }
+.coding-turn__body { min-width: 0; }
+.coding-turn__text { margin: 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.coding-turn__meta { margin: 2px 0 0; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.coding-turn--working .coding-row__mark { color: var(--accent); }
+.coding-turn--waiting :is(.coding-row__mark, .coding-turn__text) { color: var(--amber); }
+.coding-turn--failed :is(.coding-row__mark, .coding-turn__text) { color: var(--red); }
+.coding-turn--completed .coding-row__mark { color: var(--green); }
 
 /* Said once above the list, as plain words: the sessions below may be out of date. */
 .coding-notice { display: flex; align-items: center; gap: 8px; margin: 0 8px 4px; color: var(--label-2); font-size: 12px; }
@@ -102,5 +161,5 @@
 .coding-connect { margin-top: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .coding-row__tools, .coding-row__does { transition: none; }
+  .coding-tool, .coding-fold__glyph, .coding-folder { transition: none; }
 }

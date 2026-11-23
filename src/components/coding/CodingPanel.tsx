@@ -1,6 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { elapsedText } from "../../activity/Activity";
-import { isLive, overview, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession } from "../../agents/CodingSession";
+import { byProject, isLive, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession, type ProjectGroup, type TurnState } from "../../agents/CodingSession";
 import { codingSessionsSnapshot, subscribeCodingSessions } from "../../agents/codingStore";
 import { agentPlatform, type ClaudeHooksState } from "../../platform/agents";
 import { petWindow } from "../../platform/petWindow";
@@ -11,9 +11,16 @@ import "./CodingPanel.css";
 
 const TICK_MS = 15_000;
 const HUD_MS = 2_400;
+const DAY_MS = 24 * 60 * 60_000;
 /** Where "编码助手" is in the settings window. */
 const SETTINGS_SECTION = "tools";
+/** ⌘1 to ⌘9 switch folders. */
+const MAX_SHORTCUTS = 9;
 const HAS_CHINESE = /[一-鿿]/;
+/** A session heard of without a folder. */
+const FOLDER_FALLBACK = "未知文件夹";
+/** What a turn says when it ended without the pet hearing how. */
+const NO_OUTCOME = "没等到这一轮的结果";
 
 const hidePanel = () => void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason));
 const openSettings = () => void petWindow.openSettings(SETTINGS_SECTION).catch((reason: unknown) => console.error("Failed to open the settings", reason));
@@ -23,6 +30,19 @@ function ago(at: number, now: number): string {
   if (minutes < 1) return "刚刚";
   if (minutes < 60) return `${minutes} 分钟前`;
   return `${Math.floor(minutes / 60)} 小时前`;
+}
+
+const pad = (value: number) => String(value).padStart(2, "0");
+const startOfDay = (at: number) => { const date = new Date(at); return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime(); };
+
+/** A time of day, with the day when it was not today. */
+function clock(at: number, now: number): string {
+  const date = new Date(at);
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const days = Math.round((startOfDay(now) - startOfDay(at)) / DAY_MS);
+  if (days === 0) return time;
+  if (days === 1) return `昨天 ${time}`;
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日 ${time}`;
 }
 
 /** The time beside a session: how long it has worked or waited, else when it was last heard from. */
@@ -42,55 +62,250 @@ function standing(session: CodingSession): string | null {
   return line ? `${stateWord(session)}：${line}` : stateWord(session);
 }
 
-function CopyGlyph() {
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V6a1 1 0 0 1 1-1h9" /></svg>;
+/** One turn as the detail shows it: what was asked, and what came of it. */
+interface TurnView {
+  key: string;
+  task?: string;
+  /** The mark it gets: a turn put away while still live is over, so it is not shown as going on. */
+  mark: TurnState;
+  text: string;
+  meta: string | null;
+}
+
+/** How a turn that is over came out. */
+function outcome(turn: TurnState, result: string | undefined): string {
+  switch (turn) {
+    case "completed": return result ?? "这一轮做完了";
+    case "failed": return result ?? "出错了";
+    case "interrupted": return "已打断";
+    case "unknown": return "状态未知：很久没有动静";
+    default: return NO_OUTCOME;
+  }
+}
+
+/** When a turn began, and how long it took once it was over. */
+function turnMeta(startedAt: number | undefined, endedAt: number | undefined, now: number): string | null {
+  if (startedAt === undefined) return endedAt === undefined ? null : clock(endedAt, now);
+  if (endedAt === undefined) return `${clock(startedAt, now)} 开始`;
+  return `${clock(startedAt, now)}，用了 ${elapsedText(endedAt - startedAt) ?? "不到 1 分"}`;
+}
+
+/** The turns the pet heard, the oldest first, the one going on or just over last. */
+function turnsOf(session: CodingSession, now: number): TurnView[] {
+  const earlier = (session.earlier ?? []).map((turn, index): TurnView => ({
+    key: `earlier-${index}-${turn.startedAt ?? turn.endedAt ?? 0}`,
+    task: turn.task,
+    mark: turn.turn === "working" || turn.turn === "waiting" ? "idle" : turn.turn,
+    text: outcome(turn.turn, turn.result),
+    meta: turnMeta(turn.startedAt, turn.endedAt, now),
+  }));
+  if (session.task === undefined && session.turnStartedAt === undefined && session.turnEndedAt === undefined) return earlier;
+  const text = session.turn === "working" ? session.activity ?? "在工作"
+    : session.turn === "waiting" ? session.asking ?? "在等你确认"
+      : outcome(session.turn, session.result);
+  return [...earlier, { key: "current", task: session.task, mark: session.turn, text, meta: turnMeta(session.turnStartedAt, session.turnEndedAt, now) }];
+}
+
+/** The state at the top of the detail, with how long or how long ago. */
+function headline(session: CodingSession, now: number): string {
+  if (session.ended) return `会话已关闭，${ago(session.lastEventAt, now)}`;
+  const time = when(session, now);
+  if (!time) return stateWord(session);
+  return session.turn === "working" ? `${stateWord(session)} ${time}` : `${stateWord(session)}，${time}`;
 }
 
 function TerminalGlyph() {
   return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M13 15h3.5" /></svg>;
 }
 
-function Row({ session, now, closed = false, onReveal, onCopy }: { session: CodingSession; now: number; closed?: boolean; onReveal: () => void; onCopy: () => void }) {
+function InfoGlyph() {
+  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.8v.1" /></svg>;
+}
+
+function BackGlyph() {
+  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5-6.5 6.5 6.5 6.5" /></svg>;
+}
+
+function FoldGlyph() {
+  return <svg className="today-glyph coding-fold__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>;
+}
+
+interface RowProps {
+  session: CodingSession;
+  now: number;
+  /** Its folder's sessions are on different branches: the row says which. */
+  branched: boolean;
+  closed?: boolean;
+  onBack: () => void;
+  onDetail: () => void;
+}
+
+function Row({ session, now, branched, closed = false, onBack, onDetail }: RowProps) {
+  const title = sessionTitle(session);
   const time = when(session, now);
-  // A closed session is said once by its group; its last turn is old news, so it keeps to two short lines.
+  // A closed session is said once by its group; its last turn is old news, so it keeps to its name.
   const line = closed ? null : standing(session);
-  // Going back to its terminal is what a click does when the pet knows where the session runs; otherwise the way back is the command that reopens it.
-  const primary = session.revealable ? onReveal : onCopy;
+  // What was asked last, unless the title already is that.
+  const asked = !closed && session.task && session.task !== title ? session.task : null;
   const hint = session.revealable ? "点一下回到它所在的终端" : `点一下复制 ${resumeCommand(session)}，在终端里粘贴就能接着聊`;
-  // The title is cut short; pointing at the row shows all of it, and what it is on.
-  const tip = [sessionTitle(session), line, hint].filter(Boolean).join("\n");
+  const tip = [title, asked && `你：${asked}`, line, hint].filter(Boolean).join("\n");
   const said = closed ? "已关闭" : `${stateWord(session)}${line && isLive(session) ? `：${line}` : ""}`;
   const does = session.revealable ? "点一下回到终端" : "点一下复制恢复命令";
   return (
     <li className={`today-row coding-row coding-row--${session.turn}${closed ? " coding-row--closed" : ""}`}>
-      <button type="button" className="coding-row__main" title={tip} aria-label={`${sessionTitle(session)}，${said}，${does}`} onClick={primary}>
+      {/* Going back to the session is what the panel is mostly for, so it is the row's click; the detail is the button beside it. */}
+      <button type="button" className="coding-row__main" title={tip} aria-label={`${title}，${said}，${does}`} onClick={onBack}>
         <span className="coding-row__mark"><TurnMark turn={session.turn} /></span>
         <span className="coding-row__body">
           <span className="coding-row__top">
-            <strong>{sessionTitle(session)}</strong>
-            {/* Kept even when empty: the copy button takes its place on hover, so the title never reflows. */}
-            <span className="coding-row__time">{time}</span>
+            <strong>{title}</strong>
+            {time && <span className="coding-row__time">{time}</span>}
           </span>
-          <span className="coding-row__where">{session.project}{session.branch && <> · {session.branch}</>}</span>
+          {asked && <span className="coding-row__asked"><span className="coding-row__you">你：</span>{asked}</span>}
           {line && <span className="coding-row__line">{line}</span>}
+          {branched && session.branch && <span className="coding-row__where">{session.branch}</span>}
         </span>
-        {/* What a click does, always in sight: back to the terminal, or copy the command that reopens the session. */}
-        <span className="coding-row__does" aria-hidden="true">{session.revealable ? <TerminalGlyph /> : <CopyGlyph />}</span>
       </button>
-      {session.revealable && (
-        <span className="coding-row__tools">
-          <button type="button" className="coding-tool" aria-label="复制恢复命令" title={`复制 ${resumeCommand(session)}`} onClick={onCopy}><CopyGlyph /></button>
-        </span>
-      )}
+      <button type="button" className="coding-tool coding-row__info" data-detail={session.id} aria-label={`${title}的详情和最近几轮`} title="详情和最近几轮" onClick={onDetail}><InfoGlyph /></button>
     </li>
   );
 }
 
-/** How things stand, in a sentence under the title. */
-function summary(waiting: number, working: number, recent: number): string {
+interface ProjectProps {
+  group: ProjectGroup;
+  now: number;
+  unfolded: boolean;
+  onFold: () => void;
+  onBack: (session: CodingSession) => void;
+  onDetail: (session: CodingSession) => void;
+}
+
+const folderName = (group: ProjectGroup) => group.project || FOLDER_FALLBACK;
+
+/** One folder's sessions; the ended ones folded away under one line. */
+function Project({ group, now, unfolded, onFold, onBack, onDetail }: ProjectProps) {
+  const row = (session: CodingSession, closed = false) => (
+    <Row key={session.id} session={session} now={now} branched={group.branched} closed={closed} onBack={() => onBack(session)} onDetail={() => onDetail(session)} />
+  );
+  return (
+    <>
+      {group.open.length > 0 && <ul className="coding-rows">{group.open.map((session) => row(session))}</ul>}
+      {group.closed.length > 0 && (
+        <>
+          <button type="button" className={`coding-fold${unfolded ? " is-open" : ""}`} aria-expanded={unfolded} onClick={onFold}>
+            <FoldGlyph />已关闭的 {group.closed.length} 个会话
+          </button>
+          {unfolded && <ul className="coding-rows">{group.closed.map((session) => row(session, true))}</ul>}
+        </>
+      )}
+    </>
+  );
+}
+
+/** How a folder stands, by its most pressing session: one waiting, else one at work. Null when nothing is going on there. */
+function folderState(group: ProjectGroup): "waiting" | "working" | null {
+  if (group.open.some((session) => session.turn === "waiting")) return "waiting";
+  return group.open.some((session) => session.turn === "working") ? "working" : null;
+}
+
+interface FoldersProps {
+  groups: ProjectGroup[];
+  current: string;
+  onPick: (project: string) => void;
+}
+
+/** Every folder at once, each with how it stands and how many sessions are open there: a click, or ⌘1 to ⌘9, switches to it. */
+function Folders({ groups, current, onPick }: FoldersProps) {
+  return (
+    <nav className="coding-sidebar" aria-label="项目">
+      <h1 className="coding-sidebar__title">Claude Code</h1>
+      <ul>
+        {groups.map((group, index) => {
+          const state = folderState(group);
+          const picked = group.project === current;
+          const shortcut = index < MAX_SHORTCUTS ? `（⌘${index + 1}）` : "";
+          return (
+            <li key={group.project}>
+              <button
+                type="button"
+                className={`coding-folder${picked ? " is-picked" : ""}${group.open.length === 0 ? " is-quiet" : ""}`}
+                aria-current={picked ? "true" : undefined}
+                aria-label={`${folderName(group)}，${folderSummary(group)}`}
+                title={`${folderName(group)}${shortcut}`}
+                onClick={() => onPick(group.project)}
+              >
+                <span className={`coding-row__mark coding-folder__mark coding-folder__mark--${state ?? "none"}`}>{state && <TurnMark turn={state} />}</span>
+                <span className="coding-folder__name">{folderName(group)}</span>
+                {group.open.length > 0 && <span className="coding-folder__count">{group.open.length}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+interface DetailProps {
+  session: CodingSession;
+  now: number;
+  onLeave: () => void;
+  onReveal: () => void;
+  onCopy: () => void;
+}
+
+/** One session: where it stands, the way back to it, and the last few things asked of it. */
+function SessionDetail({ session, now, onLeave, onReveal, onCopy }: DetailProps) {
+  const leave = useRef<HTMLButtonElement>(null);
+  const turns = turnsOf(session, now);
+  useEffect(() => leave.current?.focus(), []);
+  return (
+    <>
+      <header className="coding-detail">
+        <button ref={leave} type="button" className="coding-leave" aria-label="回到会话列表" onClick={onLeave}><BackGlyph />{session.project || FOLDER_FALLBACK}</button>
+        <h1 className="coding-detail__title">{sessionTitle(session)}</h1>
+        <p className={`coding-detail__state coding-detail__state--${session.ended ? "closed" : session.turn}`}>
+          <span className="coding-row__mark"><TurnMark turn={session.ended ? "idle" : session.turn} /></span>
+          <span>{headline(session, now)}</span>
+          {session.branch && <span className="coding-detail__branch">分支 {session.branch}</span>}
+        </p>
+        <div className="coding-detail__actions">
+          {session.revealable && <button type="button" className="today-button today-button--primary" onClick={onReveal}>回到终端</button>}
+          <button type="button" className={`today-button${session.revealable ? "" : " today-button--primary"}`} onClick={onCopy}>复制恢复命令</button>
+        </div>
+        {!session.revealable && <p className="coding-detail__note">{session.ended ? "" : "不知道它在哪个终端，"}在终端里粘贴恢复命令就能接着聊</p>}
+      </header>
+      {/* Laid out from the bottom, so it opens on the latest turn, as a chat does. */}
+      <section className="coding-turns" aria-label="最近几轮，最新的在最下面">
+        <div>
+          <p className="coding-turns__note">{turns.length > 0 ? "只记宠物开着时问的，每条只留第一行" : "还没记下这个会话里问过什么"}</p>
+          <ol>
+            {turns.map((turn) => (
+              <li key={turn.key} className={`coding-turn coding-turn--${turn.mark}`}>
+                {turn.task && <p className="coding-turn__asked"><span className="visually-hidden">你问：</span>{turn.task}</p>}
+                <div className="coding-turn__reply">
+                  <span className="coding-row__mark"><TurnMark turn={turn.mark} /></span>
+                  <div className="coding-turn__body">
+                    <p className="coding-turn__text">{turn.text}</p>
+                    {turn.meta && <p className="coding-turn__meta">{turn.meta}</p>}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/** How a folder stands, in a sentence under its name. */
+function folderSummary(group: ProjectGroup): string {
+  const waiting = group.open.filter((session) => session.turn === "waiting").length;
+  const working = group.open.filter((session) => session.turn === "working").length;
   const parts = [waiting > 0 && `${waiting} 个等你处理`, working > 0 && `${working} 个在工作`].filter(Boolean);
   if (parts.length > 0) return parts.join("，");
-  return recent > 0 ? "现在没有在跑的会话" : "";
+  return group.open.length > 0 ? "现在没有在跑的会话" : "会话都已关闭";
 }
 
 /** What to say where the sessions would be, by whether Claude Code is connected. */
@@ -111,33 +326,75 @@ function Empty({ hooks }: { hooks: ClaudeHooksState | undefined }) {
 }
 
 /**
- * The Claude Code sessions, beside the pet: the ones waiting for the user first,
- * then the ones at work, then recent ones, then closed ones. A click on a session goes
- * back to its terminal, or copies the command that reopens it when the pet cannot tell
- * where it runs; closed sessions sit apart so the two never look alike.
+ * The Claude Code sessions, beside the pet: the folders down the side, a folder
+ * with a session waiting for the user first and picked when the panel opens,
+ * and the picked folder's sessions beside them. A click on a session goes back
+ * to its terminal, or copies the command that reopens it when the pet cannot
+ * tell where it runs; the button beside it opens the session's detail, with the
+ * last few things asked of it. Ended sessions are folded away at the end.
  */
 export function CodingPanel() {
   const sessions = useSyncExternalStore(subscribeCodingSessions, codingSessionsSnapshot);
   const now = useNow(true, TICK_MS);
   const [hooks, setHooks] = useState<ClaudeHooksState | undefined>(undefined);
   const [hud, setHud] = useState<string | null>(null);
+  /** The folder the user switched to; until then, the one that needs them most. */
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
+  /** The session whose detail was just left: its button gets the focus back. */
+  const left = useRef<string | null>(null);
+  const groups = byProject(sessions);
+  const group = groups.find((each) => each.project === chosen) ?? groups[0];
+  const detail = picked === null ? undefined : sessions.find((session) => session.id === picked);
 
   useEffect(() => {
     document.documentElement.classList.add("today-window");
     document.body.classList.add("today-window");
-    const refresh = () => void agentPlatform.state().then(setHooks).catch((reason: unknown) => console.warn("Could not read whether Claude Code is connected", reason));
+    const refresh = () => {
+      // The window is hidden, not closed: each time it shows, it starts from the folder that needs the user most.
+      setChosen(null);
+      setPicked(null);
+      void agentPlatform.state().then(setHooks).catch((reason: unknown) => console.warn("Could not read whether Claude Code is connected", reason));
+    };
     refresh();
-    // The window is hidden, not closed: look again whenever it shows.
     window.addEventListener("focus", refresh);
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") hidePanel(); };
-    window.addEventListener("keydown", onKey);
     return () => {
       document.documentElement.classList.remove("today-window");
       document.body.classList.remove("today-window");
       window.removeEventListener("focus", refresh);
-      window.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  const pick = (project: string) => {
+    setChosen(project);
+    setPicked(null);
+  };
+
+  // Escape leaves the detail first, then puts the panel away; ⌘1 to ⌘9 switch folders.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (detail) setPicked(null);
+        else hidePanel();
+        return;
+      }
+      const digit = Number(event.key);
+      if (!event.metaKey || !Number.isInteger(digit) || digit < 1 || digit > MAX_SHORTCUTS) return;
+      const target = groups[digit - 1];
+      if (!target) return;
+      event.preventDefault();
+      pick(target.project);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  useEffect(() => {
+    if (picked !== null || left.current === null) return;
+    document.querySelector<HTMLElement>(`[data-detail="${left.current}"]`)?.focus();
+    left.current = null;
+  }, [picked]);
 
   useEffect(() => {
     if (hud === null) return;
@@ -161,44 +418,65 @@ export function CodingPanel() {
       setHud(HAS_CHINESE.test(text) ? text : "没能切到它所在的终端");
     });
   };
+  const goBack = (session: CodingSession) => (session.revealable ? reveal(session) : void copy(session));
+  const leaveDetail = () => {
+    left.current = picked;
+    setPicked(null);
+  };
+  const fold = (project: string) => setUnfolded((before) => {
+    const next = new Set(before);
+    if (!next.delete(project)) next.add(project);
+    return next;
+  });
 
-  const view = overview(sessions, now);
-  const row = (session: CodingSession, closed = false) => <Row key={session.id} session={session} now={now} closed={closed} onReveal={() => reveal(session)} onCopy={() => void copy(session)} />;
   const stale = sessions.length > 0 && hooks !== undefined && !(hooks.connected && hooks.current);
-  const line = summary(view.waiting.length, view.working.length, view.recent.length + view.closed.length);
+  const notice = stale && (
+    <p className="coding-notice">
+      {hooks.connected ? "重新连接后，状态才收得全" : "现在没连着，下面是之前的样子"}
+      <button type="button" onClick={openSettings}>{hooks.connected ? "重新连接" : "去连接"}</button>
+    </p>
+  );
+  const toast = hud && <div className="today-hud" role="status"><span>{hud}</span></div>;
+
+  if (!group) {
+    return (
+      <main className="today-panel coding-panel">
+        <header className="today-header"><div className="today-header__titles"><h1>Claude Code</h1></div></header>
+        <section className="today-list" aria-label="Claude Code 会话"><Empty hooks={hooks} /></section>
+        {toast}
+      </main>
+    );
+  }
 
   return (
-    <main className="today-panel coding-panel">
-      <header className="today-header">
-        <div className="today-header__titles">
-          <h1>Claude Code</h1>
-          {line && <p>{line}</p>}
-        </div>
-      </header>
-
-      <section className="today-list" aria-label="Claude Code 会话">
-        {stale && (
-          <p className="coding-notice">
-            {hooks.connected ? "重新连接后，状态才收得全" : "现在没连着，下面是之前的样子"}
-            <button type="button" onClick={openSettings}>{hooks.connected ? "重新连接" : "去连接"}</button>
-          </p>
-        )}
-        {sessions.length === 0 ? <Empty hooks={hooks} /> : (
+    <main className="today-panel coding-panel coding-panel--split">
+      <Folders groups={groups} current={group.project} onPick={pick} />
+      <div className="coding-main">
+        {detail ? (
+          <SessionDetail session={detail} now={now} onLeave={leaveDetail} onReveal={() => reveal(detail)} onCopy={() => void copy(detail)} />
+        ) : (
           <>
-            {view.waiting.length > 0 && <><h2 className="today-section">需要你处理</h2><ul>{view.waiting.map((session) => row(session))}</ul></>}
-            {view.working.length > 0 && <><h2 className="today-section">正在工作</h2><ul>{view.working.map((session) => row(session))}</ul></>}
-            {view.recent.length > 0 && <><h2 className="today-section">最近</h2><ul>{view.recent.map((session) => row(session))}</ul></>}
-            {view.closed.length > 0 && (
-              <>
-                <h2 className="today-section">已关闭</h2>
-                <ul>{view.closed.map((session) => row(session, true))}</ul>
-              </>
-            )}
+            <header className="today-header">
+              <div className="today-header__titles">
+                <h2 className="coding-main__name">{folderName(group)}</h2>
+                <p>{folderSummary(group)}</p>
+              </div>
+            </header>
+            <section className="today-list" aria-label={`${folderName(group)} 的会话`}>
+              {notice}
+              <Project
+                group={group}
+                now={now}
+                unfolded={unfolded.has(group.project)}
+                onFold={() => fold(group.project)}
+                onBack={goBack}
+                onDetail={(session) => setPicked(session.id)}
+              />
+            </section>
           </>
         )}
-      </section>
-
-      {hud && <div className="today-hud" role="status"><span>{hud}</span></div>}
+        {toast}
+      </div>
     </main>
   );
 }

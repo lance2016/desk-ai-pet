@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RESULT_FRESH_MS, overview, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession } from "./CodingSession";
+import { RESULT_FRESH_MS, byProject, overview, resumeCommand, sessionTitle, stateLine, stateWord, type CodingSession } from "./CodingSession";
 
 const NOW = 10_000_000;
 const build = (id: string, turn: CodingSession["turn"], extra: Partial<CodingSession> = {}): CodingSession =>
@@ -16,7 +16,6 @@ describe("overview", () => {
     expect(view.headline?.id).toBe("a1");
     expect(view.waiting.map((session) => session.id)).toEqual(["a1", "a2"]);
     expect(view.working.map((session) => session.id)).toEqual(["w1"]);
-    expect(view.recent.map((session) => session.id)).toEqual(["f"]);
   });
 
   it("brings up a fresh failure before work going on, and work before a turn that just ended", () => {
@@ -32,27 +31,63 @@ describe("overview", () => {
     const stale = build("c", "completed", { turnEndedAt: NOW - RESULT_FRESH_MS });
     const view = overview([stale, build("i", "idle"), build("x", "interrupted", { turnEndedAt: NOW - 1000 }), build("u", "unknown")], NOW);
     expect(view.headline).toBeNull();
-    expect(view.recent).toHaveLength(4);
-    expect(overview([], NOW)).toEqual({ waiting: [], working: [], recent: [], closed: [], headline: null });
+    expect(overview([], NOW)).toEqual({ waiting: [], working: [], headline: null });
   });
 
-  it("lists recent sessions the latest first", () => {
-    const view = overview([build("old", "completed", { lastEventAt: NOW - 9000 }), build("new", "idle", { lastEventAt: NOW - 10 })], NOW);
-    expect(view.recent.map((session) => session.id)).toEqual(["new", "old"]);
+  it("still brings up a fresh result of a session that ended", () => {
+    expect(overview([build("gone", "completed", { ended: true, revealable: false, turnEndedAt: NOW - 1000 })], NOW).headline?.id).toBe("gone");
+  });
+});
+
+describe("byProject", () => {
+  const ids = (sessions: CodingSession[]) => sessions.map((session) => session.id);
+
+  it("groups sessions by folder, a folder with one waiting first, then one at work, then the latest", () => {
+    const groups = byProject([
+      build("quiet", "completed", { project: "notes", lastEventAt: NOW - 10 }),
+      build("busy", "working", { project: "robot", lastEventAt: NOW - 9000 }),
+      build("ask", "waiting", { project: "ai-pet", lastEventAt: NOW - 9000 }),
+      build("old", "completed", { project: "docs", lastEventAt: NOW - 50_000 }),
+    ]);
+    expect(groups.map((group) => group.project)).toEqual(["ai-pet", "robot", "notes", "docs"]);
   });
 
-  it("sets apart the sessions that ended, still bringing up a fresh result", () => {
-    const view = overview([
+  it("orders a folder's open sessions by what they need: waiting longest, then working, then the latest", () => {
+    const [group] = byProject([
+      build("done", "completed", { lastEventAt: NOW - 10 }),
+      build("w-old", "working", { lastEventAt: NOW - 9000 }),
+      build("a-new", "waiting", { lastEventAt: NOW - 100 }),
+      build("w-new", "working", { lastEventAt: NOW - 20 }),
+      build("a-old", "waiting", { lastEventAt: NOW - 9000 }),
+      build("idle", "idle", { lastEventAt: NOW - 5 }),
+    ]);
+    expect(ids(group.open)).toEqual(["a-old", "a-new", "w-new", "w-old", "idle", "done"]);
+  });
+
+  it("keeps ended sessions apart, but not one whose terminal is only unknown", () => {
+    const [group] = byProject([
       build("open", "completed"),
       // Still open, only its terminal is unknown (over ssh): not closed.
       build("remote", "completed", { revealable: false, lastEventAt: NOW - 20 }),
-      build("gone", "completed", { ended: true, revealable: false, turnEndedAt: NOW - 1000 }),
-      build("live", "working", { revealable: false }),
-    ], NOW);
-    expect(view.recent.map((session) => session.id)).toEqual(["remote", "open"]);
-    expect(view.closed.map((session) => session.id)).toEqual(["gone"]);
-    expect(view.working.map((session) => session.id)).toEqual(["live"]);
-    expect(overview([build("gone", "completed", { revealable: false, turnEndedAt: NOW - 1000 })], NOW).headline?.id).toBe("gone");
+      build("gone", "completed", { ended: true, revealable: false, lastEventAt: NOW - 3000 }),
+      build("gone-later", "idle", { ended: true, revealable: false, lastEventAt: NOW - 2000 }),
+    ]);
+    expect(ids(group.open)).toEqual(["remote", "open"]);
+    expect(ids(group.closed)).toEqual(["gone-later", "gone"]);
+  });
+
+  it("puts a folder with only ended sessions after one with an open session", () => {
+    const groups = byProject([
+      build("gone", "completed", { project: "robot", ended: true, lastEventAt: NOW - 10 }),
+      build("open", "completed", { project: "ai-pet", lastEventAt: NOW - 9000 }),
+    ]);
+    expect(groups.map((group) => group.project)).toEqual(["ai-pet", "robot"]);
+  });
+
+  it("says a folder's sessions are on different branches only when they are", () => {
+    expect(byProject([build("a", "working", { branch: "main" }), build("b", "idle", { branch: "main" }), build("c", "idle")])[0].branched).toBe(false);
+    expect(byProject([build("a", "working", { branch: "main" }), build("b", "idle", { branch: "feat/x" })])[0].branched).toBe(true);
+    expect(byProject([])).toEqual([]);
   });
 });
 
@@ -61,6 +96,8 @@ describe("what a session says about itself", () => {
     expect(sessionTitle(build("a", "working", { name: "设置页", task: "继续" }))).toBe("设置页");
     expect(sessionTitle(build("a", "working", { task: "重构设置页面" }))).toBe("重构设置页面");
     expect(sessionTitle(build("a", "working"))).toBe("Claude Code 会话");
+    // A turn whose prompt the pet missed is still named by what was asked before it.
+    expect(sessionTitle(build("a", "working", { earlier: [{ turn: "completed", task: "修拖放" }, { turn: "completed" }] }))).toBe("修拖放");
   });
 
   it("tells a finished turn from a finished session, and never calls the task done", () => {

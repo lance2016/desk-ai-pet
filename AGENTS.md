@@ -111,6 +111,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 复制通知的事件名、读复制内容的命令名 | `src/platform/handover.ts`（`pet://copied`、`take_copied`） | `src-tauri/src/handover.rs`（`COPIED_EVENT`）、`lib.rs` 的 `invoke_handler` |
 | 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `COPY_HINT_MS`（`src/components/QuickChat.tsx`），`QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`、`README.md` 里写的「1 分钟」 |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
+| 弹出层关闭按钮的位置 | `tauri.conf.json` 里 `today`、`notes`、`coding` 窗口的 `trafficLightPosition`（x 16、y 26，和标题同一行） | `--title-after-close`（`TodayPanel.css`，标题从红点后面开始）；`.coding-sidebar__title` 按它减去侧栏内边距 |
 | 提醒窗口圆角 | `tauri.conf.json` 里 `today` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |
@@ -183,7 +184,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 时间框不要用 `<input type="time">`：WebKit 的分段时间框要先点中小时或分钟那一段才能打字，用户觉得「只能上下选」。用 `TimeField`（`src/components/TimeField.tsx`），能直接打 `2230`、`22:30`，上下键调光标所在的那一段。
 - dialog 插件（备份要用）会把 `window.confirm` 换成返回 Promise 的异步函数，`if (!window.confirm(...))` 永远不成立，确认框形同虚设。不要用 `window.confirm`/`window.alert`，用 `ConfirmButton`。也不要用 dialog 插件的 message 框做确认：它把第一个按钮当回车键，中文「取消」按钮不响应 Esc。
 - 不同缩放的两块屏幕之间，物理坐标不能直接相减：tao 的 `cursor_position()` 按主屏缩放换算，`outer_position()` 按窗口所在屏换算。先各自除以自己的缩放变成逻辑坐标再算（`click_through.rs` 的 `cursor_in_window`、`lib.rs` 的 `beside`）。
-- 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。提醒、备忘、Claude Code 三个弹出层同一时间只开一个（`show_beside_pet` 先收起另一个）。点外面收起靠监听鼠标按下（`floating_panel::watch_presses`，本应用和别的应用里的点击都算），按在弹出层以外就收起（`hide_popovers_outside`）。不要退回只靠失焦事件：弹出层没拿到过焦点就永远收不到失焦，点别处也关不掉。以前补过一版「一个失焦后扫掉其它没焦点的」，来回切换几个弹出层再开专注时还是会留下一个关不掉。失焦收起仍保留，管 ⌘Tab 这种不点鼠标的切换。
+- 「提醒」「备忘」弹出层是不激活应用的面板（`floating_panel::apply_popover`），打开用 `take_keyboard`，不要改回 `show()` 加 `set_focus()`：激活应用会把全屏应用里的用户切出全屏。提醒、备忘、Claude Code 三个弹出层同一时间只开一个（`show_beside_pet` 先收起另一个）。点外面收起靠监听鼠标按下（`floating_panel::watch_presses`，本应用和别的应用里的点击都算），按在弹出层以外就收起（`hide_popovers_outside`）。不要退回只靠失焦事件：弹出层没拿到过焦点就永远收不到失焦，点别处也关不掉。以前补过一版「一个失焦后扫掉其它没焦点的」，来回切换几个弹出层再开专注时还是会留下一个关不掉。失焦收起仍保留，管 ⌘Tab 这种不点鼠标的切换。弹出层左上角是系统自己的红色关闭按钮（`tauri.conf.json` 里 `titleBarStyle: "Overlay"`），点了只隐藏（`lib.rs` 拦下 `CloseRequested`），和 Esc、点外面一样。黄绿两个按钮在 `apply_popover` 里隐藏，配置里也关了 `minimizable`、`maximizable`：应用平时是 `Accessory`，没有 Dock 图标，最小化后找不回来。不要自己画关闭按钮：试过右上角的 ×，那是 Windows 和网页的习惯。弹出层不在前台时红点是灰的，这是系统的样子。
 - 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才提前执行，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。

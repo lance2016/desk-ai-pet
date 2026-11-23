@@ -24,6 +24,8 @@
   --radius-window: 12px;
   --radius-row: 8px;
   --radius-control: 6px;
+  /* Where a title starts so it clears the system close button: its x (16), its width (14), a gap (10). */
+  --title-after-close: 40px;
 
   position: relative;
   height: 100%;
@@ -65,7 +67,11 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 .today-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Header: the list name, how many are left on the right in the accent colour, as in Reminders. */
-.today-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 16px 10px; }
+/*
+ * The system close button sits on the title's line at the top left (`trafficLightPosition`
+ * in tauri.conf.json, x 16): the title starts after it.
+ */
+.today-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 16px 10px var(--title-after-close); }
 .today-header h1 { margin: 0; color: var(--label); font-size: 20px; font-weight: 600; line-height: 1.2; }
 .today-header p { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; color: var(--label-2); font-size: 11px; }
 .today-count { color: var(--accent); font-size: 20px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }

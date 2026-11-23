@@ -213,6 +213,43 @@ describe("ClaudeSessions", () => {
     sessions.report(report("PreToolUse", { tool: "Read", at: 5001 }), 5002);
     expect(sessions.report(report("UserPromptSubmit", { at: 5000, task: "修设置页" }), 5003)).toBeNull();
     expect(only(sessions)).toMatchObject({ turn: "working", task: "修设置页", turnStartedAt: 5000 });
+    expect(only(sessions).earlier).toEqual([{ turn: "completed", task: "重构设置页面", startedAt: 1000, endedAt: 2000 }]);
+  });
+
+  it("keeps the turns before this one, each with what was asked and how it came out", () => {
+    const sessions = working(1000);
+    sessions.report(report("Stop", { summary: "设置页改好了" }), 61_000);
+    sessions.report(report("UserPromptSubmit", { task: "再把深色模式补上" }), 70_000);
+    expect(only(sessions).earlier).toEqual([{ turn: "completed", task: "重构设置页面", result: "设置页改好了", startedAt: 1000, endedAt: 61_000 }]);
+    // Asked again before the turn ended: put away as it stood.
+    sessions.report(report("UserPromptSubmit", { task: "先别改样式" }), 80_000);
+    expect(only(sessions).earlier?.[1]).toEqual({ turn: "working", task: "再把深色模式补上", startedAt: 70_000 });
+    expect(only(sessions)).toMatchObject({ task: "先别改样式", turnStartedAt: 80_000 });
+  });
+
+  it("starts a turn the pet missed the prompt of without the last turn's prompt", () => {
+    const sessions = working(1000);
+    sessions.report(report("StopFailure", { error: "rate_limit" }), 2000);
+    sessions.report(report("PreToolUse", { tool: "Read" }), 9000);
+    expect(only(sessions)).toMatchObject({ turn: "working", turnStartedAt: 9000 });
+    expect(only(sessions)).not.toHaveProperty("task");
+    expect(only(sessions).earlier).toEqual([{ turn: "failed", task: "重构设置页面", result: "额度用完了", startedAt: 1000, endedAt: 2000 }]);
+    // Asked out of the blue after a turn ended: that turn is put away too.
+    sessions.report(report("Stop"), 10_000);
+    sessions.report(report("PermissionRequest", { tool: "Bash" }), 20_000);
+    expect(only(sessions)).toMatchObject({ turn: "waiting", turnStartedAt: 20_000 });
+    expect(only(sessions).earlier).toHaveLength(2);
+  });
+
+  it("keeps the last few turns only, and a prompt delivered twice as one turn", () => {
+    const sessions = new ClaudeSessions();
+    for (let index = 0; index < 7; index += 1) {
+      sessions.report(report("UserPromptSubmit", { task: `第 ${index} 句` }), index * 1000);
+      sessions.report(report("UserPromptSubmit", { task: `第 ${index} 句` }), index * 1000);
+      sessions.report(report("Stop"), index * 1000 + 500);
+    }
+    expect(only(sessions).earlier?.map((turn) => turn.task)).toEqual(["第 2 句", "第 3 句", "第 4 句", "第 5 句"]);
+    expect(only(sessions).task).toBe("第 6 句");
   });
 
   it("calls a turn off when the transcript says the user interrupted it, unless something happened since", () => {
@@ -261,6 +298,20 @@ describe("ClaudeSessions", () => {
     sessions.report(report("PreToolUse", { session: "s-0", tool: "Read" }), 4000 + CLAUDE_CONFIG.recentMs);
     sessions.expire(4000 + CLAUDE_CONFIG.recentMs);
     expect(sessions.list().map((session) => session.id)).toEqual(["s-0"]);
+  });
+
+  it("counts the recent sessions kept folder by folder", () => {
+    const sessions = new ClaudeSessions();
+    for (let index = 0; index < CLAUDE_CONFIG.recentKept; index += 1) {
+      sessions.report(report("UserPromptSubmit", { session: `old-${index}`, project: "robot" }), 1000 + index);
+      sessions.report(report("Stop", { session: `old-${index}`, project: "robot" }), 2000 + index);
+    }
+    for (let index = 0; index < CLAUDE_CONFIG.recentKept; index += 1) {
+      sessions.report(report("UserPromptSubmit", { session: `new-${index}` }), 3000 + index);
+      sessions.report(report("Stop", { session: `new-${index}` }), 4000 + index);
+    }
+    sessions.expire(5000);
+    expect(sessions.list()).toHaveLength(2 * CLAUDE_CONFIG.recentKept);
   });
 
   it("picks up where the last run left off", () => {

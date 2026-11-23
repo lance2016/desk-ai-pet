@@ -10,7 +10,7 @@ use block2::RcBlock;
 use objc2::{ClassType, MainThreadOnly, define_class, ffi, runtime::AnyObject};
 use objc2_app_kit::{
     NSEvent, NSEventMask, NSNormalWindowLevel, NSPanel, NSResponder, NSStatusWindowLevel, NSWindow,
-    NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSWindowButton, NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use tauri::WebviewWindow;
 
@@ -42,16 +42,29 @@ pub fn apply(window: &WebviewWindow) -> tauri::Result<()> {
     set_on_top(window, true)
 }
 
-/// Turns a popover (reminders, notes) into a panel that opens on the space
+/// Turns a popover (reminders, notes, coding) into a panel that opens on the space
 /// the user is in, full-screen ones included, without activating the app: an
 /// ordinary window would pull the user out of a full-screen app. It sits at
 /// the pet's level so it opens above it. Show it with `take_keyboard`.
+/// Of the window buttons only the close button stays: the app has no Dock icon,
+/// so a minimized popover could not be found again, and one beside the pet is
+/// never zoomed. Closing only hides it (see `CloseRequested` in lib.rs).
 /// Must be called on the main thread, before the window is first shown.
 pub fn apply_popover(window: &WebviewWindow) -> tauri::Result<()> {
     make_panel(
         window,
         NSWindowCollectionBehavior::MoveToActiveSpace | NSWindowCollectionBehavior::FullScreenAuxiliary,
     )?;
+    let ns_window = window.ns_window()?.cast::<NSWindow>();
+    // SAFETY: Tauri hands out a valid NSWindow pointer that outlives this call, on the main thread.
+    unsafe {
+        let panel = &*ns_window;
+        for kind in [NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton] {
+            if let Some(button) = panel.standardWindowButton(kind) {
+                button.setHidden(true);
+            }
+        }
+    }
     set_on_top(window, true)
 }
 

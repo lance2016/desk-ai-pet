@@ -1,7 +1,7 @@
 import { ACTIVITY_LIMITS } from "../activity/Activity";
 import type { TurnOver } from "../platform/agents";
 import type { ActivityUpdate, AgentReport } from "../types";
-import { SESSION_LIMITS, isLive, type CodingSession } from "./CodingSession";
+import { SESSION_LIMITS, isLive, type CodingSession, type PastTurn } from "./CodingSession";
 
 export const CLAUDE_CONFIG = {
   /** A turn shorter than this ends quietly: the user most likely watched it. */
@@ -10,9 +10,9 @@ export const CLAUDE_CONFIG = {
   staleRunningMs: 30 * 60_000,
   /** A question can wait while the user is away; a session killed with its terminal sends nothing, so it is let go in the end. */
   staleWaitingMs: 3 * 60 * 60_000,
-  /** Sessions no longer working or waiting stay listed this long, and at most this many. */
+  /** Sessions no longer working or waiting stay listed this long, and at most this many in each folder, so one busy folder does not push out another's. */
   recentMs: 24 * 60 * 60_000,
-  recentKept: 8,
+  recentKept: 5,
 };
 
 /** Each session's activity id is this followed by its session id. */
@@ -220,8 +220,10 @@ export class ClaudeSessions {
       this.sessions.set(known.id, { ...this.settled(known), turn: "unknown" });
       return [this.update(known, "cancelled")];
     });
-    const recent = this.list().filter((session) => !isLive(session));
-    for (const [index, session] of recent.entries()) {
+    const counted = new Map<string, number>();
+    for (const session of this.list().filter((known) => !isLive(known))) {
+      const index = counted.get(session.project) ?? 0;
+      counted.set(session.project, index + 1);
       if (index < CLAUDE_CONFIG.recentKept && now - session.lastEventAt <= CLAUDE_CONFIG.recentMs) continue;
       this.sessions.delete(session.id);
       this.named.delete(session.id);
@@ -259,14 +261,28 @@ export class ClaudeSessions {
     return rest;
   }
 
+  /** `known` with its last turn put away among the earlier ones and nothing of it left, so a new turn can start. */
+  private putAway(known: CodingSession): CodingSession {
+    const { task, result, turnStartedAt, turnEndedAt, earlier = [], ...rest } = this.settled(known);
+    if (task === undefined && turnStartedAt === undefined) return rest;
+    const past: PastTurn = {
+      turn: known.turn,
+      ...(task !== undefined ? { task } : {}),
+      ...(result !== undefined ? { result } : {}),
+      ...(turnStartedAt !== undefined ? { startedAt: turnStartedAt } : {}),
+      ...(turnEndedAt !== undefined ? { endedAt: turnEndedAt } : {}),
+    };
+    return { ...rest, earlier: [...earlier, past].slice(-SESSION_LIMITS.earlier) };
+  }
+
   /** It is at work. `prompted`: the user just asked, so a new turn starts; otherwise one starts only if none was going. */
   private work(report: AgentReport, known: CodingSession | undefined, at: number, prompted: boolean): ActivityUpdate | null {
     const base = known ?? this.fresh(report, at, "idle");
-    const starting = prompted || !isLive(base);
+    // The same prompt twice (hooks can be delivered twice) is still the one turn.
+    const starting = (prompted && base.turnStartedAt !== at) || !isLive(base);
     const wasWorking = base.turn === "working";
-    const { result: _result, turnEndedAt: _turnEndedAt, ...carried } = this.settled(base);
     const session: CodingSession = starting
-      ? { ...carried, turn: "working", turnStartedAt: at, ...(report.task ? { task: fit(report.task, SESSION_LIMITS.name) } : {}) }
+      ? { ...this.putAway(base), turn: "working", turnStartedAt: at, ...(report.task ? { task: fit(report.task, SESSION_LIMITS.name) } : {}) }
       : { ...this.settled(base), turn: "working", ...(base.activity ? { activity: base.activity } : {}) };
     this.sessions.set(session.id, session);
     return wasWorking && !prompted ? null : this.update(session, "running");
@@ -274,11 +290,11 @@ export class ClaudeSessions {
 
   private ask(report: AgentReport, known: CodingSession | undefined, at: number, tool: string | undefined): ActivityUpdate {
     const base = known ?? this.fresh(report, at, "idle");
-    const { waitingFor: _waitingFor, ...carried } = base;
+    // Asked out of the blue (the pet missed the start): a new turn is counted from here.
+    const current = isLive(base) ? base : { ...this.putAway(base), turnStartedAt: at };
+    const { waitingFor: _waitingFor, ...carried } = current;
     const session: CodingSession = {
       ...carried,
-      // Asked out of the blue (the pet missed the start): the turn is counted from here.
-      ...(isLive(base) ? {} : { turnStartedAt: at, turnEndedAt: undefined, result: undefined }),
       turn: "waiting",
       asking: fit(describeAsk(tool, report.detail), SESSION_LIMITS.line),
       ...(tool ? { waitingFor: tool } : {}),
