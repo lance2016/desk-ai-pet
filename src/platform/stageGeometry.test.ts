@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampWindowX, clampWindowY, dockSideAt, monitorUnderPet, offscreenInsets, snappedWindowX, STAGE_MARGIN, stageSize, verticalInsets } from "./stageGeometry";
+import { clampWindowX, clampWindowY, dockSideAt, monitorUnderPet, offscreenInsets, snappedWindowX, SPEECH_SIDE_OVERHANG, speechSide, STAGE_MARGIN, stageSize, verticalInsets } from "./stageGeometry";
 
 const MONITOR = { left: 0, right: 1000 };
 const SIDE = STAGE_MARGIN.side;
@@ -81,5 +81,26 @@ describe("stage geometry", () => {
       expect(monitorUnderPet({ x: 1500, y: -900, width: WIDTH, height: HEIGHT }, [LAPTOP, EXTERNAL])).toBe(EXTERNAL);
       expect(monitorUnderPet({ x: 0, y: 0, width: WIDTH, height: HEIGHT }, [])).toBeNull();
     });
+  });
+});
+
+describe("speechSide", () => {
+  const head = { left: 44, right: 56 };
+  const onScreen = { left: 0, right: 0, top: 0, bottom: 0 };
+
+  it("keeps the bubble above the head while there is room up there", () => {
+    expect(speechSide(onScreen, head, false)).toBeNull();
+    expect(speechSide({ ...onScreen, top: SPEECH_SIDE_OVERHANG }, head, false)).toBeNull();
+  });
+
+  it("moves it beside the head under the menu bar, to the side with more room", () => {
+    const underMenuBar = { ...onScreen, top: STAGE_MARGIN.top };
+    expect(speechSide(underMenuBar, head, false)).toBe("right");
+    expect(speechSide({ ...underMenuBar, right: 40 }, head, false)).toBe("left");
+    expect(speechSide({ ...underMenuBar, left: 40 }, { left: 56, right: 44 }, false)).toBe("right");
+  });
+
+  it("leaves a pet peeking from an edge alone", () => {
+    expect(speechSide({ ...onScreen, top: STAGE_MARGIN.top }, head, true)).toBeNull();
   });
 });

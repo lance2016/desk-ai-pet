@@ -505,8 +505,10 @@ struct Area {
     height: f64,
 }
 
-/// Room between the pet and a window opened beside it.
-const BESIDE_GAP: f64 = 12.0;
+/// The transparent room on each side of the pet in its window; `STAGE_MARGIN.side` in `src/platform/stageGeometry.ts`.
+const STAGE_SIDE: f64 = 120.0;
+/// Room between the pet's own area (its window without `STAGE_SIDE`) and a window opened beside it.
+const BESIDE_GAP: f64 = 84.0;
 
 /// Where to put a window of `size` beside the pet: on the right if there is
 /// room, else on the left, kept inside the usable area (`work`, without the
@@ -575,7 +577,7 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
         ) {
             let origin = position.to_logical::<f64>(pet_scale);
             let extent = pet_size.to_logical::<f64>(pet_scale);
-            let pet_area = Area { x: origin.x, y: origin.y, width: extent.width, height: extent.height };
+            let pet_area = Area { x: origin.x + STAGE_SIDE, y: origin.y, width: extent.width - 2.0 * STAGE_SIDE, height: extent.height };
             let own = size.to_logical::<f64>(scale);
             if let Some(work) = work_area_under(app, pet_area) {
                 let (x, y) = beside(pet_area, (own.width, own.height), work);

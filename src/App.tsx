@@ -39,7 +39,7 @@ import { petWindow } from "./platform/petWindow";
 import { mailCodePlatform } from "./platform/mailCode";
 import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivity";
 import { followClaude, revealClaude } from "./agents/followClaude";
-import { STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
+import { speechSide, STAGE_MARGIN, stageSize, type OffscreenInsets } from "./platform/stageGeometry";
 import { PixiRenderer } from "./renderer/PixiRenderer";
 import { loadDisplayPreferences, loadOnTop, saveOnTop, subscribeDisplayPreferences } from "./preferences/DisplayPreferences";
 import { isQuietAt, loadQuietPreferences, saveQuietPreferences } from "./preferences/QuietPreferences";
@@ -708,6 +708,8 @@ export default function App({ packId }: AppProps) {
     petWindow.showMenu().catch((error) => console.error("Failed to open the pet menu", error));
   };
 
+  // Under the menu bar there is no room above the head: the bubble speaks from beside it.
+  const speakingFrom = speechSide(insets, head, Boolean(dockSide));
   // Overlays stay inside the part of the window that is on screen.
   const layout = {
     "--stage-side": `${STAGE_MARGIN.side}px`,
@@ -723,7 +725,7 @@ export default function App({ packId }: AppProps) {
   } as CSSProperties;
 
   return (
-    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${focusActive ? " app--focus" : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
+    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${speakingFrom ? ` app--speech-${speakingFrom}` : ""}${focusActive ? " app--focus" : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
         {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />

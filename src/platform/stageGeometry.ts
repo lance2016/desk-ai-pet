@@ -2,11 +2,11 @@ import type { DockSide } from "../types";
 
 /**
  * Transparent room around the pet inside its window, in CSS pixels: the sides
- * keep the chat button and wide bubbles inside, the top holds a speech bubble,
+ * keep the chat button and wide bubbles inside and, under the menu bar, the speech bubble beside the head; the top holds a speech bubble,
  * the bottom the bar of quick buttons or the quick chat bar, with the status row and the coding card under the bar.
  * Multiples of the hit-mask cell, so the drawn mask lines up with its cells.
  */
-export const STAGE_MARGIN = { side: 72, top: 76, bottom: 132 } as const;
+export const STAGE_MARGIN = { side: 120, top: 76, bottom: 132 } as const;
 
 /** Horizontal extent of a monitor, in logical screen pixels. */
 export interface MonitorSpan {
@@ -117,4 +117,28 @@ export function verticalInsets(y: number, windowHeight: number, usable: MonitorR
     top: Math.max(0, usable.top - y),
     bottom: Math.max(0, y + windowHeight - usable.bottom),
   };
+}
+
+/**
+ * How much of the room above the pet may hang under the menu bar before a bubble up there
+ * would sit on the pet's face. Past it the bubble speaks from beside the head instead.
+ */
+export const SPEECH_SIDE_OVERHANG = 16;
+
+/** Room between the head and the edges of the pet's area (see `headInsets`). */
+export interface HeadInsets {
+  left: number;
+  right: number;
+}
+
+/**
+ * Where the speech bubble goes: above the head (null) while there is room for it there, otherwise
+ * beside the head, on the side with more of the window on screen, the right one when even.
+ * A pet peeking from a screen edge keeps the bubble it has.
+ */
+export function speechSide(insets: OffscreenInsets, head: HeadInsets, docked: boolean): DockSide | null {
+  if (docked || insets.top <= SPEECH_SIDE_OVERHANG) return null;
+  const left = STAGE_MARGIN.side + head.left - insets.left;
+  const right = STAGE_MARGIN.side + head.right - insets.right;
+  return right >= left ? "right" : "left";
 }

@@ -130,6 +130,35 @@ body {
 .app--docked-left .speech-bubble::after { left: 28px; }
 .app--docked-right .speech-bubble::after { left: auto; right: 18px; }
 
+/*
+ * Under the menu bar the room above the head is off screen, and a bubble moved down would sit on the
+ * face. Like a popover that opens toward the edge with room, it then speaks from beside the head
+ * (speechSide in stageGeometry.ts): level with the top of the head, its tail pointing at the face.
+ */
+.app--speech-left .speech-area, .app--speech-right .speech-area {
+  top: max(var(--visible-top, 0px), calc(var(--stage-top) + var(--head-top) - 4px));
+  height: auto;
+  align-items: flex-start;
+}
+.app--speech-right .speech-area { left: calc(100% - var(--stage-side) - var(--head-right) + 8px); right: calc(var(--visible-right) + 8px); justify-content: flex-start; }
+.app--speech-left .speech-area { left: calc(var(--visible-left) + 8px); right: calc(100% - var(--stage-side) - var(--head-left) + 8px); justify-content: flex-end; }
+/* The area already keeps clear of the window edge, so the bubble may take all of it. */
+:is(.app--speech-left, .app--speech-right) .speech-bubble { max-width: 100%; }
+.app--speech-right .speech-bubble { transform-origin: 0 20px; }
+.app--speech-left .speech-bubble { transform-origin: 100% 20px; }
+/* The same tail turned to the side: the corner that pointed down points at the head. */
+.app--speech-left .speech-bubble::after, .app--speech-right .speech-bubble::after { top: 14px; bottom: auto; }
+.app--speech-right .speech-bubble::after { left: -6px; right: auto; transform: rotate(135deg); }
+.app--speech-left .speech-bubble::after { left: auto; right: -6px; transform: rotate(-45deg); }
+/* Beside the head a bubble is narrow: the answer buttons share the width and wrap under the text. */
+:is(.app--speech-left, .app--speech-right) .speech-bubble__choices { flex-wrap: wrap; }
+:is(.app--speech-left, .app--speech-right) .speech-bubble__choices button { flex: 1; min-width: 0; white-space: nowrap; }
+:is(.app--speech-left, .app--speech-right) .speech-bubble__choices .speech-bubble__heading { flex-basis: 100%; padding-right: 0; }
+/* There is height to spare beside the pet, so a narrower bubble keeps more lines. */
+:is(.app--speech-left, .app--speech-right) .speech-bubble--remind .speech-bubble__alert-text { -webkit-line-clamp: 3; }
+:is(.app--speech-left, .app--speech-right) .speech-bubble__text { -webkit-line-clamp: 6; }
+:is(.app--speech-left, .app--speech-right) .speech-bubble--reply.has-extra .speech-bubble__text { -webkit-line-clamp: 4; }
+
 .speech-bubble {
   position: relative;
   max-width: min(240px, calc(100% - 16px));

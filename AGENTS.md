@@ -79,7 +79,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 
 | 内容 | 位置一 | 位置二 |
 |---|---|---|
-| 舞台留白 | `STAGE_MARGIN`（`src/platform/stageGeometry.ts`，须为命中格 4 像素的整数倍） | `.pet-frame`、`.speech-area`、`.dock-area` 读取的 `--stage-*` 变量（`src/App.css`） |
+| 舞台留白 | `STAGE_MARGIN`（`src/platform/stageGeometry.ts`，须为命中格 4 像素的整数倍；两侧要放得下菜单栏下面头旁边的气泡） | `.pet-frame`、`.speech-area`、`.dock-area` 读取的 `--stage-*` 变量（`src/App.css`）；`STAGE_SIDE`（`src-tauri/src/lib.rs`，提醒、备忘、聊天窗口按宠物本身、不按窗口边摆，离宠物 `BESIDE_GAP`） |
 | 窗口初始大小 | `tauri.conf.json` 的 `width`、`height` | 清单的 `canvas` × `scale`，宽度加两侧 `STAGE_MARGIN.side`，高度加 `top` 和 `bottom` |
 | 原生事件名和命令名 | `src/platform/petWindow.ts` | `src-tauri/src/lib.rs`、`click_through.rs`、`quick_chat.rs` |
 | 确认框命令、新聊天菜单事件 | `src/platform/dialog.ts` 的 `confirm_action`、`src/platform/chat.ts` 的 `pet://chat-new` | `src-tauri/src/alert.rs`、`lib.rs` 的 `NEW_CHAT_EVENT` 和 `invoke_handler` |
