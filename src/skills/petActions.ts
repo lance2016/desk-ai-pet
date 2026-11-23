@@ -13,6 +13,7 @@ function chosenAction(args: Record<string, unknown>, context: ChatContext): stri
 
 const playAction: Tool = {
   name: PLAY_ACTION_TOOL,
+  label: "当场做一个动作",
   description: "执行用户明确要求立即做的桌面宠物动作。明确要求时必须调用，并从 action 枚举选真实且语义匹配的 ID。普通聊天、问候、问答、情绪表达、角色扮演、询问动作能力、讨论动作或设计，以及因时间、性格、回复情绪产生的联想，都不调用。没有匹配项时直接说明，不编造 ID，不用别的动作冒充。睡觉、专注等持续状态由行为引擎管理，本工具只请求短时动作。",
   parameters: (context) => ({ type: "object", properties: { action: { type: "string", enum: context.actions } }, required: ["action"] }),
   // The pet moves while the reply is still being written.
@@ -38,6 +39,7 @@ const playAction: Tool = {
 export const petActionSkill: Skill = {
   id: "actions",
   title: "做动作",
+  summary: "你说「敲个木鱼」时，边回话边做这个动作",
   available: (context) => context.actions.length > 0,
   rules(context) {
     const examples = EXAMPLES.filter(([id]) => context.actions.includes(id)).map(([id, request]) => `「${request}」→ ${id}`);

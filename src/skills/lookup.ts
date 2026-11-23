@@ -41,9 +41,10 @@ export function todayReport(today: readonly string[]): string {
 
 interface Listed { ids: string[]; texts: string[] }
 
-function listTool(name: string, description: string, kind: ItemKind, title: string, empty: string, read: () => Listed): Tool {
+function listTool(name: string, label: string, description: string, kind: ItemKind, title: string, empty: string, read: () => Listed): Tool {
   return {
     name,
+    label,
     description,
     parameters: () => ({ type: "object", properties: { synthesize: SYNTHESIZE } }),
     run(args, call: ToolCall): ToolOutcome {
@@ -55,19 +56,20 @@ function listTool(name: string, description: string, kind: ItemKind, title: stri
   };
 }
 
-const listReminders = listTool(LIST_REMINDERS_TOOL, "查看用户的全部提醒：还没处理的按时间排序，以及做完的。用户问今天、明天有什么事，某件事几点，提醒过没有，或要修改、删除提醒时使用。", "reminder", "你的提醒", "你现在没有提醒。", () => {
+const listReminders = listTool(LIST_REMINDERS_TOOL, "查看提醒", "查看用户的全部提醒：还没处理的按时间排序，以及做完的。用户问今天、明天有什么事，某件事几点，提醒过没有，或要修改、删除提醒时使用。", "reminder", "你的提醒", "你现在没有提醒。", () => {
   const now = Date.now();
   const items = sortAgenda(loadSavedItems().agenda, now);
   return { ids: items.map((item) => item.id), texts: reminderLines(items, now) };
 });
 
-const listNotes = listTool(LIST_NOTES_TOOL, "查看用户存的全部备忘。用户问起以前记下的东西，或要修改、删除备忘时使用，例：“WiFi 密码是多少”“我记过哪些要买的”。", "note", "你的备忘", "你现在没有备忘。", () => {
+const listNotes = listTool(LIST_NOTES_TOOL, "查看备忘", "查看用户存的全部备忘。用户问起以前记下的东西，或要修改、删除备忘时使用，例：“WiFi 密码是多少”“我记过哪些要买的”。", "note", "你的备忘", "你现在没有备忘。", () => {
   const notes = sortNotes(loadSavedItems().notes);
   return { ids: notes.map((note) => note.id), texts: notes.map((note) => note.text) };
 });
 
 const reviewToday: Tool = {
   name: REVIEW_TODAY_TOOL,
+  label: "写今日回顾",
   description: "查看用户今天的记录：今天完成了哪些提醒、今天还有哪些提醒没处理、专注了几轮、今天记了哪些备忘。用户要写日报、回顾今天做了什么时使用。",
   parameters: () => ({ type: "object", properties: { synthesize: SYNTHESIZE } }),
   async run(args) {
@@ -85,6 +87,7 @@ const reviewToday: Tool = {
 export const lookupSkill: Skill = {
   id: "lookup",
   title: "查看和写日报",
+  summary: "查你的提醒和备忘，帮你写今天的日报",
   rules: () => `明确查询已有提醒或备忘时调用 ${LIST_REMINDERS_TOOL} 或 ${LIST_NOTES_TOOL}，不要用聊天历史代替实际记录。要求写日报或回顾今天时调用 ${REVIEW_TODAY_TOOL}。直接查看清单或基础日报时由应用展示结果，无需先说“我查一下”。查询特定事项、日期范围、需要复杂归纳，或要修改、删除某条时设 synthesize=true；归纳只用实际记录和用户说过的事实，日报以“- ”分条，未完成的提醒可列为待跟进，资料不足时请用户补充。`,
   tools: [listReminders, listNotes, reviewToday],
 };

@@ -36,7 +36,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 8. **状态不可变。** `PetState` 的快照每次更新都生成新对象。
 9. **Dock 按钮默认值来自资源包和内置列表。** 角色按钮的默认标签、顺序和图标在 `manifest.json.controls` 中配置；提醒、备忘、Claude Code、设置是 `APP_CONTROLS`（`DockPreferences.ts`）里的内置按钮，Claude Code 和设置默认不显示（`OFF_BY_DEFAULT`）。聊天不进快捷按钮，用宠物旁边的聊天按钮（`ChatLauncher`）。设置页的改动用 Zod 校验后存本机，命令只能映射到已注册的内部事件，不能由用户配置修改。
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
-11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。原生的 `llm.rs` 只管本机加密 API Key、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
+11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。新能力要写给用户看的 `summary` 和每个工具的 `label`（「设置 › 能力」直接显示，不在设置组件里另起名字），在 `ICONS`（`SkillSettings.tsx`）里给它一个图标；用户能在设置里关掉每一项，能力之间有依赖（规则里让模型先用别的能力的工具）就写 `requires`。是不是提供一项能力只看 `offeredSkills`，不要在别处另判断开关。原生的 `llm.rs` 只管本机加密 API Key、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 
 12. **在宠物之外进行的事用「活动」上报。** 等验证码、以后的编码 Agent 这类事，只往总线发 `pet.activity`（`ActivityUpdate`，五个状态：`running`、`waiting`、`done`、`failed`、`cancelled`），徽标、常驻气泡和宠物的反应由 `BehaviorEngine` 统一决定。不要为一件新的事在 `BehaviorEngine` 里另加一套徽标和气泡的字段，也不要在组件里直接调平台接口去取消：点徽标只发 `pet.activity_chip_clicked`，由上报方自己处理；常驻气泡上要一个「去那里」的按钮，就在活动里带 `opens`，点了发 `pet.activity_opened`，同样由上报方处理。来自宠物窗口之外的上报先过 `activityUpdateSchema`。新的气泡图标要同时加进 `ALERT_ICONS`（`src/types.ts`）和 `PetSpeech.tsx` 里的同名图标表。
 

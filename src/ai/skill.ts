@@ -38,6 +38,8 @@ export interface ToolCall {
 
 export interface Tool {
   name: string;
+  /** What it does, in the user's words, for the settings window. `description` is written for the model. */
+  label: string;
   description: string;
   /** JSON Schema of the arguments. */
   parameters(context: ChatContext): object;
@@ -53,13 +55,20 @@ export interface Tool {
 export interface Skill {
   id: ChatRuleId;
   title: string;
+  /** One line in the user's words for the settings window; `rules` is written for the model. */
+  summary: string;
+  /** Other skills whose tools this one's rules tell the model to use; it is off while any of them is. */
+  requires?: readonly ChatRuleId[];
   rules(context: ChatContext): string;
   /** Offered only when this says so, e.g. pet actions only when the character has some. */
   available?(context: ChatContext): boolean;
   tools: readonly Tool[];
 }
 
-export const offeredSkills = (skills: readonly Skill[], context: ChatContext): Skill[] => skills.filter((skill) => skill.available?.(context) ?? true);
+const turnedOff = (id: ChatRuleId, context: ChatContext): boolean => context.skillsOff?.includes(id) ?? false;
+/** Whether the user leaves this skill on: it is not turned off in settings, and neither is any skill it needs. */
+export const skillOn = (skill: Skill, context: ChatContext): boolean => !turnedOff(skill.id, context) && (skill.requires ?? []).every((id) => !turnedOff(id, context));
+export const offeredSkills = (skills: readonly Skill[], context: ChatContext): Skill[] => skills.filter((skill) => skillOn(skill, context) && (skill.available?.(context) ?? true));
 
 /** The tools in the OpenAI request format. */
 export function toolDefinitions(skills: readonly Skill[], context: ChatContext): object[] {

@@ -1,3 +1,4 @@
+import type { ChatRuleId } from "../preferences/ChatRules";
 import type { EffectLine } from "./skill";
 
 /**
@@ -7,8 +8,8 @@ import type { EffectLine } from "./skill";
 export interface ChatFacts { mine: string[]; learned: { ref: string; id: string; text: string }[]; learning: boolean }
 
 /** The local time, the pet actions the model may pick and what it knows about the user; see `chatContext`. */
-/** `opening`: what the pet said by itself to start this chat, when it did. */
-export interface ChatContext { now: string; timestamp: string; timeZone: string; actions: string[]; facts: ChatFacts; opening?: string }
+/** `opening`: what the pet said by itself to start this chat, when it did. `skillsOff`: skills the user turned off in settings. */
+export interface ChatContext { now: string; timestamp: string; timeZone: string; actions: string[]; facts: ChatFacts; opening?: string; skillsOff?: readonly ChatRuleId[] }
 
 /** One part of the system prompt. A part with a `default` is one the user can rewrite (`ChatRules`). */
 export interface PromptSection { id: string; title: string; text: string; default: string | null }

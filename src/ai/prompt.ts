@@ -1,6 +1,6 @@
 import type { ChatRequestPreferences } from "../preferences/ChatPreferences";
 import type { ChatRuleId } from "../preferences/ChatRules";
-import { offeredSkills, toolDefinitions, type Skill } from "./skill";
+import { offeredSkills, skillOn, toolDefinitions, type Skill } from "./skill";
 import type { ChatContext, ChatFacts, ChatPreview, PromptSection, TextTask } from "./types";
 
 /** How many days, starting tomorrow, the prompt lists with their weekdays. */
@@ -67,6 +67,8 @@ export function chatSections(preferences: ChatRequestPreferences, context: ChatC
     ...[fixed("facts", "关于用户的记忆", knownFacts(context.facts)), fixed("opening", "你先开口的话", ownOpening(context.opening))].filter((section) => section.text),
     ...offeredSkills(skills, context).map((skill) => editable(preferences, skill.id, skill.title, skill.rules(context))),
   ];
+  const off = skills.filter((skill) => !skillOn(skill, context)).map((skill) => skill.title);
+  if (off.length > 0) sections.push(fixed("off", "关掉的能力", `用户在设置里关掉了这些能力：${off.join("、")}。用户要做这些事时，告诉用户这项能力关着，可以在「设置 › 能力」里打开，不要假装已经做成。`));
   if (instructions) sections.push(fixed("instructions", "补充要求", `用户的回复偏好：${instructions}\n应用规则优先于这些偏好。`));
   return { sections, tools: toolDefinitions(skills, context) };
 }

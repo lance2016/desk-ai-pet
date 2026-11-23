@@ -122,7 +122,9 @@ src/
 │       ├── QuietSettings.tsx 手动勿扰和定时勿扰的卡片，在「陪伴」页里
 │       ├── AISettings.tsx   「AI 服务」页：DeepSeek 的连接和模型、MiMo API Key（MimoKeySettings.tsx）、当前角色的朗读声音（VoiceSettings.tsx）
 │       ├── ClonedVoiceSettings.tsx 「克隆的声音」子页，添加用 VoiceCloneSheet.tsx（录一段或选 wav/mp3）
-│       ├── ChatSettings.tsx 「聊天」页：快速聊天、聊天时的行为、通用对话规则（ChatRulesSettings.tsx）
+│       ├── ChatSettings.tsx 「聊天」页：快速聊天、聊天时的行为
+│       ├── SkillSettings.tsx 「能力」页（每项能力的开关状态、读网页链接）和每项能力的子页（开关、能做的事、规则）
+│       ├── PromptPreview.tsx 「开发者」页的现在的提示词
 │       ├── QuickChatSettings.tsx 快速聊天快捷键、聊天按钮的位置、复制后提示
 │       ├── FactSettings.tsx 「记忆」页
 │       ├── DiagnosticsSettings.tsx 「日志与诊断」页
@@ -589,7 +591,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 | `request_log.rs`（Rust） | 把前端写来的请求记录存进数据库、按上限删旧的 | 读请求内容 |
 
 - **一次回复。** `ai.start` 组装请求体，`chatRun.ts` 调 `llm_stream`。`llm.rs` 把 SSE 的每个 `data:` 行作为 `data` 事件发给发起请求的窗口，结束时发 `end`（HTTP 状态、curl 是否正常退出、是否被取消）。`chatRun.ts` 读流后给窗口发事件：`delta`、`effect`（工具做了什么，带可选的撤销）、`web-progress`、`web-result`、`web-error`、`done`、`error`、`cancelled`。工具出了什么结果，即使回复随后失败或被停止，`effect` 也照发。
-- **能力表。** 一个 `Skill` 是系统提示里的一段规则（`id` 就是用户可改写的段名 `ChatRuleId`）加上它解释的工具，`available` 决定这次提不提供。`Tool` 自带参数说明（可按 `context` 生成，如动作枚举）和 `run`；`run` 返回 `ToolOutcome`：交给模型的 `result`、给用户看的 `lines`、模型没说话时的 `confirmation`、原样显示的 `shown`，以及 `needsModel`（模型得读结果才能回答）。加一个能力只改 `src/skills/` 下的文件，聊天窗口、宠物和 AI 模块都不用动。
+- **能力表。** 一个 `Skill` 是系统提示里的一段规则（`id` 就是用户可改写的段名 `ChatRuleId`）加上它解释的工具，`title`、`summary` 和每个工具的 `label` 是给设置页看的人话，`rules` 和工具的 `description` 是写给模型的。这次提不提供由三件事决定（`offeredSkills`）：用户在「设置 › 能力」里没关（`context.skillsOff`，存在 `ai-pet:skills-off:v1`；「记住关于你的事」沿用记忆页的 `ai-pet:facts-learning:v1`，两页是同一个开关，见 `SkillPreferences.ts`）、`requires` 里的能力也没关（「记提醒和备忘」改删前要先用「查看和写日报」的工具查编号）、`available` 说可以（如角色有动作）。工具定义和工具循环都只认 `offeredSkills`，关掉的工具模型调了也不执行。有能力被关掉时，提示词最后多一段「关掉的能力」，让模型如实说做不到、去哪打开；全开时提示词和以前一字不差。`Tool` 自带参数说明（可按 `context` 生成，如动作枚举）和 `run`；`run` 返回 `ToolOutcome`：交给模型的 `result`、给用户看的 `lines`、模型没说话时的 `confirmation`、原样显示的 `shown`，以及 `needsModel`（模型得读结果才能回答）。加一个能力只改 `src/skills/` 下的文件，聊天窗口、宠物和 AI 模块都不用动。
 - **工具循环。** 一轮结束后按顺序执行这一轮的调用。只要有一个结果 `needsModel`，就把这一轮的文字、调用（`tool_calls`）和每个结果（`role: tool`）接到消息后面再请求一轮，最多 4 轮；第 4 轮带 `tool_choice: none`，模型只能用文字回答。没有 `needsModel` 时不再请求，存提醒、做动作都只花一次请求。后面某一轮失败时，已经做的事保留，回复末尾说一句没能接着处理。标了 `early` 的工具（目前只有 `play_action`）参数一完整就开始执行，一次回复只执行一个。
 - **不走流式。** 问候和测试连接调 `llm_complete`，拿回 HTTP 状态和回复原文，由 `completions.ts` 解读。
 - **供应商。** 目前只有 DeepSeek。它特有的东西放在 `src/ai/deepseek/`：正文里泄露的 `<budget:…>` 和写成文字的 `play_action`，以及服务端的读网页、联网搜索。请求体里的 `thinking: disabled` 在 `provider.ts`。应用升级后重新填写一次旧版 Key，不自动访问旧钥匙串。
@@ -609,7 +611,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 - 右键菜单与托盘菜单共享原生菜单，其中“设置…”打开独立 Tauri 窗口。「动作」子菜单由 `PetControls` 用 `sync_dock_menu` 填入角色自己的快捷按钮（喂食、敲木鱼、睡觉、用户动作），点了发 `pet://dock-item`，和点快捷按钮走同一条路。设置窗口打开时应用为 `Regular`；右键菜单弹出期间临时切回 `Accessory`，收起后再恢复。
 - 应用菜单（`build_app_menu`）只在设置窗口打开、应用切成 `Regular` 时显示，但 ⌘, ⌘N ⌘W ⌘Q 和编辑快捷键一直有效。「新聊天」只在聊天窗口是 key window 时可用，发 `pet://chat-new`。⌘Q 用和菜单「退出」相同的 id，退出前会取消进行中的请求。设置页通过 `platform/petWindow.ts` 调整窗口尺寸和置顶状态，不直接依赖 Tauri API。
 - 设置窗口仿照 macOS 系统设置：侧栏最上面是当前角色的头像行（`ACCOUNT_SECTION`，像系统设置里的 Apple 账户），下面按「角色与外观」「聊天与 AI」「陪伴与工具」「应用」分组（`NAV_GROUPS`），内容是分组列表。角色页像账户页：顶部是大头像和名字（页面标题只留给读屏），点头像就地打开头像裁剪框（里面能换一张图片），不跳页，和「形象」卡片共用 `useChatPictures`；下面一行进「角色设定」，再往下是「全部角色」列表（当前角色打勾，点别的就切换，最后一行新建）和导入导出。「角色设定」是子页，集中管理当前角色的名字、性格、回复长度、补充要求和聊天形象。动作库和快捷按钮均按当前角色保存，动作库可直接切换角色。
-- 「AI 服务」只放账号：DeepSeek 的连接和模型、语音输入和朗读用的 MiMo API Key（`MimoKeySettings`），以及当前角色的朗读声音（`VoiceSettings`，按角色存；页里只有它是按角色的，行说明里写着角色名）。克隆的声音是它的子页。「聊天」放快速聊天的入口、聊天时的行为（网页阅读、聊天标题、语音识别语言）和所有角色共用的基础对话规则（`ChatRulesSettings`）。规则预览显示当前角色组装出的实际请求，但可改写的基础规则仍全局共用；角色名、性格、回复长度和补充要求保存在角色设置中。用户称呼与记忆属于所有角色共用的用户资料，放在「记忆」页。
+- 「AI 服务」只放账号：DeepSeek 的连接和模型、语音输入和朗读用的 MiMo API Key（`MimoKeySettings`），以及当前角色的朗读声音（`VoiceSettings`，按角色存；页里只有它是按角色的，行说明里写着角色名）。克隆的声音是它的子页。「聊天」只放快速聊天的入口和聊天时的行为（聊天标题、语音识别语言）。「能力」是宠物在聊天里能做的事：每项能力一行，点进去是它的子页（`skill`，标题取能力名），有开关、能做的事（工具的 `label`）和可改写的规则，规则全局共用；开发者模式下子页多出给模型的工具说明原文。读网页链接没有规则，直接在能力页上开关。拼好的完整提示词只在开发者页（`PromptPreview`）。角色名、性格、回复长度和补充要求保存在角色设置中。用户称呼与记忆属于所有角色共用的用户资料，放在「记忆」页。
 - 「通用」放宠物（总在最前面、宠物大小、快捷按钮停留）和应用（开机时打开、开发者模式）。「关于」在侧栏「应用」组最后；「日志与诊断」是从「关于」打开的子页（`SUB_PAGES`），侧栏保持选中「关于」，子页标题上方提供返回。跳到另一页的行整行可点、右边带 ›（`Chevron`），按钮只用于马上执行的操作。早安、关心和勿扰在「陪伴」（开关依赖的时间和时长跟开关放在同一行，不另占一行），提醒的工作日在「通用」，划词翻译和查收验证码在「小工具」。页名不用「与」把两个功能拼起来；只有一两行的内容并进相近的页，不单独成页。开发者模式打开后侧栏最下面多一组「开发者」，其中「请求记录」查看最近请求。所有角色共用的设置不放进按角色保存的页面（标题带角色名的那几页），快捷按钮停留因此在「通用」。
 - 页面不往末尾无限追加：会一直变多的内容（日志、请求记录、记忆）各占一页；固定说明默认只显示前几行（「什么时候会连网」）；配好以后的设置步骤收起（查收验证码、API Key）。设置外观由 `SettingsPage.css` 管理。深色模式用底色区分页面与普通分组，带图标的跳转行把分隔线缩进至文字列，搜索框、开关和分段控件分别定义各自的状态。安装版侧栏继续使用原生窗口材质。
 
@@ -642,7 +644,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 - 首次引导：`ai-pet:onboarded:v1` 不存在时，宠物窗口启动后查 `ai.keyStatus()`。已有 Key 就直接记为完成（老用户不打扰），没有就调用 `open_settings`；设置页同样检查，然后显示 `WelcomeGuide`。完成或跳过都写入标记。
 - `open_settings` 显示并聚焦设置窗口；带 `section` 时先向设置窗口发 `pet://settings-section`，设置页切到对应分区。浏览器模式下改为打开 `?window=settings&section=…`。
 - 回复的 Markdown 由 `src/chat/markdown.ts` 解析成数据（段落、标题、列表、代码块，以及粗体、斜体、行内代码和链接），`ChatMarkdown` 只生成 React 元素，不使用 `innerHTML`。未闭合的标记和代码块按原样显示，流式输出时不会闪烁。
-- 完整聊天的「自动阅读网页链接」是默认开启的全局设置（`ai-pet:read-links:v1`）。开启时，用户发送 HTTP(S) 地址触发读取，点输入框上的模式按钮可切回普通聊天。使用 Flash 非思考模式，只挂 DeepSeek 服务端的 `deepseek_read_url`（`src/ai/deepseek/web.ts`）；追问复用该网页对话，不挂工具。网页内容和网页回合不会进入可执行本机工具的普通聊天。服务端事件变成 `web-progress` 和 `web-result`，聊天中的链接和来源用按钮交给系统浏览器。最后的 `server_tool_calls` 按原样保存在对应回复中，供追问还原上下文；整个角色的网页快照有大小预算，超出时保留文字和来源，优先保留近期快照。首次读取没有成功页面或收到 `content_filter` 时丢弃已流出的文字。
+- 完整聊天的「读网页链接」（「设置 › 能力」）是默认开启的全局设置（`ai-pet:read-links:v1`）。开启时，用户发送 HTTP(S) 地址触发读取，点输入框上的模式按钮可切回普通聊天。使用 Flash 非思考模式，只挂 DeepSeek 服务端的 `deepseek_read_url`（`src/ai/deepseek/web.ts`）；追问复用该网页对话，不挂工具。网页内容和网页回合不会进入可执行本机工具的普通聊天。服务端事件变成 `web-progress` 和 `web-result`，聊天中的链接和来源用按钮交给系统浏览器。最后的 `server_tool_calls` 按原样保存在对应回复中，供追问还原上下文；整个角色的网页快照有大小预算，超出时保留文字和来源，优先保留近期快照。首次读取没有成功页面或收到 `content_filter` 时丢弃已流出的文字。
 - 完整聊天的「联网」仅用于本次发送，使用 Flash 非思考模式和 DeepSeek 服务端的 `deepseek_web_search`，复用网页进度与来源事件。附件只有一个回形针按钮（`attach`），选择和向输入框拖放都先过 `readDropped`（来源写「添加」），按类型分流；粘贴只收截图。文本文件放进输入框上方的小块（`DraftFile`），发送时用 `handedMessage` 包成资料块接在用户的话后面，存进聊天记录时带 `file: { name, label }`，显示时按 `label` 用 `handedQuestion` 只取用户的话，文件内容不摊开；它和普通消息一样走带工具的回合，后续几轮也在上下文里。图片和文件一轮只带一个，带了就不能联网。单图输入（聊天窗口关闭原生文件拖放拦截）先用画布缩小到最长边 1800 像素，发送时以内联 `image_url` 加当前问题交给 Flash。图片字节只在当前窗口暂存，不写入聊天记录或开发者请求日志。两个入口只发送当前问题所需的数据，不提供本机工具，不把这些回合转入可执行工具的普通对话。
 - 对话设置和语音设置在用户没改过时使用 `persona` 的值。系统提示词在 `src/ai/prompt.ts` 拼接，性格长度上限 1000 字（`PERSONA_LIMITS`）。
 

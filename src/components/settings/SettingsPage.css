@@ -178,6 +178,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--memory { --tile: var(--tile-orange); }
 .settings-nav__icon--voices { --tile: var(--tile-red); }
 .settings-nav__icon--tools { --tile: var(--tile-teal); }
+.settings-nav__icon--skills, .settings-nav__icon--skill { --tile: var(--tile-indigo); }
 .settings-nav__icon--guide { --tile: var(--tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { position: relative; margin: 0 0 16px; }
@@ -561,8 +562,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-connection-form .ai-settings__actions { flex-wrap: wrap; }
 .ai-model { margin-top: 8px; }
 .ai-inline-status { margin: 6px 4px; color: var(--label-2); font-size: 11px; }
-.ai-request-details { margin-top: 12px; }
-.ai-request-details .ai-request-details__note { margin: 0 0 8px; }
 .ai-disclosure { border-top: 1px solid var(--separator); }
 .ai-disclosure--standalone { margin-top: 8px; padding: 0 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .ai-disclosure summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; cursor: pointer; list-style: none; }
@@ -584,21 +583,23 @@ button.dock-row__body { cursor: pointer; }
 .ai-request-tool dt span { color: var(--label-2); font-weight: 400; }
 .ai-request-tool dd { margin: 1px 0 0; }
 /* The rules part by part: each reads like a settings row with its text under the title. */
-.ai-prompt-parts { margin-bottom: 4px; }
-.ai-prompt-part { padding: 10px 0; border-top: 1px solid var(--separator); }
-.ai-prompt-part__head { display: flex; align-items: center; gap: 8px; min-height: 22px; }
-.ai-prompt-part__head strong { font-weight: 500; }
-.ai-prompt-part__head .settings-button { margin-left: auto; }
 .ai-prompt-part__badge { padding: 1px 6px; color: var(--orange); background: var(--orange-wash); border-radius: 4px; font-size: 11px; }
-.ai-preview .ai-prompt-part__text { margin: 4px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
-.ai-preview .ai-prompt-part__text.is-empty { font-style: italic; }
-.ai-prompt-part__source { display: block; margin-top: 4px; color: var(--label-3); font-size: 11px; }
 .ai-prompt-part__editor { margin-top: 6px; }
 .ai-prompt-part__editor textarea { box-sizing: border-box; width: 100%; min-height: 120px; resize: vertical; padding: 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: 12px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
 .ai-prompt-part__actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .ai-prompt-part__actions span { margin-right: auto; color: var(--label-2); font-size: 11px; }
 .ai-prompt-full, .ai-log pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
 .ai-log { padding: 4px 0 12px; border-top: 1px solid var(--separator); }
+/* 「能力」: one skill's page. The rules are long prose written for the model, so they read as a quiet block of text. */
+.skill-tools .settings-row { min-height: 40px; }
+.skill-tools code.settings-row__value { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.skill-rules { padding: 12px; }
+.skill-rules__head { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.skill-rules__head > span:first-child { color: var(--label-2); font-size: 11px; }
+.skill-rules__head .settings-button { margin-left: auto; }
+.settings-page .skill-rules__text { margin: 6px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.skill-rules .ai-prompt-part__editor textarea { min-height: 220px; }
+.ai-preview > p { margin: 12px 0 6px; }
 .ai-log .ai-preview__head { padding-top: 8px; gap: 8px; }
 .ai-log .ai-preview__head strong { font-weight: 500; }
 .ai-log .ai-preview__head span { margin-top: 3px; color: var(--label-2); font-size: 11px; }

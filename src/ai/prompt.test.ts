@@ -34,6 +34,29 @@ describe("a chat the pet opened", () => {
   });
 });
 
+describe("skills the user turned off", () => {
+  const names = (tools: unknown[]) => (tools as Tool[]).map((tool) => tool.function.name);
+
+  it("leaves out their rules and tools, and tells the model where to turn them on", () => {
+    const preview = previewChat(chatPreferences(), chatRequestContext({ skillsOff: ["actions", "quiet"] }), CHAT_SKILLS);
+    expect(preview.sections.map((section) => section.id)).toEqual(["persona", "date", "memory", "lookup", "remember", "off"]);
+    expect(names(preview.tools)).not.toContain(PLAY_ACTION_TOOL);
+    const off = preview.sections.find((section) => section.id === "off");
+    expect(off?.text).toContain("安静一会儿、做动作");
+    expect(off?.text).toContain("设置 › 能力");
+  });
+
+  it("turns off a skill whose rules need one that is off", () => {
+    const preview = previewChat(chatPreferences(), chatRequestContext({ skillsOff: ["lookup"] }), CHAT_SKILLS);
+    expect(preview.sections.some((section) => section.id === "memory")).toBe(false);
+    expect(preview.sections.find((section) => section.id === "off")?.text).toContain("记提醒和备忘、查看和写日报");
+  });
+
+  it("adds nothing while every skill is on", () => {
+    expect(previewChat(chatPreferences(), chatRequestContext({ skillsOff: [] }), CHAT_SKILLS).prompt).toBe(previewChat(chatPreferences(), chatRequestContext(), CHAT_SKILLS).prompt);
+  });
+});
+
 describe("previewChat", () => {
   it("includes the user's preferences and the real tools", () => {
     const preview = previewChat(chatPreferences({ instructions: "回答直接一些" }), chatRequestContext({ now: "2026-11-17 23:30 周二" }), CHAT_SKILLS);

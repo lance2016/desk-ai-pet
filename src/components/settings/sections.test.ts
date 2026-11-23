@@ -5,7 +5,7 @@ describe("settings navigation", () => {
   it("groups user settings by what they help the user do", () => {
     expect(NAV_GROUPS.map(({ title, items }) => [title, items.map(({ id }) => id)])).toEqual([
       ["角色与外观", ["actions", "dock"]],
-      ["聊天", ["chat", "memory", "ai"]],
+      ["聊天", ["chat", "skills", "memory", "ai"]],
       ["陪伴与工具", ["companion", "tools"]],
       ["应用", ["general", "privacy", "guide", "about"]],
     ]);
@@ -21,7 +21,7 @@ describe("settings navigation", () => {
     expect(DEVELOPER_GROUP.items.map(({ id }) => id)).toEqual(["developer"]);
   });
 
-  it("places character details under Characters, diagnostics under About and cloned voices under AI", () => {
-    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about", voices: "ai" });
+  it("places character details under Characters, diagnostics under About, cloned voices under AI and each skill under Skills", () => {
+    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about", voices: "ai", skill: "skills" });
   });
 });

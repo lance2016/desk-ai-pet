@@ -50,6 +50,7 @@ const REPEAT = "重复规则，只提醒一次就省略。只支持三种：每�
 
 const addReminder: Tool = {
   name: ADD_REMINDER_TOOL,
+  label: "新建提醒",
   description: "用户明确要提醒或记录某事，且给出日期、钟点或相对时间时，新建一条未来提醒。单纯聊到一个日期或时间不调用。保存结果由应用确认。",
   parameters: () => ({
     type: "object",
@@ -76,6 +77,7 @@ const addReminder: Tool = {
 
 const saveNoteTool: Tool = {
   name: SAVE_NOTE_TOOL,
+  label: "保存备忘",
   description: "用户明确要求记录且未指定时间时，新建一条备忘，例如记下待办、地址或想法。保存结果由应用确认。",
   parameters: () => ({ type: "object", properties: { text: textParameter(`要保存的内容，保留用户给的原文和换行，不超过 ${NOTE_LIMITS.text} 字`) }, required: ["text"] }),
   run: (args) => writing(() => {
@@ -113,6 +115,7 @@ function changedRepeat(value: unknown, current: Repeat | null): Repeat | null | 
 
 const updateReminder: Tool = {
   name: UPDATE_REMINDER_TOOL,
+  label: "修改提醒",
   description: `修改一条已有的提醒：文字、时间或重复规则。先用 ${LIST_REMINDERS_TOOL} 拿到编号。只填要改的项。`,
   parameters: () => ({
     type: "object",
@@ -146,6 +149,7 @@ const updateReminder: Tool = {
 
 const deleteReminder: Tool = {
   name: DELETE_REMINDER_TOOL,
+  label: "删除提醒",
   description: `删除一条已有的提醒。先用 ${LIST_REMINDERS_TOOL} 拿到编号。用户只是说做完了，用 ${COMPLETE_REMINDER_TOOL}，不要删除。`,
   parameters: () => ({ type: "object", properties: { ref: REF(LIST_REMINDERS_TOOL) }, required: ["ref"] }),
   run: (args, call) => writing(() => {
@@ -163,6 +167,7 @@ const deleteReminder: Tool = {
 
 const completeReminder: Tool = {
   name: COMPLETE_REMINDER_TOOL,
+  label: "把提醒标成做完",
   description: `用户说某条提醒的事做完了时，把它标记为完成，和在提醒面板里点「完成」一样；重复提醒只勾掉这一次。先用 ${LIST_REMINDERS_TOOL} 拿到编号。`,
   parameters: () => ({ type: "object", properties: { ref: REF(LIST_REMINDERS_TOOL) }, required: ["ref"] }),
   run: (args, call) => writing(() => {
@@ -181,6 +186,7 @@ const completeReminder: Tool = {
 
 const updateNote: Tool = {
   name: UPDATE_NOTE_TOOL,
+  label: "修改备忘",
   description: `改写一条已有的备忘。先用 ${LIST_NOTES_TOOL} 拿到编号。`,
   parameters: () => ({ type: "object", properties: { ref: REF(LIST_NOTES_TOOL), text: textParameter(`改写后的完整内容，不超过 ${NOTE_LIMITS.text} 字`) }, required: ["ref", "text"] }),
   run: (args, call) => writing(() => {
@@ -199,6 +205,7 @@ const updateNote: Tool = {
 
 const deleteNote: Tool = {
   name: DELETE_NOTE_TOOL,
+  label: "删除备忘",
   description: `删除一条已有的备忘。先用 ${LIST_NOTES_TOOL} 拿到编号。`,
   parameters: () => ({ type: "object", properties: { ref: REF(LIST_NOTES_TOOL) }, required: ["ref"] }),
   run: (args, call) => writing(() => {
@@ -217,6 +224,9 @@ const deleteNote: Tool = {
 export const memorySkill: Skill = {
   id: "memory",
   title: "记提醒和备忘",
+  summary: "你说「提醒我…」「记一下…」时新建、修改和删除提醒、备忘",
+  // Changing or removing an item starts with looking up its number.
+  requires: ["lookup"],
   rules: () => `用户明确要求记录或提醒时，有日期或时间用 ${ADD_REMINDER_TOOL}，无时间用 ${SAVE_NOTE_TOOL}。提醒必须在未来：只给钟点且今天已过，就用明天；只给日期就用当地当天 09:00。指定每天、每个工作日或每周几时按工具说明填写 repeat；其他重复规则如实说明无法设置，不要擅自改成一次性提醒，也不要承诺以后帮忙续上；可以问用户要不要先只设下一次。每条新记录都要实际调用工具，是否保存成功、何时提醒由应用确认。聊天里出现日期，不代表用户要记录。修改或删除已有的提醒、备忘时，先用 ${LIST_REMINDERS_TOOL} 或 ${LIST_NOTES_TOOL} 并设 synthesize=true 拿到编号，再用 ${UPDATE_REMINDER_TOOL}、${DELETE_REMINDER_TOOL}、${UPDATE_NOTE_TOOL}、${DELETE_NOTE_TOOL} 按编号处理；用户说某件事做完了，同样先查编号，再用 ${COMPLETE_REMINDER_TOOL} 勾掉，不要删除；编号只在这次回复里有效。对不上或有几条都可能时，先问用户是哪一条，不要猜。`,
   tools: [addReminder, saveNoteTool, updateReminder, completeReminder, deleteReminder, updateNote, deleteNote],
 };
