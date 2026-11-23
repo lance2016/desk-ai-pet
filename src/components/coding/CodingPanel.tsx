@@ -217,8 +217,8 @@ interface FoldersProps {
 /** Every folder at once, each with how it stands and how many sessions are open there: a click, or ⌘1 to ⌘9, switches to it. */
 function Folders({ groups, current, onPick }: FoldersProps) {
   return (
-    <nav className="coding-sidebar" aria-label="项目">
-      <h1 className="coding-sidebar__title">Claude Code</h1>
+    <nav className="coding-sidebar" aria-label="项目" data-tauri-drag-region>
+      <h1 className="coding-sidebar__title" data-tauri-drag-region>Claude Code</h1>
       <ul>
         {groups.map((group, index) => {
           const state = folderState(group);
@@ -261,9 +261,9 @@ function SessionDetail({ session, now, onLeave, onReveal, onCopy }: DetailProps)
   useEffect(() => leave.current?.focus(), []);
   return (
     <>
-      <header className="coding-detail">
+      <header className="coding-detail" data-tauri-drag-region>
         <button ref={leave} type="button" className="coding-leave" aria-label="回到会话列表" onClick={onLeave}><BackGlyph />{session.project || FOLDER_FALLBACK}</button>
-        <h1 className="coding-detail__title">{sessionTitle(session)}</h1>
+        <h1 className="coding-detail__title" data-tauri-drag-region>{sessionTitle(session)}</h1>
         <p className={`coding-detail__state coding-detail__state--${session.ended ? "closed" : session.turn}`}>
           <span className="coding-row__mark"><TurnMark turn={session.ended ? "idle" : session.turn} /></span>
           <span>{headline(session, now)}</span>
@@ -441,7 +441,7 @@ export function CodingPanel() {
   if (!group) {
     return (
       <main className="today-panel coding-panel">
-        <header className="today-header"><div className="today-header__titles"><h1>Claude Code</h1></div></header>
+        <header className="today-header" data-tauri-drag-region><div className="today-header__titles" data-tauri-drag-region><h1 data-tauri-drag-region>Claude Code</h1></div></header>
         <section className="today-list" aria-label="Claude Code 会话"><Empty hooks={hooks} /></section>
         {toast}
       </main>
@@ -456,10 +456,10 @@ export function CodingPanel() {
           <SessionDetail session={detail} now={now} onLeave={leaveDetail} onReveal={() => reveal(detail)} onCopy={() => void copy(detail)} />
         ) : (
           <>
-            <header className="today-header">
-              <div className="today-header__titles">
-                <h2 className="coding-main__name">{folderName(group)}</h2>
-                <p>{folderSummary(group)}</p>
+            <header className="today-header" data-tauri-drag-region>
+              <div className="today-header__titles" data-tauri-drag-region>
+                <h2 className="coding-main__name" data-tauri-drag-region>{folderName(group)}</h2>
+                <p data-tauri-drag-region>{folderSummary(group)}</p>
               </div>
             </header>
             <section className="today-list" aria-label={`${folderName(group)} 的会话`}>

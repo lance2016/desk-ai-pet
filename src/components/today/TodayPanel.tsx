@@ -333,10 +333,10 @@ export function TodayPanel() {
 
   return (
     <main className="today-panel">
-      <header className="today-header">
-        <div className="today-header__titles">
-          <h1>提醒</h1>
-          <p>
+      <header className="today-header" data-tauri-drag-region>
+        <div className="today-header__titles" data-tauri-drag-region>
+          <h1 data-tauri-drag-region>提醒</h1>
+          <p data-tauri-drag-region>
             <span>{todayTitle(now)}</span>
             {quiet && <span className="today-quiet" title="勿扰开着：到点的提醒先显示在宠物旁边的徽标上，关掉勿扰后再弹出"><Glyph name="moon" />勿扰中</span>}
           </p>

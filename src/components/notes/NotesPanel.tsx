@@ -237,10 +237,10 @@ export function NotesPanel() {
 
   return (
     <main className="today-panel notes-panel">
-      <header className="today-header">
-        <div className="today-header__titles">
-          <h1>备忘</h1>
-          <p>点一条就能复制</p>
+      <header className="today-header" data-tauri-drag-region>
+        <div className="today-header__titles" data-tauri-drag-region>
+          <h1 data-tauri-drag-region>备忘</h1>
+          <p data-tauri-drag-region>点一条就能复制</p>
         </div>
         <span className="today-count" title={notes.length >= NEAR_FULL ? `备忘最多 ${NOTE_LIMITS.items} 条，满了会挤掉最久没改的一条` : undefined}>
           <span aria-hidden="true">{notes.length >= NEAR_FULL ? `${notes.length}/${NOTE_LIMITS.items}` : notes.length}<small>条</small></span>
