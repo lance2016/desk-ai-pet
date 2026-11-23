@@ -644,6 +644,10 @@ pub async fn agent_reveal(app: AppHandle, session: String) -> Result<(), String>
     let host = host.ok_or(NOT_FOUND)?;
     // An async command still runs on the async runtime: the blocking waits go to their own thread.
     tauri::async_runtime::spawn_blocking(move || {
+        // The panel the click came from holds the keyboard. With the terminal's app already in front,
+        // bringing it forward would leave it with us: typing would not reach the terminal, nor would the ring wait end.
+        #[cfg(target_os = "macos")]
+        crate::hand_keyboard_back(&app);
         if let (GHOSTTY, Some(tty)) = (host.as_str(), tty.as_deref()) {
             match focus_ghostty(tty) {
                 Ok(true) => {

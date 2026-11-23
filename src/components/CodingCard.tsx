@@ -44,16 +44,12 @@ function useCut(lines: RefObject<HTMLElement | null>[]): boolean {
 }
 
 /**
- * The whole of a cut title and line, above the card while it is pointed at. The pet window
- * does not take the app's focus, so the system's own tooltip does not show there.
+ * The whole of the pill's cut title, in a small label above it while it is pointed at, like the
+ * quick buttons' names. The pet window does not take the app's focus, so the system's own tooltip
+ * does not show there. The card has none: its cut lines are a summary, and a click shows them in full.
  */
-function Full({ title, line }: { title: string; line: string }) {
-  return (
-    <span className="coding-full" aria-hidden="true">
-      <strong>{title}</strong>
-      {line && <span>{line}</span>}
-    </span>
-  );
+function FullTitle({ title }: { title: string }) {
+  return <span className="coding-full" aria-hidden="true">{title}</span>;
 }
 
 /**
@@ -64,8 +60,7 @@ function Full({ title, line }: { title: string; line: string }) {
  */
 export function CodingCard({ sessions, compact, now }: { sessions: readonly CodingSession[]; compact: boolean; now: number }) {
   const titleRef = useRef<HTMLElement>(null);
-  const metaRef = useRef<HTMLElement>(null);
-  const cut = useCut([titleRef, metaRef]);
+  const cut = useCut([titleRef]);
   const view = overview(sessions, now);
   const head = view.headline;
   if (!head) return null;
@@ -81,7 +76,7 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
         <span className="coding-pill__state">{stateWord(head)}</span>
         <span ref={titleRef} className="coding-pill__title">{title}</span>
         {others > 0 && <span className="coding-pill__more">+{others}</span>}
-        {cut && <Full title={title} line={stateLine(head) ?? ""} />}
+        {cut && <FullTitle title={title} />}
       </button>
     );
   }
@@ -94,9 +89,8 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
         <span className="coding-card__who">Claude Code</span>
         <span className="coding-card__state">{state}</span>
       </span>
-      <strong ref={titleRef} className="coding-card__title">{title}</strong>
-      <span ref={metaRef} className="coding-card__meta">{meta}</span>
-      {cut && <Full title={title} line={meta} />}
+      <strong className="coding-card__title">{title}</strong>
+      <span className="coding-card__meta">{meta}</span>
     </button>
   );
 }

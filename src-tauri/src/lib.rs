@@ -556,6 +556,37 @@ fn hide_popovers_outside(app: &AppHandle, pressed: isize) {
     }
 }
 
+/// Hands typing back to the app in front, and waits until that is done. Called before another app's window
+/// is brought forward: when that app is already the active one, its `activate` changes nothing, and the
+/// keyboard would stay with us until the user clicks. All our panels can become key, so letting go of one
+/// hands the keyboard to the next of ours (the pet): the popovers are put away first, then the pet lets go.
+/// Not on the main thread.
+#[cfg(target_os = "macos")]
+pub(crate) fn hand_keyboard_back(app: &AppHandle) {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let handle = app.clone();
+    let sent = app.run_on_main_thread(move || {
+        for label in POPOVERS {
+            if let Some(popover) = handle.get_webview_window(label) {
+                if popover.is_visible().unwrap_or(false) {
+                    report("put a popover away", popover.hide());
+                }
+            }
+        }
+        if let Some(pet) = handle.get_webview_window(MAIN_WINDOW) {
+            report("hand the keyboard back from the pet", floating_panel::release_keyboard(&pet));
+        }
+        if let Some((label, _)) = handle.webview_windows().into_iter().find(|(_, window)| window.is_focused().unwrap_or(false)) {
+            log::warn!("The {label} window still has the keyboard after handing it back");
+        }
+        let _ = sender.send(());
+    });
+    match sent {
+        Ok(()) => { let _ = receiver.recv(); }
+        Err(error) => log::warn!("failed to hand the keyboard back: {error}"),
+    }
+}
+
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
 fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     let window = app

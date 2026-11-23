@@ -59,9 +59,12 @@ pub fn flash(app: &AppHandle, bundle_id: &str) {
     let Some(pid) = pid_of(bundle_id) else { return };
     let app = app.clone();
     std::thread::spawn(move || {
-        let Some(frame) = settled_frame(pid) else {
-            log::warn!("The terminal did not settle in front in time; not ringing it");
-            return;
+        let frame = match settled_frame(pid) {
+            Ok(frame) => frame,
+            Err(front) => {
+                log::warn!("The terminal did not settle in front in time; not ringing it (keyboard last with {front})");
+                return;
+            }
         };
         let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
         report(app.run_on_main_thread(move || show(frame)));
@@ -72,22 +75,30 @@ pub fn flash(app: &AppHandle, bundle_id: &str) {
     });
 }
 
-/// The app's focused terminal once the app is frontmost and the terminal is where it was a poll ago; None if that takes too long.
-fn settled_frame(pid: i32) -> Option<Frame> {
+/// The app's focused terminal once the app is frontmost and the terminal is where it was a poll ago. If that
+/// takes too long, which app had the keyboard at the last look, for the log.
+fn settled_frame(pid: i32) -> Result<Frame, &'static str> {
     let deadline = Instant::now() + SETTLE_WITHIN;
     let mut last = None;
+    let mut front = None;
     while Instant::now() < deadline {
-        let frame = (accessibility::frontmost_pid() == Some(pid))
+        front = accessibility::frontmost_pid();
+        let frame = (front == Some(pid))
             .then(|| accessibility::focused_frame(pid))
             .flatten()
             .filter(|frame| frame.width >= MIN_SIDE && frame.height >= MIN_SIDE);
-        if frame.is_some() && frame == last {
-            return frame;
+        if let Some(found) = frame.filter(|_| frame == last) {
+            return Ok(found);
         }
         last = frame;
         std::thread::sleep(SETTLE_POLL);
     }
-    None
+    Err(match front {
+        Some(front) if front == pid => "the terminal's app, whose terminal never held still or was not a terminal",
+        Some(front) if u32::try_from(front).ok() == Some(std::process::id()) => "AI Pet itself",
+        Some(_) => "another app",
+        None => "no app",
+    })
 }
 
 fn current(generation: u64) -> bool {
