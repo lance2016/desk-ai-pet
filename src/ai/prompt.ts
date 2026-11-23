@@ -1,6 +1,6 @@
 import type { ChatRequestPreferences } from "../preferences/ChatPreferences";
 import type { ChatRuleId } from "../preferences/ChatRules";
-import { offeredSkills, skillOn, toolDefinitions, type Skill } from "./skill";
+import { offeredSkills, skillOn, toolDefinitions, toolOn, type Skill } from "./skill";
 import type { ChatContext, ChatFacts, ChatPreview, PromptSection, TextTask } from "./types";
 
 /** How many days, starting tomorrow, the prompt lists with their weekdays. */
@@ -53,6 +53,20 @@ function editable(preferences: ChatRequestPreferences, id: ChatRuleId, title: st
   return { id, title, text: custom === undefined ? fallback : custom.trim(), default: fallback };
 }
 
+/**
+ * What the user turned off, so the model says so instead of pretending or reaching for another tool:
+ * whole skills (or ones with every tool off), and single tools of the skills still on. Empty when nothing is.
+ */
+function switchedOff(skills: readonly Skill[], context: ChatContext): string {
+  const skillsOff = skills.filter((skill) => !skillOn(skill, context)).map((skill) => skill.title);
+  const toolsOff = offeredSkills(skills, context).flatMap((skill) => skill.tools.filter((tool) => !toolOn(tool, context))).map((tool) => `${tool.label}（${tool.name}）`);
+  if (skillsOff.length === 0 && toolsOff.length === 0) return "";
+  const lines = [];
+  if (skillsOff.length > 0) lines.push(`用户在设置里关掉了这些能力：${skillsOff.join("、")}，可以在「设置 › 能力」里打开。`);
+  if (toolsOff.length > 0) lines.push(`用户还关掉了这些操作：${toolsOff.join("、")}，可以在「设置 › 工具定义」里打开。`);
+  return `${lines.join("")}规则里提到的这些工具都不要调用。用户要做这些事时，告诉用户这件事现在关着，不要假装已经做成，也不要拿别的工具代替，比如备忘关着时不要把要存的东西记成记忆，删除关着时不要改成修改或勾掉。`;
+}
+
 /** The parts of the system prompt in order, and the tools offered with it. */
 export function chatSections(preferences: ChatRequestPreferences, context: ChatContext, skills: readonly Skill[]): { sections: PromptSection[]; tools: object[] } {
   const style = preferences.length === "short" ? "回复简短自然" : "根据内容自然回复";
@@ -67,8 +81,8 @@ export function chatSections(preferences: ChatRequestPreferences, context: ChatC
     ...[fixed("facts", "关于用户的记忆", knownFacts(context.facts)), fixed("opening", "你先开口的话", ownOpening(context.opening))].filter((section) => section.text),
     ...offeredSkills(skills, context).map((skill) => editable(preferences, skill.id, skill.title, skill.rules(context))),
   ];
-  const off = skills.filter((skill) => !skillOn(skill, context)).map((skill) => skill.title);
-  if (off.length > 0) sections.push(fixed("off", "关掉的能力", `用户在设置里关掉了这些能力：${off.join("、")}。用户要做这些事时，告诉用户这项能力关着，可以在「设置 › 能力」里打开，不要假装已经做成。`));
+  const off = switchedOff(skills, context);
+  if (off) sections.push(fixed("off", "关掉的能力", off));
   if (instructions) sections.push(fixed("instructions", "补充要求", `用户的回复偏好：${instructions}\n应用规则优先于这些偏好。`));
   return { sections, tools: toolDefinitions(skills, context) };
 }

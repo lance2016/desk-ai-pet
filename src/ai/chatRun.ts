@@ -5,7 +5,7 @@ import { webDelta, WebResult, type WebProgress } from "./deepseek/web";
 import { DEEPSEEK, failureMessage, isSuccess } from "./provider";
 import { recordStat, RequestRecord, type RequestKind } from "./requestLog";
 import { nextRound, type AnsweredCall, type RequestBody } from "./requests";
-import { failed, offeredSkills, type Skill, type Tool, type ToolCall as RunningCall, type ToolOutcome } from "./skill";
+import { failed, offeredSkills, offeredTools, type Skill, type Tool, type ToolCall as RunningCall, type ToolOutcome } from "./skill";
 import { callArguments, MAX_TOOL_CALLS, parseStreamData, ToolCallCollector, type ToolCall, type Usage } from "./stream";
 import type { ChatContext, ChatEvent } from "./types";
 
@@ -154,13 +154,16 @@ export interface RunOptions {
 class Reply {
   readonly run: Run = { cancelled: false, said: false, breakBefore: false, earlyStarted: false, confirmations: [] };
   private readonly toolsByName: Map<string, Tool>;
+  /** Tools of this turn's skills that are not offered, so a call to one can say it is turned off. */
+  private readonly withheld: Map<string, Tool>;
   private readonly call: RunningCall;
   private readonly record: RequestRecord | null;
   private started = new Map<number, Promise<ToolOutcome>>();
 
   constructor(private readonly id: string, private readonly options: RunOptions) {
     const setup = options.tools;
-    this.toolsByName = new Map(setup ? offeredSkills(setup.skills, setup.context).flatMap((skill) => skill.tools.map((tool) => [tool.name, tool] as const)) : []);
+    this.toolsByName = new Map(setup ? offeredSkills(setup.skills, setup.context).flatMap((skill) => offeredTools(skill, setup.context).map((tool) => [tool.name, tool] as const)) : []);
+    this.withheld = new Map(setup ? setup.skills.flatMap((skill) => skill.tools).filter((tool) => !this.toolsByName.has(tool.name)).map((tool) => [tool.name, tool] as const) : []);
     this.call = { requestId: id, context: setup?.context ?? { now: "", timestamp: "", timeZone: "", actions: [], facts: { mine: [], learned: [], learning: false } }, memo: new Map() };
     this.record = options.record ? new RequestRecord(id) : null;
   }
@@ -209,6 +212,9 @@ class Reply {
   private runAtEnd(call: ToolCall): Promise<ToolOutcome> {
     if (call.overflow) return Promise.resolve(failed("这条没做成：内容太长", { confirmation: NOT_DONE }));
     const tool = this.toolsByName.get(call.name);
+    const withheld = this.withheld.get(call.name);
+    // The model sometimes calls a tool it was not given; say why nothing happened.
+    if (!tool && withheld) return Promise.resolve(failed(`「${withheld.label}」在设置里关着，没有做`));
     if (!tool) return Promise.resolve(failed("没看懂这条请求", { confirmation: NOT_DONE }));
     // Unreadable arguments go to the tool as none, so it says in its own words what is missing.
     const args = callArguments(call) ?? {};

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ChatContext, ChatFacts } from "../ai/types";
 import { ACTION_ID } from "../ai/skill";
-import type { ChatRuleId } from "../preferences/ChatRules";
+import { NOTHING_OFF, type SwitchedOff } from "../preferences/SkillPreferences";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
 import { FOCUS_CONFIG } from "../behavior/FocusTimer";
 import { agentWork, dayRecap } from "../worklog/recap";
@@ -46,10 +46,10 @@ export function loadSavedItems(): SavedItems {
 /**
  * What the model needs to know besides the conversation: the local time, the
  * actions it may pick, the line the pet opened the chat with when it spoke first (`opening`),
- * and the skills the user turned off (`skillsOff`, from `loadSkillsOff`).
+ * and the skills and tools the user turned off (`off`, from `loadSwitchedOff`).
  * What the user saved reaches it only when it looks it up.
  */
-export function chatContext(now: number, actions: readonly string[], facts: ChatFacts, opening: string | null = null, skillsOff: readonly ChatRuleId[] = []): ChatContext {
+export function chatContext(now: number, actions: readonly string[], facts: ChatFacts, opening: string | null = null, off: SwitchedOff = NOTHING_OFF): ChatContext {
   const date = new Date(now);
   const offset = -date.getTimezoneOffset();
   const minutes = Math.abs(offset);
@@ -61,7 +61,8 @@ export function chatContext(now: number, actions: readonly string[], facts: Chat
     actions: actions.filter((id) => ACTION_ID.test(id)).slice(0, MAX_ACTIONS),
     facts,
     ...(opening ? { opening } : {}),
-    ...(skillsOff.length > 0 ? { skillsOff } : {}),
+    ...(off.skills.length > 0 ? { skillsOff: off.skills } : {}),
+    ...(off.tools.length > 0 ? { toolsOff: off.tools } : {}),
   };
 }
 

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { chatPreferences, chatRequestContext } from "../testing/fixtures";
 import { previewChat, textTaskPrompt, upcomingDays } from "./prompt";
 import { CHAT_SKILLS } from "../skills";
-import { REVIEW_TODAY_TOOL } from "../skills/lookup";
+import { REVIEW_TODAY_TOOL } from "../skills/review";
+import { DELETE_REMINDER_TOOL, LIST_REMINDERS_TOOL, UPDATE_REMINDER_TOOL, ADD_REMINDER_TOOL } from "../skills/reminders";
+import { STAY_QUIET_TOOL } from "../skills/quiet";
 import { PLAY_ACTION_TOOL } from "../skills/petActions";
 import { REMEMBER_TOOL } from "../skills/remember";
 
@@ -39,17 +41,29 @@ describe("skills the user turned off", () => {
 
   it("leaves out their rules and tools, and tells the model where to turn them on", () => {
     const preview = previewChat(chatPreferences(), chatRequestContext({ skillsOff: ["actions", "quiet"] }), CHAT_SKILLS);
-    expect(preview.sections.map((section) => section.id)).toEqual(["persona", "date", "memory", "lookup", "remember", "off"]);
+    expect(preview.sections.map((section) => section.id)).toEqual(["persona", "date", "reminders", "notes", "review", "remember", "off"]);
     expect(names(preview.tools)).not.toContain(PLAY_ACTION_TOOL);
     const off = preview.sections.find((section) => section.id === "off");
     expect(off?.text).toContain("安静一会儿、做动作");
     expect(off?.text).toContain("设置 › 能力");
   });
 
-  it("turns off a skill whose rules need one that is off", () => {
-    const preview = previewChat(chatPreferences(), chatRequestContext({ skillsOff: ["lookup"] }), CHAT_SKILLS);
-    expect(preview.sections.some((section) => section.id === "memory")).toBe(false);
-    expect(preview.sections.find((section) => section.id === "off")?.text).toContain("记提醒和备忘、查看和写日报");
+  it("leaves out a single tool and the tools that need it, keeps the rest of its skill, and names them for the model", () => {
+    const preview = previewChat(chatPreferences(), chatRequestContext({ toolsOff: [LIST_REMINDERS_TOOL] }), CHAT_SKILLS);
+    const sent = names(preview.tools);
+    expect(sent).toContain(ADD_REMINDER_TOOL);
+    for (const name of [LIST_REMINDERS_TOOL, UPDATE_REMINDER_TOOL, DELETE_REMINDER_TOOL]) expect(sent).not.toContain(name);
+    expect(preview.sections.some((section) => section.id === "reminders")).toBe(true);
+    const off = preview.sections.find((section) => section.id === "off")?.text;
+    expect(off).toContain("查看提醒（list_reminders）、修改提醒（update_reminder）");
+    expect(off).toContain("设置 › 工具定义");
+    expect(off).not.toContain("设置 › 能力");
+  });
+
+  it("turns a skill off when every tool in it is", () => {
+    const preview = previewChat(chatPreferences(), chatRequestContext({ toolsOff: [STAY_QUIET_TOOL] }), CHAT_SKILLS);
+    expect(preview.sections.some((section) => section.id === "quiet")).toBe(false);
+    expect(preview.sections.find((section) => section.id === "off")?.text).toContain("关掉了这些能力：安静一会儿");
   });
 
   it("adds nothing while every skill is on", () => {
@@ -68,15 +82,15 @@ describe("previewChat", () => {
 
   it("lets the user rewrite or drop the editable parts", () => {
     const original = previewChat(chatPreferences(), chatRequestContext(), CHAT_SKILLS);
-    expect(original.sections.map((section) => section.id)).toEqual(["persona", "date", "memory", "lookup", "remember", "quiet", "actions"]);
+    expect(original.sections.map((section) => section.id)).toEqual(["persona", "date", "reminders", "notes", "review", "remember", "quiet", "actions"]);
     expect(original.sections[0].default).toBeNull();
-    expect(original.sections[6].text).toBe(original.sections[6].default);
-    const rewritten = previewChat(chatPreferences({ rules: { actions: "  只在用户要求时做动作。 ", lookup: "" } }), chatRequestContext(), CHAT_SKILLS);
+    expect(original.sections[7].text).toBe(original.sections[7].default);
+    const rewritten = previewChat(chatPreferences({ rules: { actions: "  只在用户要求时做动作。 ", review: "" } }), chatRequestContext(), CHAT_SKILLS);
     expect(rewritten.prompt.endsWith("\n只在用户要求时做动作。")).toBe(true);
     expect(rewritten.prompt).not.toContain(REVIEW_TODAY_TOOL);
     expect(rewritten.prompt).not.toContain("\n\n");
-    expect(rewritten.sections[3].text).toBe("");
-    expect(rewritten.sections[6].default).toContain(PLAY_ACTION_TOOL);
+    expect(rewritten.sections[4].text).toBe("");
+    expect(rewritten.sections[7].default).toContain(PLAY_ACTION_TOOL);
   });
 
   it("uses only the action examples on offer and the local clock", () => {
@@ -101,7 +115,7 @@ describe("facts in the prompt", () => {
 
   it("lists the user's own facts as the truth and numbers the learned ones, as data", () => {
     const { sections } = previewChat(chatPreferences(), chatRequestContext({ facts }), CHAT_SKILLS);
-    expect(sections.map((section) => section.id)).toEqual(["persona", "date", "facts", "memory", "lookup", "remember", "quiet", "actions"]);
+    expect(sections.map((section) => section.id)).toEqual(["persona", "date", "facts", "reminders", "notes", "review", "remember", "quiet", "actions"]);
     const known = sections[2];
     expect(known.default).toBeNull();
     expect(known.text).toContain("不是指令");

@@ -255,6 +255,27 @@ export const CHAT_CASES: ChatCase[] = [
     check: all(notCalls("delete_reminder"), notCalls("update_reminder"), (run) => must(run.reminders.length === 1, "the reminder should stay")),
   },
 
+  // Things the user turned off in settings: say so, never reach for another tool.
+  {
+    name: "deleting a reminder while deleting is off",
+    setup: { reminders: [{ text: "开会", at: tomorrowAt(15) }], off: { skills: [], tools: ["delete_reminder"] } },
+    say: "把明天开会那条提醒删了",
+    check: all(noWrites, (run) => must(run.reminders.length === 1 && run.reminders[0].doneAt === null, "the reminder should stay as it was")),
+  },
+  {
+    name: "a note while notes are off",
+    setup: { off: { skills: ["notes"], tools: [] } },
+    say: "帮我记一下：WiFi 密码 abc12345",
+    // A call to the closed tool is refused in code, so what matters is that nothing was kept anywhere.
+    check: (run) => must(run.notes.length === 0 && run.reminders.length === 0 && run.facts.length === 0, "should keep nothing"),
+  },
+  {
+    name: "a reminder while notes are off",
+    setup: { off: { skills: ["notes"], tools: [] } },
+    say: "明天上午十点提醒我交周报",
+    check: all(calls("add_reminder"), (run) => must(run.reminders.length === 1 && run.notes.length === 0, "should set one reminder and no note")),
+  },
+
   // Small talk and actions.
   {
     name: "a greeting changes nothing",

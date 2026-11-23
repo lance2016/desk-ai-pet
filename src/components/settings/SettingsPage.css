@@ -178,7 +178,9 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--memory { --tile: var(--tile-orange); }
 .settings-nav__icon--voices { --tile: var(--tile-red); }
 .settings-nav__icon--tools { --tile: var(--tile-teal); }
-.settings-nav__icon--skills, .settings-nav__icon--skill { --tile: var(--tile-indigo); }
+.settings-nav__icon--skills { --tile: var(--tile-indigo); }
+.settings-nav__icon--prompt { --tile: var(--tile-green); }
+.settings-nav__icon--toolDefs { --tile: var(--tile-orange); }
 .settings-nav__icon--guide { --tile: var(--tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { position: relative; margin: 0 0 16px; }
@@ -525,10 +527,9 @@ button.dock-row__body { cursor: pointer; }
 .ai-settings__status { padding: 8px 10px; background: var(--fill); border-radius: var(--radius-row); color: var(--label) !important; }
 .ai-instructions { margin-top: 10px; padding: 12px; }
 .ai-instructions label { display: block; margin-bottom: 6px; font-weight: 500; }
-.ai-instructions p, .ai-preview p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.ai-instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: 11px; line-height: 1.5; }
 .ai-instructions textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; padding: 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .ai-instructions__foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; color: var(--label-2); font-size: 11px; }
-.ai-preview { padding: 12px; }
 .ai-preview__head { display: flex; align-items: center; gap: 16px; }
 .ai-preview__head > div { flex: 1; min-width: 0; }
 .ai-preview__head strong, .ai-preview__head span { display: block; }
@@ -572,16 +573,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-disclosure summary strong { font-weight: 500; }
 .ai-disclosure summary small { margin-top: 2px; color: var(--label-2); font-size: 11px; }
 .ai-disclosure summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); border-radius: var(--radius-control); }
-.ai-request-tools { padding: 0 0 12px; color: var(--label-2); font-size: 12px; line-height: 1.65; }
-.ai-request-tool p { margin: 0 0 8px; overflow-wrap: anywhere; }
-.ai-request-tools { user-select: text; -webkit-user-select: text; }
-.ai-request-tool + .ai-request-tool { margin-top: 16px; }
-.ai-request-tool h4 { margin: 0 0 4px; color: var(--label); font-size: 12px; font-weight: 600; }
-.ai-request-tool dl { margin: 8px 0 0; }
-.ai-request-tool dl > div { margin-top: 6px; }
-.ai-request-tool dt { color: var(--label); font-weight: 500; }
-.ai-request-tool dt span { color: var(--label-2); font-weight: 400; }
-.ai-request-tool dd { margin: 1px 0 0; }
 /* The rules part by part: each reads like a settings row with its text under the title. */
 .ai-prompt-part__badge { padding: 1px 6px; color: var(--orange); background: var(--orange-wash); border-radius: 4px; font-size: 11px; }
 .ai-prompt-part__editor { margin-top: 6px; }
@@ -590,16 +581,39 @@ button.dock-row__body { cursor: pointer; }
 .ai-prompt-part__actions span { margin-right: auto; color: var(--label-2); font-size: 11px; }
 .ai-prompt-full, .ai-log pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
 .ai-log { padding: 4px 0 12px; border-top: 1px solid var(--separator); }
-/* 「能力」: one skill's page. The rules are long prose written for the model, so they read as a quiet block of text. */
-.skill-tools .settings-row { min-height: 40px; }
-.skill-tools code.settings-row__value { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.skill-rules { padding: 12px; }
-.skill-rules__head { display: flex; align-items: center; gap: 8px; min-height: 22px; }
-.skill-rules__head > span:first-child { color: var(--label-2); font-size: 11px; }
-.skill-rules__head .settings-button { margin-left: auto; }
-.settings-page .skill-rules__text { margin: 6px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
-.skill-rules .ai-prompt-part__editor textarea { min-height: 220px; }
-.ai-preview > p { margin: 12px 0 6px; }
+/* Developer pages. Names the model reads (tools, arguments, skill ids) are set in monospace; everything else stays in the system font. */
+:is(.prompt-part, .tool-def, .tool-group-title, .settings-row__body, .settings-row__value) code { font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* 「提示词」: the prompt part by part. The text is long prose written for the model, so it reads as a quiet, selectable block. */
+.prompt-toolbar { display: flex; align-items: center; gap: 16px; margin: 4px 4px 12px; }
+.settings-page .prompt-toolbar p { flex: 1; min-width: 0; margin: 0; color: var(--label-2); font-size: 11px; line-height: 1.5; }
+.prompt-part { padding: 12px; }
+.prompt-part__head { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.prompt-part__title { flex: 1; min-width: 0; }
+.prompt-part__title h3 { margin: 0; font-size: 13px; font-weight: 500; }
+.prompt-part__title span { display: block; margin-top: 2px; color: var(--label-2); font-size: 11px; }
+.settings-page .prompt-part__text { margin: 8px 0 0; color: var(--label-2); font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.prompt-part .ai-prompt-part__editor { margin-top: 8px; }
+.prompt-part .ai-prompt-part__editor textarea { min-height: 220px; }
+.ai-prompt-full.prompt-part__raw { max-height: none; margin: 8px 0 0; }
+/* 「工具定义」: one row per tool with a disclosure triangle, as in Finder's list view, and its switch at the end. */
+.tool-group-title { display: flex; align-items: baseline; gap: 6px; }
+.tool-group-title code { color: var(--label-2); }
+.tool-group-title span { margin-left: auto; color: var(--label-2); font-size: 11px; font-weight: 400; }
+.tool-def + .tool-def { border-top: 1px solid var(--separator); }
+.tool-def .settings-row { min-height: 44px; }
+.tool-def__disclosure { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; margin: -4px 0 -4px -4px; padding: 4px; color: inherit; font: inherit; text-align: left; background: none; border: 0; border-radius: var(--radius-control); cursor: pointer; }
+.tool-def__disclosure:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.tool-def__chevron { flex: none; width: 12px; height: 12px; color: var(--label-2); fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: rotate var(--ui-duration-fast) var(--ui-ease); }
+.tool-def.is-open .tool-def__chevron { rotate: 90deg; }
+.tool-def__name { color: var(--label); font-size: 12px; font-weight: 500; }
+.tool-def__body { padding: 0 0 12px 18px; color: var(--label-2); font-size: 12px; line-height: 1.6; user-select: text; -webkit-user-select: text; }
+.settings-page .tool-def__description, .settings-page .tool-def__none { margin: 0 0 8px; overflow-wrap: anywhere; }
+.tool-def__params { width: 100%; border-collapse: collapse; font-size: 11px; }
+.tool-def__params th { padding: 4px 8px 4px 0; color: var(--label-2); font-weight: 500; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--separator); }
+.tool-def__params td { padding: 6px 8px 6px 0; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px solid var(--separator); }
+.tool-def__params tr:last-child td { border-bottom: 0; }
+.tool-def__params td:nth-child(-n+3) { color: var(--label); white-space: nowrap; }
+.tool-def__enum { display: block; margin-top: 2px; }
 .ai-log .ai-preview__head { padding-top: 8px; gap: 8px; }
 .ai-log .ai-preview__head strong { font-weight: 500; }
 .ai-log .ai-preview__head span { margin-top: 3px; color: var(--label-2); font-size: 11px; }

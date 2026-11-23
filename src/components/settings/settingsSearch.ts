@@ -30,7 +30,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "dock", title: "按钮", keywords: "快捷按钮 排序 图标 隐藏 添加动作" },
   { section: "ai", title: "DeepSeek", keywords: "API Key 密钥 连接 测试" },
   { section: "ai", title: "回复用的模型", keywords: "模型 flash pro 自定义" },
-  { section: "skills", title: "聊天时能做的事", keywords: "工具 能力 开关 关闭 提醒 备忘 记住 动作 安静 日报 对话规则 提示词 修改规则" },
+  { section: "skills", title: "聊天时能做的事", keywords: "工具 能力 开关 关闭 提醒 备忘 记忆 记住 动作 安静 日报 今日回顾" },
   { section: "skills", title: "读网页链接", keywords: "自动阅读 网址 网页 链接 浏览器" },
   { section: "memory", title: "已记住的事", keywords: "记忆 记住 忘掉 关于我 偏好 习惯 长期记忆 memory" },
   { section: "memory", title: "聊天时自动记住", keywords: "记忆 自动记 记住我" },
@@ -39,7 +39,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "chat", title: "复制后提示", keywords: "剪贴板 复制 粘贴 翻译 递给它" },
   { section: "chat", title: "聊天时", keywords: "聊天记录 标题 语音" },
   { section: "chat", title: "自动生成聊天标题", keywords: "标题" },
-  { section: "general", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 debug" },
+  { section: "general", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 工具定义 对话规则 修改规则 debug" },
   { section: "ai", title: "小米 MiMo", keywords: "语音 语音输入 API Key 麦克风" },
   { section: "ai", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
   { section: "ai", title: "声音", keywords: "音色 朗读 男声 女声 换声音 试听 克隆" },
@@ -93,9 +93,10 @@ export const SEARCH_SKIPPED: readonly string[] = [
   // Ways into a page or a form that search already finds by the page or form's own name.
   "角色设定", "新建角色…",
   "右键我", "点我头旁边的小气泡", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
-  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求", "现在的提示词",
-  // One skill's page, which search cannot open on its own; the skills page is found instead.
-  "聊天时可以用", "能做的事", "使用规则", "给 AI 的工具说明", "联网", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "应用", "宠物",
+  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求",
+  // Titles on the developer pages, which search finds by page name only while developer mode is on.
+  "系统提示词", "发给 AI 的工具",
+  "联网", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "应用", "宠物",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限", "诊断",
 ];
 

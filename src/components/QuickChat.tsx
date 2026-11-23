@@ -22,7 +22,7 @@ import { loadNotes, NOTE_LIMITS, removeNote } from "../notes/NoteStore";
 import { changeNotes, keepNote } from "../worklog/store";
 import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
-import { loadSkillsOff } from "../preferences/SkillPreferences";
+import { loadSwitchedOff } from "../preferences/SkillPreferences";
 
 /** Same limit as the chat window's composer. */
 const MAX_INPUT = 4000;
@@ -367,7 +367,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     setReply({ text: "", status: "thinking" });
     const actions = runtime.chatActionIds();
     try {
-      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts(), openingLine(history), loadSkillsOff()), skills });
+      await ai.start(id, contextMessages(history), requestPreferences(packId, runtime.manifest.persona), { context: chatContext(Date.now(), actions, currentChatFacts(), openingLine(history), loadSwitchedOff()), skills });
     } catch (reason) {
       if (request.current?.id !== id) return;
       const failedRequest = request.current;

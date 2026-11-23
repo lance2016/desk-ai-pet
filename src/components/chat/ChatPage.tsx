@@ -36,7 +36,7 @@ import { loadVoiceLanguage, loadVoicePreferences } from "../../preferences/Voice
 import { petWindow } from "../../platform/petWindow";
 import type { ChatPhase } from "../../types";
 import "./ChatPage.css";
-import { loadSkillsOff } from "../../preferences/SkillPreferences";
+import { loadSwitchedOff } from "../../preferences/SkillPreferences";
 
 const MAX_INPUT = 4000;
 /** While typing, the pet is told at most this often; it listens on for longer than that after each report. */
@@ -429,7 +429,7 @@ export function ChatPage({ packId }: { packId: string }) {
     setSkipWeb(false);
     active.current = id; cancelRequested.current = false; replyRef.current = ""; linesRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
-      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current, currentChatFacts(), openingLine(next), loadSkillsOff()), skills: CHAT_SKILLS };
+      const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current, currentChatFacts(), openingLine(next), loadSwitchedOff()), skills: CHAT_SKILLS };
       await ai.start(id, outgoing, requestPreferences(packId, personaRef.current), turn);
       if (cancelRequested.current && active.current === id) await ai.cancel(id);
     } catch (reason) {

@@ -48,6 +48,8 @@ export interface Tool {
    * One such call runs per reply; later ones are skipped.
    */
   early?: { ready(args: Record<string, unknown>, context: ChatContext): boolean };
+  /** Other tools of the same skill this one needs, e.g. changing an item needs the list that numbers it; it is off while any of them is. */
+  requires?: readonly string[];
   run(args: Record<string, unknown>, call: ToolCall): ToolOutcome | Promise<ToolOutcome>;
 }
 
@@ -57,22 +59,23 @@ export interface Skill {
   title: string;
   /** One line in the user's words for the settings window; `rules` is written for the model. */
   summary: string;
-  /** Other skills whose tools this one's rules tell the model to use; it is off while any of them is. */
-  requires?: readonly ChatRuleId[];
   rules(context: ChatContext): string;
   /** Offered only when this says so, e.g. pet actions only when the character has some. */
   available?(context: ChatContext): boolean;
   tools: readonly Tool[];
 }
 
-const turnedOff = (id: ChatRuleId, context: ChatContext): boolean => context.skillsOff?.includes(id) ?? false;
-/** Whether the user leaves this skill on: it is not turned off in settings, and neither is any skill it needs. */
-export const skillOn = (skill: Skill, context: ChatContext): boolean => !turnedOff(skill.id, context) && (skill.requires ?? []).every((id) => !turnedOff(id, context));
+const toolOff = (name: string, context: ChatContext): boolean => context.toolsOff?.includes(name) ?? false;
+/** Whether the user leaves this tool on in settings, and every tool it needs. */
+export const toolOn = (tool: Tool, context: ChatContext): boolean => !toolOff(tool.name, context) && (tool.requires ?? []).every((name) => !toolOff(name, context));
+export const offeredTools = (skill: Skill, context: ChatContext): Tool[] => skill.tools.filter((tool) => toolOn(tool, context));
+/** Whether the user leaves this skill on in settings, and at least one of its tools. */
+export const skillOn = (skill: Skill, context: ChatContext): boolean => !(context.skillsOff?.includes(skill.id) ?? false) && offeredTools(skill, context).length > 0;
 export const offeredSkills = (skills: readonly Skill[], context: ChatContext): Skill[] => skills.filter((skill) => skillOn(skill, context) && (skill.available?.(context) ?? true));
 
 /** The tools in the OpenAI request format. */
 export function toolDefinitions(skills: readonly Skill[], context: ChatContext): object[] {
-  return offeredSkills(skills, context).flatMap((skill) => skill.tools.map((tool) => ({
+  return offeredSkills(skills, context).flatMap((skill) => offeredTools(skill, context).map((tool) => ({
     type: "function",
     function: { name: tool.name, description: tool.description, parameters: tool.parameters(context) },
   })));

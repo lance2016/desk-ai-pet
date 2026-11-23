@@ -12,7 +12,8 @@ import type { TextTask } from "./types";
 
 export type { ChatContext, ChatEvent, ChatPreview, PromptSection, TextTask } from "./types";
 export type { ChatRequestLog } from "./requestLog";
-export type { EffectLine, Skill } from "./skill";
+export type { EffectLine, Skill, Tool } from "./skill";
+export { offeredTools, toolOn } from "./skill";
 
 /**
  * What one chat message asks for: an ordinary turn with the local tools of `skills`,

@@ -84,7 +84,7 @@ const multi = (...replies: ReadonlyArray<readonly object[]>) => async (id: strin
   }
 };
 
-const chat = (text: string) => (id: string) => ai.start(id, [{ role: "user", content: text }], chatPreferences(), { context: chatRequestContext({ actions: ACTIONS }), skills: CHAT_SKILLS });
+const chat = (text: string, toolsOff?: readonly string[]) => (id: string) => ai.start(id, [{ role: "user", content: text }], chatPreferences(), { context: chatRequestContext({ actions: ACTIONS, toolsOff }), skills: CHAT_SKILLS });
 const reply = (text: string, packets: readonly object[], end: End = OK) => run(chat(text), (id) => feed(id, packets, end));
 const pairs = (events: readonly ChatEvent[]) => events.map((event) => (event.kind === "effect" ? ["effect", event.line.text] : [event.kind, event.text]));
 
@@ -174,6 +174,17 @@ describe("chat replies", () => {
     const line = events.find((event) => event.kind === "effect");
     if (line?.kind === "effect") line.line.undo?.();
     expect(loadNotes().map((note) => note.text).sort()).toEqual(["WiFi 密码 abc123", "买牛奶"]);
+  });
+
+  it("does not run a tool the user turned off, even when the model calls it", async () => {
+    saveNote("买牛奶");
+    const events = await run(chat("把牛奶那条删了", ["delete_note"]), multi(
+      [chunk(null, [call(0, "list_notes", `{"synthesize":true}`)], "tool_calls")],
+      [chunk(null, [call(0, "delete_note", `{"ref":"n1"}`)], "tool_calls")],
+    ));
+    expect(loadNotes().map((note) => note.text)).toEqual(["买牛奶"]);
+    expect(JSON.stringify(sent(1).tools)).not.toContain("delete_note");
+    expect(pairs(events)).toEqual([["effect", "「删除备忘」在设置里关着，没有做"], ["delta", "「删除备忘」在设置里关着，没有做"], ["done", ""]]);
   });
 
   it("lets the model look up first when it names an item it has not listed", async () => {

@@ -1,13 +1,13 @@
 /** The pages of the settings window. */
-export const SECTIONS = ["character", "characterProfile", "general", "companion", "dock", "actions", "chat", "skills", "skill", "ai", "voices", "memory", "tools", "privacy", "guide", "about", "diagnostics", "developer"] as const;
+export const SECTIONS = ["character", "characterProfile", "general", "companion", "dock", "actions", "chat", "skills", "ai", "voices", "memory", "tools", "privacy", "guide", "about", "diagnostics", "prompt", "toolDefs", "developer"] as const;
 export type SettingsSection = (typeof SECTIONS)[number];
 export const isSection = (value: string | null): value is SettingsSection => SECTIONS.some((section) => section === value);
 
 const LABELS: Record<SettingsSection, string> = {
   character: "角色", characterProfile: "角色设定", actions: "动作库", dock: "快捷按钮",
-  chat: "聊天", skills: "能力", skill: "能力详情", ai: "AI 服务", voices: "克隆的声音", memory: "记忆", companion: "陪伴", tools: "小工具",
+  chat: "聊天", skills: "能力", ai: "AI 服务", voices: "克隆的声音", memory: "记忆", companion: "陪伴", tools: "小工具",
   general: "通用", privacy: "隐私与数据", guide: "功能一览", about: "关于",
-  diagnostics: "日志与诊断", developer: "请求记录",
+  diagnostics: "日志与诊断", prompt: "提示词", toolDefs: "工具定义", developer: "请求记录",
 };
 const group = (...ids: SettingsSection[]) => ids.map((id) => ({ id, label: LABELS[id] }));
 
@@ -21,10 +21,7 @@ export const NAV_GROUPS = [
   { title: "应用", items: group("general", "privacy", "guide", "about") },
 ] as const;
 /** Shown at the bottom of the sidebar only while developer mode is on. */
-export const DEVELOPER_GROUP = { title: "开发者", items: group("developer") } as const;
-/**
- * Pages opened from another page; the direct parent is shown above the title and the top-level ancestor stays selected.
- * "skill" is one skill's page and takes its title from the skill opened.
- */
-export const SUB_PAGES: Partial<Record<SettingsSection, SettingsSection>> = { characterProfile: "character", diagnostics: "about", voices: "ai", skill: "skills" };
+export const DEVELOPER_GROUP = { title: "开发者", items: group("prompt", "toolDefs", "developer") } as const;
+/** Pages opened from another page; the direct parent is shown above the title and the top-level ancestor stays selected. */
+export const SUB_PAGES: Partial<Record<SettingsSection, SettingsSection>> = { characterProfile: "character", diagnostics: "about", voices: "ai" };
 export const sectionLabel = (section: SettingsSection): string => LABELS[section];

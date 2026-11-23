@@ -19,8 +19,8 @@ import { ChatSettings } from "./ChatSettings";
 import { FactSettings } from "./FactSettings";
 import { ChatRequestLog } from "./ChatRequestLog";
 import { PromptPreview } from "./PromptPreview";
-import { SkillDetail, SkillList, skillTitle } from "./SkillSettings";
-import type { ChatRuleId } from "../../preferences/ChatRules";
+import { SkillList } from "./SkillSettings";
+import { ToolDefinitions } from "./ToolDefinitions";
 import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/DeveloperMode";
 import { CharacterSettings } from "./CharacterSettings";
 import { CharacterProfileSettings } from "./CharacterProfileSettings";
@@ -65,7 +65,9 @@ const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
   ai: "AI 对话 DeepSeek MiMo API Key 模型 语音",
   companion: "早安 问候 关心 勿扰 免打扰",
   tools: "划词 翻译 编码助手 Claude Code 邮箱 邮件 验证码",
-  skills: "工具 tool 开关 关闭 提示词 对话规则 网页 链接",
+  skills: "开关 关闭 提醒 备忘 日报 记忆 动作 安静 网页 链接",
+  prompt: "系统提示词 system prompt 对话规则 修改规则 改写",
+  toolDefs: "工具 tool function 函数 参数 schema 开关",
 };
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "actions"];
@@ -81,7 +83,6 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     chat: <><path d="M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5Z" /></>,
     ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
     skills: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 4v6M13.5 7h6" /></>,
-    skill: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 4v6M13.5 7h6" /></>,
     voices: <><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></>,
     memory: <><path d="M7 3h10v18l-5-4-5 4V3Z" /></>,
     tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
@@ -89,6 +90,8 @@ function SettingsGlyph({ name }: { name: SettingsSection }) {
     guide: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" /></>,
     about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
     diagnostics: <><path d="M4 5h16M4 10h16M4 15h10M4 20h7" /></>,
+    prompt: <><path d="M6 3h9l3 3v15H6V3Z" /><path d="M9 10h6M9 14h6M9 18h3" /></>,
+    toolDefs: <><path d="M9 4C7 4 6.5 5 6.5 7v2.5C6.5 11 5.5 12 4 12c1.5 0 2.5 1 2.5 2.5V17c0 2 .5 3 2.5 3M15 4c2 0 2.5 1 2.5 3v2.5c0 1.5 1 2.5 2.5 2.5-1.5 0-2.5 1-2.5 2.5V17c0 2-.5 3-2.5 3" /></>,
     developer: <><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14" /></>,
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
@@ -164,8 +167,6 @@ export function SettingsPage({ packId }: { packId: string }) {
   const [resolveAsset, setResolveAsset] = useState<(file: string) => string>(() => (file: string) => file);
 
   const [developer, setDeveloper] = useState(loadDeveloperMode);
-  /** The skill whose page "skill" shows. */
-  const [openSkill, setOpenSkill] = useState<ChatRuleId>("memory");
   /** "什么时候会连网" opens on its first few rows; the rest are a click away. */
   const [allOnline, setAllOnline] = useState(false);
   const [welcome, setWelcome] = useState(false);
@@ -292,7 +293,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   const name = current ? characterName(packId, current.name) : "";
   const label = sectionLabel(section);
-  const title = section === "skill" ? skillTitle(openSkill) : PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
+  const title = PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
   /** A page opened from inside another: that one stays lit in the sidebar, and the title leads back to it. */
   const parent = SUB_PAGES[section];
   /** Nested pages keep the top-level category selected (e.g. logs keep About lit). */
@@ -320,7 +321,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
   // Search: the pages, the settings on them and the features in "功能一览".
   const searchEntries = useMemo<SearchResult[]>(() => [
-    ...[ACCOUNT_SECTION, ...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[]).filter((id) => id !== "skill")].map((id) => ({ section: id, title: sectionLabel(id), place: "", keywords: PAGE_KEYWORDS[id] })),
+    ...[ACCOUNT_SECTION, ...NAV_GROUPS.flatMap(({ items }) => items.map(({ id }) => id)), ...(developer ? DEVELOPER_GROUP.items.map(({ id }) => id) : []), ...(Object.keys(SUB_PAGES) as SettingsSection[])].map((id) => ({ section: id, title: sectionLabel(id), place: "", keywords: PAGE_KEYWORDS[id] })),
     ...SETTINGS_INDEX.map((entry) => ({ ...entry, place: sectionLabel(entry.section) })),
     ...FEATURE_GUIDE.flatMap((group) => group.features.map((feature) => ({ section: "guide" as const, title: feature.title, keywords: `${feature.detail} ${feature.how?.join(" ") ?? ""}`, place: sectionLabel("guide") }))),
   ], [developer]);
@@ -396,7 +397,7 @@ export function SettingsPage({ packId }: { packId: string }) {
             <h2 className="settings-group-title">应用</h2>
             <div className="settings-group">
               <LaunchAtLoginRow onError={setError} />
-              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>在本机保留最近 100 次实际发给 AI 的内容和回复，打开后侧栏多出「请求记录」</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>侧栏多出「开发者」：提示词、工具定义和请求记录。打开期间，最近 100 次实际发给 AI 的内容和回复会留在本机</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
             </div>
           </div>
         )}
@@ -419,12 +420,13 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} profileIcon={<span className="settings-nav__icon settings-nav__icon--characterProfile"><SettingsGlyph name="characterProfile" /></span>} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "chat" && packInfo && <ChatSettings key={packId} packId={packId} onError={setError} />}
-        {section === "skills" && <SkillList actions={chatActions} onOpen={(id) => { if (go("skill")) setOpenSkill(id); }} onError={setError} />}
-        {section === "skill" && <SkillDetail key={openSkill} id={openSkill} actions={chatActions} developer={developer} onError={setError} />}
+        {section === "skills" && <SkillList actions={chatActions} onError={setError} />}
         {section === "ai" && <AISettings packId={packId} persona={persona} characterName={name || "这个角色"} clonesIcon={<span className="settings-nav__icon settings-nav__icon--voices"><SettingsGlyph name="voices" /></span>} onOpenClones={() => void go("voices")} />}
         {section === "voices" && <ClonedVoiceSettings />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
-        {section === "developer" && <div className="settings-section"><PromptPreview packId={packId} persona={persona} actions={chatActions} /><div className="settings-card"><ChatRequestLog /></div></div>}
+        {section === "prompt" && <PromptPreview packId={packId} persona={persona} actions={chatActions} onError={setError} />}
+        {section === "toolDefs" && <ToolDefinitions packId={packId} persona={persona} actions={chatActions} onError={setError} />}
+        {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
         {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}
         {section === "privacy" && (
           <div className="settings-section">

@@ -12,7 +12,8 @@ import { chatContext } from "../src/agenda/chatTools";
 import { addAgendaItem, loadAgenda, updateAgenda, type AgendaItem } from "../src/agenda/AgendaStore";
 import type { Repeat } from "../src/agenda/Repeat";
 import standardActions from "../src/actions/standardActions.json";
-import type { ToolCall as SkillCall, ToolOutcome } from "../src/ai/skill";
+import { offeredSkills, offeredTools, type ToolCall as SkillCall, type ToolOutcome } from "../src/ai/skill";
+import type { SwitchedOff } from "../src/preferences/SkillPreferences";
 import { nextRound, chatRequest, type AnsweredCall, type RequestBody } from "../src/ai/requests";
 import type { ToolCall as ModelCall } from "../src/ai/stream";
 import { addFact, currentChatFacts, loadFacts, updateFacts, type Fact, type FactSource } from "../src/facts/FactStore";
@@ -34,6 +35,8 @@ export interface Setup {
   facts?: { text: string; source: FactSource }[];
   /** What the pet said by itself just before; the sentence answers it. */
   opening?: string;
+  /** Skills and single tools the user turned off in settings. */
+  off?: SwitchedOff;
 }
 
 /** What the model did with one sentence, and what the store looks like afterwards. */
@@ -119,8 +122,8 @@ export async function runChat(setup: Setup, say: string): Promise<ChatRun> {
   try {
     const now = Date.now();
     seed(setup, now);
-    const context = chatContext(now, OFFERED_ACTIONS, currentChatFacts(), setup.opening);
-    const tools = new Map(CHAT_SKILLS.filter((skill) => skill.available?.(context) ?? true).flatMap((skill) => skill.tools.map((tool) => [tool.name, tool] as const)));
+    const context = chatContext(now, OFFERED_ACTIONS, currentChatFacts(), setup.opening, setup.off);
+    const tools = new Map(offeredSkills(CHAT_SKILLS, context).flatMap((skill) => offeredTools(skill, context).map((tool) => [tool.name, tool] as const)));
     const call: SkillCall = { requestId: "eval", context, memo: new Map() };
     const run: ChatRun = { calls: [], reply: "", reminders: [], notes: [], facts: [] };
     let body = chatRequest([{ role: "user", content: say }], preferences(), context, CHAT_SKILLS);
