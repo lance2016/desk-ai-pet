@@ -77,6 +77,8 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
     return (
       <button type="button" className={`status-chip coding-pill coding-pill--${head.turn}`} aria-label={`Claude Code，${state}：${title}`} title="看看 Claude Code 的会话" onClick={openCoding}>
         <TurnMark turn={head.turn} />
+        {/* The mark alone would read a finished turn as a finished task. */}
+        <span className="coding-pill__state">{stateWord(head)}</span>
         <span ref={titleRef} className="coding-pill__title">{title}</span>
         {others > 0 && <span className="coding-pill__more">+{others}</span>}
         {cut && <Full title={title} line={stateLine(head) ?? ""} />}

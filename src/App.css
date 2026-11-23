@@ -347,8 +347,8 @@ body {
   pointer-events: auto;
 }
 /* At an edge the bar is gone: the row sits in the corner beside the peeking pet, where the bar was. */
-.app--docked-left .status-row { left: calc(var(--visible-left) + 8px); right: auto; top: auto; bottom: max(var(--stage-bottom) - 76px, var(--visible-bottom, 0px) + 8px); margin: 0; justify-content: flex-start; }
-.app--docked-right .status-row { right: calc(var(--visible-right) + 8px); left: auto; top: auto; bottom: max(var(--stage-bottom) - 76px, var(--visible-bottom, 0px) + 8px); margin: 0; justify-content: flex-end; }
+.app--docked-left .status-row { left: calc(var(--visible-left) + 8px); right: auto; top: auto; bottom: max(var(--stage-bottom) - 44px, var(--visible-bottom, 0px) + 8px); margin: 0; justify-content: flex-start; }
+.app--docked-right .status-row { right: calc(var(--visible-right) + 8px); left: auto; top: auto; bottom: max(var(--stage-bottom) - 44px, var(--visible-bottom, 0px) + 8px); margin: 0; justify-content: flex-end; }
 .status-chip {
   display: inline-flex;
   align-items: center;
@@ -469,12 +469,13 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .coding-card--waiting, .coding-pill--waiting { background: linear-gradient(var(--ui-warning-soft), var(--ui-warning-soft)), var(--ui-surface); }
 .coding-card--waiting :is(.status-chip__dot, .coding-card__state, .coding-card__meta), .coding-pill--waiting { color: var(--ui-warning); }
 .coding-card--failed :is(.coding-mark, .coding-card__state, .coding-card__meta), .coding-pill--failed { color: var(--ui-danger); }
-.coding-card--completed :is(.coding-mark, .coding-card__state), .coding-pill--completed .coding-mark { color: var(--ui-positive); }
+.coding-card--completed :is(.coding-mark, .coding-card__state), .coding-pill--completed :is(.coding-mark, .coding-pill__state) { color: var(--ui-positive); }
 .coding-card__head .status-chip__dot { margin: 0 2px; }
 .coding-mark { flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .coding-mark--quiet { box-sizing: border-box; width: 6px; height: 6px; margin: 0 3px; border: 1.5px solid currentColor; border-radius: 50%; opacity: .6; }
 /* One line: beside other pills, or at a screen edge. */
 .coding-pill { max-width: 208px; padding-left: 6px; }
+.coding-pill__state { flex: none; font-weight: 500; }
 .coding-pill__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .coding-pill__more { flex: none; color: var(--ui-text-muted); }
 
