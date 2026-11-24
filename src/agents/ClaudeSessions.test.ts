@@ -263,6 +263,95 @@ describe("ClaudeSessions", () => {
     expect(sessions.turnOver(SESSION, 2000, "interrupted", 4000)).toBeNull();
   });
 
+  it("does not call a turn done while work it started runs in the background", () => {
+    const sessions = working(0);
+    sessions.report(report("PreToolUse", { tool: "Bash", detail: "Run the tests" }), 1000);
+    expect(sessions.report(report("Stop", { summary: "测试还在后台跑", background: true }), 2 * 60_000)).toMatchObject({ id: ID, state: "cancelled" });
+    expect(only(sessions)).toMatchObject({ turn: "background", result: "测试还在后台跑", task: "重构设置页面", turnStartedAt: 0, turnEndedAt: 2 * 60_000 });
+    expect(only(sessions)).not.toHaveProperty("activity");
+    expect(sessions.checks()).toEqual([]);
+  });
+
+  it("goes on with the same turn when the background work wakes it, and tells the end with the whole time", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { summary: "测试还在后台跑", background: true }), 2 * 60_000);
+    // Claude Code 2.1.331: the wake-up comes as a prompt, and nothing in between.
+    expect(sessions.report(report("UserPromptSubmit", { woke: true }), 8 * 60_000)).toMatchObject({ state: "running" });
+    expect(only(sessions)).toMatchObject({ turn: "working", task: "重构设置页面", turnStartedAt: 0, turnResumedAt: 8 * 60_000 });
+    expect(only(sessions)).not.toHaveProperty("result");
+    expect(only(sessions).turnEndedAt).toBeUndefined();
+    expect(only(sessions).earlier).toBeUndefined();
+    // A short look at the results is still the end of a long wait.
+    expect(sessions.report(report("Stop", { summary: "测试都过了" }), 8 * 60_000 + 10_000)).toMatchObject({ state: "done", text: "ai-pet 那边这一轮做完了，用了 8 分钟" });
+    expect(only(sessions)).toMatchObject({ turn: "completed", result: "测试都过了", turnStartedAt: 0 });
+  });
+
+  it("goes on with the same turn when the wake-up's first tool gets through before it", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { background: true, at: 60_000 }), 60_000);
+    expect(sessions.report(report("PreToolUse", { tool: "Read", detail: "out.log", at: 90_010 }), 90_020)).toMatchObject({ state: "running" });
+    expect(sessions.report(report("UserPromptSubmit", { woke: true, at: 90_000 }), 90_030)).toBeNull();
+    expect(only(sessions)).toMatchObject({ turn: "working", task: "重构设置页面", turnStartedAt: 0, activity: "阅读 out.log" });
+    // The Stop before the wake-up, late again, does not end it.
+    expect(sessions.report(report("Stop", { background: true, at: 60_000 }), 90_040)).toBeNull();
+    expect(only(sessions).turn).toBe("working");
+  });
+
+  it("ends the turn it went on with even when the wake-up was missed", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { background: true }), 60_000);
+    expect(sessions.report(report("Stop", { summary: "测试都过了" }), 5 * 60_000)).toMatchObject({ state: "done", text: "ai-pet 那边这一轮做完了，用了 5 分钟" });
+    expect(only(sessions)).toMatchObject({ turn: "completed", result: "测试都过了", turnStartedAt: 0 });
+    // Woken again with more left behind: still not done.
+    const again = working(0);
+    again.report(report("Stop", { background: true }), 60_000);
+    expect(again.report(report("Stop", { background: true }), 5 * 60_000)).toMatchObject({ state: "cancelled" });
+    expect(only(again)).toMatchObject({ turn: "background", turnEndedAt: 5 * 60_000 });
+  });
+
+  it("is not woken by a background subagent's own tools", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { background: true }), 60_000);
+    expect(sessions.report(report("PreToolUse", { tool: "Bash", subagent: true }), 70_000)).toBeNull();
+    expect(sessions.report(report("PostToolUse", { tool: "Bash", subagent: true }), 80_000)).toBeNull();
+    expect(only(sessions).turn).toBe("background");
+  });
+
+  it("starts a new turn when the user asks something while the background work runs, the last one over", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { summary: "测试还在后台跑", background: true }), 60_000);
+    sessions.report(report("UserPromptSubmit", { task: "顺便看下日志" }), 70_000);
+    expect(only(sessions)).toMatchObject({ turn: "working", task: "顺便看下日志", turnStartedAt: 70_000 });
+    expect(only(sessions).earlier).toEqual([{ turn: "completed", task: "重构设置页面", result: "测试还在后台跑", startedAt: 0, endedAt: 60_000 }]);
+    // Woken while the user's turn runs: that turn goes on as it was.
+    expect(sessions.report(report("UserPromptSubmit", { woke: true }), 80_000)).toBeNull();
+    expect(only(sessions)).toMatchObject({ task: "顺便看下日志", turnStartedAt: 70_000 });
+  });
+
+  it("starts the user's turn after all when its first tool, taken for a wake-up, got through before the prompt", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { background: true, at: 60_000 }), 60_000);
+    sessions.report(report("PreToolUse", { tool: "Read", detail: "app.log", at: 70_010 }), 70_020);
+    expect(sessions.report(report("UserPromptSubmit", { task: "顺便看下日志", at: 70_000 }), 70_030)).toBeNull();
+    expect(only(sessions)).toMatchObject({ turn: "working", task: "顺便看下日志", turnStartedAt: 70_000, activity: "阅读 app.log" });
+    expect(only(sessions)).not.toHaveProperty("turnResumedAt");
+    expect(only(sessions).earlier).toEqual([{ turn: "completed", task: "重构设置页面", startedAt: 0 }]);
+  });
+
+  it("starts a turn of its own when woken with no turn it knows of", () => {
+    const sessions = new ClaudeSessions();
+    expect(sessions.report(report("UserPromptSubmit", { woke: true }), 5000)).toMatchObject({ state: "running" });
+    expect(only(sessions)).toMatchObject({ turn: "working", turnStartedAt: 5000 });
+    expect(only(sessions)).not.toHaveProperty("task");
+  });
+
+  it("does not say the background still runs once the session ended", () => {
+    const sessions = working(0);
+    sessions.report(report("Stop", { background: true }), 60_000);
+    expect(sessions.report(report("SessionEnd"), 70_000)).toBeNull();
+    expect(only(sessions)).toMatchObject({ turn: "idle", ended: true });
+  });
+
   it("ends a turn whose Stop went missing as a Stop would have", () => {
     expect(working(1000).turnOver(SESSION, 1000, "ended", 1000 + 4 * 60_000)).toMatchObject({ state: "done", text: "ai-pet 那边这一轮做完了，用了 4 分钟" });
     expect(working(1000).turnOver(SESSION, 1000, "ended", 2000)).toMatchObject({ state: "cancelled" });

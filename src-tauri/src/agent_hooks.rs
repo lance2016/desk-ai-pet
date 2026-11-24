@@ -70,6 +70,8 @@ const SOCKET_TIMEOUT: Duration = Duration::from_secs(1);
 const INTERRUPT_MARK: &str = "[Request interrupted by user";
 /// The `subtype` of the system line Claude Code writes once a turn has ended (2.1.330, not documented).
 const TURN_END_MARK: &str = "turn_duration";
+/// How the prompt starts when Claude Code wakes a session because background work ended (2.1.331, not documented).
+const TASK_NOTIFICATION: &str = "<task-notification>";
 /// The `type` of the line Claude Code writes with its own name for the session, and the field holding it (2.1.330, not documented).
 const TITLE_MARK: &str = "ai-title";
 const TITLE_FIELD: &str = "aiTitle";
@@ -160,6 +162,9 @@ struct HookInput {
     notification_type: Option<String>,
     #[serde(default)]
     error: Option<Value>,
+    /// The shells and subagents Claude started in the background and still running (Stop). Only counted, never read.
+    #[serde(default)]
+    background_tasks: Option<Vec<Value>>,
     /// Set when the event comes from a subagent of the session.
     #[serde(default)]
     agent_id: Option<String>,
@@ -211,6 +216,12 @@ struct Work {
     /// The first line of Claude's last reply.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     summary: Option<String>,
+    /// The turn ended with work it started still running in the background (Stop): Claude goes on once that is done.
+    #[serde(default, skip_serializing_if = "is_false")]
+    background: bool,
+    /// Not the user asking: Claude Code woke the session because background work ended (UserPromptSubmit).
+    #[serde(default, skip_serializing_if = "is_false")]
+    woke: bool,
 }
 
 /// What the pet window gets: `Forwarded` without the transcript path and the app.
@@ -380,9 +391,11 @@ fn forwarded_line(input: &[u8], host: Host) -> Option<String> {
     // The working folder follows the shell's `cd` into a subfolder; the project folder does not.
     let folder = host.project_dir.filter(|dir| !dir.is_empty()).unwrap_or(hook.cwd);
     let event = hook.hook_event_name.as_str();
+    let prompt = hook.prompt.as_deref().filter(|_| event == "UserPromptSubmit");
+    let woke = prompt.is_some_and(|prompt| prompt.trim_start().starts_with(TASK_NOTIFICATION));
     let work = Work {
         at: now_ms(),
-        task: hook.prompt.as_deref().filter(|_| event == "UserPromptSubmit").and_then(|prompt| one_line(prompt, MAX_TASK_CHARS)),
+        task: prompt.filter(|_| !woke).and_then(|prompt| one_line(prompt, MAX_TASK_CHARS)),
         title: hook.session_title.as_deref().and_then(|title| one_line(title, MAX_TASK_CHARS)),
         detail: match (&hook.tool_name, &hook.tool_input) {
             (Some(tool), Some(input)) if matches!(event, "PreToolUse" | "PermissionRequest") => tool_detail(tool, input),
@@ -390,6 +403,8 @@ fn forwarded_line(input: &[u8], host: Host) -> Option<String> {
         },
         branch: git_branch(Path::new(&folder)),
         summary: hook.last_assistant_message.as_deref().filter(|_| event == "Stop").and_then(|reply| one_line(reply, MAX_SUMMARY_CHARS)),
+        background: event == "Stop" && hook.background_tasks.is_some_and(|tasks| !tasks.is_empty()),
+        woke,
     };
     let project = Path::new(&folder).file_name().map(|name| cut(name.to_string_lossy().into_owned(), MAX_FORWARDED_CHARS)).unwrap_or_default();
     let error = hook.error.and_then(|error| match error {
@@ -819,6 +834,26 @@ mod tests {
         assert_eq!(forwarded.work.summary.as_deref(), Some("设置页改好了，pnpm test 通过。"));
         // A failed turn's last message is the API's error text, which the pet words itself.
         assert!(!forwarded_line(ended.replace("\"Stop\"", "\"StopFailure\"").as_bytes(), Host::default()).unwrap().contains("summary"));
+    }
+
+    #[test]
+    fn tells_a_turn_left_running_in_the_background_and_its_wake_up() {
+        // Both shaped as Claude Code 2.1.331 sent them.
+        let stopped = r#"{"session_id":"abc-123","cwd":"/tmp/none","hook_event_name":"Stop","last_assistant_message":"STARTED","background_tasks":[{"id":"ba0oc3oax","type":"shell","status":"running","description":"sleep 300","command":"sleep 300 && rm -rf dist"}],"session_crons":[]}"#;
+        let line = forwarded_line(stopped.as_bytes(), Host::default()).unwrap();
+        let forwarded: Forwarded = serde_json::from_str(&line).unwrap();
+        assert!(forwarded.work.background && valid(&forwarded));
+        assert!(!line.contains("sleep") && !line.contains("rm -rf") && !line.contains("ba0oc3oax"));
+        let idle = stopped.replace(r#"[{"id":"ba0oc3oax","type":"shell","status":"running","description":"sleep 300","command":"sleep 300 && rm -rf dist"}]"#, "[]");
+        assert!(!forwarded_line(idle.as_bytes(), Host::default()).unwrap().contains("background"));
+
+        let woke = r#"{"session_id":"abc-123","cwd":"/tmp/none","hook_event_name":"UserPromptSubmit","prompt":"<task-notification>\n<task-id>blhxbdq9r</task-id>\n<output-file>/private/tmp/claude-501/tasks/blhxbdq9r.output</output-file>\n<status>completed</status>\n<summary>Background command \"sleep 12\" completed (exit code 0)</summary>\n</task-notification>\nRead the output file to retrieve the result: /private/tmp/claude-501/tasks/blhxbdq9r.output"}"#;
+        let line = forwarded_line(woke.as_bytes(), Host::default()).unwrap();
+        let forwarded: Forwarded = serde_json::from_str(&line).unwrap();
+        assert!(forwarded.work.woke && forwarded.work.task.is_none() && valid(&forwarded));
+        assert!(!line.contains("/private") && !line.contains("sleep"));
+        let asked = r#"{"session_id":"abc-123","cwd":"/tmp/none","hook_event_name":"UserPromptSubmit","prompt":"why is <task-notification> in the log"}"#;
+        assert!(!forwarded_line(asked.as_bytes(), Host::default()).unwrap().contains("woke"));
     }
 
     #[test]

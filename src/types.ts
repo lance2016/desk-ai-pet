@@ -170,6 +170,10 @@ export interface AgentReport {
   branch?: string;
   /** The first line of Claude's last reply (Stop). */
   summary?: string;
+  /** The turn ended with work it started still running in the background (Stop). */
+  background?: boolean;
+  /** Claude Code woke the session because background work ended; the user asked nothing (UserPromptSubmit). */
+  woke?: boolean;
   /** Such as "permission_prompt" (Notification). */
   notification?: string;
   /** Such as "rate_limit" (StopFailure). */

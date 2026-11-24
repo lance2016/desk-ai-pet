@@ -24,6 +24,17 @@ describe("coding inbox", () => {
     expect(codingInbox(sessions, [], NOW).pending.map(({ session }) => session.id)).toEqual(["failed", "complete"]);
   });
 
+  it("holds a turn left to background work back until Claude has gone on and finished it", () => {
+    const sessions = new ClaudeSessions();
+    const identity = { session: "pet", project: "ai-pet" };
+    sessions.report({ ...identity, event: "UserPromptSubmit", task: "跑测试" }, NOW - 10 * 60_000);
+    sessions.report({ ...identity, event: "Stop", summary: "测试还在后台跑", background: true }, NOW - 8 * 60_000);
+    expect(codingInbox(sessions.list(), [], NOW).pending).toEqual([]);
+    sessions.report({ ...identity, event: "UserPromptSubmit", woke: true }, NOW - 60_000);
+    sessions.report({ ...identity, event: "Stop", summary: "测试都过了" }, NOW);
+    expect(codingInbox(sessions.list(), [], NOW).pending).toMatchObject([{ turn: "completed", at: NOW, task: "跑测试", line: "测试都过了" }]);
+  });
+
   it("keeps an error whose start hook was missed when the user retries", () => {
     const sessions = new ClaudeSessions();
     const identity = { session: "pet", project: "ai-pet" };

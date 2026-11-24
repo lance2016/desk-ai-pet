@@ -23,6 +23,8 @@ const reportSchema = z.object({
   detail: z.string().min(1).max(128).optional(),
   branch: z.string().min(1).max(128).optional(),
   summary: z.string().min(1).max(320).optional(),
+  background: z.boolean().optional(),
+  woke: z.boolean().optional(),
 }) satisfies z.ZodType<AgentReport>;
 
 /** How a turn ended by its transcript, when no Stop came: Esc, or a Stop the pet missed. */

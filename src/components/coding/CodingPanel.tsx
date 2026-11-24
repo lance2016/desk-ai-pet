@@ -85,6 +85,7 @@ interface TurnView {
 function outcome(turn: TurnState, result: string | undefined): string {
   switch (turn) {
     case "completed": return result ?? "这一轮做完了";
+    case "background": return result ?? "后台还在跑";
     case "failed": return result ?? "出错了";
     case "interrupted": return "已打断";
     case "unknown": return "状态未知：很久没有动静";

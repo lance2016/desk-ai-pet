@@ -124,13 +124,16 @@ export class ClaudeSessions {
     const at = report.at || now;
     const before = this.sessions.get(report.session);
     // The prompt that started this turn, overtaken by the turn's first tool: it only names the turn.
-    if (before && report.event === "UserPromptSubmit" && before.turn === "working" && before.turnStartedAt !== undefined
-      && at < before.turnStartedAt && before.turnStartedAt - at <= LATE_PROMPT_MS) {
-      this.sessions.set(before.id, { ...before, turnStartedAt: at, ...(report.task ? { task: fit(report.task, SESSION_LIMITS.name) } : {}) });
+    const began = before?.turnResumedAt ?? before?.turnStartedAt;
+    if (before && report.event === "UserPromptSubmit" && !report.woke && before.turn === "working" && began !== undefined
+      && at < began && began - at <= LATE_PROMPT_MS) {
+      // That tool was taken for the background work waking the last turn; it was this prompt's.
+      const turn = before.turnResumedAt === undefined ? before : { ...this.putAway({ ...before, turn: "completed" }), activity: before.activity };
+      this.sessions.set(before.id, { ...turn, turn: "working", turnStartedAt: at, ...(report.task ? { task: fit(report.task, SESSION_LIMITS.name) } : {}) });
       return null;
     }
-    // It ran before this turn began or after it ended: a straggler that says nothing new.
-    if (before && at < Math.max(before.turnStartedAt ?? 0, before.turnEndedAt ?? 0)) return null;
+    // It ran before this turn began, ended or woke up again: a straggler that says nothing new.
+    if (before && at < Math.max(before.turnStartedAt ?? 0, before.turnEndedAt ?? 0, before.turnResumedAt ?? 0)) return null;
     // It ran before the session ended: only something after the end brings a session back.
     if (before?.ended && at <= before.lastEventAt) return null;
     if (report.title) this.named.add(report.session);
@@ -141,6 +144,7 @@ export class ClaudeSessions {
         this.sessions.set(report.session, known ?? this.fresh(report, at, "idle"));
         return null;
       case "UserPromptSubmit":
+        if (report.woke) return known && isLive(known) ? this.touch(known) : this.work(report, known, at, false);
         return this.work(report, known, at, true);
       case "PreToolUse": {
         if (report.subagent || known?.turn === "waiting") return this.touch(known);
@@ -160,9 +164,11 @@ export class ClaudeSessions {
         if (!ASKING.has(report.notification ?? "") || known?.turn === "waiting") return this.touch(known);
         return this.ask(report, known, at, undefined);
       case "Stop":
+        // The turn left to background work went on and ended, and the wake-up was missed.
+        if (known?.turn === "background" && at > (known.turnEndedAt ?? 0)) return this.finish(this.resumed(known, at), at, report.summary, report.background);
         // A second Stop for a turn already over changes nothing.
         if (known && !isLive(known)) return this.touch(known);
-        return this.finish(known ?? this.fresh(report, at, "idle"), at, report.summary);
+        return this.finish(known ?? this.fresh(report, at, "idle"), at, report.summary, report.background);
       case "StopFailure": {
         const reason = FAILURES[report.error ?? ""] ?? FAILURE_FALLBACK;
         const session = this.over(known ?? this.fresh(report, at, "idle"), "failed", at, reason);
@@ -171,7 +177,8 @@ export class ClaudeSessions {
       case "SessionEnd": {
         if (!known) return null;
         const wasLive = isLive(known);
-        this.sessions.set(known.id, { ...this.settled(known), turn: wasLive ? "idle" : known.turn, ended: true, revealable: false });
+        // Background work ends with the session: it no longer runs.
+        this.sessions.set(known.id, { ...this.settled(known), turn: wasLive || known.turn === "background" ? "idle" : known.turn, ended: true, revealable: false });
         return wasLive ? this.update(known, "cancelled") : null;
       }
     }
@@ -263,10 +270,11 @@ export class ClaudeSessions {
 
   /** `known` with its last turn put away among the earlier ones and nothing of it left, so a new turn can start. */
   private putAway(known: CodingSession): CodingSession {
-    const { task, result, turnStartedAt, turnEndedAt, earlier = [], ...rest } = this.settled(known);
+    const { task, result, turnStartedAt, turnEndedAt, turnResumedAt: _turnResumedAt, earlier = [], ...rest } = this.settled(known);
     if (task === undefined && turnStartedAt === undefined && turnEndedAt === undefined) return rest;
     const past: PastTurn = {
-      turn: known.turn,
+      // The user moved on: a turn left to background work is over as far as they are concerned.
+      turn: known.turn === "background" ? "completed" : known.turn,
       ...(task !== undefined ? { task } : {}),
       ...(result !== undefined ? { result } : {}),
       ...(turnStartedAt !== undefined ? { startedAt: turnStartedAt } : {}),
@@ -277,6 +285,13 @@ export class ClaudeSessions {
 
   /** It is at work. `prompted`: the user just asked, so a new turn starts; otherwise one starts only if none was going. */
   private work(report: AgentReport, known: CodingSession | undefined, at: number, prompted: boolean): ActivityUpdate | null {
+    // Claude at it again without the user asking: the background work it was left to woke it.
+    const woken = !prompted && known !== undefined && (report.woke === true || known.turn === "background");
+    if (woken) {
+      const session = this.resumed(known, at);
+      this.sessions.set(session.id, session);
+      return this.update(session, "running");
+    }
     const base = known ?? this.fresh(report, at, "idle");
     // The same prompt twice (hooks can be delivered twice) is still the one turn.
     const starting = (prompted && base.turnStartedAt !== at) || !isLive(base);
@@ -286,6 +301,12 @@ export class ClaudeSessions {
       : { ...this.settled(base), turn: "working", ...(base.activity ? { activity: base.activity } : {}) };
     this.sessions.set(session.id, session);
     return wasWorking && !prompted ? null : this.update(session, "running");
+  }
+
+  /** `known`'s last turn going on again: the same request, from when it was first asked. */
+  private resumed(known: CodingSession, at: number): CodingSession {
+    const { result: _result, turnEndedAt: _turnEndedAt, ...rest } = this.settled(known);
+    return { ...rest, turn: "working", turnStartedAt: known.turnStartedAt ?? at, turnResumedAt: at };
   }
 
   private ask(report: AgentReport, known: CodingSession | undefined, at: number, tool: string | undefined): ActivityUpdate {
@@ -303,17 +324,20 @@ export class ClaudeSessions {
     return this.withWayBack(session, this.update(session, "waiting", this.askLine(session)));
   }
 
-  /** The turn ended: a long one is told about, a short one goes quietly. */
-  private finish(known: CodingSession, at: number, summary: string | undefined): ActivityUpdate {
+  /**
+   * The turn ended: a long one is told about, a short one goes quietly. One that
+   * left work running in the background is not done: Claude goes on once that ends.
+   */
+  private finish(known: CodingSession, at: number, summary: string | undefined, background = false): ActivityUpdate {
     const took = known.turnStartedAt === undefined ? 0 : at - known.turnStartedAt;
-    const session = this.over(known, "completed", at, summary);
-    if (took < CLAUDE_CONFIG.shortTurnMs) return this.update(session, "cancelled");
+    const session = this.over(known, background ? "background" : "completed", at, summary);
+    if (background || took < CLAUDE_CONFIG.shortTurnMs) return this.update(session, "cancelled");
     return this.update(session, "done", `${this.side(session.project)} 那边这一轮做完了，用了 ${duration(took)}`);
   }
 
   /** Records how the turn ended. */
-  private over(known: CodingSession, turn: "completed" | "failed" | "interrupted", at: number, result: string | undefined): CodingSession {
-    const { result: _result, ...rest } = this.settled(known);
+  private over(known: CodingSession, turn: "completed" | "background" | "failed" | "interrupted", at: number, result: string | undefined): CodingSession {
+    const { result: _result, turnResumedAt: _turnResumedAt, ...rest } = this.settled(known);
     const session: CodingSession = { ...rest, turn, turnEndedAt: at, lastEventAt: Math.max(known.lastEventAt, at), ...(result ? { result: fit(result, SESSION_LIMITS.line) } : {}) };
     this.sessions.set(session.id, session);
     return session;

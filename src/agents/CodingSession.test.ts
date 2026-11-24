@@ -34,6 +34,13 @@ describe("overview", () => {
     expect(overview([], NOW)).toEqual({ waiting: [], working: [], headline: null });
   });
 
+  it("brings up a turn left to background work as it does a turn that just ended", () => {
+    const left = build("b", "background", { turnEndedAt: NOW - 1000 });
+    expect(overview([left, build("c", "completed", { turnEndedAt: NOW - 5000 })], NOW).headline?.id).toBe("b");
+    expect(overview([left, build("w", "working")], NOW).headline?.id).toBe("w");
+    expect(overview([build("b", "background", { turnEndedAt: NOW - RESULT_FRESH_MS })], NOW).headline).toBeNull();
+  });
+
   it("still brings up a fresh result of a session that ended", () => {
     expect(overview([build("gone", "completed", { ended: true, revealable: false, turnEndedAt: NOW - 1000 })], NOW).headline?.id).toBe("gone");
   });
@@ -123,6 +130,7 @@ describe("what a session says about itself", () => {
     expect(stateWord(build("a", "idle", { ended: true }))).toBe("会话已结束");
     expect(stateWord(build("a", "idle"))).toBe("空闲");
     expect(stateWord(build("a", "unknown"))).toBe("状态未知");
+    expect(stateWord(build("a", "background"))).toBe("后台还在跑");
   });
 
   it("adds a line only when there is something real to say", () => {
@@ -132,6 +140,8 @@ describe("what a session says about itself", () => {
     expect(stateLine(build("a", "completed"))).toBeNull();
     expect(stateLine(build("a", "completed", { result: "测试通过" }))).toBe("测试通过");
     expect(stateLine(build("a", "unknown"))).toContain("很久没有动静");
+    expect(stateLine(build("a", "background", { result: "测试还在后台跑" }))).toBe("测试还在后台跑");
+    expect(stateLine(build("a", "background"))).toBe("这一轮停了，跑完 Claude 会接着做");
   });
 
   it("gives the command that opens the session again", () => {

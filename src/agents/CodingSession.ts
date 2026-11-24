@@ -3,9 +3,11 @@ import { z } from "zod";
 /**
  * Where a session's current turn stands. A turn is one request and Claude's
  * work on it; the session goes on after it. "completed" says only that the
- * turn ended, not that the user's task is done.
+ * turn ended, not that the user's task is done. "background": it ended with
+ * work it started (a shell, a subagent) still running, and Claude goes on with
+ * the same turn once that is done.
  */
-export const TURN_STATES = ["working", "waiting", "completed", "failed", "interrupted", "idle", "unknown"] as const;
+export const TURN_STATES = ["working", "waiting", "completed", "background", "failed", "interrupted", "idle", "unknown"] as const;
 export type TurnState = (typeof TURN_STATES)[number];
 
 /** `earlier`: the turns kept before the current one, so the panel shows the last five. */
@@ -56,6 +58,8 @@ export const codingSessionSchema = z.object({
   revealable: z.boolean(),
   turnStartedAt: z.number().optional(),
   turnEndedAt: z.number().optional(),
+  /** When background work it was left to woke the turn up again; anything from before that is old news. */
+  turnResumedAt: z.number().optional(),
   lastEventAt: z.number(),
   /** The turns before this one, the oldest first. Only those the pet heard, each asked in one line. */
   earlier: z.array(pastTurnSchema).max(SESSION_LIMITS.earlier).optional(),
@@ -81,6 +85,7 @@ export function stateWord(session: CodingSession): string {
     case "working": return "在工作";
     case "waiting": return "等你处理";
     case "completed": return "这一轮做完了";
+    case "background": return "后台还在跑";
     case "failed": return "出错了";
     case "interrupted": return "已打断";
     case "unknown": return "状态未知";
@@ -95,6 +100,7 @@ export function stateLine(session: CodingSession): string | null {
     case "waiting": return session.asking ?? "在等你确认";
     case "completed":
     case "failed": return session.result ?? null;
+    case "background": return session.result ?? "这一轮停了，跑完 Claude 会接着做";
     case "unknown": return "很久没有动静，可能还在跑，也可能已经退出";
     case "interrupted":
     case "idle": return null;
@@ -111,8 +117,8 @@ export interface CodingOverview {
   working: CodingSession[];
   /**
    * The one session the card is about: one waiting for the user, else a fresh
-   * failure, else one at work, else a turn that just ended. Null when nothing
-   * is going on; an old result is not brought up again.
+   * failure, else one at work, else a turn that just ended or was left to
+   * background work. Null when nothing is going on; an old result is not brought up again.
    */
   headline: CodingSession | null;
 }
@@ -126,7 +132,7 @@ export function overview(sessions: readonly CodingSession[], now: number): Codin
   const headline = waiting[0]
     ?? news.find((session) => session.turn === "failed")
     ?? working[0]
-    ?? news.find((session) => session.turn === "completed")
+    ?? news.find((session) => session.turn === "completed" || session.turn === "background")
     ?? null;
   return { waiting, working, headline };
 }
