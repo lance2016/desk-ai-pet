@@ -6,18 +6,14 @@
   transform: translate(-50%, -50%);
   width: min(260px, calc(100vw - 32px));
   padding: 16px;
-  color: rgba(0, 0, 0, .85);
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .18), 0 0 0 .5px rgba(0, 0, 0, .08);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border-radius: var(--ui-radius-card);
+  box-shadow: var(--ui-shadow-sheet);
   font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
   text-align: center;
 }
 .crash-box strong { font-size: 14px; }
-.crash-box p { margin: 6px 0 12px; color: rgba(0, 0, 0, .55); }
-.crash-box button { height: 26px; padding: 0 14px; color: #fff; background: #6f58c9; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
-.crash-box button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(138, 114, 224, .38); }
-@media (prefers-color-scheme: dark) {
-  .crash-box { color: rgba(255, 255, 255, .88); background: #2e2d34; box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 0 .5px rgba(255, 255, 255, .1); }
-  .crash-box p { color: rgba(255, 255, 255, .55); }
-}
+.crash-box p { margin: 6px 0 12px; color: var(--ui-text-secondary); }
+.crash-box button { height: 26px; padding: 0 14px; color: var(--ui-action-text); background: var(--ui-action-bg); border: 0; border-radius: var(--ui-radius-control); font: inherit; cursor: pointer; }
+.crash-box button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
