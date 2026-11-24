@@ -39,7 +39,6 @@ import { WhatsNewSheet } from "./WhatsNewSheet";
 import { CURRENT_VERSION, markWhatsNewSeen, notesFor, shouldShowWhatsNew } from "../../update/WhatsNew";
 import { LaunchAtLoginRow } from "./LaunchAtLoginRow";
 import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
-import { saveActiveCharacter } from "../../preferences/CharacterPreferences";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
@@ -275,12 +274,6 @@ export function SettingsPage({ packId }: { packId: string }) {
     }
   };
 
-  const switchCharacter = (id: string) => {
-    if (id === packId) return;
-    try { saveActiveCharacter(id); setError(null); }
-    catch (reason) { console.error("Could not switch characters", reason); setError("没能切换角色，请再试一次。"); }
-  };
-
   const updateLinger = (value: DisplayPreferences["controlsLingerMs"]) => {
     // Read again to preserve display preferences changed in another settings page.
     const next: DisplayPreferences = { ...loadDisplayPreferences(), controlsLingerMs: value };
@@ -432,7 +425,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "companion" && <CompanionSettings name={name || "宠物"} onError={setError} />}
 
-        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} catalog={catalog} onSwitchCharacter={switchCharacter} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
+        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} profileIcon={<span className="settings-nav__icon settings-nav__icon--characterProfile"><SettingsGlyph name="characterProfile" /></span>} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}

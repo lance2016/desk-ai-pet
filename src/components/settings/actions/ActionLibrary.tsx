@@ -9,8 +9,6 @@ import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../../acti
 import { BASE_ACTION } from "../../../appearance/looks";
 import { ACTION_SLOT, DEFAULT_ART_PROMPTS, fillArtPrompt, usableArtPrompts, type ArtPrompts } from "../../../assets/ArtPrompt";
 import type { AnimationEntry, PetControl } from "../../../assets/Manifest";
-import type { CatalogEntry } from "../../../assets/PackCatalog";
-import { characterName as readCharacterName } from "../../../preferences/ChatPreferences";
 import type { ActionScene, ActionTier } from "../../../types";
 import { petWindow } from "../../../platform/petWindow";
 import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from "../../../preferences/ActionPreferences";
@@ -45,8 +43,6 @@ interface Props {
   actions: AnimationEntry[];
   controls: PetControl[];
   packId: string;
-  catalog: CatalogEntry[];
-  onSwitchCharacter: (id: string) => void;
   custom: boolean;
   characterName: string;
   canvas: { width: number; height: number };
@@ -71,7 +67,7 @@ function icon(path: string) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>;
 }
 
-export function ActionLibrary({ actions, controls, packId, catalog, onSwitchCharacter, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged, onPicturesChanged }: Props) {
+export function ActionLibrary({ actions, controls, packId, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged, onPicturesChanged }: Props) {
   const uploadRef = useRef<HTMLInputElement>(null);
   const uploadAction = useRef<AnimationEntry | null>(null);
   const [initialFile, setInitialFile] = useState<File | undefined>();
@@ -356,7 +352,6 @@ export function ActionLibrary({ actions, controls, packId, catalog, onSwitchChar
         <input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索动作名称或说明" aria-label="搜索动作名称或说明" />
         {search && <button type="button" aria-label="清除搜索" onClick={() => setSearch("")}>×</button>}
       </label>
-      {catalog.length > 1 && <label className="action-library__role"><span>编辑角色</span><select aria-label="切换动作库角色" value={packId} onChange={(event) => onSwitchCharacter(event.currentTarget.value)}>{catalog.map((entry) => <option key={entry.id} value={entry.id}>{readCharacterName(entry.id, entry.name)}{entry.custom ? " · 自建" : ""}</option>)}</select></label>}
       {canCreate && <button type="button" className="action-library__create" onClick={() => setEditing(draft)}>{icon("M12 5v14M5 12h14")}新建动作</button>}
     </div>
 
