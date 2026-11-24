@@ -521,16 +521,17 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   pointer-events: auto;
   transition: opacity var(--ui-duration) var(--ui-ease);
 }
-.pet-bar.is-awake, .pet-bar:hover, .pet-bar:focus-within { opacity: 1; }
+/* `:hover` only while the cursor is on the pet (see the focus pill's hint); `:where` keeps these rules as specific as before. */
+.pet-bar.is-awake, :where(.app:not(.app--pointer-out)) .pet-bar:hover, .pet-bar:focus-within { opacity: 1; }
 .pet-bar__item { position: relative; flex: none; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; color: var(--ui-accent-strong); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: 50%; box-shadow: 0 2px 8px rgba(25, 23, 35, .12); font: inherit; cursor: pointer; transform: translateY(var(--rest-y, 0px)); transition: transform var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 /* Every other button rests a little higher; hover and press move a button from wherever it rests. */
 .pet-bar__item:nth-child(even) { --rest-y: -4px; }
 .pet-bar__item .control-icon { display: block; width: 18px; height: 18px; object-fit: contain; }
 .pet-bar__item > span:not(.pet-bar__face) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pet-bar__item::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 7px); z-index: 4; width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-.pet-bar__item:hover, .pet-bar__item:focus-visible { z-index: 3; box-shadow: 0 4px 10px rgba(25, 23, 35, .16); transform: translateY(calc(var(--rest-y, 0px) - 2px)); }
+:where(.app:not(.app--pointer-out)) .pet-bar__item:hover, .pet-bar__item:focus-visible { z-index: 3; box-shadow: 0 4px 10px rgba(25, 23, 35, .16); transform: translateY(calc(var(--rest-y, 0px) - 2px)); }
 .pet-bar__item:active { transform: translateY(var(--rest-y, 0px)) scale(.96); }
-.pet-bar__item:hover::after, .pet-bar__item:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+:where(.app:not(.app--pointer-out)) .pet-bar__item:hover::after, .pet-bar__item:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 /* A running focus round stays recognizable without turning into a wide banner. */
 .pet-bar__item--stop { color: var(--ui-action-text); background: var(--ui-action-bg); border-color: transparent; box-shadow: 0 2px 9px rgba(95, 77, 163, .3); }
 .pet-bar__item--stop:hover, .pet-bar__item--stop:focus-visible { color: var(--ui-action-text); background: var(--ui-action-bg); }
@@ -598,13 +599,13 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 /* The chat button: always there, quiet until hovered or until something was copied in another app. */
 .chat-launcher { position: absolute; z-index: 3; width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 50%; opacity: .78; cursor: pointer; pointer-events: auto; transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .chat-launcher img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 4px rgba(53, 43, 102, .22)); -webkit-user-drag: none; }
-.chat-launcher:hover, .chat-launcher.is-hinting { opacity: 1; }
-.chat-launcher:hover { transform: scale(1.06); }
+:where(.app:not(.app--pointer-out)) .chat-launcher:hover, .chat-launcher.is-hinting { opacity: 1; }
+:where(.app:not(.app--pointer-out)) .chat-launcher:hover { transform: scale(1.06); }
 .chat-launcher:active { transform: scale(.96); }
 .chat-launcher:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 /* The pet's panel never shows native tooltips, so the button names itself on hover, as the quick buttons do. Above it, in the room above the pet, which it only has while nothing is said there. */
 .chat-launcher::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 4px); width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-.chat-launcher:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
+:where(.app:not(.app--pointer-out)) .chat-launcher:hover::after, .chat-launcher:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 /* Just beside the head of the resting pose (--head-*: room between the head and the pet's area), its top level
    with the ears, reaching down from the room above the pet; it gives way to anything said there.
    On the left it turns to face the pet. */
