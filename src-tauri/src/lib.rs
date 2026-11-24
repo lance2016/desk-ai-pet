@@ -780,6 +780,34 @@ fn open_coding(app: AppHandle) -> Result<(), String> {
     show_beside_pet(&app, CODING_WINDOW)
 }
 
+/// Puts the calling panel away (Esc, ⌘W), the way its close button does.
+#[tauri::command]
+fn hide_panel(window: WebviewWindow) -> Result<(), String> {
+    if !POPOVERS.contains(&window.label()) {
+        return Err(format!("{} is not a panel", window.label()));
+    }
+    put_panel_away(&window).map_err(|error| error.to_string())
+}
+
+/// Hides a panel. The panel had the keyboard without our app being active, and AppKit hands it on
+/// to the next of our windows, the pet, where the user's next keystrokes would land. With no other
+/// panel left open the pet lets go, and typing goes back to the app the user was in.
+/// Must be called on the main thread.
+fn put_panel_away(panel: &WebviewWindow) -> tauri::Result<()> {
+    panel.hide()?;
+    #[cfg(target_os = "macos")]
+    {
+        let app = panel.app_handle();
+        let others_open = POPOVERS.iter().any(|label| {
+            *label != panel.label() && app.get_webview_window(label).is_some_and(|other| other.is_visible().unwrap_or(false))
+        });
+        if let (false, Some(pet)) = (others_open, app.get_webview_window(MAIN_WINDOW)) {
+            floating_panel::release_keyboard(&pet)?;
+        }
+    }
+    Ok(())
+}
+
 /// Shows the settings window, optionally on one section, such as "ai" from the chat window.
 #[tauri::command]
 fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> {
@@ -900,7 +928,7 @@ pub fn run() {
                     panel.on_window_event(move |event| {
                         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                             api.prevent_close();
-                            report("hide panel", handle.hide());
+                            report("hide panel", put_panel_away(&handle));
                         }
                     });
                 }
@@ -964,6 +992,7 @@ pub fn run() {
             dubbing::dubbing_export_subtitles,
             dubbing::dubbing_discard,
             open_coding,
+            hide_panel,
             open_settings,
             set_pet_dnd,
             quick_chat::set_quick_chat_shortcut,

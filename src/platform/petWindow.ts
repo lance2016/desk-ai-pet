@@ -36,6 +36,7 @@ const OPEN_NOTES_COMMAND = "open_notes";
 const OPEN_LINKS_COMMAND = "open_links";
 const SET_LINKS_ENABLED_COMMAND = "set_links_enabled";
 const OPEN_CODING_COMMAND = "open_coding";
+const HIDE_PANEL_COMMAND = "hide_panel";
 const OPEN_SETTINGS_COMMAND = "open_settings";
 const SETTINGS_SECTION_EVENT = "pet://settings-section";
 /** Must match the event and commands in src-tauri/src/quick_chat.rs. */
@@ -364,10 +365,10 @@ export const petWindow = {
     if (Math.abs(x - frame.x) >= 1) await this.setPosition({ x, y: frame.y });
   },
 
-  /** Puts the calling window away, as Esc does in the reminders and notes panels. */
+  /** Puts the calling panel (reminders, notes, links, Claude Code) away, as Esc does, and gives the keyboard back. */
   async hideSelf(): Promise<void> {
     if (!isTauri()) return;
-    await getCurrentWindow().hide();
+    await invoke(HIDE_PANEL_COMMAND);
   },
 
   /** Sets the title of the calling window, such as the chat window's "和小艾聊天". */
