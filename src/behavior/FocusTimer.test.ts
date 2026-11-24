@@ -26,6 +26,25 @@ describe("FocusTimer", () => {
     expect(calls).toBe(2);
   });
 
+  it("carries on after the computer slept, as long as the round has not ended", () => {
+    const timer = new FocusTimer();
+    timer.startFocus(0);
+    expect(timer.advance(1_000)).toBeNull();
+    expect(timer.advance(1_000 + 5 * 60_000)).toBeNull();
+    expect(timer.get()).toEqual({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs });
+    // Awake again, the ticks come every second up to the end.
+    expect(timer.advance(FOCUS_CONFIG.focusMs - 1_000)).toBeNull();
+    expect(timer.advance(FOCUS_CONFIG.focusMs)).toBe("focus_finished");
+  });
+
+  it("does not count a round whose end the computer slept through", () => {
+    const timer = new FocusTimer();
+    timer.startFocus(0);
+    expect(timer.advance(1_000)).toBeNull();
+    expect(timer.advance(FOCUS_CONFIG.focusMs + 60 * 60_000)).toBe("focus_interrupted");
+    expect(timer.get().phase).toBe("off");
+  });
+
   it("formats the remaining time for the badge", () => {
     expect(focusBadge({ phase: "off", endsAt: null }, 0)).toBeNull();
     expect(focusBadge({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs }, 1)).toBe("专注 25:00");

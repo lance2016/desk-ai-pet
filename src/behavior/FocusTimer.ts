@@ -11,7 +11,7 @@ export interface FocusSnapshot {
   endsAt: number | null;
 }
 
-/** What `advance` just finished. "focus_interrupted": the computer slept through the round, which does not count. */
+/** What `advance` just finished. "focus_interrupted": the computer slept through the end of the round, which does not count. */
 export type FocusTransition = "focus_finished" | "focus_interrupted" | "rest_finished";
 
 /** Ticks come about once a second; a much longer gap means the computer slept. */
@@ -60,11 +60,12 @@ export class FocusTimer {
     const gap = this.lastAdvanceAt === null ? 0 : now - this.lastAdvanceAt;
     this.lastAdvanceAt = now;
     const { phase, endsAt } = this.snapshot;
+    if (endsAt === null || now < endsAt) return null;
+    // Woken before the end, the round simply goes on; one that ended while the computer slept was not sat through.
     if (phase === "focusing" && gap > MAX_TICK_GAP_MS) {
       this.set(OFF);
       return "focus_interrupted";
     }
-    if (endsAt === null || now < endsAt) return null;
     if (phase === "focusing") {
       this.set({ phase: "resting", endsAt: now + FOCUS_CONFIG.restMs });
       return "focus_finished";

@@ -790,8 +790,10 @@ describe("focus companion", () => {
     expect(said).toHaveLength(2);
   });
 
-  it("does not count a round the computer slept through", () => {
-    const { bus, pass, said, focus } = setup();
+  it("does not count a round the computer slept through, and says so on a line that stays up", () => {
+    const { bus, pass, focus } = setup();
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ text }) => shown.push(text));
     let completed = 0;
     bus.on("pet.focus_completed", () => completed++);
     bus.emit("pet.focus_toggled", {});
@@ -799,7 +801,23 @@ describe("focus companion", () => {
     pass(2 * 60 * 60_000);
     expect(focus.get().phase).toBe("off");
     expect(completed).toBe(0);
-    expect(said[said.length - 1]).toContain("这轮专注先不算");
+    expect(shown[shown.length - 1]).toContain("这轮先不算");
+    pass(10 * 60_000);
+    expect(shown[shown.length - 1]).toContain("这轮先不算");
+    bus.emit("pet.alert_dismissed", {});
+    expect(shown[shown.length - 1]).toBeNull();
+  });
+
+  it("keeps the round going when the computer slept for a while before its end", () => {
+    const { bus, pass, passSteps, focus } = setup();
+    let completed = 0;
+    bus.on("pet.focus_completed", () => completed++);
+    bus.emit("pet.focus_toggled", {});
+    pass(1_000);
+    pass(5 * 60_000);
+    expect(focus.get().phase).toBe("focusing");
+    passSteps(FOCUS_CONFIG.focusMs);
+    expect(completed).toBe(1);
   });
 
   it("asks with buttons before stopping a round, and keeps it when the user carries on", () => {

@@ -54,7 +54,7 @@ const FOCUS_LINES = {
   askRest: (minutes: number) => `还能休息 ${minutes} 分钟，要提前开始下一轮吗？`,
   stopped: "好，先停一下，随时再开始。",
   finished: "专注完成！辛苦啦，起来活动一下吧～",
-  interrupted: "电脑刚才睡着了，这轮专注先不算，随时再开始。",
+  interrupted: "电脑睡着时这轮专注到点了，这轮先不算，随时再开始。",
   restOver: "休息好啦，要不要再来一轮？",
 };
 
@@ -699,7 +699,9 @@ export class BehaviorEngine {
       this.deps.bus.emit("pet.focus_completed", {});
     } else if (transition === "focus_interrupted") {
       if (controller.current?.id === FOCUS_ACTION) controller.stop();
-      this.say(FOCUS_LINES.interrupted);
+      // The user was away: a passing line would be gone before they are back.
+      this.focusNotice = FOCUS_LINES.interrupted;
+      this.showAlert(now);
     } else if (transition === "rest_finished") {
       state.markInteraction(now);
       this.say(FOCUS_LINES.restOver);
