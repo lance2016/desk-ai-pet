@@ -4,7 +4,7 @@ import { chatContext } from "../agenda/chatTools";
 import { currentChatFacts } from "../facts/FactStore";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
 import { contextMessages, keptEffects, loadThreads, openingLine, recordThread, saveThreads } from "../chat/ChatThreads";
-import { QUICK_CHAT_CONFIG, answerable, pickQuickThread, plainReply, quickHistory, replyLingerMs, withoutLastLine, type Spoken } from "../chat/QuickChat";
+import { QUICK_CHAT_CONFIG, answerable, clearReplying, markReplying, pickQuickThread, plainReply, quickHistory, replyLingerMs, withoutLastLine, type Spoken } from "../chat/QuickChat";
 import type { PetRuntime } from "../core/PetRuntime";
 import { fitSpeech } from "../core/SpeechQueue";
 import type { ChatMessage } from "../platform/chat";
@@ -319,13 +319,14 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
           setDraft((draft) => draft || current.typed);
           if (openRef.current) setHanded((now) => now ?? current.handed);
         } else answered(current);
+        clearReplying(current.threadId);
         setReply(event.kind === "error" ? errorReply(event.text || "回复中断") : null);
         if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
         return;
       }
       answered(current);
       const said = replyText.current.trim();
-      if (!said) { setReply({ text: "没有收到回复，再说一次试试。", status: "error", saved: current.lines }); return; }
+      if (!said) { clearReplying(current.threadId); setReply({ text: "没有收到回复，再说一次试试。", status: "error", saved: current.lines }); return; }
       const text = event.text === "length" ? `${said}\n\n${CUT_OFF_MARK}` : said;
       // The reply is shown even when it cannot be kept.
       let note: string | undefined;
@@ -333,6 +334,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
         console.error("Failed to save the quick chat reply", error);
         note = `这条回复没能存进聊天记录。${STORAGE_FULL}`;
       }
+      // Only now, with the reply kept: the chat window then finds it instead of an unanswered line.
+      clearReplying(current.threadId);
       setReply({ text, status: "done", saved: current.lines, note });
     })
       .then((unsubscribe) => { if (disposed) unsubscribe(); else stop = unsubscribe; })
@@ -340,7 +343,10 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     return () => {
       disposed = true;
       stop?.();
-      if (request.current) void ai.cancel(request.current.id).catch(() => {});
+      if (request.current) {
+        clearReplying(request.current.threadId);
+        void ai.cancel(request.current.id).catch(() => {});
+      }
     };
   }, [packId]);
 
@@ -359,6 +365,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     sessionThread.current = threadId;
     const id = newId();
     request.current = { id, threadId, history, typed, handed: withHanded, lines: [] };
+    // The chat window may open this thread meanwhile: it waits for this reply instead of offering another.
+    try { markReplying(threadId); } catch (error) { console.warn("Could not mark the thread as being answered", error); }
     replyText.current = "";
     setDraft("");
     setHanded(null);
@@ -373,6 +381,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
       request.current = null;
       setPending(false);
       try { dropUnanswered(packId, failedRequest); } catch (error) { console.error("Could not take the unanswered line back", error); }
+      clearReplying(threadId);
       setDraft((current) => current || typed);
       if (openRef.current) setHanded((now) => now ?? withHanded);
       const failed = errorReply(String(reason));

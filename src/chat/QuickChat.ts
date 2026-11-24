@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ChatMessage } from "../platform/chat";
 import { CHAT_LIMITS, type ChatThread } from "./ChatThreads";
 import { ANSWER_WINDOW_MS } from "../companion/history";
@@ -11,7 +12,42 @@ export const QUICK_CHAT_CONFIG = {
   lingerMaxMs: 20_000,
   /** After the pet says something by itself, opening the bar within this time answers that line. */
   answerWindowMs: ANSWER_WINDOW_MS,
+  /** A reply mark older than this was left behind by a pet window that went away; real replies end well before. */
+  replyingStaleMs: 5 * 60_000,
 };
+
+/** Which thread the pet window is answering, for the chat window. */
+const REPLYING_KEY = "ai-pet:chat-replying:v1";
+const replyingSchema = z.object({ threadId: z.string().min(1), at: z.number() });
+
+/** The pet window started answering this thread. */
+export function markReplying(threadId: string, storage: Storage = window.localStorage, now = Date.now()): void {
+  storage.setItem(REPLYING_KEY, JSON.stringify({ threadId, at: now }));
+}
+
+/** The reply to this thread is over; a mark another reply set since is left alone. */
+export function clearReplying(threadId: string, storage: Storage = window.localStorage): void {
+  if (readReplying(storage)?.threadId === threadId) storage.removeItem(REPLYING_KEY);
+}
+
+/** The thread the pet window is answering now, or null. */
+export function replyingThread(storage: Storage = window.localStorage, now = Date.now()): string | null {
+  const mark = readReplying(storage);
+  return mark && now - mark.at <= QUICK_CHAT_CONFIG.replyingStaleMs ? mark.threadId : null;
+}
+
+/** Whether a `storage` event may have changed the mark (a null key means everything was cleared). */
+export const touchesReplying = (key: string | null) => key === null || key === REPLYING_KEY;
+
+function readReplying(storage: Storage): z.infer<typeof replyingSchema> | null {
+  try {
+    const raw = storage.getItem(REPLYING_KEY);
+    return raw === null ? null : replyingSchema.parse(JSON.parse(raw));
+  } catch (error) {
+    console.warn("Unreadable chat reply mark", error);
+    return null;
+  }
+}
 
 /** A line the pet said by itself, and when. */
 export interface Spoken { text: string; at: number }

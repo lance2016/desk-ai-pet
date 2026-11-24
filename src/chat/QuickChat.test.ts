@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ChatThread } from "./ChatThreads";
 import { CHAT_LIMITS, contextMessages } from "./ChatThreads";
-import { QUICK_CHAT_CONFIG, answerable, pickQuickThread, plainReply, quickHistory, replyLingerMs, withoutLastLine } from "./QuickChat";
+import { createMemoryStorage } from "../testing/fixtures";
+import { QUICK_CHAT_CONFIG, answerable, clearReplying, markReplying, pickQuickThread, plainReply, quickHistory, replyingThread, replyLingerMs, touchesReplying, withoutLastLine } from "./QuickChat";
 
 const NOW = Date.UTC(2026, 10, 16, 9, 0);
 const thread = (id: string, updatedAt: number, messages: ChatThread["messages"] = [{ role: "user", content: "hi" }]): ChatThread => ({ id, title: id, updatedAt, messages });
@@ -91,5 +92,39 @@ describe("replyLingerMs", () => {
     expect(replyLingerMs("好")).toBe(QUICK_CHAT_CONFIG.lingerMinMs);
     expect(replyLingerMs("字".repeat(1000))).toBe(QUICK_CHAT_CONFIG.lingerMaxMs);
     expect(replyLingerMs("字".repeat(60))).toBeGreaterThan(replyLingerMs("字".repeat(30)));
+  });
+});
+
+describe("a reply on its way in the pet window", () => {
+  it("tells the chat window which thread is being answered, until it is over", () => {
+    const storage = createMemoryStorage();
+    expect(replyingThread(storage, NOW)).toBeNull();
+    markReplying("t1", storage, NOW);
+    expect(replyingThread(storage, NOW + 1_000)).toBe("t1");
+    clearReplying("t1", storage);
+    expect(replyingThread(storage, NOW + 2_000)).toBeNull();
+  });
+
+  it("forgets a mark left behind, so the chat window does not wait forever after the pet window went away", () => {
+    const storage = createMemoryStorage();
+    markReplying("t1", storage, NOW);
+    expect(replyingThread(storage, NOW + QUICK_CHAT_CONFIG.replyingStaleMs + 1)).toBeNull();
+    storage.setItem("ai-pet:chat-replying:v1", "not json");
+    expect(replyingThread(storage, NOW)).toBeNull();
+  });
+
+  it("only lets the reply that set the mark take it down", () => {
+    const storage = createMemoryStorage();
+    markReplying("t2", storage, NOW);
+    clearReplying("t1", storage);
+    expect(replyingThread(storage, NOW)).toBe("t2");
+    clearReplying("t2", storage);
+    expect(replyingThread(storage, NOW)).toBeNull();
+  });
+
+  it("names the storage key the chat window listens for", () => {
+    expect(touchesReplying("ai-pet:chat-replying:v1")).toBe(true);
+    expect(touchesReplying(null)).toBe(true);
+    expect(touchesReplying("ai-pet:agenda:v1")).toBe(false);
   });
 });

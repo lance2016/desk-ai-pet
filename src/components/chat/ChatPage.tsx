@@ -14,6 +14,7 @@ import { NOTE_LIMITS } from "../../notes/NoteStore";
 import { keepNote } from "../../worklog/store";
 import { CHAT_SKILLS } from "../../skills";
 import { ControlIcon } from "../ControlIcon";
+import { replyingThread, touchesReplying } from "../../chat/QuickChat";
 import { CHAT_LIMITS, clearThreads, contextMessages, keptEffects, loadThreads, openingLine, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
 import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
 import { chatPlatform, type ChatMessage } from "../../platform/chat";
@@ -149,6 +150,10 @@ export function ChatPage({ packId }: { packId: string }) {
     : containsWebAddress(draft) ? "open"
       : webConversationStart(messages.slice(1 - CHAT_LIMITS.context)) >= 0 ? "follow" : undefined;
   const [pending, setPending] = useState(false);
+  /** The thread the quick chat bar in the pet window is answering, if any. */
+  const [replyingId, setReplyingId] = useState(() => replyingThread());
+  /** This thread is being answered there: wait for that reply instead of asking for another. */
+  const answeredElsewhere = replyingId === threadId && !pending;
   const stopShownAt = useRef(0);
   useEffect(() => { if (pending) stopShownAt.current = Date.now(); }, [pending]);
   const [ready, setReady] = useState(false);
@@ -393,6 +398,13 @@ export function ChatPage({ packId }: { packId: string }) {
     return () => { window.removeEventListener("storage", sync); stops.forEach((stop) => stop()); };
   }, [packId]);
   useEffect(() => {
+    const follow = (event?: StorageEvent) => { if (!event || touchesReplying(event.key)) setReplyingId(replyingThread()); };
+    const onFocus = () => follow();
+    window.addEventListener("storage", follow);
+    window.addEventListener("focus", onFocus);
+    return () => { window.removeEventListener("storage", follow); window.removeEventListener("focus", onFocus); };
+  }, []);
+  useEffect(() => {
     if (!historyOpen) return;
     const close = (event: PointerEvent) => { if (!header.current?.contains(event.target as Node)) setHistoryOpen(false); };
     document.addEventListener("pointerdown", close);
@@ -462,7 +474,7 @@ export function ChatPage({ packId }: { packId: string }) {
   const send = (event: FormEvent) => {
     event.preventDefault();
     const text = draft.trim();
-    if ((!text && !draftImage && !draftFile) || preparingImage || pending || recording || !ready || !historyValid || keyMissing) return;
+    if ((!text && !draftImage && !draftFile) || preparingImage || pending || answeredElsewhere || recording || !ready || !historyValid || keyMissing) return;
     const readLink = draftImage ? "image" : draftFile ? undefined : search ? "search" : skipWeb ? undefined : webCandidate;
     const image = draftImage ? { id: draftImage.id, name: draftImage.name } : undefined;
     const file = draftFile ? { name: draftFile.name, label: draftFile.handed.label } : undefined;
@@ -523,7 +535,7 @@ export function ChatPage({ packId }: { packId: string }) {
     try { clearThreads(packId); setThreads([]); setHistoryValid(true); showThread(newId(), []); }
     catch (reason) { console.error("Could not clear the chats", reason); setError("没能清除聊天记录，请再试一次。"); }
   };
-  const status = chatStatus({ keyMissing, pending, recording, transcribing, failure });
+  const status = chatStatus({ keyMissing, pending: pending || answeredElsewhere, recording, transcribing, failure });
   // DeepSeek, MiMo, and CosyVoice keys all live on the "AI 服务" page.
   const openSettings = () => void petWindow.openSettings("ai").catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
   const toggleRecording = () => {
@@ -663,7 +675,7 @@ export function ChatPage({ packId }: { packId: string }) {
     if (draft.length - (field.selectionEnd - field.selectionStart) + pasted > MAX_INPUT) setNotice(`内容太长，只保留了前 ${MAX_INPUT} 字。`);
   };
   const lastIsUser = messages[messages.length - 1]?.role === "user";
-  const canRetry = historyValid && lastIsUser && !pending && keyMissing === false;
+  const canRetry = historyValid && lastIsUser && !pending && !answeredElsewhere && keyMissing === false;
   const micLabel = recording ? "停止录音并识别" : transcribing ? "取消识别" : voiceMissing ? "语音输入未配置，去设置" : `语音输入（最长 ${MAX_RECORD_SECONDS / 60} 分钟）`;
 
   return <main className="chat-page" onDragOver={(event) => {
@@ -705,6 +717,7 @@ export function ChatPage({ packId }: { packId: string }) {
         </div>
       </div>)}
       {(pending || reply) && assistantRow(reply || (webProgress ? "" : "正在想…"))}
+      {answeredElsewhere && assistantRow("正在回复…")}
       {savedLines.length > 0 && !pending && <div className="chat-saved">{savedLines.map((line, index) => <div key={`${index}-${line.id ?? line.kind}`} className={line.kind === "failed" ? "chat-saved__item is-failed" : "chat-saved__item"}>
         <span className={line.kind === "note" ? "chat-saved__note" : undefined}>{line.text}</span>
         {line.kind === "agenda" && line.id && <button type="button" onClick={() => openReminder(line.id as string)}>修改</button>}
@@ -780,7 +793,7 @@ export function ChatPage({ packId }: { packId: string }) {
       </div>
       {pending
         ? <button className="chat-send" type="button" onClick={() => { if (Date.now() - stopShownAt.current >= STOP_GUARD_MS) cancel(); }} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
-        : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage && !draftFile) || preparingImage || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
+        : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage && !draftFile) || preparingImage || answeredElsewhere || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
     </form>
   </main>;
 }
