@@ -692,7 +692,7 @@ export function ChatPage({ packId }: { packId: string }) {
       {historyOpen && <ChatHistory threads={threads} currentId={threadId} removed={removedThread} onOpen={(thread) => showThread(thread.id, thread.messages)} onDelete={deleteThread} onUndo={undoDelete} onRename={renameThread} onClose={closeHistory} />}
     </header>
     <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>
-      {keyMissing && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={openSettings}>去设置</button></div>}
+      {keyMissing && messages.length === 0 && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={openSettings}>去设置</button></div>}
       {messages.length === 0 && !keyMissing && <div className="chat-empty">
         <strong>把手边的事交给{name}</strong>
         <p>记一件事、看看今天的安排，或者直接说说你在忙什么。</p>
@@ -793,7 +793,10 @@ export function ChatPage({ packId }: { packId: string }) {
       </div>
       {pending
         ? <button className="chat-send" type="button" onClick={() => { if (Date.now() - stopShownAt.current >= STOP_GUARD_MS) cancel(); }} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
-        : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage && !draftFile) || preparingImage || answeredElsewhere || recording || !ready || !personaReady || !historyValid || keyMissing === true} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
+        // Without a key the way on is the key form, where the guide card at the top of a long chat is out of sight.
+        : keyMissing === true
+          ? <button className="chat-send chat-send--fix" type="button" onClick={openSettings} title="打开设置，填写 DeepSeek API Key">去设置</button>
+          : <button className="chat-send" type="submit" disabled={(!draft.trim() && !draftImage && !draftFile) || preparingImage || answeredElsewhere || recording || !ready || !personaReady || !historyValid} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
     </form>
   </main>;
 }
