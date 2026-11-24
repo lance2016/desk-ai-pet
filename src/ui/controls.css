@@ -73,3 +73,9 @@
 .ui-select:focus-visible { outline: none; box-shadow: var(--ui-shadow-control), var(--ui-focus-ring); }
 .ui-select:disabled { opacity: .45; cursor: default; }
 .ui-select--large { height: 28px; }
+
+/*
+ * Line icons from src/ui/icons.tsx. No weight of its own, so where an icon sits can size it and,
+ * on the pet, keep a heavier line; the window layer draws them all at 1.7.
+ */
+:where(.ui-icon) { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }

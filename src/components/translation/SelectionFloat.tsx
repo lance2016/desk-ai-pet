@@ -5,6 +5,7 @@ import { loadChatModel } from "../../preferences/ChatModel";
 import { classifyServiceError, isKeyProblem } from "../../chat/serviceErrors";
 import { petWindow } from "../../platform/petWindow";
 import "./SelectionFloat.css";
+import { Icon } from "../../ui/icons";
 
 type Action = "translate" | "explain" | "summarize" | "polish";
 
@@ -89,7 +90,7 @@ export function SelectionFloat() {
       <div className="selection-float">
         {ORDER.map((id) => <button key={id} type="button" className={id === "translate" ? "is-primary" : undefined} disabled={!ready || pending} onClick={() => void run(id)}>{ACTIONS[id].label}</button>)}
         <button type="button" className="selection-float__open" aria-label="翻译详情" title="在翻译窗口打开" onClick={details}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M18 14v5H5V6h5" /></svg>
+          <Icon name="open" />
         </button>
       </div>
     );
@@ -99,7 +100,7 @@ export function SelectionFloat() {
       <div className="selection-result__tabs" role="group" aria-label="换一种处理">
         {ORDER.map((id) => <button key={id} type="button" aria-pressed={id === action} className={id === action ? "is-current" : undefined} onClick={() => { if (id !== action) void run(id); }}>{ACTIONS[id].label}</button>)}
       </div>
-      <button type="button" className="selection-result__close" onClick={close} aria-label="关闭" title="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" /></svg></button>
+      <button type="button" className="selection-result__close" onClick={close} aria-label="关闭" title="关闭"><Icon name="close" /></button>
     </header>
     <div className="selection-result__body">{result || (pending ? ACTIONS[action].pending : message || "没有收到结果。")}</div>
     {message && result && <p className="selection-result__message" role="status">{message}</p>}

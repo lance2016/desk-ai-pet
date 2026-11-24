@@ -43,7 +43,7 @@
 html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 100%; background: var(--ui-window); overflow: hidden; }
 @media (prefers-color-scheme: dark) { .chat-page { color-scheme: dark; } }
 
-.chat-page svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.chat-page svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 :where(.chat-page) button { font: inherit; color: inherit; }
 .chat-page :is(button, [tabindex]):focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

@@ -119,7 +119,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-account__text span { color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 15px; }
 /* Each page wears a white glyph on a coloured tile, as in System Settings; the tile keeps its colour when the row is selected. */
 .settings-nav__icon { --tile: var(--ui-tile-gray); flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, #fff var(--ui-tile-highlight), var(--tile)), var(--tile)); border-radius: 5px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
-.settings-nav__icon svg { width: 14px; height: 14px; stroke-width: 2; }
+.settings-nav__icon svg { width: 14px; height: 14px; }
 .settings-nav__icon--character, .settings-nav__icon--characterProfile { --tile: var(--ui-tile-purple); }
 .settings-nav__icon--actions, .settings-nav__icon--companion { --tile: var(--ui-tile-pink); }
 .settings-nav__icon--dock, .settings-nav__icon--links { --tile: var(--ui-tile-indigo); }
@@ -134,7 +134,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--guide { --tile: var(--ui-tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { position: relative; margin: 0 0 16px; }
-.settings-search svg { position: absolute; top: 50%; left: 8px; width: 14px; height: 14px; color: var(--label-2); transform: translateY(-50%); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.settings-search svg { position: absolute; top: 50%; left: 8px; width: 14px; height: 14px; color: var(--label-2); transform: translateY(-50%); fill: none; stroke: currentColor; stroke-linecap: round; pointer-events: none; }
 .settings-page .settings-search input { box-sizing: border-box; width: 100%; height: var(--search-height); padding: 0 8px 0 28px; color: var(--label); background: var(--search-fill); border: 1px solid var(--search-border); border-radius: var(--search-radius); font-size: var(--ui-font-body); }
 .settings-page .settings-search input:focus { background: var(--field); }
 .settings-search input::placeholder { color: var(--label-2); }
@@ -257,7 +257,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .dock-row__line { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px 0 4px; }
 .dock-row__handle { flex: none; display: grid; place-items: center; width: 22px; height: 30px; color: var(--label-3); border-radius: var(--radius-control); cursor: grab; touch-action: none; }
 .dock-row__handle:hover { color: var(--label-2); }
-.dock-row__handle svg, .dock-row__remove svg, .dock-add svg, .dock-row__chevron { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dock-row__handle svg, .dock-row__remove svg, .dock-add svg, .dock-row__chevron { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .dock-list.is-dragging, .dock-list.is-dragging .dock-row__handle { cursor: grabbing; }
 .dock-row.is-dragging { z-index: 1; background: var(--group); border-radius: var(--radius-row); box-shadow: 0 6px 18px rgba(0, 0, 0, .14), 0 0 0 1px var(--accent-ring); }
 .dock-row.is-dragging::before, .dock-row.is-dragging + .dock-row::before { opacity: 0; }
@@ -397,7 +397,7 @@ button.dock-row__body { cursor: pointer; }
 .settings-link:active::before { background: var(--fill-strong); }
 .settings-page .settings-link:focus-visible { box-shadow: none; }
 .settings-link:focus-visible::before { box-shadow: var(--ui-focus-ring); }
-.settings-link__chevron { flex: none; width: 14px; height: 14px; color: var(--chevron); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.settings-link__chevron { flex: none; width: 14px; height: 14px; color: var(--chevron); fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 @media (prefers-color-scheme: dark) {
   /* Inset dividers for navigation rows with leading tiles. Keep plain setting rows full width. */
   .settings-row + .settings-link:has(> .settings-nav__icon) { border-top-color: transparent; }
@@ -412,7 +412,7 @@ button.dock-row__body { cursor: pointer; }
 .character-choice__portrait { width: 32px; height: 32px; font-size: 14px; }
 .character-choice__add { box-sizing: border-box; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 50%; font-size: 20px; font-weight: 300; }
 .character-choice__using { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-strong); font-size: var(--ui-font-caption); }
-.character-choice__using svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.character-choice__using svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .character-choice__switch { flex: none; color: var(--accent-strong); font-size: var(--ui-font-caption); opacity: 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
 .character-choice:is(:hover, :focus-visible) .character-choice__switch { opacity: 1; }
 .character-choice[aria-current]:hover::before { background: none; }
@@ -557,7 +557,7 @@ button.dock-row__body { cursor: pointer; }
 .tool-def .settings-row { min-height: 44px; }
 .tool-def__disclosure { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; margin: -4px 0 -4px -4px; padding: 4px; color: inherit; font: inherit; text-align: left; background: none; border: 0; border-radius: var(--radius-control); cursor: pointer; }
 .tool-def__disclosure:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
-.tool-def__chevron { flex: none; width: 12px; height: 12px; color: var(--label-2); fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: rotate var(--ui-duration-fast) var(--ui-ease); }
+.tool-def__chevron { flex: none; width: 12px; height: 12px; color: var(--label-2); fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; transition: rotate var(--ui-duration-fast) var(--ui-ease); }
 .tool-def.is-open .tool-def__chevron { rotate: 90deg; }
 .tool-def__name { color: var(--label); font-size: var(--ui-font-caption); font-weight: 500; }
 .tool-def__body { padding: 0 0 12px 18px; color: var(--label-2); font-size: var(--ui-font-caption); line-height: 1.6; user-select: text; -webkit-user-select: text; }
@@ -633,8 +633,8 @@ button.dock-row__body { cursor: pointer; }
 .settings-page .shortcut-key__clear { position: absolute; top: 50%; right: 5px; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; color: var(--label-3); background: none; border: 0; border-radius: 50%; transform: translateY(-50%); cursor: pointer; }
 .settings-page .shortcut-key__clear:hover { color: var(--label-2); }
 .shortcut-key__clear svg { width: 14px; height: 14px; }
-.shortcut-key__clear circle { fill: currentColor; }
-.shortcut-key__clear path { fill: none; stroke: var(--field); stroke-width: 1.6; stroke-linecap: round; }
+.shortcut-key__clear circle { fill: currentColor; stroke: none; }
+.shortcut-key__clear path { fill: none; stroke: var(--field); stroke-linecap: round; }
 @media (prefers-color-scheme: dark) { .shortcut-key__clear path { stroke: var(--group); } }
 
 .about-card { padding: 24px 20px; text-align: center; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
@@ -718,7 +718,7 @@ button.dock-row__body { cursor: pointer; }
 .guide-feature__how li.is-keys { background: var(--field); box-shadow: inset 0 0 0 .5px var(--field-border), 0 1px 0 var(--field-border); letter-spacing: .04em; }
 .settings-page .guide-feature__open { flex: none; display: inline-flex; align-items: center; gap: 1px; align-self: center; padding: 4px 4px 4px 8px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font-size: var(--ui-font-caption); cursor: pointer; }
 .settings-page .guide-feature__open:hover { background: var(--accent-wash); }
-.guide-feature__open svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.guide-feature__open svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 @media (prefers-color-scheme: dark) { .settings-page .guide-feature__open { color: var(--accent); } }
 
 /* ---------- "新功能" sheet: what this version brings, like a phone's update notes ---------- */
@@ -732,7 +732,7 @@ button.dock-row__body { cursor: pointer; }
 .whats-new__list p { margin: 2px 0 0; color: var(--label-2); font-size: var(--ui-font-caption); line-height: 1.5; }
 /* Feature icons, as in macOS System Settings: a system color with a lighter top. Shared by the guide and the "新功能" sheet. */
 .feature-tile { --tile: var(--ui-tile-gray); flex: none; display: grid; place-items: center; width: 34px; height: 34px; color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 78%, #fff), var(--tile)); border-radius: 8px; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12); }
-.feature-tile svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.feature-tile svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .feature-tile--orange { --tile: var(--ui-tile-orange); }
 .feature-tile--yellow { --tile: var(--ui-tile-yellow); }
 .feature-tile--green { --tile: var(--ui-tile-green); }

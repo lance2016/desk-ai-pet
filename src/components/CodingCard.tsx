@@ -3,6 +3,7 @@ import { elapsedText } from "../activity/Activity";
 import { overview, sessionTitle, stateLine, stateWord, type CodingOverview, type CodingSession } from "../agents/CodingSession";
 import { petWindow } from "../platform/petWindow";
 import { useNow } from "./useNow";
+import { Icon } from "../ui/icons";
 
 /** Whole minutes are shown, and a result stops being news after a few of them. */
 const TICK_MS = 15_000;
@@ -21,8 +22,8 @@ const openCoding = (folder: string) => void petWindow.openCoding(folder).catch((
 export function TurnMark({ turn }: { turn: CodingSession["turn"] }) {
   if (turn === "working") return <span className="status-chip__spinner" aria-hidden="true" />;
   if (turn === "waiting") return <span className="status-chip__dot" aria-hidden="true" />;
-  if (turn === "completed") return <svg className="coding-mark" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.4l2.3 2.3 4.7-5.2" /></svg>;
-  if (turn === "failed") return <svg className="coding-mark" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.5v4.4M6 9.3v.2" /></svg>;
+  if (turn === "completed") return <Icon name="check" className="coding-mark" />;
+  if (turn === "failed") return <Icon name="alert" className="coding-mark" />;
   return <span className="coding-mark coding-mark--quiet" aria-hidden="true" />;
 }
 

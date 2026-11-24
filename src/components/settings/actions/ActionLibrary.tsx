@@ -15,6 +15,7 @@ import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from ".
 import { loadArtPrompts, saveArtPrompts } from "../../../preferences/ArtPromptPreferences";
 import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../../preferences/DockPreferences";
 import { loadActionTriggerStats, subscribeActionTriggerStats } from "../../../preferences/ActionTriggerStats";
+import { Icon, type IconName } from "../../../ui/icons";
 
 const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined)[] }[] = [
   { title: "先画这几张", note: "先确定待机形象，再补常用动作", tiers: ["required", "core"] },
@@ -24,16 +25,16 @@ const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined
   { title: "其他", note: "角色自带的额外动作", tiers: [undefined] },
 ];
 
-const SCENE_GROUPS: { scene: ActionScene | undefined; title: string; note: string; icon: string }[] = [
-  { scene: "companion", title: "平时陪着你", note: "宠物空闲时自己的小动作", icon: "M19.5 14.2A7.6 7.6 0 1 1 9.8 4.5a6 6 0 0 0 9.7 9.7z" },
-  { scene: "touch", title: "你碰它的时候", note: "点击、摸摸头或拖动时", icon: "M12 19.5s-7-4.3-7-9.6A3.9 3.9 0 0 1 12 7.6a3.9 3.9 0 0 1 7 2.3c0 5.3-7 9.6-7 9.6z" },
-  { scene: "chat", title: "聊天的时候", note: "等回复时思考，回复失败时困惑", icon: "M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5z" },
-  { scene: "tasks", title: "帮你做事的时候", note: "提醒、备忘和专注计时", icon: "M6.5 16v-4.8a5.5 5.5 0 0 1 11 0V16l1.5 2H5zM10 20.2a2.1 2.1 0 0 0 4 0" },
-  { scene: "play", title: "小玩法", note: "喂食和敲木鱼等互动", icon: "M12 4l2.3 4.8 5.2.7-3.8 3.6.9 5.2L12 15.8l-4.6 2.5.9-5.2-3.8-3.6 5.2-.7z" },
-  { scene: undefined, title: "其他", note: "这个角色自带的其他动作", icon: "M6 6h12v12H6zM12 9.5v5M9.5 12h5" },
+const SCENE_GROUPS: { scene: ActionScene | undefined; title: string; note: string; icon: IconName }[] = [
+  { scene: "companion", title: "平时陪着你", note: "宠物空闲时自己的小动作", icon: "moon" },
+  { scene: "touch", title: "你碰它的时候", note: "点击、摸摸头或拖动时", icon: "heart" },
+  { scene: "chat", title: "聊天的时候", note: "等回复时思考，回复失败时困惑", icon: "chat" },
+  { scene: "tasks", title: "帮你做事的时候", note: "提醒、备忘和专注计时", icon: "bell" },
+  { scene: "play", title: "小玩法", note: "喂食和敲木鱼等互动", icon: "star" },
+  { scene: undefined, title: "其他", note: "这个角色自带的其他动作", icon: "square_plus" },
 ];
 
-const MINE_ICON = "M5 6.5h14v11H5zM12 9.5v5M9.5 12h5";
+const MINE_ICON: IconName = "square_plus";
 const PREVIEW_SIZE = { width: 340, height: 284 };
 
 type SceneFilter = "all" | ActionScene | "other" | "mine";
@@ -61,10 +62,6 @@ interface PreviewArt {
   strength: number;
   randomFlip: boolean;
   layers: AppearanceLayer[];
-}
-
-function icon(path: string) {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={path} /></svg>;
 }
 
 export function ActionLibrary({ actions, controls, packId, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged, onPicturesChanged }: Props) {
@@ -348,11 +345,11 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
 
     <div className="action-library__toolbar">
       <label className="action-library__search">
-        {icon("M10.8 4.5a6.3 6.3 0 1 0 0 12.6 6.3 6.3 0 0 0 0-12.6ZM15.4 15.4 20 20")}
+        <Icon name="search" />
         <input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索动作名称或说明" aria-label="搜索动作名称或说明" />
         {search && <button type="button" aria-label="清除搜索" onClick={() => setSearch("")}>×</button>}
       </label>
-      {canCreate && <button type="button" className="action-library__create" onClick={() => setEditing(draft)}>{icon("M12 5v14M5 12h14")}新建动作</button>}
+      {canCreate && <button type="button" className="action-library__create" onClick={() => setEditing(draft)}><Icon name="plus" />新建动作</button>}
     </div>
 
     <div className="action-library__filters" role="group" aria-label="按图片状态筛选">
@@ -387,7 +384,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
 
     {groupsToRender.length > 0 ? groupsToRender.map((group) => <section className={`action-library__group${group.key === "mine" ? " action-library__group--mine" : ""}`} key={group.key}>
       <header className="action-library__group-head">
-        <span className={`action-library__group-icon action-library__group-icon--${group.key}`} aria-hidden="true">{icon(group.icon)}</span>
+        <span className={`action-library__group-icon action-library__group-icon--${group.key}`} aria-hidden="true"><Icon name={group.icon} /></span>
         <div><h2>{group.title}</h2><p>{group.note}</p></div>
         <span className="action-library__group-count">{group.items.length}</span>
         {group.key === "mine" && canCreate && <button type="button" className="action-library__new-link" onClick={() => setEditing(draft)}>＋ 新建</button>}
@@ -400,7 +397,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         <section className="action-preview__dialog" role="dialog" aria-modal="true" aria-labelledby="action-preview-title" tabIndex={-1} ref={dialogRef}>
           <header className="action-preview__header">
             <div><span className="action-preview__eyebrow">动作预览</span><h2 id="action-preview-title">{previewName}</h2></div>
-            <button type="button" className="action-preview__close" aria-label="关闭预览" onClick={() => closePreview()}>{icon("M6 6l12 12M18 6 6 18")}</button>
+            <button type="button" className="action-preview__close" aria-label="关闭预览" onClick={() => closePreview()}><Icon name="close" /></button>
           </header>
           <div className="action-preview__content">
             <div className="action-preview__stage" aria-label={`${previewName}的图片预览`}>

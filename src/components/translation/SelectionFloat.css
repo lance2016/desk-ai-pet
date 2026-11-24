@@ -23,7 +23,7 @@ html[data-window="selection-float"], html[data-window="selection-float"] body, h
 .selection-float button:disabled { opacity: .45; cursor: default; }
 /* Opens the translation window: an icon, so the four actions keep the room. */
 .selection-float .selection-float__open { flex: 0 0 28px; display: grid; place-items: center; padding: 0; color: var(--label-2); }
-.selection-float svg, .selection-result svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.selection-float svg, .selection-result svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .selection-result { display: flex; flex-direction: column; padding: 10px 12px 8px; gap: 8px; }
 .selection-result header, .selection-result footer { display: flex; align-items: center; justify-content: space-between; }
 .selection-result__close { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; color: var(--label-2); }

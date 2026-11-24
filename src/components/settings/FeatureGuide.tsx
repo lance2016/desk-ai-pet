@@ -1,6 +1,7 @@
 import { FEATURE_GUIDE } from "../../guide/featureGuide";
 import { FeatureTile } from "./FeatureTile";
 import { isSection, sectionLabel, type SettingsSection } from "./sections";
+import { Icon } from "../../ui/icons";
 
 /** A way to start a feature that is a key combination, set like a key cap. */
 const isKeys = (how: string) => /[⌘⌃⌥⇧]/.test(how);
@@ -24,7 +25,7 @@ export function FeatureGuide({ onOpen }: { onOpen: (section: SettingsSection) =>
             </div>
             {section && <button type="button" className="guide-feature__open" onClick={() => onOpen(section)} title={`打开「${sectionLabel(section)}」设置`}>
               {sectionLabel(section)}
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+              <Icon name="chevron_right" />
             </button>}
           </li>;
         })}

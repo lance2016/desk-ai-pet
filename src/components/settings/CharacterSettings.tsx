@@ -10,6 +10,7 @@ import { listAppearances } from "../../appearance/AppearanceStore";
 import { CharacterAvatar } from "../CharacterAvatar";
 import { Chevron } from "./Chevron";
 import { useChatPictures } from "./useChatPictures";
+import { Icon } from "../../ui/icons";
 
 interface Props {
   packId: string;
@@ -146,7 +147,7 @@ export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChang
           <CharacterAvatar picture={avatarOf(entry)} className="character-choice__portrait" />
           <span className="settings-row__body"><strong>{characterName(entry.id, entry.name)}</strong><span>{kindOf(entry)}</span></span>
           {using
-            ? <span className="character-choice__using"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>使用中</span>
+            ? <span className="character-choice__using"><Icon name="check" />使用中</span>
             : <span className="character-choice__switch">切换</span>}
         </button>;
       })}

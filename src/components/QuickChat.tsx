@@ -23,6 +23,7 @@ import { changeNotes, keepNote } from "../worklog/store";
 import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 import { loadSwitchedOff } from "../preferences/SkillPreferences";
+import { Icon } from "../ui/icons";
 
 /** Same limit as the chat window's composer. */
 const MAX_INPUT = 4000;
@@ -504,15 +505,6 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   return { open, draft, pending, keyMissing, reply, handed, copied: copiedAt !== null, spoke: spoken !== null && spokeHint, answering, bubble, name: characterName(packId, ownName), inputRef, setDraft, close, send, cancel, expand, openReply, openSaved, undoSaved, onPaste, dismissHanded, runAction, launch, askAbout: requestChat, receive };
 }
 
-function Icon({ name }: { name: "send" | "stop" | "expand" }) {
-  const paths = {
-    send: <path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z" />,
-    stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
-    expand: <path d="M14 4h6v6M20 4l-8 8M10 5H5v14h14v-5" />,
-  } as const;
-  return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
-}
-
 /** The input bar that takes the dock's place while it is open. */
 export function QuickChatBar({ chat, ref }: { chat: QuickChat; ref?: Ref<HTMLFormElement> }) {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -538,7 +530,7 @@ export function QuickChatBar({ chat, ref }: { chat: QuickChat; ref?: Ref<HTMLFor
           : chat.keyMissing
             ? <button type="submit" className="quick-chat__fix" title="打开设置，填写 DeepSeek API Key">去设置</button>
             : <button type="submit" disabled={!chat.draft.trim()} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
-        <button type="button" onClick={chat.expand} aria-label="在聊天窗口打开" title="在聊天窗口打开"><Icon name="expand" /></button>
+        <button type="button" onClick={chat.expand} aria-label="在聊天窗口打开" title="在聊天窗口打开"><Icon name="open" /></button>
       </form>
     </div>
   );
@@ -588,13 +580,7 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
 
 /** Line glyphs for where handed text came from: a page for a file, quotes for copied or dragged text. */
 function HandedGlyph({ file }: { file: boolean }) {
-  return (
-    <svg className="handed__glyph" viewBox="0 0 16 16" aria-hidden="true">
-      {file
-        ? <><path d="M9.5 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V5.5Z" /><path d="M9.5 2v3.5H13M5.5 8.5h5M5.5 11h3" /></>
-        : <path d="M3 9.5c0-2.5 1-4.2 3-5M3 9.5h2.5V12H3ZM9 9.5c0-2.5 1-4.2 3-5M9 9.5h2.5V12H9Z" />}
-    </svg>
-  );
+  return <Icon name={file ? "file" : "quote"} className="handed__glyph" />;
 }
 
 /** Text the user copied or dragged onto the pet, in the bubble above it, with what can be done with it. */
@@ -609,7 +595,7 @@ function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; 
           <strong className="handed__title" title={title}>{title}</strong>
           <span className="handed__size">{size}</span>
           <button type="button" className="handed__close" aria-label="不用了" title="不用了" onClick={chat.dismissHanded}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7" /></svg>
+            <Icon name="close" />
           </button>
         </span>
         <span className="handed__excerpt">{handoverPreview(handed.text)}</span>

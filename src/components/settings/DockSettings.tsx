@@ -11,6 +11,7 @@ import { DockButtonFace } from "../DockButtonFace";
 import { ConfirmButton } from "../ConfirmButton";
 import { shrinkImage } from "./shrinkImage";
 import { moveRadioChoice } from "./radioKeys";
+import { Icon } from "../../ui/icons";
 
 /** Uploaded icons are scaled down to this side, so they do not fill up local storage. */
 const ICON_MAX_SIDE = 128;
@@ -217,7 +218,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
               <div className="dock-row__line">
                 <span className="dock-row__handle" role="button" tabIndex={0} aria-label={`拖动或用上下方向键调整“${label}”的位置`} title="拖动排序"
                   onPointerDown={(event) => startDrag(event, key)} onPointerMove={dragMove} onPointerUp={endDrag} onPointerCancel={endDrag} onKeyDown={(event) => handleKeys(event, index)}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14M5 15h14" /></svg>
+                  <Icon name="grip" />
                 </span>
                 <span className="settings-icon-tile dock-row__face">
                   <DockButtonFace item={item} packId={packId} actions={actions} resolveAsset={resolveAsset} />
@@ -226,7 +227,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
                   <button type="button" className="dock-row__body" aria-expanded={open} onClick={() => setExpanded(open ? null : key)}>
                     <strong>{label}</strong>
                     <small>{DESCRIPTIONS[item.command]}</small>
-                    <svg className="dock-row__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+                    <Icon name="chevron_right" className="dock-row__chevron" />
                   </button>
                 ) : (
                   <span className="dock-row__body">
@@ -236,7 +237,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
                 )}
                 {item.kind === "action" && (
                   <button type="button" className="dock-row__remove" aria-label={`从快捷按钮移除“${label}”`} title="从快捷按钮移除" onClick={() => commit(items.filter((entry) => keyOf(entry) !== key))}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10" /></svg>
+                    <Icon name="minus" />
                   </button>
                 )}
                 <button type="button" role="switch" aria-checked={item.enabled} aria-label={`显示“${label}”按钮`} className={item.enabled ? "ui-switch is-on" : "ui-switch"} onClick={() => toggle(key)}><span /></button>
@@ -247,7 +248,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
         })}
         <li className="dock-row dock-row--add">
           <button type="button" className="dock-add" aria-expanded={adding} disabled={addable.length === 0} onClick={() => setAdding((value) => !value)}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12" /></svg>
+            <Icon name="plus" />
             {addable.length === 0 ? "所有可手动播放的动作都已经加上了" : "添加动作…"}
           </button>
           {adding && addable.length > 0 && (

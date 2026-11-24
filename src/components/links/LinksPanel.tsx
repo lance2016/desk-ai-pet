@@ -6,20 +6,14 @@ import { systemPlatform } from "../../platform/system";
 import { isComposing, useCloseShortcut } from "../keyboard";
 import "../today/TodayPanel.css";
 import "./LinksPanel.css";
+import { Icon } from "../../ui/icons";
 
 const UNDO_MS = 5_000;
 const BLANK_LINK = { name: "", url: "", group: "", tag: "", description: "" };
 const hidePanel = () => void petWindow.hideSelf().catch((error: unknown) => console.error("Failed to hide links", error));
 
 function Glyph({ name }: { name: "globe" | "plus" | "search" | "open" | "more" }) {
-  const paths = {
-    globe: <><circle cx="12" cy="12" r="8" /><path d="M4 12h16M12 4a14 14 0 0 1 0 16 14 14 0 0 1 0-16Z" /></>,
-    plus: <path d="M5 12h14M12 5v14" />,
-    search: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 5 5" /></>,
-    open: <path d="M6 18 18 6M9 6h9v9" />,
-    more: <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="3" />,
-  };
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+  return <Icon name={name} className="today-glyph" />;
 }
 
 function SiteIcon({ url, enabled }: { url: string; enabled: boolean }) {

@@ -38,7 +38,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 10. **设置页与宠物窗口分离。** 设置页作为独立 Tauri 窗口运行；Tauri API 仍只能从 `src/platform/` 调用，设置 UI 通过平台封装操作窗口。
 11. **模型请求只经过 `src/ai/`。** 窗口和组件只用 `ai`（`src/ai/index.ts`），不直接调 `llmPlatform`。提示词骨架、读流、工具循环、供应商的毛病都在 `src/ai/` 里，DeepSeek 特有的部分放 `src/ai/deepseek/`。宠物在聊天里能做的事是能力表（`src/skills/`）：新工具写在对应的能力文件里，或新建一个能力加进 `CHAT_SKILLS`，不要在 `chatRun.ts`、聊天窗口或快速聊天里为某个工具写特殊处理。能力按用户认得的对象分组（提醒、备忘、今日回顾……），不按动词分。新能力要写给用户看的 `title`、`summary`（「设置 › 能力」只显示这些中文）和每个工具的 `label`（「工具定义」页显示在工具名下面），不在设置组件里另起名字；在 `ICONS`（`SkillSettings.tsx`）里给它一个图标。工具名、参数、规则原文只出现在开发者模式的「提示词」「工具定义」页，不放进普通页面。用户能关掉整组，开发者能关掉单个工具；工具离不开同组别的工具（改删前先查编号）就在工具上写 `requires`。提供哪些能力、哪些工具只看 `offeredSkills` 和 `offeredTools`，不要在别处另判断开关。原生的 `llm.rs` 只管本机加密 API Key、供应商地址白名单、网络和取消，不拼提示词，也不解读回复。
 
-12. **在宠物之外进行的事用「活动」上报。** 等验证码、以后的编码 Agent 这类事，只往总线发 `pet.activity`（`ActivityUpdate`，五个状态：`running`、`waiting`、`done`、`failed`、`cancelled`），徽标、常驻气泡和宠物的反应由 `BehaviorEngine` 统一决定。不要为一件新的事在 `BehaviorEngine` 里另加一套徽标和气泡的字段，也不要在组件里直接调平台接口去取消：点徽标只发 `pet.activity_chip_clicked`，由上报方自己处理；常驻气泡上要一个「去那里」的按钮，就在活动里带 `opens`，点了发 `pet.activity_opened`，同样由上报方处理。来自宠物窗口之外的上报先过 `activityUpdateSchema`。新的气泡图标要同时加进 `ALERT_ICONS`（`src/types.ts`）和 `PetSpeech.tsx` 里的同名图标表。
+12. **在宠物之外进行的事用「活动」上报。** 等验证码、以后的编码 Agent 这类事，只往总线发 `pet.activity`（`ActivityUpdate`，五个状态：`running`、`waiting`、`done`、`failed`、`cancelled`），徽标、常驻气泡和宠物的反应由 `BehaviorEngine` 统一决定。不要为一件新的事在 `BehaviorEngine` 里另加一套徽标和气泡的字段，也不要在组件里直接调平台接口去取消：点徽标只发 `pet.activity_chip_clicked`，由上报方自己处理；常驻气泡上要一个「去那里」的按钮，就在活动里带 `opens`，点了发 `pet.activity_opened`，同样由上报方处理。来自宠物窗口之外的上报先过 `activityUpdateSchema`。新的气泡图标要同时加进 `ALERT_ICONS`（`src/types.ts`）和 `PetSpeech.tsx` 里的同名表（只写 `src/ui/icons.tsx` 里的图标名）。
 
 13. **编码会话的界面只读 `CodingSession`。** Claude Code 的钩子事件只在 `src/agents/ClaudeSessions.ts` 里解读，变成 `CodingSession`（会话）和 `ActivityUpdate`（宠物的反应）。状态卡（`CodingCard`）和面板（`CodingPanel`）只读 `codingStore` 里的会话，不读 `AgentReport`，也不自己推断状态。会话的生命周期（`ended`）和一轮对话的状态（`turn`）分开记：`Stop` 只说明这一轮结束了，界面上不能写成任务完成；很久没事件只能记成 `unknown`，不能记成做完。每一次工具调用只更新会话的 `activity`，不能产生活动（否则宠物会跟着每个工具做动作）。没有真实数据的东西（进度百分比、改了几个文件、测试结果）不显示。以后接别的 Agent（Codex）时，给它写自己的事件解读，产出同一种 `CodingSession`，`provider` 填它自己的名字。
 
@@ -60,7 +60,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 
 不可撤销的操作用 `ConfirmButton`：先弹系统确认框（`src-tauri/src/alert.rs`），回车确认、Esc 取消。它只能用在设置、聊天这类普通窗口里；提醒、备忘弹层不能弹框，会激活应用。宠物窗口也不能弹框：要用户确认时，由 `BehaviorEngine` 发带 `choices` 的 `pet.alert`，在气泡里放按钮（例子是停止专注）。能撤销的用撤销条。报错只给人话，原始错误用 `console.error` 记日志。
 
-设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`SettingsGlyph`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`，给图标方块挑一个 `--tile-*` 系统色）。跳到另一页的行用整行加 ›（`settings-link` 加 `Chevron`），不要放「打开」按钮。行里就地执行的小文字链接（「恢复默认」）用 `text-link`，不要用 `settings-link`：后者是整行样式，带 `width: 100%`，会把同一行的控件挤扁。
+设置窗口一页最多一屏半，不往页面末尾追加新功能。会一直变多的内容（日志、请求记录、记忆）各占一页；从别的页点进去的放进 `SUB_PAGES`，只在某个开关打开时才有的放单独的侧栏组（如 `DEVELOPER_GROUP`）。新加一页要同时改 `sections.ts`、`PAGE_ICONS`（`SettingsPage.tsx`）和 `.settings-nav__icon--*`（`SettingsPage.css`，给图标方块挑一个 `--tile-*` 系统色）。跳到另一页的行用整行加 ›（`settings-link` 加 `Chevron`），不要放「打开」按钮。行里就地执行的小文字链接（「恢复默认」）用 `text-link`，不要用 `settings-link`：后者是整行样式，带 `width: 100%`，会把同一行的控件挤扁。
 
 ## 代码约定
 
@@ -68,6 +68,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 - 外部输入用 Zod 校验：清单文件和存档。
 - 数值用具名常量，放在所属模块顶部，不要散落魔法数字。
 - 颜色、圆角、阴影、字号只在 `src/ui/tokens.css` 定义一次，由 `src/main.tsx` 统一引入。各窗口样式表可以给它们起本地名字（`--label: var(--ui-text)`），不能写第二份取值；压在系统材质上的面板在根元素加 `ui-on-material`，换成那组半透明取值。角色素材的颜色（`--spark` 等）只属于宠物层。设置页中的预览要与桌面实际控件同步。
+- 线条图标只画在 `src/ui/icons.tsx`，组件用 `<Icon name=…>`，不在组件里写 `<path>`。24 格，一个概念只画一次；线宽由 `.ui-icon` 统一给 1.7，窗口样式表只定尺寸。宠物层（快捷按钮、气泡、状态卡、快速聊天）的线宽由 `App.css` 各自保留。进度弧、进度环不算图标。
 - 按钮只用 `src/ui/controls.css` 的 `.ui-button`，变体有 `--small`、`--large`、`--primary`（一个视图最多一个）、`--danger`（红字）、`--destructive`（确认时的红底）。窗口样式表只摆放它，不改它的样子。
 - 界面动效用 `tokens.css` 里的一条曲线 `--ui-ease` 和三档时长：悬停、按下用 `--ui-duration-fast`，气泡、菜单、开关这类出现和切换用 `--ui-duration`，弹层用 `--ui-duration-slow`。不要再写零散的毫秒数和 `ease`。界面控件不用回弹曲线，活泼的动作留给角色（`motions.ts`）。一直转的（转圈、呼吸、进度弧）不在此列。
 - 不用 `console.log`。可恢复的问题用 `console.warn`，真正的错误用 `console.error`；这两种会写进日志文件，所以不要把聊天原文、API Key、授权码传给它们。Rust 用 `log::warn!`、`log::error!`，不用 `eprintln!`（不进日志文件）。
@@ -132,7 +133,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 取消识别的标记 | `TRANSCRIBE_CANCELLED`（`src/components/chat/useVoiceInput.ts`） | `CANCELLED`（`mimo.rs`） |
 | 动作的触发说明 | `src/actions/standardActions.json` 每个动作的 `description`（动作库里显示的「什么时候做」） | `BehaviorEngine.ts` 里请求这个动作的规则 |
 | 内置角色列表 | `public/pets/index.json` 的 `packs` | `public/pets/<id>/` 目录名和清单 `id` |
-| 功能一览和新功能介绍的图标、颜色 | `FEATURE_ICONS`、`FEATURE_COLORS`（`src/guide/featureIcons.ts`），`featureGuide.json`、`releaseNotes.json` 只能用这些 | `GLYPHS`（`FeatureTile.tsx`）、`.feature-tile--*`（`SettingsPage.css`） |
+| 功能一览和新功能介绍的图标、颜色 | `FEATURE_ICONS`、`FEATURE_COLORS`（`src/guide/featureIcons.ts`），`featureGuide.json`、`releaseNotes.json` 只能用这些 | `src/ui/icons.tsx` 里的同名图标、`.feature-tile--*`（`SettingsPage.css`） |
 | 发布仓库 | `tauri.conf.json` 的 `plugins.updater.endpoints` | `scripts/release.sh` 的 `RELEASES_REPO` |
 | 更新签名 | `tauri.conf.json` 的 `plugins.updater.pubkey` | 本机私钥 `~/.tauri/ai-pet-updater.key`（换密钥要两处一起换，旧版本的用户会收不到更新） |
 

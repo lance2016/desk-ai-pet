@@ -11,6 +11,7 @@ import { useCloseShortcut } from "../keyboard";
 import { useNow } from "../useNow";
 import "../today/TodayPanel.css";
 import "./CodingPanel.css";
+import { Icon } from "../../ui/icons";
 
 const TICK_MS = 15_000;
 const HUD_MS = 2_400;
@@ -31,7 +32,7 @@ const openSettings = () => void petWindow.openSettings(SETTINGS_SECTION).catch((
 
 /** A push pin, leaning as one stuck in a board. */
 function PinGlyph({ className = "today-glyph" }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 16 16" aria-hidden="true"><path d="M8.5 3.5l4 4M9.5 4.5L7 7M11.5 6.5L9 9M5.5 5.5l5 5M8 8l-4.5 4.5" /></svg>;
+  return <Icon name="pin" className={className} />;
 }
 
 function ago(at: number, now: number): string {
@@ -125,23 +126,23 @@ function headline(session: CodingSession, now: number): string {
 }
 
 function TerminalGlyph() {
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M13 15h3.5" /></svg>;
+  return <Icon name="terminal" className="today-glyph" />;
 }
 
 function InboxGlyph() {
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13l3-7h10l3 7v5H4zM4 13h5l1 2h4l1-2h5" /></svg>;
+  return <Icon name="inbox" className="today-glyph" />;
 }
 
 function InfoGlyph() {
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5M12 7.8v.1" /></svg>;
+  return <Icon name="info" className="today-glyph" />;
 }
 
 function BackGlyph() {
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5-6.5 6.5 6.5 6.5" /></svg>;
+  return <Icon name="chevron_left" className="today-glyph" />;
 }
 
 function FoldGlyph() {
-  return <svg className="today-glyph coding-fold__glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>;
+  return <Icon name="chevron_right" className="today-glyph coding-fold__glyph" />;
 }
 
 interface RowProps {

@@ -38,6 +38,7 @@ import { petWindow } from "../../platform/petWindow";
 import { CLONED_VOICE_PREFIX, type ChatPhase } from "../../types";
 import "./ChatPage.css";
 import { loadSwitchedOff } from "../../preferences/SkillPreferences";
+import { Icon } from "../../ui/icons";
 
 const MAX_INPUT = 4000;
 /** While typing, the pet is told at most this often; it listens on for longer than that after each report. */
@@ -82,25 +83,6 @@ const WEB_PROGRESS: Record<string, string> = {
   searched: "正在整理搜索结果…",
   "search-failed": "这一轮搜索未返回结果…",
 };
-
-function Icon({ name }: { name: "mic" | "stop" | "send" | "new" | "history" | "settings" | "close" | "copy" | "image" | "globe" | "attach" | "file" | "speaker" }) {
-  const paths = {
-    mic: <><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></>,
-    stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
-    send: <path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z" />,
-    new: <path d="M12 5v14M5 12h14" />,
-    history: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
-    close: <path d="m7 7 10 10M17 7 7 17" />,
-    globe: <><circle cx="12" cy="12" r="9" /><ellipse cx="12" cy="12" rx="4" ry="9" /><path d="M3 12h18" /></>,
-    image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="9" r="1.5" /><path d="m4 17 4-4 3 3 5-5 4 4" /></>,
-    attach: <path d="m20 11.5-8 8a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7" />,
-    file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
-    speaker: <><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4Z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></>,
-    copy: <><rect x="8" y="8" width="11" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h1" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
-  } as const;
-  return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
-}
 
 /** Chat with one character. The window remounts this component when the character changes. */
 export function ChatPage({ packId }: { packId: string }) {
@@ -686,9 +668,9 @@ export function ChatPage({ packId }: { packId: string }) {
     <header ref={header} className="chat-header">
       <CharacterAvatar picture={avatar} className="chat-portrait chat-portrait--header" />
       <div className="chat-header__title"><strong>{name}</strong><span className={`chat-status is-${status.tone}`}>{status.label}</span></div>
-      <button type="button" className="chat-icon-button" disabled={pending || messages.length === 0} onClick={newChat} aria-label="新聊天" title="新聊天"><Icon name="new" /></button>
+      <button type="button" className="chat-icon-button" disabled={pending || messages.length === 0} onClick={newChat} aria-label="新聊天" title="新聊天"><Icon name="plus" /></button>
       <button ref={historyButton} type="button" className={historyOpen ? "chat-icon-button is-active" : "chat-icon-button"} disabled={pending} onClick={() => setHistoryOpen((open) => !open)} aria-label="聊天记录" aria-expanded={historyOpen} title="聊天记录"><Icon name="history" /></button>
-      <button type="button" className="chat-icon-button" onClick={() => void petWindow.openSettings().catch((reason: unknown) => console.error("Could not open settings", reason))} aria-label="设置" title="设置"><Icon name="settings" /></button>
+      <button type="button" className="chat-icon-button" onClick={() => void petWindow.openSettings().catch((reason: unknown) => console.error("Could not open settings", reason))} aria-label="设置" title="设置"><Icon name="gear" /></button>
       {historyOpen && <ChatHistory threads={threads} currentId={threadId} removed={removedThread} onOpen={(thread) => showThread(thread.id, thread.messages)} onDelete={deleteThread} onUndo={undoDelete} onRename={renameThread} onClose={closeHistory} />}
     </header>
     <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>

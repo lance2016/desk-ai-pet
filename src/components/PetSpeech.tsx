@@ -6,6 +6,7 @@ import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
 import { CodingCard, codingHasNews, useCodingNow } from "./CodingCard";
 import { speechShown } from "./speechShown";
+import { Icon } from "../ui/icons";
 
 interface PetSpeechProps {
   runtime: PetRuntime;
@@ -30,12 +31,7 @@ const openReminders = () => void petWindow.openToday().catch((error: unknown) =>
 
 const LOTUS = "/focus/lotus.png";
 
-const ALERT_ICONS = {
-  bell: <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" />,
-  mail: <path d="M3 6h18v12H3zM3 7l9 6 9-6" />,
-  timer: <path d="M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 9v4l2.5 2M10 2h4" />,
-  agent: <path d="M3 5h18v14H3zM7 10l3 2-3 2M12 15h5" />,
-};
+const ALERT_ICONS = { bell: "bell", mail: "mail", timer: "timer", agent: "terminal" } as const;
 
 /** A ring that fills as the focus round or the rest goes by. */
 function ProgressRing({ progress }: { progress: number }) {
@@ -76,7 +72,7 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
       return (
         <button type="button" className={`${look} status-chip--stoppable`} title={`停止${chip.label}`} aria-label={`${chip.label}，点一下停止`} onClick={() => onActivityClick(id)}>
           {mark}{chip.label}
-          <svg className="status-chip__close" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 5l6 6M11 5l-6 6" /></svg>
+          <Icon name="close" className="status-chip__close" />
         </button>
       );
     }
@@ -145,7 +141,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   }
   // Reminders (the bell) sit on a colored tile, like a notification; other lines keep a plain icon.
   const reminder = standing !== null && !standing.icon;
-  const glyph = standing && <svg className="speech-bubble__bell" viewBox="0 0 24 24" aria-hidden="true">{ALERT_ICONS[standing.icon ?? "bell"]}</svg>;
+  const glyph = standing && <Icon name={ALERT_ICONS[standing.icon ?? "bell"]} className="speech-bubble__bell" />;
   const icon = reminder ? <span className="speech-bubble__tile">{glyph}</span> : glyph;
   const heading = standing?.heading && <span className="speech-bubble__heading">{standing.heading}</span>;
   // Lines waiting behind this one: said quietly, so the user knows another comes once this one is answered.

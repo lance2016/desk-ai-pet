@@ -43,7 +43,7 @@
   border: 1px solid var(--group-border);
   border-radius: var(--radius-row);
 }
-.action-library__search > svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.action-library__search > svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; }
 .action-library__search input { box-sizing: border-box; width: 100%; min-width: 0; height: 28px; padding: 0; color: var(--label); background: transparent; border: 0; box-shadow: none !important; font-size: var(--ui-font-caption) !important; }
 .action-library__search input::-webkit-search-cancel-button { display: none; }
 .action-library__search input::placeholder { color: var(--label-3); }
@@ -63,7 +63,7 @@
   font-size: var(--ui-font-footnote);
   cursor: pointer;
 }
-.action-library__create svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.action-library__create svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; }
 .action-library__create:hover, .action-library__button:hover { filter: brightness(1.08); }
 .action-library__button--quiet { color: var(--accent-strong); background: var(--accent-wash); }
 /* `.settings-page button { color: inherit }` outweighs the single-class rules above; restate the text colors at its weight. */
@@ -150,7 +150,7 @@
 .action-preview__eyebrow { color: var(--label-2); font-size: var(--ui-font-footnote); }
 .action-preview__header h2 { margin: 1px 0 0; font-size: var(--ui-font-emphasis); font-weight: 600; }
 .action-preview__close { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; color: var(--label-2); background: var(--fill); border: 0; border-radius: 50%; cursor: pointer; }
-.action-preview__close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.action-preview__close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-linecap: round; }
 .action-preview__content { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 16px; padding: 14px 16px; overflow-y: auto; }
 .action-preview__stage { min-height: 284px; display: grid; place-items: center; overflow: hidden; background-color: var(--fill); background-image: repeating-conic-gradient(var(--fill-strong) 0 25%, transparent 0 50%); background-size: 14px 14px; border-radius: var(--radius-row); }
 .action-preview__stage canvas { max-width: 100%; height: auto !important; }

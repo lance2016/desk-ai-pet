@@ -5,6 +5,7 @@ import { petWindow } from "../../platform/petWindow";
 import { escapeHidesPanel, isComposing, useCloseShortcut } from "../keyboard";
 import "../today/TodayPanel.css";
 import "./NotesPanel.css";
+import { Icon } from "../../ui/icons";
 
 /** How long "已复制" or "撤销" stays up. */
 const HUD_MS = { copied: 1_600, removed: 6_000, pushed: 8_000 } as const;
@@ -22,16 +23,7 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.r
 type Hud = { kind: "copied"; text: string } | { kind: "removed"; note: Note } | { kind: "pushed"; added: string; note: Note };
 
 function Glyph({ name }: { name: "plus" | "pin" | "edit" | "close" | "search" | "note" | "copy" }) {
-  const paths = {
-    plus: <path d="M12 6v12M6 12h12" />,
-    pin: <><path d="M9 4h6l-1 6 3 3H7l3-3-1-6Z" /><path d="M12 13v7" /></>,
-    edit: <><path d="M5 19h4L19 9l-4-4L5 15v4Z" /><path d="m13.5 6.5 4 4" /></>,
-    close: <path d="m8 8 8 8M16 8l-8 8" />,
-    search: <><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></>,
-    note: <><path d="M5 4h14v11l-5 5H5z" /><path d="M14 20v-5h5M8.5 8.5h7M8.5 12h4" /></>,
-    copy: <><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M5 15V6a1 1 0 0 1 1-1h9" /></>,
-  } as const;
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+  return <Icon name={name} className="today-glyph" />;
 }
 
 /**

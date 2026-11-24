@@ -1,6 +1,6 @@
 import { TranslationShortcutSettings } from "./TranslationShortcutSettings";
 import { ai } from "../../ai";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { appendUserActions, loadUserActions } from "../../actions/UserActions";
 import { isCustomCharacter, loadCharacterPack, loadPackCatalog, type CatalogEntry } from "../../assets/PackCatalog";
 import type { AnimationEntry, PetControl, PetPersona } from "../../assets/Manifest";
@@ -51,6 +51,7 @@ import { SettingsSearch, type SearchResult } from "./SettingsSearchField";
 import { SETTINGS_INDEX } from "./settingsSearch";
 import { FeatureGuide } from "./FeatureGuide";
 import { FEATURE_GUIDE } from "../../guide/featureGuide";
+import { Icon, type IconName } from "../../ui/icons";
 
 const SCALES = [
   { value: 0.75, label: "小" },
@@ -75,30 +76,15 @@ const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "actions"];
 
+/** Each page's glyph on its tile in the sidebar. */
+const PAGE_ICONS: Record<SettingsSection, IconName> = {
+  character: "user", characterProfile: "user_plus", general: "gear", companion: "heart", dock: "dock", actions: "paw",
+  chat: "chat", ai: "layers", skills: "skills", voices: "waveform", memory: "bookmark", tools: "wrench", links: "link",
+  privacy: "shield", guide: "bulb", about: "info", diagnostics: "lines", prompt: "document", toolDefs: "braces", developer: "code",
+};
+
 function SettingsGlyph({ name }: { name: SettingsSection }) {
-  const paths: Record<SettingsSection, ReactNode> = {
-    character: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>,
-    characterProfile: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6M18 4h3M19.5 2.5v3" /></>,
-    general: <><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2A1.7 1.7 0 0 0 17 3.4l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" /></>,
-    companion: <><path d="M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1Z" /></>,
-    dock: <><rect x="3" y="14" width="18" height="6" rx="2" /><path d="M7 17h.01M12 17h.01M17 17h.01M8 4h8v6H8z" /></>,
-    actions: <><path d="M12 20c-3 0-5-1.4-5-3.8 0-2 2.3-3.6 5-3.6s5 1.6 5 3.6c0 2.4-2 3.8-5 3.8Z" /><circle cx="5.5" cy="10" r="2" /><circle cx="10" cy="6" r="2" /><circle cx="15" cy="6" r="2" /><circle cx="19" cy="10" r="2" /></>,
-    chat: <><path d="M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.2V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5Z" /></>,
-    ai: <><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
-    skills: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 4v6M13.5 7h6" /></>,
-    voices: <><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></>,
-    memory: <><path d="M7 3h10v18l-5-4-5 4V3Z" /></>,
-    tools: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.8 1.8 0 0 0 2.5 2.5l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.5 2.5-2.4-.4-.4-2.4 2.5-2.5Z" /></>,
-    links: <path d="m10 13 4-4M8 15l-1 1a3 3 0 0 1-4-4l4-4a3 3 0 0 1 4 0m2 2a3 3 0 0 0 4 0l4-4a3 3 0 0 0-4-4l-1 1" transform="translate(0 2)" />,
-    privacy: <><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
-    guide: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z" /></>,
-    about: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
-    diagnostics: <><path d="M4 5h16M4 10h16M4 15h10M4 20h7" /></>,
-    prompt: <><path d="M6 3h9l3 3v15H6V3Z" /><path d="M9 10h6M9 14h6M9 18h3" /></>,
-    toolDefs: <><path d="M9 4C7 4 6.5 5 6.5 7v2.5C6.5 11 5.5 12 4 12c1.5 0 2.5 1 2.5 2.5V17c0 2 .5 3 2.5 3M15 4c2 0 2.5 1 2.5 3v2.5c0 1.5 1 2.5 2.5 2.5-1.5 0-2.5 1-2.5 2.5V17c0 2-.5 3-2.5 3" /></>,
-    developer: <><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14" /></>,
-  };
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+  return <Icon name={PAGE_ICONS[name]} />;
 }
 
 

@@ -43,7 +43,7 @@
 /* The native material shows through the page. */
 html.today-window, body.today-window, body.today-window #root { margin: 0; height: 100%; background: transparent; overflow: hidden; }
 
-.today-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.today-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Header: the list name, how many are left on the right in the accent colour, as in Reminders. */
 /*
@@ -138,7 +138,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   cursor: pointer;
   transition: background-color var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), color var(--ui-duration-fast) var(--ui-ease);
 }
-.today-check .today-glyph { width: 13px; height: 13px; stroke-width: 2.4; }
+.today-check .today-glyph { width: 13px; height: 13px; }
 .today-check:hover { border-color: var(--accent); color: var(--accent-ring); }
 .today-check.is-due { border-color: var(--red); }
 .today-check[aria-checked="true"] { color: var(--ui-action-text); background: var(--ui-action-bg); border-color: var(--ui-action-bg); }
@@ -194,7 +194,7 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 .today-all-done { margin: 10px 8px; color: var(--label-2); font-size: var(--ui-font-caption); }
 
 .today-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 40px 16px; color: var(--label-2); text-align: center; }
-.today-empty .today-glyph { width: 28px; height: 28px; margin-bottom: 6px; color: var(--label-3); stroke-width: 1.5; }
+.today-empty .today-glyph { width: 28px; height: 28px; margin-bottom: 6px; color: var(--label-3); }
 .today-empty strong { color: var(--label); font-weight: 600; }
 .today-empty p { margin: 0; font-size: var(--ui-font-caption); line-height: 1.5; }
 

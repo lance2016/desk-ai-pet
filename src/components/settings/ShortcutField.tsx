@@ -1,3 +1,4 @@
+import { Icon } from "../../ui/icons";
 interface ShortcutFieldProps {
   /** What the row sets, read out with the field: "快速聊天快捷键". */
   name: string;
@@ -25,7 +26,7 @@ export function ShortcutField({ name, label, recording, onRecord, onClear, onRes
         </button>
         {label && !recording && (
           <button type="button" className="shortcut-key__clear" aria-label={`停用${name}`} title="停用，可以随时重新录制" onClick={onClear}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="m5.5 5.5 5 5m0-5-5 5" /></svg>
+            <Icon name="clear" />
           </button>
         )}
       </div>

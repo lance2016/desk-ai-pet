@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { isComposing } from "../keyboard";
 import { searchSettings, type SearchEntry } from "./settingsSearch";
+import { Icon } from "../../ui/icons";
 
 /** A search result: where it is, plus the line under its title. */
 export interface SearchResult extends SearchEntry {
@@ -55,7 +56,7 @@ export function SettingsSearch({ entries, children, icon, onPick }: SettingsSear
 
   return <>
     <div className="settings-search" role="search">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></svg>
+      <Icon name="search" />
       <input
         ref={field} type="search" placeholder="搜索" aria-label="搜索设置和功能" value={query} spellCheck={false}
         role="combobox" aria-expanded={searching} aria-controls={listId} aria-autocomplete="list"

@@ -12,6 +12,7 @@ import { CLONED_VOICE_PREFIX, PERSONA_LIMITS } from "../../types";
 import { PRESETS } from "../settings/VoiceSettings";
 import { useDubbing } from "./useDubbing";
 import "./DubbingPage.css";
+import { Icon } from "../../ui/icons";
 
 /** The voice used when none is chosen and there is no cloned one. */
 const FALLBACK_VOICE = "冰糖";
@@ -152,7 +153,7 @@ export function DubbingPage() {
                       {clip?.status === "ready" && <>
                         <span className="dub-line__seconds">{pcmSeconds(clip.pcm).toFixed(1)} 秒</span>
                         <button type="button" className="dub-icon-button" aria-label={sounding && !playing?.all ? "停止试听" : "试听这一句"} onClick={() => play(false, index)}>
-                          {sounding && !playing?.all ? <svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1" /></svg> : <svg viewBox="0 0 16 16"><path d="M5 3.5v9l7.5-4.5z" /></svg>}
+                          <Icon name={sounding && !playing?.all ? "stop" : "play"} />
                         </button>
                       </>}
                     </span>

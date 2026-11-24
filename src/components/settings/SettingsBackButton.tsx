@@ -1,5 +1,6 @@
 import type { Confirmation } from "../../platform/dialog";
 import { ConfirmButton } from "../ConfirmButton";
+import { Icon } from "../../ui/icons";
 
 interface Props {
   destination: string;
@@ -10,9 +11,7 @@ interface Props {
 
 export function SettingsBackButton({ destination, onBack, disabled, confirm }: Props) {
   const content = <>
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m10 3.5-4.5 4.5 4.5 4.5" />
-    </svg>
+    <Icon name="chevron_left" />
     返回{destination}
   </>;
   return confirm

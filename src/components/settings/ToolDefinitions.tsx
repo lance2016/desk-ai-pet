@@ -7,6 +7,7 @@ import { loadSwitchedOff, saveToolOn } from "../../preferences/SkillPreferences"
 import { CHAT_SKILLS } from "../../skills";
 import { CopyButton } from "./actions/CopyButton";
 import { contextNow, Switch } from "./SkillSettings";
+import { Icon } from "../../ui/icons";
 
 const parametersSchema = z.object({
   properties: z.record(z.string(), z.object({ type: z.string().optional(), description: z.string().optional(), enum: z.array(z.string()).optional() })).optional(),
@@ -45,7 +46,7 @@ function ToolRow({ tool, context, onToggle }: { tool: Tool; context: ChatContext
   return <div className={open ? "tool-def is-open" : "tool-def"}>
     <div className="settings-row">
       <button type="button" className="tool-def__disclosure" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}>
-        <svg className="tool-def__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+        <Icon name="chevron_right" className="tool-def__chevron" />
         <span className="settings-row__body"><code className="tool-def__name">{tool.name}</code><span>{tool.label}</span></span>
       </button>
       {needs.length > 0 && <span className="settings-row__value">要先打开 <code>{needs.join("、")}</code></span>}

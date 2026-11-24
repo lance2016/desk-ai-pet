@@ -8,6 +8,7 @@ import { escapeHidesPanel, isComposing, useCloseShortcut } from "../keyboard";
 import { TimeField } from "../TimeField";
 import { loadQuietPreferences, subscribeQuietPreferences } from "../../preferences/QuietPreferences";
 import "./TodayPanel.css";
+import { Icon } from "../../ui/icons";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 /** How long "撤销" stays up after an item is deleted. */
@@ -152,15 +153,7 @@ function WhenField({ draft, onChange, now }: { draft: Draft; onChange: (draft: D
 }
 
 function Glyph({ name }: { name: "plus" | "check" | "close" | "moon" | "list" | "repeat" }) {
-  const paths = {
-    plus: <path d="M12 6v12M6 12h12" />,
-    check: <path d="m7.5 12.5 3 3 6-7" />,
-    close: <path d="m8 8 8 8M16 8l-8 8" />,
-    moon: <path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z" />,
-    repeat: <><path d="m17 3 3 3-3 3" /><path d="M4 11v-1a4 4 0 0 1 4-4h12" /><path d="m7 21-3-3 3-3" /><path d="M20 13v1a4 4 0 0 1-4 4H4" /></>,
-    list: <><path d="M10 7h9M10 12h9M10 17h9" /><circle cx="5.5" cy="7" r="1.2" /><circle cx="5.5" cy="12" r="1.2" /><circle cx="5.5" cy="17" r="1.2" /></>,
-  } as const;
-  return <svg className="today-glyph" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+  return <Icon name={name} className="today-glyph" />;
 }
 
 const hidePanel = () => void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason));
