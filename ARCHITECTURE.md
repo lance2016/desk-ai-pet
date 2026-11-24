@@ -111,7 +111,7 @@ src/
 │   └── WhatsNew.ts          更新后说一句、弹一次「新功能」介绍
 ├── ui/                      所有窗口共用的样子，见下文「设计变量和基础控件」
 │   ├── tokens.css           颜色、圆角、阴影、字号、动效，每样只定义一次；`ui-on-material` 换成系统材质上的半透明取值
-│   ├── controls.css         按钮、开关、分段控件、文本框、下拉框、搜索框和图标的基础样式（`.ui-*`）
+│   ├── controls.css         按钮、文字链接、开关、分段控件、文本框、下拉框、搜索框和图标的基础样式（`.ui-*`）
 │   └── icons.tsx            全部线条图标，24 格，`<Icon name>`
 ├── components/
 │   ├── PetStage.tsx         舞台，负责把鼠标操作转成事件
@@ -643,7 +643,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 所有窗口的样子分两层：`src/ui/` 定义一次，各窗口的样式表只管布局。
 
 - **变量。** 颜色、圆角、阴影、字号只在 `tokens.css` 里有取值。窗口样式表可以起本地名字（设置页的 `--label: var(--ui-text)`），不写第二份取值。一个窗口只有一种强调色 `--ui-accent`（`#6e56cf`，深色 `#b7a9e8`）；用强调色填满的地方（主按钮、侧栏选中项、勾选）用 `--ui-action-bg` 配 `--ui-action-text`。提醒、备忘、链接、Coding 四个面板压在系统材质上，根元素带 `ui-on-material`，文字、线条、填充换成半透明的那组。角色色（`--spark` 等）只属于宠物层，在 `App.css`。
-- **控件。** `controls.css` 里的 `.ui-button`（`--small`、`--large`、`--primary`、`--danger`、`--destructive`）、`.ui-switch`、`.ui-segmented`、`.ui-field`、`.ui-select`、`.ui-search`。窗口样式表可以定宽度、外边距，不改它们的颜色和形状。几个窗口给 `button` 写了 `color: inherit`，带颜色的按钮变体因此写成 `.ui-button.ui-button--primary`。
+- **控件。** `controls.css` 里的 `.ui-button`（`--small`、`--large`、`--primary`、`--danger`、`--destructive`）、`.ui-switch`、`.ui-segmented`、`.ui-field`、`.ui-select`、`.ui-search`、`.ui-link`（就地执行的文字链接）。窗口样式表可以定宽度、外边距，不改它们的颜色和形状。几个窗口给 `button` 写了 `color: inherit`，带颜色的按钮变体因此写成 `.ui-button.ui-button--primary`，`.ui-link` 也写成 `.ui-link.ui-link`。`main.tsx` 先引入各窗口，最后才引入 `controls.css`，同样权重时控件的规则赢；窗口要给链接改内边距或字号，选择器写成 `button.ui-link.自己的类名`。
 - **图标。** `icons.tsx` 一个概念只画一次，组件用 `<Icon name>`；快捷按钮预设（`CONTROL_ICON_PRESETS`）和功能一览的图标（`FEATURE_ICONS`）就是这里的名字。窗口层的线宽统一 1.7（`:where(.ui-icon)`，没有优先级，放图标的地方定尺寸）；宠物层在 `App.css` 里保留各自更粗的线。进度弧、进度环不是图标，留在各自组件里。
 
 ## 角色

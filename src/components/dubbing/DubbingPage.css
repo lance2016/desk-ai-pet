@@ -56,8 +56,7 @@ html.dubbing-window, body.dubbing-window, body.dubbing-window #root { margin: 0;
 /* Making, hearing and saving it all. */
 .dub-footer { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; }
 .dub-footer__status { flex: 1; min-width: 0; color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dub-text-link { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--ui-accent); cursor: default; }
-.dub-text-link:hover { text-decoration: underline; }
+button.ui-link.dub-text-link { margin-left: 8px; font-size: inherit; }
 .dub-divider { width: 1px; height: 18px; margin: 0 4px; background: var(--ui-border-strong); }
 .dub-check { display: flex; align-items: center; gap: 4px; color: var(--ui-text-secondary); white-space: nowrap; }
 .dub-check input { margin: 0; accent-color: var(--ui-accent); }

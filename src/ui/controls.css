@@ -45,6 +45,17 @@
 .ui-button.ui-button--destructive { color: var(--ui-action-text); background: var(--ui-danger); box-shadow: none; }
 .ui-button.ui-button--destructive:hover:not(:disabled) { background: var(--ui-danger); filter: brightness(1.08); }
 
+/*
+ * A text link that does something in place ("恢复默认", "撤销", "去设置"): accent words, no fill, an
+ * underline on hover. Named twice, like the coloured buttons, to outweigh `button` resets and the
+ * button rules some windows give every button in a card. controls.css comes after the window
+ * stylesheets, so a window that pads or sizes one needs a heavier selector: `button.ui-link.its-own-class`.
+ */
+.ui-link.ui-link { padding: 0; color: var(--ui-link); background: none; border: 0; border-radius: var(--ui-radius-tag); box-shadow: none; font: inherit; font-size: var(--ui-font-caption); font-weight: 500; white-space: nowrap; cursor: pointer; }
+.ui-link.ui-link:hover:not(:disabled) { background: none; text-decoration: underline; }
+.ui-link.ui-link:disabled { opacity: .45; cursor: default; }
+.ui-link.ui-link:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
 /* A switch, 32 × 19 as macOS draws the small one. The knob stays white in both modes. */
 .ui-switch { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--ui-switch-track); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background-color var(--ui-duration) var(--ui-ease); }
 .ui-switch span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform var(--ui-duration) var(--ui-ease); }

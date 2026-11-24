@@ -86,7 +86,7 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-history__note { padding: 4px 12px 10px; font-size: var(--ui-font-footnote); }
 .chat-history__undo { display: flex; align-items: center; gap: 8px; margin: 4px 4px 0; padding: 8px 10px; border-radius: var(--radius-row); background: var(--fill); font-size: var(--ui-font-caption); }
 .chat-history__undo span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chat-history__undo button { flex: none; padding: 0 2px; border: 0; border-radius: var(--ui-radius-tag); color: var(--accent-strong); background: none; font-weight: 600; cursor: pointer; }
+.chat-history__undo .ui-link { flex: none; }
 
 /* The character's head, cropped from a full-body image. */
 .chat-portrait { width: 28px; height: 28px; font-size: 14px; }
@@ -144,8 +144,8 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-error, .chat-notice { align-self: center; max-width: 90%; padding: 6px 12px; border-radius: var(--radius-row); font-size: var(--ui-font-caption); text-align: center; }
 .chat-error { color: var(--red-text); background: var(--red-wash); }
 .chat-notice { color: var(--label-2); background: var(--fill); }
-.chat-error button, .chat-notice button { margin-left: 8px; padding: 0 2px; border: 0; border-radius: var(--ui-radius-tag); color: var(--accent-strong); background: none; font-weight: 600; cursor: pointer; }
-.chat-notice button:only-child { margin-left: 0; }
+.chat-error .ui-link, .chat-notice .ui-link { margin-left: 8px; }
+.chat-notice .ui-link:only-child { margin-left: 0; }
 
 /* What the last reply saved, each with a way to correct it. */
 .chat-saved { align-self: stretch; display: grid; gap: 4px; margin: -2px 0 2px 36px; }

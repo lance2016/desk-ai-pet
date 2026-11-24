@@ -708,12 +708,12 @@ export function ChatPage({ packId }: { packId: string }) {
       </div>)}</div>}
       {notice && !error && <div className="chat-notice" role="status">{notice}</div>}
       {error && <div className="chat-error" role="alert">{error}
-        {errorFix && <button type="button" onClick={fixError}>{errorFix === "microphone" ? "打开系统设置" : "去设置"}</button>}
-        {voice.retryAudio && <button type="button" onClick={voice.retry}>再识别一次</button>}
-        {!historyValid && <ConfirmButton confirm={{ message: "清空聊天记录？", detail: "这个角色的聊天记录读不出来了，清空后才能接着聊。原来的记录不能恢复。", action: "清空" }} onConfirm={resetHistory}>清空聊天记录</ConfirmButton>}
-        {canRetry && <button type="button" onClick={() => void startReply(messages)}>重新回复</button>}
+        {errorFix && <button type="button" className="ui-link" onClick={fixError}>{errorFix === "microphone" ? "打开系统设置" : "去设置"}</button>}
+        {voice.retryAudio && <button type="button" className="ui-link" onClick={voice.retry}>再识别一次</button>}
+        {!historyValid && <ConfirmButton className="ui-link" confirm={{ message: "清空聊天记录？", detail: "这个角色的聊天记录读不出来了，清空后才能接着聊。原来的记录不能恢复。", action: "清空" }} onConfirm={resetHistory}>清空聊天记录</ConfirmButton>}
+        {canRetry && <button type="button" className="ui-link" onClick={() => void startReply(messages)}>重新回复</button>}
       </div>}
-      {!error && canRetry && <div className="chat-notice"><button type="button" onClick={() => void startReply(messages)}>重新回复</button></div>}
+      {!error && canRetry && <div className="chat-notice"><button type="button" className="ui-link" onClick={() => void startReply(messages)}>重新回复</button></div>}
     </section>
     <div className="visually-hidden" aria-live="polite">{announcement}</div>
     <form className="chat-composer" onSubmit={(event) => void send(event)}

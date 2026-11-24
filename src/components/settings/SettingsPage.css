@@ -229,9 +229,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-link { padding: 0; color: var(--accent-strong); background: none; border: 0; font-size: var(--ui-font-caption); cursor: pointer; }
 @media (prefers-color-scheme: dark) { .settings-link { color: var(--accent); } }
 /* A few words that do something right there ("恢复默认"). Not `.settings-link`, which is a whole row. */
-.settings-page .text-link { flex: none; padding: 0; color: var(--accent-strong); background: none; border: 0; border-radius: var(--ui-radius-tag); box-shadow: none; font-size: var(--ui-font-caption); white-space: nowrap; cursor: pointer; }
-.settings-page .text-link:disabled { opacity: .45; cursor: default; }
-@media (prefers-color-scheme: dark) { .settings-page .text-link { color: var(--accent); } }
+.settings-page .ui-link { flex: none; }
 .settings-icon-tile { flex: none; display: grid; place-items: center; width: 28px; height: 28px; color: var(--accent-strong); background: var(--accent-wash); border-radius: 7px; }
 @media (prefers-color-scheme: dark) { .settings-icon-tile { color: var(--accent); } }
 
@@ -282,7 +280,7 @@ button.dock-row__body { cursor: pointer; }
 @media (prefers-color-scheme: dark) { .icon-choice.is-selected { color: var(--accent); } }
 .icon-upload { position: relative; overflow: hidden; }
 .icon-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.dock-editor .text-link { justify-self: start; margin-left: 50px; }
+.dock-editor .ui-link { justify-self: start; margin-left: 50px; }
 
 .dock-row--add { padding: 8px 12px 8px 36px; }
 .dock-add { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); cursor: pointer; }
@@ -607,8 +605,6 @@ button.dock-row__body { cursor: pointer; }
 .look-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .ai-settings .look-hide { font-size: var(--ui-font-body); }
 .ai-settings .look-hide.is-selected { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
-/* "恢复默认" is an inline link here: keep the card's button hover off it. */
-.look-row__head .text-link:hover:not(:disabled) { background: none; }
 
 .quiet-hours { display: flex; gap: 16px; padding: 0 0 12px; color: var(--label-2); font-size: var(--ui-font-caption); }
 .quiet-hours label { display: flex; align-items: center; gap: 6px; }

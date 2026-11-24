@@ -325,8 +325,8 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         <p title={action.description ?? action.pose ?? ""}>{action.description ?? action.pose ?? (isUserAction(action) ? "自定义动作" : "角色动作")}</p>
         <div className="action-tile__tools">
           {/* Prompts help only while a picture is still to be drawn; a drawn one offers them in its preview and editor. */}
-          {pending && <CopyButton className="action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>}
-          {!pending && <button type="button" className="action-tile__link" onClick={(event) => openPreview(action, event.currentTarget)}>预览</button>}
+          {pending && <CopyButton className="ui-link action-tile__link" text={copyPromptFor(action)} onMessage={setMessage}>{isUserAction(action) ? "复制模板" : "复制提示词"}</CopyButton>}
+          {!pending && <button type="button" className="ui-link action-tile__link" onClick={(event) => openPreview(action, event.currentTarget)}>预览</button>}
           <button type="button" className={pending ? "action-tile__button is-primary" : "action-tile__button"} onClick={() => pending ? uploadDirect(action) : openEditor(action)}>{pending ? "上传图片" : "编辑"}</button>
         </div>
       </div>
@@ -387,10 +387,10 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
         <span className={`action-library__group-icon action-library__group-icon--${group.key}`} aria-hidden="true"><Icon name={group.icon} /></span>
         <div><h2>{group.title}</h2><p>{group.note}</p></div>
         <span className="action-library__group-count">{group.items.length}</span>
-        {group.key === "mine" && canCreate && <button type="button" className="action-library__new-link" onClick={() => setEditing(draft)}>＋ 新建</button>}
+        {group.key === "mine" && canCreate && <button type="button" className="ui-link action-library__new-link" onClick={() => setEditing(draft)}>＋ 新建</button>}
       </header>
       <div className="action-library__grid">{group.items.map(renderCard)}</div>
-    </section>) : <div className="action-library__empty-search"><span aria-hidden="true">⌕</span><strong>没有找到动作</strong><p>换个名称，或清除筛选条件。</p><button type="button" onClick={() => { setSearch(""); setAssetFilter("all"); setSceneFilter("all"); }}>清除筛选</button></div>}
+    </section>) : <div className="action-library__empty-search"><span aria-hidden="true">⌕</span><strong>没有找到动作</strong><p>换个名称，或清除筛选条件。</p><button type="button" className="ui-link action-library__clear" onClick={() => { setSearch(""); setAssetFilter("all"); setSceneFilter("all"); }}>清除筛选</button></div>}
 
     {previewAction && (
       <div className="action-preview" onMouseDown={(event) => { if (event.target === event.currentTarget) closePreview(); }}>

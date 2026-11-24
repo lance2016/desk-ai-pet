@@ -43,8 +43,8 @@ export function ChatLookSettings({ packId, actionImages, onChange }: Props) {
           {!hidden && value !== "hidden" && <button type="button" className="ui-button ui-button--small" onClick={() => void edit(slot)}>调整</button>}
           {/* An uploaded picture is gone once replaced, so that one asks first; the character's own pictures can always be picked again. */}
           {value !== "hidden" && "dataUrl" in value
-            ? <ConfirmButton className="text-link" confirm={{ message: `恢复默认的${title}？`, detail: "上传的图片会被删掉，换回角色自己的图片。", action: "恢复默认" }} onConfirm={reset}>恢复默认</ConfirmButton>
-            : <button type="button" className="text-link" disabled={isDefault} onClick={reset}>恢复默认</button>}
+            ? <ConfirmButton className="ui-link" confirm={{ message: `恢复默认的${title}？`, detail: "上传的图片会被删掉，换回角色自己的图片。", action: "恢复默认" }} onConfirm={reset}>恢复默认</ConfirmButton>
+            : <button type="button" className="ui-link" disabled={isDefault} onClick={reset}>恢复默认</button>}
         </div>
       </div>;
     })}

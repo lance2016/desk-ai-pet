@@ -19,7 +19,7 @@ interface ShortcutFieldProps {
 export function ShortcutField({ name, label, recording, onRecord, onClear, onRestore }: ShortcutFieldProps) {
   return (
     <div className="shortcut-field" role="group" aria-label={name}>
-      {onRestore && <button type="button" className="text-link" disabled={recording} onClick={onRestore}>恢复默认</button>}
+      {onRestore && <button type="button" className="ui-link" disabled={recording} onClick={onRestore}>恢复默认</button>}
       <div className={recording ? "shortcut-key is-recording" : label ? "shortcut-key" : "shortcut-key is-empty"}>
         <button type="button" className="shortcut-key__record" aria-label={recording ? `取消录制${name}` : `录制${name}，当前${label ?? "未设置"}`} onClick={onRecord}>
           {recording ? "请按键…" : label ?? "点按录制"}

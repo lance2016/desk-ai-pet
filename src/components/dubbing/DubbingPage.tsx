@@ -167,7 +167,7 @@ export function DubbingPage() {
       <footer className="dub-footer">
         <div className="dub-footer__status" role="status">
           {dub.problem
-            ? <>{dub.problem.message}{dub.problem.settings && <button type="button" className="dub-text-link" onClick={() => void petWindow.openSettings("ai").catch((reason: unknown) => console.warn("Could not open settings", reason))}>去设置</button>}</>
+            ? <>{dub.problem.message}{dub.problem.settings && <button type="button" className="ui-link dub-text-link" onClick={() => void petWindow.openSettings("ai").catch((reason: unknown) => console.warn("Could not open settings", reason))}>去设置</button>}</>
             : notice || (missingVoice ? "原来选的克隆声音已经删除，换一个声音再生成。" : summary)}
         </div>
         <button type="button" className="ui-button ui-button--large" disabled={lines.length === 0 || missingVoice || (!dub.running && progress.missing + progress.failed === 0)} onClick={dub.running ? dub.stop : dub.generate}>{generateLabel}</button>

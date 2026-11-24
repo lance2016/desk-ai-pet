@@ -44,7 +44,7 @@ export function ChatHistory({ threads, currentId, removed, onOpen, onDelete, onU
   };
 
   return <aside className="chat-history" aria-label="聊天记录" onKeyDown={onKeyDown}>
-    {removed && <div className="chat-history__undo" role="status"><span>已删除“{removed.title}”</span><button type="button" onClick={onUndo}>撤销</button></div>}
+    {removed && <div className="chat-history__undo" role="status"><span>已删除“{removed.title}”</span><button type="button" className="ui-link" onClick={onUndo}>撤销</button></div>}
     {threads.length === 0 ? <p className="chat-history__empty">还没有聊天记录</p> : <ul>{threads.map((thread) => <li key={thread.id} className={thread.id === currentId ? "is-current" : undefined}>
       {renaming === thread.id
         ? <input ref={field} className="chat-history__rename" aria-label="聊天标题" value={title} maxLength={CHAT_LIMITS.titleChars} onChange={(event) => setTitle(event.currentTarget.value)} onBlur={finishRename} onKeyDown={(event) => { if (event.key === "Enter" && !isComposing(event)) { event.preventDefault(); finishRename(); } }} />
