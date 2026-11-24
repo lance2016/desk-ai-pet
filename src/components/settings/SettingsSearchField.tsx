@@ -55,7 +55,7 @@ export function SettingsSearch({ entries, children, icon, onPick }: SettingsSear
   const searching = query.trim() !== "";
 
   return <>
-    <div className="settings-search" role="search">
+    <div className="ui-search settings-search" role="search">
       <Icon name="search" />
       <input
         ref={field} type="search" placeholder="搜索" aria-label="搜索设置和功能" value={query} spellCheck={false}

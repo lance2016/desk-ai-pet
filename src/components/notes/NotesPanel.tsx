@@ -251,7 +251,7 @@ export function NotesPanel() {
           {draft.trim() && <button type="submit" className="ui-button ui-button--primary today-add__save" title="保存（回车；Shift+回车换行）">保存</button>}
         </label>
         {notes.length >= SEARCH_FROM && (
-          <label className="note-search">
+          <label className="ui-search ui-search--small note-search">
             <Glyph name="search" />
             <input type="search" value={query} placeholder="搜索" aria-label="搜索备忘" onChange={(event) => setQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key !== "Escape" || isComposing(event)) return; event.preventDefault(); if (query) setQuery(""); else hidePanel(); }} />
           </label>

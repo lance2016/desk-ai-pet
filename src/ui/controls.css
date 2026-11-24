@@ -79,3 +79,17 @@
  * on the pet, keep a heavier line; the window layer draws them all at 1.7.
  */
 :where(.ui-icon) { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* A search field: a sunken fill with the magnifier inside; it lights up like a field while typing. */
+.ui-search { box-sizing: border-box; display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 8px; color: var(--ui-text-secondary); background: var(--ui-search-fill); border: 1px solid var(--ui-search-border); border-radius: var(--ui-radius-row); cursor: text; transition: background-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.ui-search:focus-within { background: var(--ui-field); box-shadow: var(--ui-focus-ring); }
+.ui-search > .ui-icon { width: 14px; height: 14px; }
+.ui-search input { flex: 1; min-width: 0; height: 100%; margin: 0; padding: 0; color: var(--ui-text); background: none; border: 0; outline: none; font: inherit; font-size: var(--ui-font-body); }
+.ui-search input::placeholder { color: var(--ui-text-secondary); }
+.ui-search input::-webkit-search-cancel-button { opacity: .5; }
+.ui-search--small { height: 24px; border-radius: var(--ui-radius-control); }
+.ui-search--small input { font-size: var(--ui-font-caption); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-field, .ui-search { transition: none; }
+}

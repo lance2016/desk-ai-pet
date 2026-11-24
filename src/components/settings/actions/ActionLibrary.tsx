@@ -344,7 +344,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
     </section>}
 
     <div className="action-library__toolbar">
-      <label className="action-library__search">
+      <label className="ui-search action-library__search">
         <Icon name="search" />
         <input type="search" value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索动作名称或说明" aria-label="搜索动作名称或说明" />
         {search && <button type="button" aria-label="清除搜索" onClick={() => setSearch("")}>×</button>}

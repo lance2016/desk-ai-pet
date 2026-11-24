@@ -3,6 +3,7 @@ import { filterLog, logText, parseLog, type LevelFilter, type LogEntry } from ".
 import { diagnosticsPlatform } from "../../platform/diagnostics";
 import { ConfirmButton } from "../ConfirmButton";
 import { moveRadioChoice } from "./radioKeys";
+import { Icon } from "../../ui/icons";
 
 /** Entries drawn at most; the rest are a search or a copy away. */
 const MAX_SHOWN = 300;
@@ -76,7 +77,7 @@ export function DiagnosticsSettings({ onError }: { onError: (message: string | n
         <div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="日志级别">
           {LEVELS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={level === value} className={level === value ? "is-selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}
         </div>
-        <input type="search" className="log-viewer__search" placeholder="搜索" aria-label="搜索日志" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />
+        <label className="ui-search ui-search--small log-viewer__search"><Icon name="search" /><input type="search" placeholder="搜索" aria-label="搜索日志" value={query} onChange={(event) => setQuery(event.currentTarget.value)} /></label>
         <button type="button" className="ui-button ui-button--small" onClick={refresh}>刷新</button>
         <button type="button" className="ui-button ui-button--small" disabled={matching.length === 0} onClick={copy}>{copied ? "已复制" : "复制"}</button>
       </div>
