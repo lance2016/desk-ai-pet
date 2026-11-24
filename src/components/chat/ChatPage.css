@@ -76,7 +76,7 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-history__open strong { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .chat-history li.is-current strong { color: var(--accent-strong); font-weight: 600; }
 .chat-history__open small { flex: none; color: var(--label-2); font-size: var(--ui-font-footnote); }
-.chat-history__rename { flex: 1; min-width: 0; margin: 4px; padding: 4px 8px; border: 1px solid var(--accent); border-radius: var(--radius-control); outline: none; color: var(--label); background: var(--field); box-shadow: var(--ui-focus-ring); font: inherit; user-select: text; }
+.chat-history__rename { flex: 1; margin: 4px; user-select: text; }
 .chat-history__action { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-control); color: var(--label-2); background: none; cursor: pointer; opacity: 0; }
 .chat-history__action svg { width: 14px; height: 14px; }
 .chat-history li:hover .chat-history__action, .chat-history li:focus-within .chat-history__action { opacity: 1; }
