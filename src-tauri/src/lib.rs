@@ -3,6 +3,8 @@ mod alert;
 mod api_keys;
 mod claude_settings;
 mod click_through;
+mod cloned_voices;
+mod cosyvoice;
 mod database;
 mod diagnostics;
 #[cfg(target_os = "macos")]
@@ -14,7 +16,6 @@ mod llm;
 mod mail_code;
 mod mail_extract;
 mod mimo;
-mod mimo_voices;
 mod navigation_guard;
 mod proxy;
 mod quick_chat;
@@ -966,9 +967,12 @@ pub fn run() {
             mimo::mimo_transcribe,
             mimo::mimo_transcribe_cancel,
             mimo::mimo_synthesize,
-            mimo_voices::mimo_voice_list,
-            mimo_voices::mimo_voice_add,
-            mimo_voices::mimo_voice_remove,
+            cosyvoice::cosyvoice_key_status,
+            cosyvoice::cosyvoice_save_key,
+            cosyvoice::cosyvoice_clear_key,
+            cloned_voices::cloned_voice_list,
+            cloned_voices::cloned_voice_add,
+            cloned_voices::cloned_voice_remove,
             show_pet_menu,
             get_pet_on_top,
             set_pet_on_top,

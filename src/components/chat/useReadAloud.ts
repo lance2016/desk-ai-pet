@@ -8,14 +8,14 @@ export type ReadAloudPhase = "preparing" | "playing";
 export interface ReadingReply { key: number; phase: ReadAloudPhase }
 
 interface Options {
-  /** The character's MiMo voice and how it should sound, read when a reply starts. */
+  /** The character's selected voice and how it should sound, read when a reply starts. */
   voice: () => { voice: string; style: string };
   /** The synthesis failed; `detail` is the native message. */
   onProblem: (detail: string) => void;
 }
 
 /**
- * Reads one chat reply aloud with MiMo, one at a time: starting another stops the
+ * Reads one chat reply aloud, one at a time: starting another stops the
  * one going, and the same reply again stops it. `key` tells the replies apart.
  */
 export function useReadAloud({ voice, onProblem }: Options) {

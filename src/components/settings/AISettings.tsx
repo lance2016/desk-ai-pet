@@ -5,6 +5,7 @@ import { loadChatModel } from "../../preferences/ChatModel";
 import { ModelSettings } from "./ModelSettings";
 import { ConfirmButton } from "../ConfirmButton";
 import { MimoKeySettings } from "./MimoKeySettings";
+import { CosyVoiceKeySettings } from "./CosyVoiceKeySettings";
 import { VoiceSettings } from "./VoiceSettings";
 
 /** A failed key action in words the user can act on; the raw error goes to the log. */
@@ -16,7 +17,7 @@ export function deepSeekProblem(reason: unknown, doing: string): string {
   return kind === "other" ? `${doing}失败，请再试一次。` : serviceErrorMessage("DeepSeek", kind);
 }
 
-/** 「AI 服务」: the accounts the app talks to. DeepSeek for chat and every other AI feature, MiMo for voice input and reading aloud. */
+/** 「AI 服务」: DeepSeek for chat, MiMo for voice input and preset voices, CosyVoice for voice clones. */
 export function AISettings(voice: ComponentProps<typeof VoiceSettings>) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [key, setKey] = useState("");
@@ -60,8 +61,9 @@ export function AISettings(voice: ComponentProps<typeof VoiceSettings>) {
     {needsKey && <div className="ai-page__intro"><p>配置一次 DeepSeek，所有角色都可以和你聊天</p></div>}
     {connection}
     <section className="ai-section" aria-labelledby="ai-voice-heading">
-      <div className="ai-section__title"><h2 id="ai-voice-heading">语音</h2><p>点聊天窗口的麦克风说话，转成文字填进输入框，每次最长 2 分钟；点回复下方的喇叭，用角色的声音读出来。不填也能打字聊天</p></div>
+      <div className="ai-section__title"><h2 id="ai-voice-heading">语音</h2><p>MiMo 负责语音输入和内置音色朗读；CosyVoice 负责克隆音色。聊天也可以直接打字</p></div>
       <MimoKeySettings />
+      <CosyVoiceKeySettings />
       <VoiceSettings {...voice} />
     </section>
   </div>;

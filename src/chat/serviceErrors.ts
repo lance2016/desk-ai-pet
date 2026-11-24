@@ -1,8 +1,8 @@
 /**
- * Sorts the errors of the DeepSeek and MiMo native commands, so the user is
+ * Sorts the errors of the DeepSeek, MiMo, and CosyVoice native commands, so the user is
  * told whether to fix a key or check the network. The phrases below match the
  * messages of `failureMessage` (`src/ai/provider.ts`), `src-tauri/src/llm.rs`,
- * `src-tauri/src/mimo.rs` and `src-tauri/src/api_keys.rs`.
+ * `src-tauri/src/mimo.rs`, `src-tauri/src/cosyvoice.rs` and `src-tauri/src/api_keys.rs`.
  */
 export type ServiceError = "missing-key" | "bad-key" | "model" | "key-storage" | "billing" | "rate" | "busy" | "rejected" | "running" | "voice" | "network" | "other";
 
@@ -11,12 +11,12 @@ const RULES: ReadonlyArray<[ServiceError, RegExp]> = [
   ["bad-key", /Key 无效/],
   ["model", /模型名/],
   ["key-storage", /本机 API Key/],
-  ["billing", /余额不足/],
+  ["billing", /余额(?:或调用额度)?不足/],
   ["rate", /过于频繁/],
   ["busy", /服务繁忙/],
   ["rejected", /发不出去/],
   ["running", /还在回复/],
-  ["voice", /克隆的声音|这段声音/],
+  ["voice", /克隆的声音|克隆音色|这段声音/],
   ["network", /网络|network|中断|request failed/i],
 ];
 
@@ -25,10 +25,10 @@ export function classifyServiceError(text: string): ServiceError {
 }
 
 /** What to tell the user. Key problems are fixed in settings; the rest by waiting or checking the connection. */
-export function serviceErrorMessage(service: "DeepSeek" | "MiMo", kind: ServiceError): string {
+export function serviceErrorMessage(service: "DeepSeek" | "MiMo" | "CosyVoice", kind: ServiceError): string {
   switch (kind) {
-    case "missing-key": return `还没配置 ${service} API Key，去设置里填上就能用。`;
-    case "bad-key": return `${service} API Key 无效，去设置里检查一下。`;
+    case "missing-key": return service === "CosyVoice" ? "还没配置阿里云百炼 API Key，去设置里填上就能用。" : `还没配置 ${service} API Key，去设置里填上就能用。`;
+    case "bad-key": return service === "CosyVoice" ? "阿里云百炼 API Key 无效或地域不匹配，去设置里检查一下。" : `${service} API Key 无效，去设置里检查一下。`;
     case "model": return `${service} 不认识这个模型名，检查一下拼写，或者换回内置的模型。`;
     case "key-storage": return "本机 API Key 无法读写，请检查应用数据目录权限并重新保存。";
     case "billing": return `${service} 账户余额不足，充值后再试。`;

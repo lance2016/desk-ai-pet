@@ -109,7 +109,7 @@ const STORED: readonly [string, string][] = [
   ["聊天记录", `每个角色最多留 ${CHAT_LIMITS.threads} 段，更早的自动删掉`],
   ["请求记录", "每次请求 AI 的用时和用量留 90 天，不含内容；开发者模式另存最近 100 次的完整内容。都不进备份"],
   ["API Key 和邮箱授权码", "API Key 在本机加密保存，邮箱授权码存在钥匙串里"],
-  ["克隆的声音", "录音或选的文件存在本机，不进备份"],
+  ["克隆的声音", "原始录音和百炼音色 ID 保存在本机、不进备份；创建后的克隆音色也保存在阿里云百炼"],
 ];
 const ONLINE: readonly [string, string, string][] = [
   ["DeepSeek · 聊天", `最近 ${CHAT_LIMITS.context} 条消息、你的称呼、角色设定和补充要求`, "聊天时"],
@@ -120,7 +120,9 @@ const ONLINE: readonly [string, string, string][] = [
   ["DeepSeek · 今日回顾", "今天勾掉和没处理的提醒、专注轮数、今天记的备忘", "需要归纳时"],
   ["DeepSeek · 划词", "只有选中的文字", "翻译、解释、总结、润色时"],
   ["小米 MiMo · 语音输入", "这段录音，识别完不保存", "说话时"],
-  ["小米 MiMo · 朗读", "这条回复的文字；用克隆的声音时还有那段声音片段", "点朗读或试听时"],
+  ["小米 MiMo · 朗读", "这条回复的文字（使用 MiMo 内置音色时）", "点朗读或试听时"],
+  ["阿里云百炼 · 创建克隆音色", "录音片段；创建后的音色会保存在云端，直到删除", "添加克隆声音时"],
+  ["阿里云百炼 · CosyVoice 朗读", "这条回复的文字和已创建的克隆音色 ID", "使用克隆音色朗读时"],
   ["163 邮箱", "只读最新几封邮件，不标已读", "查收时"],
   ["节假日数据", "不带个人信息", "缺数据时"],
   ["GitHub · 检查更新", "不带个人信息", "每天一次"],
@@ -435,7 +437,7 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "chat" && packInfo && <ChatSettings key={packId} packId={packId} onError={setError} />}
         {section === "skills" && <SkillList actions={chatActions} onError={setError} />}
         {section === "ai" && <AISettings packId={packId} persona={persona} characterName={name || "这个角色"} clonesIcon={<span className="settings-nav__icon settings-nav__icon--voices"><SettingsGlyph name="voices" /></span>} onOpenClones={() => void go("voices")} />}
-        {section === "voices" && <ClonedVoiceSettings />}
+        {section === "voices" && <ClonedVoiceSettings onOpenAI={() => void go("ai")} />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
         {section === "prompt" && <PromptPreview packId={packId} persona={persona} actions={chatActions} onError={setError} />}
         {section === "toolDefs" && <ToolDefinitions packId={packId} persona={persona} actions={chatActions} onError={setError} />}

@@ -41,6 +41,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "chat", title: "自动生成聊天标题", keywords: "标题" },
   { section: "general", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 工具定义 对话规则 修改规则 debug" },
   { section: "ai", title: "小米 MiMo", keywords: "语音 语音输入 API Key 麦克风" },
+  { section: "ai", title: "阿里云百炼 · CosyVoice", keywords: "克隆声音 音色复刻 TTS API Key 语音 阿里云" },
   { section: "ai", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
   { section: "ai", title: "声音", keywords: "音色 朗读 男声 女声 换声音 试听 克隆" },
   { section: "ai", title: "语气", keywords: "朗读 语速 情绪 风格 音色描述" },

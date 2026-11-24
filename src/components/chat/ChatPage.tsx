@@ -32,9 +32,9 @@ import { ChatMarkdown, ChatPlainText } from "./ChatMarkdown";
 import { MAX_RECORD_SECONDS, useVoiceInput, type VoiceProblem } from "./useVoiceInput";
 import { useReadAloud } from "./useReadAloud";
 import { canShortcut } from "../../preferences/ActionPreferences";
-import { loadVoiceLanguage, loadVoicePreferences } from "../../preferences/VoicePreferences";
+import { loadVoiceLanguage, loadVoicePreferences, voiceDefaults } from "../../preferences/VoicePreferences";
 import { petWindow } from "../../platform/petWindow";
-import type { ChatPhase } from "../../types";
+import { CLONED_VOICE_PREFIX, type ChatPhase } from "../../types";
 import "./ChatPage.css";
 import { loadSwitchedOff } from "../../preferences/SkillPreferences";
 
@@ -207,12 +207,20 @@ export function ChatPage({ packId }: { packId: string }) {
   // Reading a reply aloud is not a failed chat: a problem only shows in the error line, with a way to settings when the key is the trouble.
   const reportReadAloudProblem = (detail: string) => {
     const kind = classifyServiceError(detail);
-    console.warn("MiMo read-aloud failed", detail);
-    if (kind === "missing-key") setVoiceMissing(true);
+    const service = readingVoiceIsClone.current ? "CosyVoice" : "MiMo";
+    console.warn(`${service} read-aloud failed`, detail);
+    if (kind === "missing-key" && service === "MiMo") setVoiceMissing(true);
     setErrorFix(isKeyProblem(kind) || kind === "voice" ? "voice" : null);
-    setError(kind === "other" ? READ_ALOUD_FAILED : serviceErrorMessage("MiMo", kind));
+    setError(service === "CosyVoice" && kind === "voice" ? detail : kind === "other" ? READ_ALOUD_FAILED : serviceErrorMessage(service, kind));
   };
-  const readerVoice = useCallback(() => loadVoicePreferences(packId, personaRef.current), [packId]);
+  const readingVoiceIsClone = useRef(false);
+  const readerVoice = useCallback(() => {
+    const preferences = loadVoicePreferences(packId, personaRef.current);
+    readingVoiceIsClone.current = preferences.voice.startsWith(CLONED_VOICE_PREFIX);
+    return readingVoiceIsClone.current && preferences.style === voiceDefaults(personaRef.current).style
+      ? { ...preferences, style: "" }
+      : preferences;
+  }, [packId]);
   const readAloud = useReadAloud({ voice: readerVoice, onProblem: reportReadAloudProblem });
 
   // The pet is told where the conversation stands: it thinks until the reply starts, and stays with the user for the rest.
@@ -513,7 +521,7 @@ export function ChatPage({ packId }: { packId: string }) {
     catch (reason) { console.error("Could not clear the chats", reason); setError("没能清除聊天记录，请再试一次。"); }
   };
   const status = chatStatus({ keyMissing, pending, recording, transcribing, failure });
-  // Both API keys, DeepSeek and MiMo, are on the "AI 服务" page.
+  // DeepSeek, MiMo, and CosyVoice keys all live on the "AI 服务" page.
   const openSettings = () => void petWindow.openSettings("ai").catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
   const toggleRecording = () => {
     // Without a MiMo key, recording would only fail afterwards: go to the setup instead.

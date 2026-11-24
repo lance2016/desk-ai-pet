@@ -62,7 +62,7 @@ export type ControlIconPreset = (typeof CONTROL_ICON_PRESETS)[number];
 export const MIMO_VOICES = ["mimo_default", "冰糖", "茉莉", "苏打", "白桦", "Mia", "Chloe", "Milo", "Dean"] as const;
 
 export type MimoVoice = (typeof MIMO_VOICES)[number];
-/** A voice the user cloned is named by this prefix and its id; `VOICE_PREFIX` in `src-tauri/src/mimo_voices.rs`. */
+/** A voice the user cloned is named by this prefix and its id; `VOICE_PREFIX` in `src-tauri/src/cloned_voices.rs`. */
 export const CLONED_VOICE_PREFIX = "clone:";
 export const CLONED_VOICE_PATTERN = /^clone:[0-9a-f]{16}$/;
 

@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import { startAudioCapture, type AudioCapture } from "../../platform/audioCapture";
-import { mimoPlatform, type ClonedVoice } from "../../platform/mimo";
+import { cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
 import { isComposing } from "../keyboard";
 import { moveRadioChoice } from "./radioKeys";
 
-/** A sample longer than this adds nothing to the clone and only makes every request bigger. */
+/** Keep the captured sample within the same duration range accepted by the native command. */
 const MAX_RECORD_SECONDS = 30;
 const MIN_RECORD_SECONDS = 3;
-/** Base64 of this stays under `MAX_SAMPLE_BASE64` in `src-tauri/src/mimo_voices.rs`. */
+/** Base64 of this stays under `MAX_SAMPLE_BASE64` in `src-tauri/src/cloned_voices.rs`. */
 const MAX_FILE_BYTES = 3_000_000;
 const NAME_LIMIT = 20;
-const SCRIPT = "今天天气不错，我泡了一杯茶，打算把手头的事慢慢做完。等忙完了，再出去走一走，晒晒太阳。";
+const SCRIPT = "今天天气不错，我泡了一杯茶，打算把手头的事慢慢做完。等忙完了，再出去走一走，晒晒太阳。路上有风，也有树叶的声音，今天就先到这里吧。";
 
 type Format = "wav" | "mp3";
 type Sample = { base64: string; format: Format; seconds: number; from: string };
@@ -107,6 +107,10 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
     if (file.size > MAX_FILE_BYTES) { setProblem("文件太大了，剪成 30 秒以内、3 MB 以下再选。"); return; }
     try {
       const [base64, length] = await Promise.all([readBase64(file), playLength(file)]);
+      if (length < MIN_RECORD_SECONDS || length > MAX_RECORD_SECONDS) {
+        setProblem(`声音片段需要 ${MIN_RECORD_SECONDS} 到 ${MAX_RECORD_SECONDS} 秒；建议录 10 到 20 秒。`);
+        return;
+      }
       setSample({ base64, format, seconds: length, from: file.name });
       if (!name.trim()) setName(file.name.replace(/\.[^.]+$/, "").slice(0, NAME_LIMIT));
     } catch (reason) {
@@ -122,7 +126,7 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
     event.preventDefault();
     if (!sample || !consent || !name.trim()) return;
     setSaving(true); setProblem("");
-    try { onAdded(await mimoPlatform.addVoice(name.trim(), sample.base64, sample.format, sample.seconds)); }
+    try { onAdded(await cosyvoicePlatform.addVoice(name.trim(), sample.base64, sample.format, sample.seconds)); }
     catch (reason) {
       console.error("Could not add a cloned voice", reason);
       const text = String(reason).replace(/^Error:\s*/, "");
@@ -158,7 +162,7 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
           {recording === "on" && <span className="voice-clone__clock" aria-live="off">{clock(seconds)} / {clock(MAX_RECORD_SECONDS)}</span>}
         </div>
       </div> : <div className="voice-clone__panel">
-        <p>wav 或 mp3，3 MB 以内。只有一个人在说话、没有背景音乐的片段效果最好。</p>
+        <p>wav 或 mp3，3 MB 以内、3 到 30 秒；建议 10 到 20 秒。只有一个人在说话、没有背景音乐的片段效果最好。</p>
         <div className="voice-clone__row">
           <label className="settings-button voice-clone__file">选择文件…<input type="file" accept=".wav,.mp3,audio/wav,audio/x-wav,audio/mpeg" onChange={(event) => void pickFile(event)} /></label>
           {sample && <span className="voice-clone__name">{sample.from}</span>}
@@ -166,11 +170,11 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
       </div>}
       {sample && <audio className="voice-clone__play" controls src={`data:${sample.format === "wav" ? "audio/wav" : "audio/mpeg"};base64,${sample.base64}`} aria-label="听一下这段声音" />}
       <label className="voice-clone__consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.currentTarget.checked)} />这是我自己的声音，或者声音的主人同意我这样用</label>
-      <p className="voice-clone__note">片段只存在这台电脑上，用它朗读时会和文字一起发给小米 MiMo。</p>
+      <p className="voice-clone__note">录音会上传到阿里云百炼创建 CosyVoice 音色，并保留在云端直到删除。原始片段也保存在本机、不进备份；朗读时会把文字发给阿里云合成。</p>
       {problem && <p className="voice-clone__problem" role="alert">{problem}</p>}
       <div className="voice-clone__actions">
         <button type="button" className="settings-button" onClick={onClose}>取消</button>
-        <button type="submit" className="settings-button settings-button--primary" disabled={!ready}>{saving ? "正在添加…" : "添加"}</button>
+        <button type="submit" className="settings-button settings-button--primary" disabled={!ready}>{saving ? "正在创建音色…" : "添加"}</button>
       </div>
     </form>
   </div>;

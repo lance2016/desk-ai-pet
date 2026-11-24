@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PetPersona } from "../../assets/Manifest";
 import { classifyServiceError, serviceErrorMessage } from "../../chat/serviceErrors";
-import { mimoPlatform, type ClonedVoice } from "../../platform/mimo";
+import { cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
 import { loadVoicePreferences, resetVoicePreferences, saveVoicePreferences, voiceDefaults, type VoicePreferences } from "../../preferences/VoicePreferences";
 import { CLONED_VOICE_PREFIX, PERSONA_LIMITS } from "../../types";
 import { useReadAloud } from "../chat/useReadAloud";
@@ -33,16 +33,25 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
   const [status, setStatus] = useState("");
   const latest = useRef(preferences);
   latest.current = preferences;
+  const defaults = voiceDefaults(persona);
+  const defaultStyle = defaults.style;
   useEffect(() => {
-    mimoPlatform.listVoices().then(setClones).catch((reason: unknown) => console.warn("Could not list cloned voices", reason));
+    cosyvoicePlatform.listVoices().then(setClones).catch((reason: unknown) => console.warn("Could not list cloned voices", reason));
   }, []);
 
   const onProblem = useCallback((detail: string) => {
     const kind = classifyServiceError(detail);
-    console.warn("MiMo voice preview failed", detail);
-    setStatus(kind === "other" ? "试听没能完成，请稍后再试。" : serviceErrorMessage("MiMo", kind));
+    const cloned = latest.current.voice.startsWith(CLONED_VOICE_PREFIX);
+    const service = cloned ? "CosyVoice" : "MiMo";
+    console.warn(`${service} voice preview failed`, detail);
+    setStatus(cloned && kind === "voice" ? detail : kind === "other" ? "试听没能完成，请稍后再试。" : serviceErrorMessage(service, kind));
   }, []);
-  const voiceNow = useCallback(() => latest.current, []);
+  const voiceNow = useCallback(() => {
+    const current = latest.current;
+    // A persona's default delivery prompt can conflict with a clone's recorded voice and hurt similarity.
+    const style = current.voice.startsWith(CLONED_VOICE_PREFIX) && current.style === defaultStyle ? "" : current.style;
+    return { voice: current.voice, style };
+  }, [defaultStyle]);
   const preview = useReadAloud({ voice: voiceNow, onProblem });
 
   const update = (next: VoicePreferences) => {
@@ -56,7 +65,6 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
     catch (reason) { console.error("Could not reset voice preferences", reason); setStatus(NOT_SAVED); }
   };
 
-  const defaults = voiceDefaults(persona);
   const changed = preferences.voice !== defaults.voice || preferences.style !== defaults.style;
   const cloned = preferences.voice.startsWith(CLONED_VOICE_PREFIX);
   // A cloned voice that is gone still shows, so the menu never claims another voice is in use.
@@ -77,8 +85,8 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
         <button type="button" className="settings-button settings-button--small voice-preview" aria-label={phase ? "停止试听" : "试听这个声音"} onClick={() => preview.toggle(PREVIEW_KEY, PREVIEW_TEXT)}>{previewLabel}</button>
       </div>
       <div className="settings-row voice-style">
-        <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>一句话写清语速和情绪，克隆的声音也照着读</span></label>
-        <textarea id="voice-style" value={preferences.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder="例如：轻快、带点笑意，语速稍慢" onChange={(event) => update({ ...preferences, style: event.currentTarget.value })} />
+        <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>{cloned ? "克隆音色默认保留录音里的感觉，也可以在这里调整" : "一句话写清语速和情绪"}</span></label>
+        <textarea id="voice-style" value={cloned && preferences.style === defaultStyle ? "" : preferences.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={cloned ? "留空保留录音音色；填写后调整语速和情绪" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ ...preferences, style: event.currentTarget.value })} />
         <span className="voice-style__foot">{changed ? <button type="button" className="text-link" onClick={reset}>恢复{characterName}的默认声音</button> : <span />}<small>{preferences.style.length} / {PERSONA_LIMITS.voiceStyle}</small></span>
       </div>
       <button type="button" className="settings-row settings-link" onClick={onOpenClones}>{clonesIcon}<span className="settings-row__body"><strong>克隆的声音</strong><span>{clones?.length ? `已有 ${clones.length} 个，录一段或选个文件再加` : "录一段或选个文件，让角色用这个声音说话"}</span></span><Chevron /></button>
