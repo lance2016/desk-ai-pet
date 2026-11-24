@@ -181,7 +181,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 右键菜单在主线程上同步弹出，菜单开着时 AppKit 的菜单循环照样处理网页发来的命令。再右键一次会在菜单里面再弹同一个菜单，`muda` 发现菜单正被占用就直接 panic，应用闪退（`RefCell already borrowed`）。`show_pet_menu` 用 `popped_up` 挡住第二次；以后在菜单开着时可能被调用的命令，都不要去动顶层的 `menu`。
 - 设置窗口没有自己的标题栏（`tauri.conf.json` 的 `titleBarStyle: "Overlay"` 加 `hiddenTitle`），红绿灯压在侧栏左上角。侧栏顶部留了 40px（`.settings-sidebar::before`），列表在它下面滚动。右侧页头用 `data-tauri-drag-region="deep"`，整个页头的留白可拖动，返回按钮仍可点击。侧栏用不带值的属性，直接按在侧栏空白处才生效。拖动权限是 `core:window:allow-start-dragging`。
 - 设置窗口是透明窗口，侧栏用系统自己的侧栏材质（`tauri.conf.json` 的 `transparent: true` 加 `windowEffects: sidebar`，`state` 是 `active`，窗口不在最前时也保持半透明）。页面只给内容区（`.settings-content`）和弹层上色，`html`、`body`、`.settings-page`、侧栏在安装包里都必须保持透明（`html.is-native`），否则材质被盖住；浏览器里没有材质，侧栏用 `--sidebar` 的灰色顶替。新加的整窗元素要么盖满窗口并有自己的底色（弹层），要么放进内容区。
-- 设置窗口的配色：浅灰页面 `--bg`、白色分组卡片 `--group`、中性的灰（不带紫或暖色）。侧栏选中项用系统强调色（CSS 的 `AccentColor`，用户在系统设置里选什么色就是什么色）配白字，窗口不在最前时变成中性灰（`html.is-inactive`，由窗口的 focus/blur 切换）；应用自己的紫色强调色只留给开关、链接、主按钮和焦点环。不要把卡片改成比页面深的灰：试过，灰卡片叠灰底再描边，看起来像线框图。会带人去别处的行（带 ›）在行首放一个彩色图标方块（`settings-nav__icon`）。
+- 设置窗口的配色：浅灰页面 `--bg`、白色分组卡片 `--group`、中性的灰（不带紫或暖色）。颜色都取自 `tokens.css`，`SettingsPage.css` 只给它们起本地名字。一个窗口只有一种强调色：侧栏选中项和主按钮用同一对颜色（`--ui-action-bg` 配 `--ui-action-text`，深色模式是浅紫底深色字），开关、链接、焦点环也是这个紫色，不用系统强调色（2026-11-24 定）；窗口不在最前时选中项变成中性灰（`html.is-inactive`，由窗口的 focus/blur 切换）。不要把卡片改成比页面深的灰：试过，灰卡片叠灰底再描边，看起来像线框图。会带人去别处的行（带 ›）在行首放一个彩色图标方块（`settings-nav__icon`）。
 - 看设置窗口在安装包里的真实样子：用 `CGWindowListCopyWindowInfo` 找到本应用名为「AI Pet 设置」的窗口号，`screencapture -x -o -l <窗口号>` 只截这一个窗口。窗口没开着时截不到，也不能替用户去点菜单；可以临时把配置里它的 `visible` 改成 `true` 起一次 `pnpm tauri dev` 截图，截完改回并关掉。
 - 应用菜单（`build_app_menu`）平时看不见，但 ⌘C、⌘V、⌘W、⌘Q 这些快捷键全靠它，删掉编辑菜单输入框就不能粘贴。退出必须用 `QUIT_ID`，否则会跳过退出前取消请求。
 

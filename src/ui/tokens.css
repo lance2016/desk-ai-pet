@@ -74,6 +74,8 @@
   /* A push button, the thumb of a segmented control. */
   --ui-shadow-control: 0 .5px 1.5px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .05);
   --ui-shadow-popover: 0 8px 24px rgba(0, 0, 0, .12);
+  /* A sheet over a window: welcome, what's new, the cropper. */
+  --ui-shadow-sheet: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3);
   --ui-focus-ring: 0 0 0 3px var(--ui-accent-ring);
 
   /* Type sizes, largest first: page title, panel title, emphasised body, body, caption, footnote, badge. */
