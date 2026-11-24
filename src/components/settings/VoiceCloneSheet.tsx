@@ -157,14 +157,14 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
         <blockquote>{SCRIPT}</blockquote>
         <div className="voice-clone__row">
           {recording === "on"
-            ? <button type="button" className="settings-button voice-clone__rec is-on" onClick={() => void stopRecording()}>停止录音</button>
-            : <button type="button" className="settings-button voice-clone__rec" disabled={recording === "starting"} onClick={() => void startRecording()}>{sample ? "重录" : "开始录音"}</button>}
+            ? <button type="button" className="ui-button voice-clone__rec is-on" onClick={() => void stopRecording()}>停止录音</button>
+            : <button type="button" className="ui-button voice-clone__rec" disabled={recording === "starting"} onClick={() => void startRecording()}>{sample ? "重录" : "开始录音"}</button>}
           {recording === "on" && <span className="voice-clone__clock" aria-live="off">{clock(seconds)} / {clock(MAX_RECORD_SECONDS)}</span>}
         </div>
       </div> : <div className="voice-clone__panel">
         <p>wav 或 mp3，3 MB 以内、3 到 30 秒；建议 10 到 20 秒。只有一个人在说话、没有背景音乐的片段效果最好。</p>
         <div className="voice-clone__row">
-          <label className="settings-button voice-clone__file">选择文件…<input type="file" accept=".wav,.mp3,audio/wav,audio/x-wav,audio/mpeg" onChange={(event) => void pickFile(event)} /></label>
+          <label className="ui-button voice-clone__file">选择文件…<input type="file" accept=".wav,.mp3,audio/wav,audio/x-wav,audio/mpeg" onChange={(event) => void pickFile(event)} /></label>
           {sample && <span className="voice-clone__name">{sample.from}</span>}
         </div>
       </div>}
@@ -173,8 +173,8 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
       <p className="voice-clone__note">录音会上传到阿里云百炼创建 CosyVoice 音色，并保留在云端直到删除。原始片段也保存在本机、不进备份；朗读时会把文字发给阿里云合成。</p>
       {problem && <p className="voice-clone__problem" role="alert">{problem}</p>}
       <div className="voice-clone__actions">
-        <button type="button" className="settings-button" onClick={onClose}>取消</button>
-        <button type="submit" className="settings-button settings-button--primary" disabled={!ready}>{saving ? "正在创建音色…" : "添加"}</button>
+        <button type="button" className="ui-button" onClick={onClose}>取消</button>
+        <button type="submit" className="ui-button ui-button--primary" disabled={!ready}>{saving ? "正在创建音色…" : "添加"}</button>
       </div>
     </form>
   </div>;

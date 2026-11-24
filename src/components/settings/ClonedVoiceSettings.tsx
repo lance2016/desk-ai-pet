@@ -57,16 +57,16 @@ export function ClonedVoiceSettings({ onOpenAI }: { onOpenAI: () => void }) {
 
   return <div className="settings-section">
     <div className="settings-section__intro"><p>用阿里云百炼 CosyVoice 创建克隆音色，所有角色共用。在「AI 服务」的「声音」里选择</p></div>
-    {keyConfigured === false && <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>先连接阿里云百炼</strong><span>需要中国内地（北京）地域的百炼 API Key，才能创建或删除云端音色</span></div><button type="button" className="settings-button settings-button--small" onClick={onOpenAI}>去配置</button></div></div>}
+    {keyConfigured === false && <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>先连接阿里云百炼</strong><span>需要中国内地（北京）地域的百炼 API Key，才能创建或删除云端音色</span></div><button type="button" className="ui-button ui-button--small" onClick={onOpenAI}>去配置</button></div></div>}
     <div className="settings-group">
       {voices?.length === 0 && <div className="settings-row"><div className="settings-row__body"><span>还没有克隆的声音</span></div></div>}
       {voices?.map((voice) => <div key={voice.id} className="settings-row">
         <div className="settings-row__body"><strong>{voice.name}</strong><span>{describe(voice)}</span></div>
-        <ConfirmButton className="settings-button settings-button--small" disabled={Boolean(voice.serviceVoiceId && !keyConfigured)} confirm={{ message: `删除「${voice.name}」？`, detail: `${voice.serviceVoiceId ? "会从阿里云百炼删除克隆音色，并从这台电脑删除录音。" : "会从这台电脑删除原始录音。"}用它朗读的角色会换回原来的声音。`, action: "删除" }} onConfirm={() => void remove(voice)}>删除</ConfirmButton>
+        <ConfirmButton className="ui-button ui-button--small" disabled={Boolean(voice.serviceVoiceId && !keyConfigured)} confirm={{ message: `删除「${voice.name}」？`, detail: `${voice.serviceVoiceId ? "会从阿里云百炼删除克隆音色，并从这台电脑删除录音。" : "会从这台电脑删除原始录音。"}用它朗读的角色会换回原来的声音。`, action: "删除" }} onConfirm={() => void remove(voice)}>删除</ConfirmButton>
       </div>)}
       <div className="settings-row">
         <div className="settings-row__body"><strong>添加声音</strong><span>{full ? `最多 ${MAX_CLONES} 个，先删掉一个再加` : keyConfigured ? "建议录 10 到 20 秒，安静的地方、平常语速效果最好" : "配置阿里云百炼 API Key 后即可添加"}</span></div>
-        <button type="button" className="settings-button settings-button--small" disabled={voices === null || full || !keyConfigured} onClick={() => { setStatus(""); setAdding(true); }}>添加…</button>
+        <button type="button" className="ui-button ui-button--small" disabled={voices === null || full || !keyConfigured} onClick={() => { setStatus(""); setAdding(true); }}>添加…</button>
       </div>
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}

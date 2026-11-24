@@ -173,17 +173,17 @@ export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChang
     <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>导出当前角色</strong><span>{current?.custom ? "包含角色设定、动作图片和快捷按钮，不含聊天记录" : "内置角色不用导出"}</span></div>
-        <button type="button" className="settings-button settings-button--small" disabled={!current?.custom || transferBusy} onClick={() => void exportCharacter()}>{transferBusy ? "处理中…" : "导出角色包"}</button>
+        <button type="button" className="ui-button ui-button--small" disabled={!current?.custom || transferBusy} onClick={() => void exportCharacter()}>{transferBusy ? "处理中…" : "导出角色包"}</button>
       </div>
       <div className="settings-row">
         <div className="settings-row__body"><strong>导入角色包</strong><span>会新增一个角色，不影响现有的</span></div>
-        <label className={transferBusy ? "settings-button settings-button--small icon-upload is-disabled" : "settings-button settings-button--small icon-upload"}>
+        <label className={transferBusy ? "ui-button ui-button--small icon-upload is-disabled" : "ui-button ui-button--small icon-upload"}>
           <input type="file" accept="application/json,.json" disabled={transferBusy} onChange={(event) => void selectCharacterPackage(event)} />选择文件…
         </label>
       </div>
       {pendingImport && <div className="settings-row backup-confirm" role="alertdialog" aria-label="确认导入角色包">
         <div className="settings-row__body"><strong>导入「{pendingImport.summary.name}」？</strong><span>{pendingImport.name !== pendingImport.summary.name && `已经有叫「${pendingImport.summary.name}」的角色，导入后会改名为「${pendingImport.name}」。`}将新增一个角色，包含动作图片 {pendingImport.summary.actions} 张、自定义动作 {pendingImport.summary.customActions} 个、带图层的动作 {pendingImport.summary.layeredActions} 个。</span></div>
-        <div className="settings-button-row"><button type="button" className="settings-button settings-button--small" disabled={transferBusy} onClick={() => setPendingImport(null)}>取消</button><button type="button" className="settings-button settings-button--small" disabled={transferBusy} onClick={() => void importCharacter()}>{transferBusy ? "正在导入…" : "导入并切换"}</button></div>
+        <div className="settings-button-row"><button type="button" className="ui-button ui-button--small" disabled={transferBusy} onClick={() => setPendingImport(null)}>取消</button><button type="button" className="ui-button ui-button--small" disabled={transferBusy} onClick={() => void importCharacter()}>{transferBusy ? "正在导入…" : "导入并切换"}</button></div>
       </div>}
       {note("transfer")}
     </div>

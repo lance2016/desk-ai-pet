@@ -15,6 +15,7 @@ import { addNote, updateNotes } from "./notes/NoteStore";
 import { forwardToLog } from "./platform/diagnostics";
 import { loadActiveCharacter, migrateLegacyCharacterData, subscribeActiveCharacter } from "./preferences/CharacterPreferences";
 import "./ui/tokens.css";
+import "./ui/controls.css";
 
 // Only the dubbing window loads its code; the pet and the other windows never do.
 const DubbingPage = lazy(() => import("./components/dubbing/DubbingPage").then((module) => ({ default: module.DubbingPage })));

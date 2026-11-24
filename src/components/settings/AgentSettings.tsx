@@ -47,13 +47,13 @@ export function AgentSettings() {
 
   const action = !state?.connected || !state.current
     ? (
-      <ConfirmButton className="settings-button settings-button--small" disabled={busy || state === undefined} confirm={{
+      <ConfirmButton className="ui-button ui-button--small" disabled={busy || state === undefined} confirm={{
         message: state?.connected ? "重新连接 Claude Code？" : "连接 Claude Code？",
         detail: "会在 ~/.claude/settings.json 里加几条钩子，改之前先备份成 settings.json.ai-pet-backup。钩子在后台运行，不会拖慢 Claude Code。它只把这些交给宠物，都留在这台电脑上：项目名和分支、你每次输入的第一行（当任务名）、工具名和它在改的文件名、Claude 最后一条回复的第一行。命令、代码和工具输出不报。你自己的设置和别的钩子都不动，随时可以断开。",
         action: state?.connected ? "重新连接" : "连接",
       }} onConfirm={connect}>{state?.connected ? "重新连接" : "连接"}</ConfirmButton>
     )
-    : <button type="button" className="settings-button settings-button--small" disabled={busy} onClick={disconnect}>断开</button>;
+    : <button type="button" className="ui-button ui-button--small" disabled={busy} onClick={disconnect}>断开</button>;
 
   return <>
     <h2 className="settings-group-title">编码助手</h2>

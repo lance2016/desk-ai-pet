@@ -40,7 +40,7 @@ export function LaunchAtLoginRow({ onError }: { onError: (message: string | null
     <div className="settings-row">
       <div className="settings-row__body"><strong>开机时打开</strong><span>{DESCRIPTIONS[state ?? "off"]}</span></div>
       {state === "approval"
-        ? <button type="button" className="settings-button settings-button--small" onClick={() => void systemPlatform.openLoginItemsSettings()}>打开系统设置…</button>
+        ? <button type="button" className="ui-button ui-button--small" onClick={() => void systemPlatform.openLoginItemsSettings()}>打开系统设置…</button>
         : <button type="button" role="switch" aria-checked={state === "on"} aria-label="开机时打开" className={state === "on" ? "toggle is-on" : "toggle"} disabled={busy || state === null || state === "unavailable"} onClick={() => void toggle()}><span /></button>}
     </div>
   );

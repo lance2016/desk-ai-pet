@@ -460,7 +460,7 @@ export function SettingsPage({ packId }: { packId: string }) {
           <div className="settings-section">
             <div className="about-card"><img className="about-card__icon" src="/app-icon.png" alt="" /><h2>AI Pet</h2><p>会陪伴、能帮忙的桌面宠物</p>{version && <span>版本 {version}</span>}</div>
             <div className="settings-group">
-              {currentNotes && <div className="settings-row"><div className="settings-row__body"><strong>{CURRENT_VERSION} 新功能</strong><span>这次更新加了 {currentNotes.features.length} 个新功能</span></div><button type="button" className="settings-button settings-button--small" onClick={() => setWhatsNew(true)}>查看</button></div>}
+              {currentNotes && <div className="settings-row"><div className="settings-row__body"><strong>{CURRENT_VERSION} 新功能</strong><span>这次更新加了 {currentNotes.features.length} 个新功能</span></div><button type="button" className="ui-button ui-button--small" onClick={() => setWhatsNew(true)}>查看</button></div>}
               <UpdateRow />
             </div>
             <div className="settings-group">

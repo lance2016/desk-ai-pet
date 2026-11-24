@@ -62,12 +62,12 @@ export function TranslationShortcutSettings({ onError }: { onError: (message: st
       {trusted === false && (
         <div className="settings-row">
           <div className="settings-row__body"><strong>辅助功能权限</strong><span>不授权就读不到选中的文字</span></div>
-          <button type="button" className="settings-button settings-button--small" onClick={openAccessibility}>打开系统设置…</button>
+          <button type="button" className="ui-button ui-button--small" onClick={openAccessibility}>打开系统设置…</button>
         </div>
       )}
       <div className="settings-row">
         <div className="settings-row__body"><strong>翻译窗口</strong><span>打开窗口，自己粘贴原文</span></div>
-        <button type="button" className="settings-button settings-button--small" onClick={openTranslation}>打开翻译</button>
+        <button type="button" className="ui-button ui-button--small" onClick={openTranslation}>打开翻译</button>
       </div>
     </article>
   );

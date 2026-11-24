@@ -82,7 +82,7 @@ export function CharacterProfileSettings({ packId, persona, actions, current, on
     {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => { setLookVersion((version) => version + 1); onLookChange(); }} />}
     {isCustomCharacter(packId) && <>
       <div className="settings-section__intro settings-section__intro--spaced"><h2>角色管理</h2></div>
-      <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>删除这个角色</strong><span>聊天记录、快捷按钮和动作图片会一起删除，不能恢复</span></div><ConfirmButton className="is-danger settings-button settings-button--small" confirm={{ message: "删除这个角色？", detail: "它的聊天记录、快捷按钮和动作图片会一起删掉，不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除…</ConfirmButton></div></div>
+      <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>删除这个角色</strong><span>聊天记录、快捷按钮和动作图片会一起删除，不能恢复</span></div><ConfirmButton className="is-danger ui-button ui-button--small" confirm={{ message: "删除这个角色？", detail: "它的聊天记录、快捷按钮和动作图片会一起删掉，不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除…</ConfirmButton></div></div>
     </>}
     {status && <p className="ai-settings__status" role="status">{status}</p>}
   </div>;

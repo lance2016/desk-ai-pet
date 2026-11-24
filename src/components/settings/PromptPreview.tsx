@@ -36,9 +36,9 @@ function RuleEditor({ id, section, onSaved, onError }: { id: ChatRuleId; section
     <textarea aria-label={`编辑「${section.title}」的规则`} value={draft} maxLength={CHAT_RULE_LIMIT} autoFocus onChange={(event) => setDraft(event.currentTarget.value)} />
     <div className="ai-prompt-part__actions">
       <span>{draft.length} / {CHAT_RULE_LIMIT}</span>
-      {section.text !== section.default && <ConfirmButton className="settings-button settings-button--small" confirm={{ message: `把「${section.title}」的规则恢复成默认？`, detail: "你改过的内容会被替换，不能撤销。", action: "恢复默认" }} onConfirm={() => save(null)}>恢复默认</ConfirmButton>}
-      <button type="button" className="settings-button settings-button--small" onClick={onSaved}>取消</button>
-      <button type="button" className="settings-button settings-button--small settings-button--primary" disabled={draft === section.text} onClick={() => save(draft)}>保存</button>
+      {section.text !== section.default && <ConfirmButton className="ui-button ui-button--small" confirm={{ message: `把「${section.title}」的规则恢复成默认？`, detail: "你改过的内容会被替换，不能撤销。", action: "恢复默认" }} onConfirm={() => save(null)}>恢复默认</ConfirmButton>}
+      <button type="button" className="ui-button ui-button--small" onClick={onSaved}>取消</button>
+      <button type="button" className="ui-button ui-button--small ui-button--primary" disabled={draft === section.text} onClick={() => save(draft)}>保存</button>
     </div>
   </div>;
 }
@@ -53,7 +53,7 @@ function Part({ section, onChanged, onError }: { section: PromptSection; onChang
       <div className="prompt-part__title"><h3>{section.title}</h3><span>{source}</span></div>
       {changed && <span className="ai-prompt-part__badge">已修改</span>}
       <span className="settings-row__value">{chars(section.text)} 字</span>
-      {rule && !editing && <button type="button" className="settings-button settings-button--small" onClick={() => setEditing(true)}>编辑</button>}
+      {rule && !editing && <button type="button" className="ui-button ui-button--small" onClick={() => setEditing(true)}>编辑</button>}
     </div>
     {rule && editing
       ? <RuleEditor id={rule.id} section={rule.section} onSaved={() => { setEditing(false); onChanged(); }} onError={onError} />
@@ -83,7 +83,7 @@ export function PromptPreview({ packId, persona, actions, onError }: { packId: s
     {view === "parts"
       ? preview.sections.filter((section) => section.text || section.default !== null).map((section) => <Part key={section.id} section={section} onChanged={refresh} onError={onError} />)
       : <section className="settings-card prompt-part">
-        <div className="prompt-part__head"><div className="prompt-part__title"><h3>系统提示词</h3><span>各段按顺序拼接，原样发出</span></div><CopyButton className="settings-button settings-button--small" text={preview.prompt} onMessage={(message) => onError(message || null)}>复制</CopyButton></div>
+        <div className="prompt-part__head"><div className="prompt-part__title"><h3>系统提示词</h3><span>各段按顺序拼接，原样发出</span></div><CopyButton className="ui-button ui-button--small" text={preview.prompt} onMessage={(message) => onError(message || null)}>复制</CopyButton></div>
         <pre className="ai-prompt-full prompt-part__raw">{preview.prompt}</pre>
       </section>}
   </div>;

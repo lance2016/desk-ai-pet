@@ -133,7 +133,6 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-setup { margin: auto; max-width: 260px; padding: 18px; border-radius: var(--radius-group); background: var(--group); box-shadow: var(--shadow); text-align: center; }
 .chat-setup strong { display: block; font-size: var(--ui-font-emphasis); }
 .chat-setup p { margin: 6px 0 14px; color: var(--label-2); line-height: 1.6; }
-.chat-setup button { height: 28px; padding: 0 16px; border: 0; border-radius: var(--radius-control); color: var(--ui-action-text); background: var(--ui-action-bg); cursor: pointer; }
 .chat-empty { width: min(100%, 300px); margin: auto; text-align: center; color: var(--label-2); }
 .chat-empty strong { display: block; color: var(--label); font-size: 16px; line-height: 1.4; font-weight: 500; }
 .chat-empty p { margin: 8px 0 16px; font-size: var(--ui-font-body); line-height: 1.55; }

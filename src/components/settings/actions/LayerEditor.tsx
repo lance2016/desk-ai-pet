@@ -79,7 +79,7 @@ export function LayerEditor({ layers, frames, canvas, resolveAsset, onChange, on
       <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => select(event, index)} />替换图层图片</label>
       <p>坐标单位为原图像素（画布 {canvas.width} × {canvas.height}）；横向帧图可设置图层帧数。</p>
     </article>)}
-    {layers.length < 8 && <div className="layer-editor__text"><label>飘字内容 <input value={text} maxLength={20} onChange={(event) => setText(event.currentTarget.value)} /></label><button type="button" className="settings-button" onClick={addText}>添加飘字</button><span>默认从第 4 帧开始上飘淡出，可在下方调整。</span></div>}
+    {layers.length < 8 && <div className="layer-editor__text"><label>飘字内容 <input value={text} maxLength={20} onChange={(event) => setText(event.currentTarget.value)} /></label><button type="button" className="ui-button" onClick={addText}>添加飘字</button><span>默认从第 4 帧开始上飘淡出，可在下方调整。</span></div>}
     {layers.length < 8 && <label className="action-editor__upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => select(event, null)} />添加图片图层</label>}
     {layers.length === 0 && <p>暂未添加图层。</p>}
   </fieldset>;

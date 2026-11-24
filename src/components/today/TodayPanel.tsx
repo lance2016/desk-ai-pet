@@ -311,10 +311,10 @@ export function TodayPanel() {
           <input className="today-field" autoFocus value={editing.draft.text} maxLength={AGENDA_LIMITS.text} aria-label="提醒内容" onChange={(event) => changeEditing({ ...editing, draft: { ...editing.draft, text: event.currentTarget.value } })} />
           <WhenField draft={editing.draft} now={now} onChange={(draft) => changeEditing({ ...editing, draft })} />
           <div className="today-edit__actions">
-            <button type="button" className="today-button today-button--danger" onClick={() => remove(item)}>删除</button>
+            <button type="button" className="ui-button ui-button--danger" onClick={() => remove(item)}>删除</button>
             <span className="today-edit__spacer" />
-            <button type="button" className="today-button" onClick={cancelEdit}>取消</button>
-            <button type="button" className="today-button today-button--primary" onClick={saveEdit}>保存</button>
+            <button type="button" className="ui-button" onClick={cancelEdit}>取消</button>
+            <button type="button" className="ui-button ui-button--primary" onClick={saveEdit}>保存</button>
           </div>
         </li>
       );
@@ -355,7 +355,7 @@ export function TodayPanel() {
         <label className="today-add__field">
           <Glyph name="plus" />
           <input ref={addInput} value={adding.text} maxLength={AGENDA_LIMITS.text} placeholder="添加提醒" aria-label="新提醒" onChange={(event) => typeNew(event.currentTarget.value)} onKeyDown={escapeKeys} />
-          {adding.text.trim() && <button type="submit" className="today-button today-button--primary today-add__save" title="添加（回车）">添加</button>}
+          {adding.text.trim() && <button type="submit" className="ui-button ui-button--primary today-add__save" title="添加（回车）">添加</button>}
         </label>
         {showAddOptions && <div className="today-add__options"><WhenField draft={adding} now={now} onChange={setAdding} /></div>}
       </form>

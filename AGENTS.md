@@ -67,7 +67,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 - 代码、注释、日志、报错、提交信息用英文。界面上给用户看的文字用中文。
 - 外部输入用 Zod 校验：清单文件和存档。
 - 数值用具名常量，放在所属模块顶部，不要散落魔法数字。
-- 共享语义色、圆角和浮层阴影放在 `src/ui/tokens.css`，由 `src/main.tsx` 统一引入；设置页、聊天页和宠物浮层优先复用这些变量，角色素材和提醒/错误等状态色保留各自表达。设置页中的预览要与桌面实际控件同步。
+- 颜色、圆角、阴影、字号只在 `src/ui/tokens.css` 定义一次，由 `src/main.tsx` 统一引入。各窗口样式表可以给它们起本地名字（`--label: var(--ui-text)`），不能写第二份取值；压在系统材质上的面板在根元素加 `ui-on-material`，换成那组半透明取值。角色素材的颜色（`--spark` 等）只属于宠物层。设置页中的预览要与桌面实际控件同步。
+- 按钮只用 `src/ui/controls.css` 的 `.ui-button`，变体有 `--small`、`--large`、`--primary`（一个视图最多一个）、`--danger`（红字）、`--destructive`（确认时的红底）。窗口样式表只摆放它，不改它的样子。
 - 界面动效用 `tokens.css` 里的一条曲线 `--ui-ease` 和三档时长：悬停、按下用 `--ui-duration-fast`，气泡、菜单、开关这类出现和切换用 `--ui-duration`，弹层用 `--ui-duration-slow`。不要再写零散的毫秒数和 `ease`。界面控件不用回弹曲线，活泼的动作留给角色（`motions.ts`）。一直转的（转圈、呼吸、进度弧）不在此列。
 - 不用 `console.log`。可恢复的问题用 `console.warn`，真正的错误用 `console.error`；这两种会写进日志文件，所以不要把聊天原文、API Key、授权码传给它们。Rust 用 `log::warn!`、`log::error!`，不用 `eprintln!`（不进日志文件）。
 - 测试文件和源码放在一起，命名 `*.test.ts`。公共夹具在 `src/testing/fixtures.ts`。

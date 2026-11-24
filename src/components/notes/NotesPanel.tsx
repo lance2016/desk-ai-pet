@@ -217,10 +217,10 @@ export function NotesPanel() {
             onChange={(event) => setEditing({ ...editing, text: event.currentTarget.value })}
             onKeyDown={(event) => fieldKeys(event, saveEdit, () => { setEditing(null); setError(""); })} />
           <div className="today-edit__actions">
-            <button type="button" className="today-button today-button--danger" onClick={() => remove(note)}>删除</button>
+            <button type="button" className="ui-button ui-button--danger" onClick={() => remove(note)}>删除</button>
             <span className="today-edit__spacer" />
-            <button type="button" className="today-button" onClick={() => { setEditing(null); setError(""); }}>取消</button>
-            <button type="button" className="today-button today-button--primary" onClick={saveEdit}>保存</button>
+            <button type="button" className="ui-button" onClick={() => { setEditing(null); setError(""); }}>取消</button>
+            <button type="button" className="ui-button ui-button--primary" onClick={saveEdit}>保存</button>
           </div>
         </li>
       );
@@ -256,7 +256,7 @@ export function NotesPanel() {
           <textarea ref={addField} rows={1} value={draft} maxLength={NOTE_LIMITS.text} placeholder="记点什么，回车保存" aria-label="新备忘"
             onChange={(event) => setDraft(event.currentTarget.value)}
             onKeyDown={(event) => fieldKeys(event, () => add(), () => leaveOrHide(event.currentTarget))} />
-          {draft.trim() && <button type="submit" className="today-button today-button--primary today-add__save" title="保存（回车；Shift+回车换行）">保存</button>}
+          {draft.trim() && <button type="submit" className="ui-button ui-button--primary today-add__save" title="保存（回车；Shift+回车换行）">保存</button>}
         </label>
         {notes.length >= SEARCH_FROM && (
           <label className="note-search">

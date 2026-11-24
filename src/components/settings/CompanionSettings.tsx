@@ -53,7 +53,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
     <div className="settings-group">
       {hushed !== null && <div className="settings-row">
         <div className="settings-row__body"><strong>正在安静</strong><span>你让它别催，{formatReminderTime(hushed, Date.now())} 前不主动说话；提醒照常到点</span></div>
-        <button type="button" className="settings-button settings-button--small" onClick={speakAgain}>恢复说话</button>
+        <button type="button" className="ui-button ui-button--small" onClick={speakAgain}>恢复说话</button>
       </div>}
       {toggle("night", "深夜关心", "过了这个时间还在用电脑，提醒你早点休息",
         <TimeField label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(nightTime) => update({ ...value, nightTime })} />)}
@@ -66,7 +66,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       <div className="settings-row">
         <div className="settings-row__body"><strong>预览一句</strong><span>现在就说一次选中的这句，不占用当天的次数</span></div>
         <select aria-label="要预览的话" value={tried} disabled={testBusy} onChange={(event) => setTried(event.currentTarget.value)}>{OCCASIONS.map((occasion) => <option key={occasion.id} value={occasion.id}>{occasion.title}</option>)}</select>
-        <button type="button" className="settings-button settings-button--small" disabled={testBusy} onClick={() => void preview()}>{testBusy ? "正在准备…" : "预览"}</button>
+        <button type="button" className="ui-button ui-button--small" disabled={testBusy} onClick={() => void preview()}>{testBusy ? "正在准备…" : "预览"}</button>
       </div>
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
     </div>

@@ -77,23 +77,6 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 .today-field::-webkit-calendar-picker-indicator { opacity: .55; }
 .today-field:focus, .today-add__field:focus-within { border-color: var(--accent); box-shadow: var(--ui-focus-ring); }
 
-.today-button {
-  height: 24px;
-  padding: 0 12px;
-  color: var(--label);
-  background: var(--field);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-control);
-  font: inherit;
-  font-size: var(--ui-font-caption);
-  cursor: pointer;
-}
-.today-button:hover:not(:disabled) { background: var(--fill-strong); }
-.today-button--primary { color: var(--ui-action-text); background: var(--ui-action-bg); border-color: transparent; font-weight: 500; }
-.today-button--primary:hover:not(:disabled) { background: var(--ui-action-bg); filter: brightness(1.08); }
-.today-button--primary:disabled { opacity: .4; cursor: default; }
-.today-button--danger { color: var(--red); background: transparent; border-color: transparent; padding: 0 6px; }
-.today-button--danger:hover:not(:disabled) { background: var(--red-wash); }
 .today-panel button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 
 /* Adding: one field; the day and time appear once there is something to add. */

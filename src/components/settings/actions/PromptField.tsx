@@ -22,7 +22,7 @@ interface Props {
 /** A prompt for an image model: copy it in one click, or open it to reword it. */
 export function PromptField({ copyLabel, copyText, summary, value, fallback, note, primary = false, onChange, onMessage }: Props) {
   return <div className="prompt-field">
-    <CopyButton className={primary ? "settings-button settings-button--small settings-button--primary" : "settings-button settings-button--small"} text={copyText} onMessage={onMessage}>{copyLabel}</CopyButton>
+    <CopyButton className={primary ? "ui-button ui-button--small ui-button--primary" : "ui-button ui-button--small"} text={copyText} onMessage={onMessage}>{copyLabel}</CopyButton>
     <details>
       <summary>{summary}</summary>
       <textarea aria-label={summary} value={value} maxLength={ART_PROMPT_MAX_CHARS} spellCheck={false} onChange={(event) => onChange(event.currentTarget.value)} />

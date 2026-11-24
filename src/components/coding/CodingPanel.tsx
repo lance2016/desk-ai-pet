@@ -301,9 +301,9 @@ function InboxRow({ item, now, deferred = false, onBack, onMark }: InboxRowProps
       {turn !== "waiting" && (
         <div className="coding-inbox-row__actions">
           {deferred
-            ? <button type="button" className="today-button" onClick={() => onMark(key, null)}>移回待处理</button>
-            : <button type="button" className="today-button" onClick={() => onMark(key, Date.now() + SNOOZE_MS)}>30 分钟后看</button>}
-          <button type="button" className="today-button" onClick={() => onMark(key, 0)}>标为已看</button>
+            ? <button type="button" className="ui-button" onClick={() => onMark(key, null)}>移回待处理</button>
+            : <button type="button" className="ui-button" onClick={() => onMark(key, Date.now() + SNOOZE_MS)}>30 分钟后看</button>}
+          <button type="button" className="ui-button" onClick={() => onMark(key, 0)}>标为已看</button>
         </div>
       )}
     </li>
@@ -334,8 +334,8 @@ function SessionDetail({ session, now, onLeave, onReveal, onCopy }: DetailProps)
           {session.branch && <span className="coding-detail__branch">分支 {session.branch}</span>}
         </p>
         <div className="coding-detail__actions">
-          {session.revealable && <button type="button" className="today-button today-button--primary" onClick={onReveal}>回到终端</button>}
-          <button type="button" className={`today-button${session.revealable ? "" : " today-button--primary"}`} onClick={onCopy}>复制恢复命令</button>
+          {session.revealable && <button type="button" className="ui-button ui-button--primary" onClick={onReveal}>回到终端</button>}
+          <button type="button" className={`ui-button${session.revealable ? "" : " ui-button--primary"}`} onClick={onCopy}>复制恢复命令</button>
         </div>
         {!session.revealable && <p className="coding-detail__note">{session.ended ? "" : "不知道它在哪个终端，"}在终端里粘贴恢复命令就能接着聊</p>}
       </header>
@@ -384,7 +384,7 @@ function Empty({ hooks }: { hooks: ClaudeHooksState | undefined }) {
         : hooks?.connected
           ? "AI Pet 换了位置，或新版本多接了事件，重新连接后才收得全"
           : "连上后，这里会列出每个会话在做什么、哪个在等你"}</p>
-      {hooks && !connected && <button type="button" className="today-button today-button--primary coding-connect" onClick={openSettings}>去设置里连接</button>}
+      {hooks && !connected && <button type="button" className="ui-button ui-button--primary coding-connect" onClick={openSettings}>去设置里连接</button>}
     </div>
   );
 }

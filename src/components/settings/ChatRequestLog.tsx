@@ -54,7 +54,7 @@ function EntryView({ entry }: { entry: Entry }) {
   return <details className="ai-disclosure">
     <summary><span><strong>{time(entry.at)} {WINDOWS[entry.window] ?? entry.window}</strong><small>{asked ? `“${asked.slice(0, 40)}”，` : ""}请求了 {entry.rounds.length} 次</small></span></summary>
     {entry.rounds.length === 0 ? <p className="ai-log-empty">还在回复，稍后刷新。</p> : entry.rounds.map((round, index) => <RoundView key={index} round={round} index={index} />)}
-    <div className="ai-log-copy"><button type="button" className="settings-button settings-button--small" onClick={copy}>{copied ? "已复制" : "复制 JSON"}</button></div>
+    <div className="ai-log-copy"><button type="button" className="ui-button ui-button--small" onClick={copy}>{copied ? "已复制" : "复制 JSON"}</button></div>
   </details>;
 }
 
@@ -73,8 +73,8 @@ export function ChatRequestLog() {
   return <div className="ai-log">
     <div className="ai-preview__head">
       <div><strong>最近发出的请求</strong><span>只记开发者模式打开以后的聊天，保留最近 100 条，退出应用后还在</span></div>
-      <button type="button" className="settings-button settings-button--small" onClick={refresh}>刷新</button>
-      <ConfirmButton className="settings-button settings-button--small" disabled={!log?.length} confirm={{ message: "清空请求记录？", detail: "已记下的请求会全部删掉，不能撤销。", action: "清空" }} onConfirm={clear}>清空</ConfirmButton>
+      <button type="button" className="ui-button ui-button--small" onClick={refresh}>刷新</button>
+      <ConfirmButton className="ui-button ui-button--small" disabled={!log?.length} confirm={{ message: "清空请求记录？", detail: "已记下的请求会全部删掉，不能撤销。", action: "清空" }} onConfirm={clear}>清空</ConfirmButton>
     </div>
     {problem && <p role="status">{problem}</p>}
     {log && log.length === 0 && <p className="ai-log-empty">还没有记录。去和宠物聊一句，再回来刷新。</p>}

@@ -50,7 +50,7 @@ export function ModelSettings({ keyConfigured }: { keyConfigured: boolean | null
       </div>
       {choice === CUSTOM && <form className="settings-row model-custom" onSubmit={(event) => void useCustom(event)}>
         <input aria-label="自定义模型名" value={draft} maxLength={64} spellCheck={false} autoCapitalize="off" autoComplete="off" placeholder="例如：deepseek-chat" onChange={(event) => setDraft(event.currentTarget.value)} />
-        <button type="submit" className="settings-button settings-button--small" disabled={busy || !draft.trim() || draft.trim() === model}>{busy ? "测试中…" : "测试并使用"}</button>
+        <button type="submit" className="ui-button ui-button--small" disabled={busy || !draft.trim() || draft.trim() === model}>{busy ? "测试中…" : "测试并使用"}</button>
       </form>}
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}

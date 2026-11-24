@@ -176,7 +176,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
               <button key={icon} type="button" role="radio" aria-checked={item.icon === icon} aria-label={ICON_NAMES[icon]} className={item.icon === icon ? "icon-choice is-selected" : "icon-choice"} onClick={() => update(key, { icon })}><DockButtonFace item={{ ...item, icon }} packId={packId} actions={actions} resolveAsset={resolveAsset} /></button>
             ))}
             {typeof item.icon !== "string" && <span className="icon-choice is-selected" aria-label="自定义图标"><ControlIconView icon={item.icon} resolveAsset={resolveAsset} /></span>}
-            <label className="settings-button settings-button--small icon-upload">
+            <label className="ui-button ui-button--small icon-upload">
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadIcon(event, key)} />
               上传图片…
             </label>
@@ -265,7 +265,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
       <p className="settings-footnote">拖动排序，点名称可以改名、换图标</p>
 
       <div className="settings-actions">
-        <ConfirmButton className="settings-button" confirm={{ message: "恢复默认快捷按钮？", detail: "调整过的按钮、顺序、名字和图标都会改回这个角色原来的样子。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认快捷按钮</ConfirmButton>
+        <ConfirmButton className="ui-button" confirm={{ message: "恢复默认快捷按钮？", detail: "调整过的按钮、顺序、名字和图标都会改回这个角色原来的样子。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认快捷按钮</ConfirmButton>
       </div>
     </div>
   );

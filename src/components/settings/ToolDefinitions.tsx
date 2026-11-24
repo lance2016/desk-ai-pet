@@ -73,7 +73,7 @@ export function ToolDefinitions({ packId, persona, actions, onError }: { packId:
       <div className="settings-row">
         <div className="settings-row__body"><strong>发给 AI 的工具</strong><span>和系统提示词一起发出，JSON 就是请求里的 <code>tools</code> 字段</span></div>
         <span className="settings-row__value">{sent.length} / {total} 个</span>
-        <CopyButton className="settings-button settings-button--small" text={JSON.stringify(sent, null, 2)} onMessage={(message) => onError(message || null)}>复制 JSON</CopyButton>
+        <CopyButton className="ui-button ui-button--small" text={JSON.stringify(sent, null, 2)} onMessage={(message) => onError(message || null)}>复制 JSON</CopyButton>
       </div>
     </div>
     {CHAT_SKILLS.map((skill) => {

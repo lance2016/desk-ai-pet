@@ -40,7 +40,7 @@ export function ChatLookSettings({ packId, actionImages, onChange }: Props) {
             <label className="look-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void upload(event, slot)} /><span>上传图片</span></label>
             {slot === "peek" && <button type="button" aria-pressed={hidden} className={hidden ? "look-hide is-selected" : "look-hide"} onClick={() => setPeekHidden(!hidden)}>不显示</button>}
           </div>
-          {!hidden && value !== "hidden" && <button type="button" className="settings-button settings-button--small" onClick={() => void edit(slot)}>调整</button>}
+          {!hidden && value !== "hidden" && <button type="button" className="ui-button ui-button--small" onClick={() => void edit(slot)}>调整</button>}
           {/* An uploaded picture is gone once replaced, so that one asks first; the character's own pictures can always be picked again. */}
           {value !== "hidden" && "dataUrl" in value
             ? <ConfirmButton className="text-link" confirm={{ message: `恢复默认的${title}？`, detail: "上传的图片会被删掉，换回角色自己的图片。", action: "恢复默认" }} onConfirm={reset}>恢复默认</ConfirmButton>

@@ -88,12 +88,12 @@ export function FactSettings({ who }: { who: string }) {
     <div className="settings-group-head">
       <h2 className="settings-group-title">已记住的事</h2>
       <span className="settings-group-head__count">{facts.length} / {FACT_LIMITS.items}</span>
-      {facts.length > 0 && <ConfirmButton className="settings-button settings-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空…</ConfirmButton>}
+      {facts.length > 0 && <ConfirmButton className="ui-button ui-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空…</ConfirmButton>}
     </div>
     <div className="settings-group fact-settings">
       <form className="settings-row fact-add" onSubmit={add}>
         <input aria-label="新的记忆" value={draft} maxLength={FACT_LIMITS.text} disabled={full} placeholder={full ? `最多 ${FACT_LIMITS.items} 条，删掉几条才能再加` : "写一件关于你的事，如：不吃香菜、每周三下午开例会"} onChange={(event) => setDraft(event.currentTarget.value)} />
-        <button type="submit" className="settings-button settings-button--small" disabled={full || !draft.trim()}>添加</button>
+        <button type="submit" className="ui-button ui-button--small" disabled={full || !draft.trim()}>添加</button>
       </form>
       {facts.length === 0
         ? <p className="fact-empty">还没有记忆。可以在上面写，也可以在聊天里说「记住，我不吃香菜」。</p>
@@ -101,14 +101,14 @@ export function FactSettings({ who }: { who: string }) {
           {editing?.id === fact.id
             ? <form className="fact-edit" onSubmit={saveEdit}>
               <input autoFocus aria-label="修改这条记忆" value={editing.text} maxLength={FACT_LIMITS.text} onChange={(event) => setEditing({ id: fact.id, text: event.currentTarget.value })} onKeyDown={editKeys} />
-              <button type="submit" className="settings-button settings-button--small settings-button--primary" disabled={!editing.text.trim()}>保存</button>
-              <button type="button" className="settings-button settings-button--small" onClick={() => setEditing(null)}>取消</button>
+              <button type="submit" className="ui-button ui-button--small ui-button--primary" disabled={!editing.text.trim()}>保存</button>
+              <button type="button" className="ui-button ui-button--small" onClick={() => setEditing(null)}>取消</button>
             </form>
             : <>
               <div className="settings-row__body"><strong className="fact-row__text">{fact.text}</strong><span>{SOURCE_LABELS[fact.source]} · {noteTime(fact.at, now)}</span></div>
               <div className="settings-button-row">
-                <button type="button" className="settings-button settings-button--small" aria-label={`修改“${fact.text}”`} onClick={() => setEditing({ id: fact.id, text: fact.text })}>修改</button>
-                <button type="button" className="settings-button settings-button--small" aria-label={`删除“${fact.text}”`} onClick={() => remove(fact)}>删除</button>
+                <button type="button" className="ui-button ui-button--small" aria-label={`修改“${fact.text}”`} onClick={() => setEditing({ id: fact.id, text: fact.text })}>修改</button>
+                <button type="button" className="ui-button ui-button--small" aria-label={`删除“${fact.text}”`} onClick={() => remove(fact)}>删除</button>
               </div>
             </>}
         </li>)}</ul>}

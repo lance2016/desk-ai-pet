@@ -230,16 +230,6 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .segmented button.is-selected { background: var(--segment-selected); box-shadow: var(--control-shadow); font-weight: 500; }
 
 /* Push button. */
-.settings-button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 24px; padding: 0 12px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: var(--ui-font-body); white-space: nowrap; cursor: pointer; }
-.settings-button:hover:not(:disabled) { background: var(--button-hover); }
-.settings-button:active:not(:disabled) { filter: brightness(.95); }
-.settings-button:disabled { opacity: .45; cursor: default; }
-.settings-button--small { height: 22px; padding: 0 8px; font-size: var(--ui-font-caption); }
-.settings-button--danger { color: var(--ui-action-text); background: var(--red); box-shadow: none; }
-.settings-button--danger:hover:not(:disabled) { background: var(--red); filter: brightness(1.08); }
-.settings-button--primary { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
-.settings-button--primary:hover:not(:disabled) { background: var(--ui-action-bg); filter: brightness(1.08); }
-.settings-button.is-disabled { opacity: .45; pointer-events: none; }
 /* ConfirmButton waiting for its second click. */
 .backup-confirm { align-items: flex-start; padding: 10px 0; }
 .backup-confirm .settings-row__body span { line-height: 1.45; }
@@ -886,4 +876,4 @@ button.dock-row__body { cursor: pointer; }
 .voice-clone__card .voice-clone__note { font-size: var(--ui-font-footnote); }
 .voice-clone__card .voice-clone__problem { padding: 8px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); }
 .voice-clone__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
-.voice-clone__actions .settings-button { min-width: 72px; height: 28px; }
+.voice-clone__actions .ui-button { min-width: 72px; height: 28px; }

@@ -692,7 +692,7 @@ export function ChatPage({ packId }: { packId: string }) {
       {historyOpen && <ChatHistory threads={threads} currentId={threadId} removed={removedThread} onOpen={(thread) => showThread(thread.id, thread.messages)} onDelete={deleteThread} onUndo={undoDelete} onRename={renameThread} onClose={closeHistory} />}
     </header>
     <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>
-      {keyMissing && messages.length === 0 && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button type="button" onClick={openSettings}>去设置</button></div>}
+      {keyMissing && messages.length === 0 && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button className="ui-button ui-button--large ui-button--primary" type="button" onClick={openSettings}>去设置</button></div>}
       {messages.length === 0 && !keyMissing && <div className="chat-empty">
         <strong>把手边的事交给{name}</strong>
         <p>记一件事、看看今天的安排，或者直接说说你在忙什么。</p>

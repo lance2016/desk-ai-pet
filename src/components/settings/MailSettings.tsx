@@ -61,12 +61,12 @@ export function MailSettings() {
       <div className="ai-settings__head">
         <div><strong>163 邮箱</strong><span>{saved.length > 1 ? `已连上 ${saved.length} 个，查收时一起找` : "可以加几个，查收时一起找"}</span></div>
         <span className={saved.length ? "ai-badge is-ready" : "ai-badge"}>{addresses === undefined ? "检查中" : saved.length ? "已连上" : "未配置"}</span>
-        {saved.length > 0 && <button type="button" className="settings-button settings-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "添加"}</button>}
+        {saved.length > 0 && <button type="button" className="ui-button ui-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "添加"}</button>}
       </div>
       {saved.length > 0 && <ul className="mail-accounts">
         {saved.map((address) => <li key={address}>
           <span>{address}</span>
-          <ConfirmButton className="settings-button settings-button--small" disabled={busy} confirm={{ message: `移除 ${address}？`, detail: "这个邮箱的地址和授权码会从钥匙串里删掉，之后不再查它的验证码。", action: "移除" }} onConfirm={() => void remove(address)}>移除</ConfirmButton>
+          <ConfirmButton className="ui-button ui-button--small" disabled={busy} confirm={{ message: `移除 ${address}？`, detail: "这个邮箱的地址和授权码会从钥匙串里删掉，之后不再查它的验证码。", action: "移除" }} onConfirm={() => void remove(address)}>移除</ConfirmButton>
         </li>)}
       </ul>}
       {expanded && <>

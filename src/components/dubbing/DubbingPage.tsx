@@ -169,14 +169,14 @@ export function DubbingPage() {
             ? <>{dub.problem.message}{dub.problem.settings && <button type="button" className="dub-text-link" onClick={() => void petWindow.openSettings("ai").catch((reason: unknown) => console.warn("Could not open settings", reason))}>去设置</button>}</>
             : notice || (missingVoice ? "原来选的克隆声音已经删除，换一个声音再生成。" : summary)}
         </div>
-        <button type="button" className="dub-button" disabled={lines.length === 0 || missingVoice || (!dub.running && progress.missing + progress.failed === 0)} onClick={dub.running ? dub.stop : dub.generate}>{generateLabel}</button>
-        <button type="button" className="dub-button" disabled={!allReady} onClick={() => play(true, 0)}>{playing?.all ? "停止播放" : "播放全部"}</button>
+        <button type="button" className="ui-button ui-button--large" disabled={lines.length === 0 || missingVoice || (!dub.running && progress.missing + progress.failed === 0)} onClick={dub.running ? dub.stop : dub.generate}>{generateLabel}</button>
+        <button type="button" className="ui-button ui-button--large" disabled={!allReady} onClick={() => play(true, 0)}>{playing?.all ? "停止播放" : "播放全部"}</button>
         <span className="dub-divider" />
         <select className="dub-format" aria-label="导出格式" value={draft.format} onChange={(event) => update({ format: event.currentTarget.value as ExportFormat })}>
           {EXPORT_FORMATS.map((format) => <option key={format} value={format}>{FORMAT_LABELS[format]}</option>)}
         </select>
         <label className="dub-check"><input type="checkbox" checked={draft.subtitles} onChange={(event) => update({ subtitles: event.currentTarget.checked })} />字幕</label>
-        <button type="button" className="dub-button dub-button--primary" disabled={!allReady || exporting} onClick={() => void exportAll()}>{exporting ? "导出中…" : "导出…"}</button>
+        <button type="button" className="ui-button ui-button--large ui-button--primary" disabled={!allReady || exporting} onClick={() => void exportAll()}>{exporting ? "导出中…" : "导出…"}</button>
       </footer>
     </div>
   );

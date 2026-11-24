@@ -226,7 +226,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
         <>
           <label className="links-search"><Glyph name="search" /><input ref={search} className="today-field" type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label>
           <div className="links-list" ref={scroll}>
-            {results.length === 0 && <div className="today-empty"><Glyph name="globe" /><strong>{links.length ? "没有匹配的链接" : "还没有常用链接"}</strong>{links.length === 0 && <button type="button" className="today-button today-button--primary" onClick={() => startEdit("new")}>添加链接</button>}</div>}
+            {results.length === 0 && <div className="today-empty"><Glyph name="globe" /><strong>{links.length ? "没有匹配的链接" : "还没有常用链接"}</strong>{links.length === 0 && <button type="button" className="ui-button ui-button--primary" onClick={() => startEdit("new")}>添加链接</button>}</div>}
             {groups.map(([name, entries], groupIndex) => (
               <section className="links-group" key={name} aria-label={name || "未分组"}>
                 <div className="links-group__header">
@@ -266,11 +266,11 @@ function LinksView({ managing = false }: { managing?: boolean }) {
                         <button type="button" className="links-icon-button links-row__more" aria-label={`${link.name}的选项`} aria-expanded={actionsId === link.id} onClick={() => setActionsId(actionsId === link.id ? null : link.id)}><Glyph name="more" /></button>
                       </div>
                       {actionsId === link.id && <div className="links-row__actions">
-                        <button type="button" className="today-button" onClick={() => startEdit(link)}>编辑</button>
-                        <button type="button" className="today-button" onClick={() => void copy(link)}>复制地址</button>
-                        {canReorder && index > 0 && <button type="button" className="today-button" onClick={() => save((items) => moveLink(items, link.id, entries[index - 1].id))}>上移</button>}
-                        {canReorder && index < entries.length - 1 && <button type="button" className="today-button" onClick={() => save((items) => moveLink(items, link.id, entries[index + 1].id))}>下移</button>}
-                        <button type="button" className="today-button today-button--danger" onClick={() => remove(link)}>删除</button>
+                        <button type="button" className="ui-button" onClick={() => startEdit(link)}>编辑</button>
+                        <button type="button" className="ui-button" onClick={() => void copy(link)}>复制地址</button>
+                        {canReorder && index > 0 && <button type="button" className="ui-button" onClick={() => save((items) => moveLink(items, link.id, entries[index - 1].id))}>上移</button>}
+                        {canReorder && index < entries.length - 1 && <button type="button" className="ui-button" onClick={() => save((items) => moveLink(items, link.id, entries[index + 1].id))}>下移</button>}
+                        <button type="button" className="ui-button ui-button--danger" onClick={() => remove(link)}>删除</button>
                       </div>}
                     </li>
                   ))}
@@ -313,7 +313,7 @@ function LinkForm({ initial, groups, isFull, onSave, onCancel }: {
       <label>环境标签<input name="tag" className="today-field" placeholder="可选，例如 TEST" defaultValue={fields.tag} maxLength={LINK_LIMITS.tag} /></label>
       <label>用途备注<input name="description" className="today-field" placeholder="可选，例如：查询居住证何时到期" defaultValue={fields.description} maxLength={LINK_LIMITS.description} /></label>
       {error && <p role="alert">{error}</p>}
-      <div className="links-form__actions"><button type="button" className="today-button" onClick={onCancel}>取消</button><button type="submit" className="today-button today-button--primary">保存</button></div>
+      <div className="links-form__actions"><button type="button" className="ui-button" onClick={onCancel}>取消</button><button type="submit" className="ui-button ui-button--primary">保存</button></div>
     </form>
   );
 }

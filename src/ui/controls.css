@@ -1,0 +1,46 @@
+/*
+ * The one push button of every window, as macOS draws it: 24 high, the field colour with a
+ * hairline shadow, no border. Window stylesheets may place it; they do not restyle it.
+ */
+.ui-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 12px;
+  color: var(--ui-text);
+  background: var(--ui-field);
+  border: 0;
+  border-radius: var(--ui-radius-control);
+  box-shadow: var(--ui-shadow-control);
+  font: inherit;
+  font-size: var(--ui-font-body);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--ui-duration-fast) var(--ui-ease);
+}
+.ui-button:hover:not(:disabled) { background: var(--ui-control-hover); }
+.ui-button:active:not(:disabled) { filter: brightness(.95); }
+.ui-button:disabled, .ui-button.is-disabled { opacity: .45; cursor: default; }
+.ui-button.is-disabled { pointer-events: none; }
+.ui-button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+/* Inside a row of small controls. */
+.ui-button--small { height: 22px; padding: 0 8px; font-size: var(--ui-font-caption); }
+/* At the foot of a sheet, or in the toolbar of a tool window. */
+.ui-button--large { height: 28px; }
+
+/*
+ * The coloured kinds name the class twice: windows reset `button { color: inherit }` under their
+ * root class, which would otherwise win.
+ */
+/* At most one in a view: the one Return presses. */
+.ui-button.ui-button--primary { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
+.ui-button.ui-button--primary:hover:not(:disabled) { background: var(--ui-action-bg); filter: brightness(1.08); }
+/* Something that cannot be taken back, before it is confirmed: red words. */
+.ui-button.ui-button--danger { color: var(--ui-danger); }
+/* The confirming click of something that cannot be taken back: a red fill. */
+.ui-button.ui-button--destructive { color: var(--ui-action-text); background: var(--ui-danger); box-shadow: none; }
+.ui-button.ui-button--destructive:hover:not(:disabled) { background: var(--ui-danger); filter: brightness(1.08); }

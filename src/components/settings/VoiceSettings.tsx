@@ -82,7 +82,7 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
           {clones && clones.length > 0 && <optgroup label="克隆的声音">{clones.map((voice) => <option key={voice.id} value={`${CLONED_VOICE_PREFIX}${voice.id}`}>{voice.name}</option>)}</optgroup>}
           {missing && <option value={preferences.voice} disabled>已删除的声音</option>}
         </select>
-        <button type="button" className="settings-button settings-button--small voice-preview" aria-label={phase ? "停止试听" : "试听这个声音"} onClick={() => preview.toggle(PREVIEW_KEY, PREVIEW_TEXT)}>{previewLabel}</button>
+        <button type="button" className="ui-button ui-button--small voice-preview" aria-label={phase ? "停止试听" : "试听这个声音"} onClick={() => preview.toggle(PREVIEW_KEY, PREVIEW_TEXT)}>{previewLabel}</button>
       </div>
       <div className="settings-row voice-style">
         <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>{cloned ? "克隆音色默认保留录音里的感觉，也可以在这里调整" : "一句话写清语速和情绪"}</span></label>

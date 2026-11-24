@@ -53,13 +53,13 @@ export function UpdateRow() {
     case "latest":
       return (
         <Row title="软件更新" detail={state.kind === "checking" ? "正在检查…" : state.kind === "latest" ? "已经是最新版本" : "有新版本时，宠物也会提醒你"}>
-          <button type="button" className="settings-button settings-button--small" disabled={state.kind === "checking"} onClick={() => void checkNow()}>检查更新</button>
+          <button type="button" className="ui-button ui-button--small" disabled={state.kind === "checking"} onClick={() => void checkNow()}>检查更新</button>
         </Row>
       );
     case "available":
       return (
         <Row title={`有新版本 ${state.update.version}`} detail={state.update.notes || NO_NOTES}>
-          <button type="button" className="settings-button settings-button--small settings-button--primary" onClick={() => void install(state.update)}>下载并安装</button>
+          <button type="button" className="ui-button ui-button--small ui-button--primary" onClick={() => void install(state.update)}>下载并安装</button>
         </Row>
       );
     case "downloading":
@@ -71,14 +71,14 @@ export function UpdateRow() {
     case "ready":
       return (
         <Row title="新版本已经装好" detail="重启后就是新版本">
-          <button type="button" className="settings-button settings-button--small settings-button--primary" onClick={restart}>重启</button>
+          <button type="button" className="ui-button ui-button--small ui-button--primary" onClick={restart}>重启</button>
         </Row>
       );
     case "failed": {
       const { update } = state;
       return (
         <Row title="软件更新" detail={state.message}>
-          <button type="button" className="settings-button settings-button--small" onClick={() => void (update ? install(update) : checkNow())}>再试一次</button>
+          <button type="button" className="ui-button ui-button--small" onClick={() => void (update ? install(update) : checkNow())}>再试一次</button>
         </Row>
       );
     }
