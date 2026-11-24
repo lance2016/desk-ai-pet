@@ -1,19 +1,36 @@
-/* Shared neutral surfaces and controls for the app's native-style windows. */
+/*
+ * The one place colours, radii, shadows and type sizes are defined. Window stylesheets
+ * may give these a local name (`--label: var(--ui-text)`), never a second value.
+ * Greys are neutral, with no tint: the set System Settings uses.
+ */
 :root {
-  --ui-window: #f5f5f4;
+  --ui-window: #f3f3f3;
+  /* The sidebar where the system material is not there: the browser during development. */
+  --ui-sidebar: #e9e9e9;
   --ui-surface: #ffffff;
-  --ui-raised: #efeff1;
-  --ui-border: rgba(31, 30, 36, .08);
-  --ui-border-strong: rgba(31, 30, 36, .14);
-  --ui-text: #242329;
-  --ui-text-secondary: #5f5d66;
-  --ui-text-muted: #77757d;
-  --ui-fill: rgba(31, 30, 36, .045);
-  --ui-fill-strong: rgba(31, 30, 36, .08);
+  --ui-field: #ffffff;
+  --ui-raised: #ececec;
+  --ui-border: rgba(0, 0, 0, .08);
+  /* The hairline round a white group card. */
+  --ui-border-subtle: rgba(0, 0, 0, .06);
+  --ui-border-strong: rgba(0, 0, 0, .14);
+  --ui-text: #1d1d1f;
+  --ui-text-secondary: #6e6e73;
+  --ui-text-muted: #86868b;
+  --ui-fill: rgba(0, 0, 0, .04);
+  --ui-fill-strong: rgba(0, 0, 0, .08);
+  /* A selected row while its window is not in front. */
+  --ui-selection: rgba(0, 0, 0, .1);
+  --ui-sidebar-hover: var(--ui-fill);
+  --ui-header-hover: color-mix(in srgb, var(--ui-window), white 65%);
+  --ui-scrim: rgba(24, 24, 26, .45);
+
+  /* One accent for a whole window: primary buttons, switches, links, focus, the selected sidebar page. */
   --ui-accent: #6e56cf;
   --ui-accent-strong: #5b45b8;
   --ui-accent-soft: #efecfb;
   --ui-accent-ring: rgba(110, 86, 207, .3);
+  /* Anything filled with the accent, and what sits on it. */
   --ui-action-bg: #6e56cf;
   --ui-action-text: #ffffff;
   --ui-positive: #28734f;
@@ -22,10 +39,52 @@
   --ui-warning-soft: #f7f0e4;
   --ui-danger: #b3262d;
   --ui-danger-soft: #f8eceb;
+
+  /* Controls. */
+  --ui-control-hover: var(--ui-fill-strong);
+  --ui-segment-track: var(--ui-fill-strong);
+  --ui-segment-selected: var(--ui-field);
+  --ui-switch-track: var(--ui-fill-strong);
+  --ui-switch-on: var(--ui-action-bg);
+  --ui-search-fill: var(--ui-fill-strong);
+  --ui-search-border: transparent;
+  /* The up-down chevron of a pop-up button; drawn as an image, so dark mode swaps it below. */
+  --ui-popup-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4.5 4 1.5l3 3M1 7.5l3 3 3-3'/%3E%3C/svg%3E");
+
+  /* System colours for icon tiles: the settings sidebar, the feature guide and rows that lead to another page. */
+  --ui-tile-orange: #ff9500;
+  --ui-tile-yellow: #f5b400;
+  --ui-tile-green: #34c759;
+  --ui-tile-teal: #30b0c7;
+  --ui-tile-blue: #007aff;
+  --ui-tile-indigo: #5856d6;
+  --ui-tile-purple: #af52de;
+  --ui-tile-pink: #ff2d55;
+  --ui-tile-red: #ff3b30;
+  --ui-tile-gray: #8e8e93;
+  /* How much white the top of a tile's gradient takes. */
+  --ui-tile-highlight: 22%;
+
+  --ui-radius-window: 12px;
   --ui-radius-card: 10px;
   --ui-radius-row: 8px;
   --ui-radius-control: 6px;
-  --ui-shadow-popover: 0 8px 24px rgba(24, 23, 29, .12);
+  --ui-radius-tag: 4px;
+
+  /* A push button, the thumb of a segmented control. */
+  --ui-shadow-control: 0 .5px 1.5px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .05);
+  --ui-shadow-popover: 0 8px 24px rgba(0, 0, 0, .12);
+  --ui-focus-ring: 0 0 0 3px var(--ui-accent-ring);
+
+  /* Type sizes, largest first: page title, panel title, emphasised body, body, caption, footnote, badge. */
+  --ui-font-title: 22px;
+  --ui-font-headline: 17px;
+  --ui-font-emphasis: 15px;
+  --ui-font-body: 13px;
+  --ui-font-caption: 12px;
+  --ui-font-footnote: 11px;
+  --ui-font-badge: 10px;
+
   /* Motion: one curve that starts fast and settles. Short for hover and press, medium for what appears, long for sheets. */
   --ui-ease: cubic-bezier(.2, .8, .2, 1);
   --ui-duration-fast: 120ms;
@@ -35,28 +94,97 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ui-window: #222126;
-    --ui-surface: #2c2b31;
-    --ui-raised: #37363d;
-    --ui-border: rgba(255, 255, 255, .08);
+    --ui-window: #232323;
+    --ui-sidebar: #272727;
+    --ui-surface: #2d2d2d;
+    --ui-field: #3a3a3c;
+    --ui-raised: #3a3a3a;
+    --ui-border: rgba(255, 255, 255, .06);
+    --ui-border-subtle: rgba(255, 255, 255, .06);
     --ui-border-strong: rgba(255, 255, 255, .14);
-    --ui-text: #efedf2;
-    --ui-text-secondary: #c2c0c9;
-    --ui-text-muted: #a6a4ae;
+    --ui-text: #ededed;
+    --ui-text-secondary: #b0b0b0;
+    --ui-text-muted: #959595;
     --ui-fill: rgba(255, 255, 255, .05);
-    --ui-fill-strong: rgba(255, 255, 255, .09);
+    --ui-fill-strong: rgba(255, 255, 255, .1);
+    --ui-selection: rgba(255, 255, 255, .14);
+    --ui-sidebar-hover: rgba(255, 255, 255, .07);
+    --ui-header-hover: color-mix(in srgb, var(--ui-window), white 6%);
+    --ui-scrim: rgba(0, 0, 0, .55);
+
     --ui-accent: #b7a9e8;
     --ui-accent-strong: #c5b8ef;
     --ui-accent-soft: rgba(183, 169, 232, .15);
     --ui-accent-ring: rgba(183, 169, 232, .34);
     --ui-action-bg: #b7a9e8;
-    --ui-action-text: #242329;
+    --ui-action-text: #1d1d1f;
     --ui-positive: #78c89c;
     --ui-positive-soft: rgba(76, 195, 138, .13);
     --ui-warning: #e4b76f;
     --ui-warning-soft: rgba(228, 183, 111, .13);
     --ui-danger: #ff8580;
     --ui-danger-soft: rgba(255, 105, 97, .13);
+
+    --ui-control-hover: #494949;
+    --ui-segment-track: #393939;
+    --ui-segment-selected: #565656;
+    --ui-switch-track: #595959;
+    /* The light accent is too pale under the white knob. */
+    --ui-switch-on: #8a70cf;
+    --ui-search-fill: rgba(255, 255, 255, .095);
+    --ui-search-border: rgba(255, 255, 255, .11);
+    --ui-popup-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%23a1a1a6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4.5 4 1.5l3 3M1 7.5l3 3 3-3'/%3E%3C/svg%3E");
+
+    --ui-tile-orange: #ff9f0a;
+    --ui-tile-yellow: #ffcc00;
+    --ui-tile-green: #30d158;
+    --ui-tile-teal: #40c8e0;
+    --ui-tile-blue: #0a84ff;
+    --ui-tile-indigo: #5e5ce6;
+    --ui-tile-purple: #bf5af2;
+    --ui-tile-pink: #ff375f;
+    --ui-tile-red: #ff453a;
+    --ui-tile-gray: #98989d;
+    --ui-tile-highlight: 9%;
+
+    --ui-shadow-control: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
     --ui-shadow-popover: 0 10px 28px rgba(0, 0, 0, .28);
+  }
+}
+
+/*
+ * Panels that sit on the system's popover material (reminders, notes, links, coding). Text and
+ * lines are see-through so the material shows; the roles keep their names, only the values change.
+ */
+.ui-on-material {
+  --ui-text: rgba(0, 0, 0, .85);
+  --ui-text-secondary: rgba(0, 0, 0, .5);
+  --ui-text-muted: rgba(0, 0, 0, .26);
+  --ui-border: rgba(0, 0, 0, .09);
+  --ui-border-strong: rgba(0, 0, 0, .12);
+  --ui-fill: rgba(0, 0, 0, .05);
+  --ui-fill-strong: rgba(0, 0, 0, .09);
+  --ui-field: rgba(255, 255, 255, .75);
+  --ui-selection: rgba(0, 0, 0, .12);
+  /* Laid over the material, stopped at the window's rounded corners. */
+  --ui-material-tint: rgba(250, 250, 250, .5);
+  /* The dark toast at the bottom of a panel ("已完成 · 撤销"). */
+  --ui-hud: rgba(38, 38, 40, .88);
+  --ui-hud-text: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ui-on-material {
+    --ui-text: rgba(255, 255, 255, .88);
+    --ui-text-secondary: rgba(255, 255, 255, .55);
+    --ui-text-muted: rgba(255, 255, 255, .28);
+    --ui-border: rgba(255, 255, 255, .1);
+    --ui-border-strong: rgba(255, 255, 255, .14);
+    --ui-fill: rgba(255, 255, 255, .06);
+    --ui-fill-strong: rgba(255, 255, 255, .11);
+    --ui-field: rgba(255, 255, 255, .07);
+    --ui-selection: rgba(255, 255, 255, .15);
+    --ui-material-tint: rgba(30, 30, 30, .35);
+    --ui-hud: rgba(72, 72, 74, .92);
   }
 }
