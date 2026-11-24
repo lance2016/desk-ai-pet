@@ -307,7 +307,7 @@ button.dock-row__body { cursor: pointer; }
 .prompt-field summary { display: inline-block; color: var(--accent-strong); font-size: var(--ui-font-caption); line-height: 22px; border-radius: var(--ui-radius-tag); cursor: pointer; }
 @media (prefers-color-scheme: dark) { .prompt-field summary { color: var(--accent); } }
 .prompt-field summary:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
-.prompt-field textarea { display: block; clear: both; box-sizing: border-box; width: 100%; height: 200px; margin-top: 8px; padding: 8px 10px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-size: var(--ui-font-caption); line-height: 1.55; resize: vertical; }
+.prompt-field textarea { clear: both; height: 200px; margin-top: 8px; }
 .prompt-field__foot { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 0; }
 .prompt-field__foot span { flex: 1; min-width: 0; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.45; }
 /* Named twice over: `.settings-page button` resets colour and size with more weight than one class alone. */
@@ -415,7 +415,7 @@ button.dock-row__body { cursor: pointer; }
 .character-profile__instructions { padding: 12px 0; border-top: 1px solid var(--separator); }
 .character-profile__instructions label { display: block; font-size: var(--ui-font-caption); }
 .character-profile__instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.5; }
-.character-profile__instructions textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; padding: 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.character-profile__instructions textarea { min-height: 76px; }
 
 .ai-settings { padding: 14px 12px; }
 .ai-settings__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
@@ -458,9 +458,8 @@ button.dock-row__body { cursor: pointer; }
 .mail-tester label { display: block; margin: 0 0 6px; font-weight: 500; }
 .mail-tester label span { color: var(--label-2); font-weight: 400; }
 .mail-tester .ui-field { display: block; width: 100%; }
-.mail-tester textarea { box-sizing: border-box; display: block; width: 100%; padding: 4px 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .mail-tester input { height: 26px; margin-bottom: 10px; }
-.mail-tester textarea { height: 120px; resize: vertical; font-size: var(--ui-font-caption); line-height: 1.55; }
+.mail-tester textarea { height: 120px; }
 .mail-tester__hint { margin: 10px 0 0; }
 /* The answer: a tinted row whose colour says how it went, the same row for every outcome. */
 .mail-tester__result { margin: 10px 0 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; color: var(--label-2); background: var(--fill); border-radius: var(--radius-row); font-size: var(--ui-font-footnote); line-height: 1.6; }
@@ -478,7 +477,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-instructions { margin-top: 10px; padding: 12px; }
 .ai-instructions label { display: block; margin-bottom: 6px; font-weight: 500; }
 .ai-instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.5; }
-.ai-instructions textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; padding: 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .ai-instructions__foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; color: var(--label-2); font-size: var(--ui-font-footnote); }
 .ai-preview__head { display: flex; align-items: center; gap: 16px; }
 .ai-preview__head > div { flex: 1; min-width: 0; }
@@ -526,7 +524,7 @@ button.dock-row__body { cursor: pointer; }
 /* The rules part by part: each reads like a settings row with its text under the title. */
 .ai-prompt-part__badge { padding: 1px 6px; color: var(--orange); background: var(--orange-wash); border-radius: var(--ui-radius-tag); font-size: var(--ui-font-footnote); }
 .ai-prompt-part__editor { margin-top: 6px; }
-.ai-prompt-part__editor textarea { box-sizing: border-box; width: 100%; min-height: 120px; resize: vertical; padding: 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: 12px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+.ai-prompt-part__editor textarea { min-height: 120px; }
 .ai-prompt-part__actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .ai-prompt-part__actions span { margin-right: auto; color: var(--label-2); font-size: var(--ui-font-footnote); }
 .ai-prompt-full, .ai-log pre { max-height: 360px; overflow: auto; margin: 0 0 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; background: var(--fill); border-radius: var(--radius-control); font: 12px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
@@ -585,8 +583,7 @@ button.dock-row__body { cursor: pointer; }
 .ai-preference { display: grid; gap: 6px; margin-bottom: 12px; font-weight: 500; }
 .ai-preference:last-child { margin-bottom: 0; }
 .ai-preference :is(.ui-field, .ui-select) { width: 100%; font-weight: 400; }
-.ai-preference textarea { box-sizing: border-box; width: 100%; padding: 4px 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-weight: 400; }
-.ai-preference textarea { height: 64px; resize: vertical; }
+.ai-preference textarea { height: 64px; }
 .ai-preference__count { justify-self: end; color: var(--label-3); font-size: var(--ui-font-footnote); font-weight: 400; font-variant-numeric: tabular-nums; }
 
 .look-settings { padding-top: 4px; padding-bottom: 4px; }
@@ -827,8 +824,7 @@ button.dock-row__body { cursor: pointer; }
 /* The style line spans the row: its label above, the field under it, the count and reset below. */
 .voice-style { flex-wrap: wrap; row-gap: 8px; }
 .voice-style > .settings-row__body { flex-basis: 100%; }
-.voice-style textarea { box-sizing: border-box; flex-basis: 100%; min-height: 52px; resize: vertical; padding: 6px 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: inherit; line-height: 1.5; }
-.voice-style textarea:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); border-color: var(--accent); }
+.voice-style textarea { flex-basis: 100%; min-height: 52px; }
 .voice-style__foot { flex-basis: 100%; display: flex; justify-content: space-between; align-items: center; }
 .voice-style__foot small { color: var(--label-3); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
 

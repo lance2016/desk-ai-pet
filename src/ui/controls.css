@@ -78,6 +78,20 @@
 .ui-field:disabled { opacity: .45; }
 .ui-field--small { height: 24px; padding: 0 6px; font-size: var(--ui-font-caption); }
 
+/*
+ * A multi-line text field: the one-line field's border, fill and focus, regular weight, growing
+ * downwards. Named twice: windows reset `textarea { font: inherit }` under their root class. Where it
+ * sits sets its width and height; controls.css comes last, so do that with a heavier selector too.
+ */
+.ui-textarea.ui-textarea { box-sizing: border-box; display: block; width: 100%; min-width: 0; padding: 6px 8px; color: var(--ui-text); background: var(--ui-field); border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-control); font: inherit; font-size: var(--ui-font-body); font-weight: 400; line-height: 1.5; resize: vertical; outline: none; user-select: text; -webkit-user-select: text; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.ui-textarea::placeholder { color: var(--ui-text-muted); }
+.ui-textarea.ui-textarea:focus { border-color: var(--ui-accent); box-shadow: var(--ui-focus-ring); }
+.ui-textarea:disabled { opacity: .45; }
+/* Long text to read through: a prompt, a pasted e-mail. */
+.ui-textarea.ui-textarea--small { font-size: var(--ui-font-caption); line-height: 1.55; }
+/* The main input of a tool window (the text to translate): roomier, with a card's corners. */
+.ui-textarea.ui-textarea--large { padding: 12px 14px; background: var(--ui-surface); border-radius: var(--ui-radius-card); line-height: 1.6; }
+
 /* A pop-up button: looks like a push button with the up-down chevron. */
 .ui-select { box-sizing: border-box; appearance: none; -webkit-appearance: none; height: 24px; min-width: 88px; margin: 0; padding: 0 26px 0 10px; color: var(--ui-text); background: var(--ui-field) var(--ui-popup-arrow) no-repeat right 9px center / 8px 12px; border: 0; border-radius: var(--ui-radius-control); box-shadow: var(--ui-shadow-control); font: inherit; cursor: pointer; }
 .ui-select:hover:not(:disabled) { background-color: var(--ui-control-hover); }
@@ -102,5 +116,5 @@
 .ui-search--small input { font-size: var(--ui-font-caption); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-field, .ui-search { transition: none; }
+  .ui-field, .ui-search, .ui-textarea.ui-textarea { transition: none; }
 }

@@ -25,7 +25,7 @@ export function PromptField({ copyLabel, copyText, summary, value, fallback, not
     <CopyButton className={primary ? "ui-button ui-button--small ui-button--primary" : "ui-button ui-button--small"} text={copyText} onMessage={onMessage}>{copyLabel}</CopyButton>
     <details>
       <summary>{summary}</summary>
-      <textarea aria-label={summary} value={value} maxLength={ART_PROMPT_MAX_CHARS} spellCheck={false} onChange={(event) => onChange(event.currentTarget.value)} />
+      <textarea className="ui-textarea ui-textarea--small" aria-label={summary} value={value} maxLength={ART_PROMPT_MAX_CHARS} spellCheck={false} onChange={(event) => onChange(event.currentTarget.value)} />
       <p className="prompt-field__foot">
         <span>{note}</span>
         {value !== fallback && <ConfirmButton className="ui-link" confirm={{ message: "恢复默认提示词？", detail: "你改过的文字会换回自带的写法。", action: "恢复默认" }} onConfirm={() => onChange(fallback)}>恢复默认</ConfirmButton>}

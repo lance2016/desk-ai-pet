@@ -33,7 +33,7 @@ function RuleEditor({ id, section, onSaved, onError }: { id: ChatRuleId; section
     catch (reason) { console.error("Could not save the chat rule", reason); onError("规则没能保存，请再试一次。"); }
   };
   return <div className="ai-prompt-part__editor">
-    <textarea aria-label={`编辑「${section.title}」的规则`} value={draft} maxLength={CHAT_RULE_LIMIT} autoFocus onChange={(event) => setDraft(event.currentTarget.value)} />
+    <textarea className="ui-textarea ui-textarea--small" aria-label={`编辑「${section.title}」的规则`} value={draft} maxLength={CHAT_RULE_LIMIT} autoFocus onChange={(event) => setDraft(event.currentTarget.value)} />
     <div className="ai-prompt-part__actions">
       <span>{draft.length} / {CHAT_RULE_LIMIT}</span>
       {section.text !== section.default && <ConfirmButton className="ui-button ui-button--small" confirm={{ message: `把「${section.title}」的规则恢复成默认？`, detail: "你改过的内容会被替换，不能撤销。", action: "恢复默认" }} onConfirm={() => save(null)}>恢复默认</ConfirmButton>}

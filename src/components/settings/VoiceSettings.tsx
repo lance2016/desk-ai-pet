@@ -86,7 +86,7 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
       </div>
       <div className="settings-row voice-style">
         <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>{cloned ? "克隆音色默认保留录音里的感觉，也可以在这里调整" : "一句话写清语速和情绪"}</span></label>
-        <textarea id="voice-style" value={cloned && preferences.style === defaultStyle ? "" : preferences.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={cloned ? "留空保留录音音色；填写后调整语速和情绪" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ ...preferences, style: event.currentTarget.value })} />
+        <textarea className="ui-textarea" id="voice-style" value={cloned && preferences.style === defaultStyle ? "" : preferences.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={cloned ? "留空保留录音音色；填写后调整语速和情绪" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ ...preferences, style: event.currentTarget.value })} />
         <span className="voice-style__foot">{changed ? <button type="button" className="ui-link" onClick={reset}>恢复{characterName}的默认声音</button> : <span />}<small>{preferences.style.length} / {PERSONA_LIMITS.voiceStyle}</small></span>
       </div>
       <button type="button" className="settings-row settings-link" onClick={onOpenClones}>{clonesIcon}<span className="settings-row__body"><strong>克隆的声音</strong><span>{clones?.length ? `已有 ${clones.length} 个，录一段或选个文件再加` : "录一段或选个文件，让角色用这个声音说话"}</span></span><Chevron /></button>

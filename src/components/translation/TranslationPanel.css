@@ -37,9 +37,7 @@ html[data-window="translation"], html[data-window="translation"] body, html[data
 .translation-hint { margin: 0; color: var(--label-2); font-size: var(--ui-font-caption); }
 .translation-language { display: flex; align-items: center; gap: 8px; margin: 14px 0 8px; color: var(--label-2); }
 .translation select { padding: 2px 4px; color: var(--accent-strong); background: transparent; border: 0; border-radius: var(--radius-control); font-weight: 600; cursor: pointer; }
-.translation textarea { width: 100%; min-height: 130px; padding: 12px 14px; resize: vertical; color: var(--label); background: var(--group); border: 1px solid var(--field-border); border-radius: var(--radius-group); outline: none; line-height: 1.6; }
-.translation textarea:focus { border-color: var(--accent); box-shadow: var(--ui-focus-ring); }
-.translation textarea::placeholder { color: var(--label-2); }
+.translation textarea { min-height: 130px; }
 
 .translation-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
 .translation-actions span { color: var(--label-2); font-size: var(--ui-font-caption); }

@@ -61,7 +61,7 @@ export function CharacterProfileSettings({ packId, persona, actions, current, on
     <div className="settings-section__intro"><h2>当前角色</h2><p>以下内容只影响「{preferences.name}」，不改变其他角色</p></div>
     <article className="settings-card ai-settings">
       <label className="ai-preference">名字<input className="ui-field" value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => { update({ ...preferences, name: preferences.name.trim() || defaults.name }); onCatalogChange(); }} /></label>
-      <label className="ai-preference"><strong>性格</strong><textarea value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">{preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
+      <label className="ai-preference"><strong>性格</strong><textarea className="ui-textarea" value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">{preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
       <div className="ai-settings__actions">
         <ConfirmButton confirm={{ message: "改回默认的名字和性格？", detail: "你改过的名字和性格会换回默认，回复长度不变。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认</ConfirmButton>
       </div>
@@ -73,7 +73,7 @@ export function CharacterProfileSettings({ packId, persona, actions, current, on
       <div className="character-profile__instructions">
         <label htmlFor="character-instructions"><strong>补充要求</strong></label>
         <p>只对「{preferences.name}」生效，例如聊天时简短一些，讨论技术问题时详细解释。</p>
-        <textarea id="character-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="给这只角色补充说话或回复要求" onChange={(event) => updateInstructions(event.currentTarget.value)} />
+        <textarea className="ui-textarea" id="character-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="给这只角色补充说话或回复要求" onChange={(event) => updateInstructions(event.currentTarget.value)} />
         <div className="ai-instructions__foot"><span>自动保存</span><span>{instructions.length} / {CHAT_INSTRUCTIONS_LIMIT}</span></div>
       </div>
     </div>

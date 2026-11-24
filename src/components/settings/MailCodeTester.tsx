@@ -98,7 +98,7 @@ export function MailCodeTester() {
       <label htmlFor="mail-tester-subject">标题<span>（可选）</span></label>
       <input className="ui-field ui-field--small" id="mail-tester-subject" type="text" spellCheck={false} maxLength={TRY_TEXT_LIMIT} value={subject} onChange={(event) => setSubject(event.currentTarget.value)} placeholder="例如：Your login code" />
       <label htmlFor="mail-tester-body">正文</label>
-      <textarea id="mail-tester-body" spellCheck={false} maxLength={TRY_TEXT_LIMIT} value={body} onChange={(event) => setBody(event.currentTarget.value)} placeholder="把邮件正文复制过来" />
+      <textarea className="ui-textarea ui-textarea--small" id="mail-tester-body" spellCheck={false} maxLength={TRY_TEXT_LIMIT} value={body} onChange={(event) => setBody(event.currentTarget.value)} placeholder="把邮件正文复制过来" />
       <div role="status" aria-live="polite"><Result outcome={outcome} subject={subject} body={body} /></div>
     </div>
   );
