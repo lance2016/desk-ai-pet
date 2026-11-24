@@ -97,8 +97,8 @@ export function SelectionFloat() {
   }
   return <section className="selection-result" aria-label={`${ACTIONS[action].label}结果`}>
     <header>
-      <div className="selection-result__tabs" role="group" aria-label="换一种处理">
-        {ORDER.map((id) => <button key={id} type="button" aria-pressed={id === action} className={id === action ? "is-current" : undefined} onClick={() => { if (id !== action) void run(id); }}>{ACTIONS[id].label}</button>)}
+      <div className="ui-segmented" role="group" aria-label="换一种处理">
+        {ORDER.map((id) => <button key={id} type="button" aria-pressed={id === action} className={id === action ? "is-selected" : undefined} onClick={() => { if (id !== action) void run(id); }}>{ACTIONS[id].label}</button>)}
       </div>
       <button type="button" className="selection-result__close" onClick={close} aria-label="关闭" title="关闭"><Icon name="close" /></button>
     </header>

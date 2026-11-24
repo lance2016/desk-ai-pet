@@ -15,8 +15,9 @@ html[data-window="selection-float"], html[data-window="selection-float"] body, h
   .selection-float, .selection-result { color-scheme: dark; }
 }
 .selection-float { display: flex; align-items: center; gap: 1px; padding: 4px; }
-.selection-float button, .selection-result button { border: 0; border-radius: var(--radius-control); color: inherit; background: transparent; font: inherit; cursor: pointer; }
-.selection-float button:hover, .selection-result button:hover { background: var(--fill); }
+/* The segmented control in the result card is drawn by controls.css; `:where` keeps these rules at their weight. */
+.selection-float button, .selection-result button:where(:not(.ui-segmented button)) { border: 0; border-radius: var(--radius-control); color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.selection-float button:hover, .selection-result button:where(:not(.ui-segmented button)):hover { background: var(--fill); }
 .selection-float button:focus-visible, .selection-result button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 .selection-float button { flex: 1; height: 100%; white-space: nowrap; }
 .selection-float button.is-primary { color: var(--accent-strong); font-weight: 600; }
@@ -27,10 +28,6 @@ html[data-window="selection-float"], html[data-window="selection-float"] body, h
 .selection-result { display: flex; flex-direction: column; padding: 10px 12px 8px; gap: 8px; }
 .selection-result header, .selection-result footer { display: flex; align-items: center; justify-content: space-between; }
 .selection-result__close { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; color: var(--label-2); }
-/* Switches what is done with the same text, like a segmented control. */
-.selection-result__tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--ui-radius-control); }
-.selection-result__tabs button { padding: 4px 8px; color: var(--label-2); }
-.selection-result__tabs button.is-current { color: var(--label); background: var(--surface); box-shadow: var(--ui-shadow-control); font-weight: 600; }
 .selection-result__body { flex: 1; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: var(--ui-font-body); user-select: text; }
 .selection-result__message { margin: 0; color: var(--label-2); }
 .selection-result footer { justify-content: flex-end; gap: 4px; }
