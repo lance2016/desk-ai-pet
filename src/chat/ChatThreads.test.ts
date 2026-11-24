@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHARACTER_DATA, characterKey } from "../preferences/CharacterPreferences";
 import { createMemoryStorage } from "../testing/fixtures";
-import { CHAT_LIMITS, cleanTitle, clearThreads, loadAutoTitles, loadThreads, openingLine, recordThread, removeThread, retitleThread, saveAutoTitles, saveThreads, threadTitle, type ChatThread } from "./ChatThreads";
+import { CHAT_LIMITS, cleanTitle, clearThreads, keptEffects, loadAutoTitles, loadThreads, openingLine, recordThread, removeThread, retitleThread, saveAutoTitles, saveThreads, threadTitle, type ChatThread } from "./ChatThreads";
 import { containsWebAddress, findWebAddresses, LINK_CONTEXT_BUDGET, webConversationStart } from "./ReadLinks";
 import { loadReadLinks, saveReadLinks } from "../preferences/ReadLinkPreferences";
 
@@ -105,6 +105,39 @@ describe("thread storage", () => {
     saveThreads(PACK, recordThread([], "image", [message], 1), storage);
     expect(loadThreads(PACK, storage).threads[0].messages).toEqual([{ ...user("看看截图"), readLink: "image", image }]);
     expect(storage.getItem(threadsKey)).not.toContain("data:image");
+  });
+});
+
+describe("what a reply did", () => {
+  it("keeps the lines for what the tools did with the reply, so the chat window shows them later", () => {
+    const storage = createMemoryStorage();
+    const effects = keptEffects([
+      { kind: "agenda", id: "r1", text: "已设提醒：明早 9:00 开会", undo: () => {} },
+      { kind: "agenda", id: "r2", text: "已删掉提醒：交周报" },
+      { kind: "failed", text: "没能改提醒：找不到「买菜」" },
+    ]);
+    const reply = { ...assistant("都弄好了"), effects };
+    saveThreads(PACK, recordThread([], "a", [user("帮我改提醒"), reply], 1), storage);
+    expect(loadThreads(PACK, storage).threads[0].messages[1].effects).toEqual([
+      { text: "已设提醒：明早 9:00 开会" },
+      { text: "已删掉提醒：交周报" },
+      { text: "没能改提醒：找不到「买菜」", failed: true },
+    ]);
+  });
+
+  it("leaves a reply that did nothing as it was, and reads replies saved before lines were kept", () => {
+    expect(keptEffects([])).toBeUndefined();
+    const storage = createMemoryStorage({ [threadsKey]: JSON.stringify([{ id: "a", title: "旧", updatedAt: 1, messages: [user("旧"), assistant("好")] }]) });
+    expect(loadThreads(PACK, storage)).toMatchObject({ valid: true, threads: [{ messages: [user("旧"), assistant("好")] }] });
+  });
+
+  it("stays within what the store accepts, so a long line never stops the reply from being kept", () => {
+    const many = Array.from({ length: CHAT_LIMITS.effects + 5 }, (_, index) => ({ kind: "note" as const, text: `已存进备忘：${"长".repeat(1000)}${index}` }));
+    const effects = keptEffects(many) ?? [];
+    expect(effects).toHaveLength(CHAT_LIMITS.effects);
+    const storage = createMemoryStorage();
+    saveThreads(PACK, recordThread([], "a", [user("存"), { ...assistant("好"), effects }], 1), storage);
+    expect(loadThreads(PACK, storage).valid).toBe(true);
   });
 });
 

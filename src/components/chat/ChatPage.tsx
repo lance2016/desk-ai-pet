@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
 import { ai, type EffectLine } from "../../ai";
 import { chatContext } from "../../agenda/chatTools";
 import { currentChatFacts } from "../../facts/FactStore";
@@ -14,7 +14,7 @@ import { NOTE_LIMITS } from "../../notes/NoteStore";
 import { keepNote } from "../../worklog/store";
 import { CHAT_SKILLS } from "../../skills";
 import { ControlIcon } from "../ControlIcon";
-import { CHAT_LIMITS, clearThreads, contextMessages, loadThreads, openingLine, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
+import { CHAT_LIMITS, clearThreads, contextMessages, keptEffects, loadThreads, openingLine, recordThread, removeThread, restoreThread, retitleThread, saveThreads, touchesThreads, type ChatThread } from "../../chat/ChatThreads";
 import { actionImages, loadCharacterPack } from "../../assets/PackCatalog";
 import { chatPlatform, type ChatMessage } from "../../platform/chat";
 import { mimoPlatform } from "../../platform/mimo";
@@ -66,7 +66,8 @@ const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.r
 const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 const sameMessages = (a: readonly ChatMessage[], b: readonly ChatMessage[]) => a.length === b.length && a.every((message, index) =>
   message.role === b[index].role && message.content === b[index].content && message.readLink === b[index].readLink
-  && message.image?.id === b[index].image?.id && message.file?.label === b[index].file?.label && JSON.stringify(message.web) === JSON.stringify(b[index].web));
+  && message.image?.id === b[index].image?.id && message.file?.label === b[index].file?.label && JSON.stringify(message.web) === JSON.stringify(b[index].web)
+  && JSON.stringify(message.effects) === JSON.stringify(b[index].effects));
 /** A text file waiting in the composer: sent as a data block after the user's words. */
 type DraftFile = { name: string; handed: Handover };
 /** Characters of a file name kept with the message. */
@@ -300,7 +301,8 @@ export function ChatPage({ packId }: { packId: string }) {
       if (disposed || event.id !== active.current) return;
       active.current = null; setPending(false);
       // What the tools did happened even when the reply then failed or was stopped.
-      setSavedLines(linesRef.current);
+      const lines = linesRef.current;
+      setSavedLines(lines);
       linesRef.current = [];
       // A reply the user stopped is kept as far as it got; one that failed is dropped.
       const partial = event.kind === "cancelled" && replyRef.current.trim() ? `${replyRef.current.trimEnd()}\n\n${STOPPED_MARK}` : "";
@@ -308,7 +310,8 @@ export function ChatPage({ packId }: { packId: string }) {
       const completed = event.kind === "done" && replyRef.current.trim()
         ? `${replyRef.current}${event.text === "length" && !web ? `\n\n${CUT_OFF_MARK}` : ""}` : partial;
       if (completed) {
-        setMessages((current) => [...current, { role: "assistant" as const, content: completed, web }].slice(-CHAT_LIMITS.messages));
+        const effects = keptEffects(lines);
+        setMessages((current) => [...current, { role: "assistant" as const, content: completed, web, effects }].slice(-CHAT_LIMITS.messages));
         setAnnouncement(markdownToPlain(completed));
       } else if (event.kind === "done") setError("没有收到回复，请重试。");
       else if (event.kind === "web-error") { setFailure("other"); setError(event.text); }
@@ -687,7 +690,11 @@ export function ChatPage({ packId }: { packId: string }) {
           ))}
         </div>
       </div>}
-      {messages.map((message, index) => message.role === "assistant" ? assistantRow(message.content, index, message.web) : <div key={index} className="chat-row chat-row--user">
+      {messages.map((message, index) => message.role === "assistant" ? <Fragment key={index}>
+        {assistantRow(message.content, index, message.web)}
+        {/* The latest reply's lines show below with their buttons while it is on screen; the kept words stand in for them later. */}
+        {message.effects && !(index === messages.length - 1 && savedLines.length > 0) && <div className="chat-saved">{message.effects.map((line, at) => <div key={at} className={line.failed ? "chat-saved__item is-failed" : "chat-saved__item"}><span>{line.text}</span></div>)}</div>}
+      </Fragment> : <div key={index} className="chat-row chat-row--user">
         <div className="chat-bubble chat-bubble--user">
           {message.image && <div className="chat-sent-image">
             {sentImage?.id === message.image.id && <img src={sentImage.dataUrl} alt={message.image.name} />}

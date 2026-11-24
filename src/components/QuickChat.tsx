@@ -3,7 +3,7 @@ import { ai, type EffectLine, type Skill } from "../ai";
 import { chatContext } from "../agenda/chatTools";
 import { currentChatFacts } from "../facts/FactStore";
 import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
-import { contextMessages, loadThreads, openingLine, recordThread, saveThreads } from "../chat/ChatThreads";
+import { contextMessages, keptEffects, loadThreads, openingLine, recordThread, saveThreads } from "../chat/ChatThreads";
 import { QUICK_CHAT_CONFIG, answerable, pickQuickThread, plainReply, quickHistory, replyLingerMs, withoutLastLine, type Spoken } from "../chat/QuickChat";
 import type { PetRuntime } from "../core/PetRuntime";
 import { fitSpeech } from "../core/SpeechQueue";
@@ -139,14 +139,13 @@ function threadFromLine(packId: string, line: string): string | null {
   return id;
 }
 
-/** Saves the finished reply into its thread and names a new thread after its first exchange. */
+/** Saves the finished reply, with what its tools did, into its thread and names a new thread after its first exchange. */
 function saveReply(packId: string, request: Request, text: string): void {
   const fresh = loadThreads(packId);
   if (!fresh.valid) throw new Error("Chat threads are unreadable");
   const thread = fresh.threads.find((item) => item.id === request.threadId);
-  const messages = [...(thread?.messages ?? request.history), { role: "assistant" as const, content: text }];
+  const messages = [...(thread?.messages ?? request.history), { role: "assistant" as const, content: text, effects: keptEffects(request.lines) }];
   saveThreads(packId, recordThread(fresh.threads, request.threadId, messages, Date.now()));
-
 }
 
 /**

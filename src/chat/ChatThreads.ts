@@ -1,15 +1,17 @@
 import { z } from "zod";
-import type { ChatMessage } from "../platform/chat";
+import type { EffectLine } from "../ai";
+import type { ChatMessage, KeptEffect } from "../platform/chat";
 import { CHARACTER_DATA, characterKey } from "../preferences/CharacterPreferences";
 import { LINK_CONTEXT_BUDGET, webModeSchema, webReplySchema } from "./ReadLinks";
 import { chatImageSchema } from "./ChatImage";
 
 /**
  * Messages kept and shown per thread; the latest of them sent to the model as
- * context; threads kept per character; title length.
+ * context; threads kept per character; title length; lines kept for what one reply did.
  */
-export const CHAT_LIMITS = { messages: 200, context: 30, threads: 20, titleChars: 18 } as const;
+export const CHAT_LIMITS = { messages: 200, context: 30, threads: 20, titleChars: 18, effects: 20 } as const;
 const MAX_MESSAGE_CHARS = 16000;
+const MAX_EFFECT_CHARS = 200;
 const FALLBACK_TITLE = "新聊天";
 /** Global switch: normalize each new thread title locally. */
 const AUTO_TITLES_KEY = "ai-pet:chat-auto-titles:v1";
@@ -23,6 +25,7 @@ const messagesSchema = z.array(z.object({
   /** A text file sent with the message; its text is in `content`, after the user's words. */
   file: z.object({ name: z.string().min(1).max(128), label: z.string().min(1).max(128) }).optional(),
   unprompted: z.literal(true).optional(),
+  effects: z.array(z.object({ text: z.string().min(1).max(MAX_EFFECT_CHARS), failed: z.literal(true).optional() })).max(CHAT_LIMITS.effects).optional(),
 })).max(CHAT_LIMITS.messages);
 const threadsSchema = z.array(z.object({
   id: z.string().min(1).max(100),
@@ -43,6 +46,21 @@ const legacyKey = (packId: string) => characterKey(packId, CHARACTER_DATA.chatHi
 function shorten(text: string): string {
   const chars = [...text];
   return chars.length > CHAT_LIMITS.titleChars ? `${chars.slice(0, CHAT_LIMITS.titleChars).join("")}…` : text;
+}
+
+/** What a reply's tools did, to keep with the reply: the words only (undo lasts while the reply is on screen). None when it did nothing. */
+export function keptEffects(lines: readonly EffectLine[]): KeptEffect[] | undefined {
+  const kept = lines.filter((line) => line.text.trim()).slice(0, CHAT_LIMITS.effects).map((line): KeptEffect => {
+    let text = line.text;
+    // The limit counts UTF-16 units; cut whole characters so an emoji is never split.
+    if (text.length > MAX_EFFECT_CHARS) {
+      let cut = "";
+      for (const char of text) { if (cut.length + char.length > MAX_EFFECT_CHARS - 1) break; cut += char; }
+      text = `${cut}…`;
+    }
+    return line.kind === "failed" ? { text, failed: true } : { text };
+  });
+  return kept.length > 0 ? kept : undefined;
 }
 
 /** The first thing the user said, on one line and cut short. */
