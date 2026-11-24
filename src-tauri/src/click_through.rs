@@ -11,6 +11,11 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 /// Emitted to the webview with `true` when the cursor moves onto the pet and
 /// `false` when it leaves.
 const HOVER_EVENT: &str = "pet://hover";
+/// Emitted with the cursor's `[x, y]` in the window, in logical pixels, each
+/// time it moves while on the pet. WebKit freezes `:hover` in a window that is
+/// not the key window, which the pet's panel never is until clicked, so the
+/// page marks what is under the cursor itself.
+const POINTER_EVENT: &str = "pet://pointer";
 const POLL_INTERVAL: Duration = Duration::from_millis(40);
 
 /// Which cells of the window are drawn, as rows of square cells from the top left.
@@ -98,9 +103,9 @@ fn cursor_in_window(cursor: (f64, f64), primary_scale: f64, origin: (f64, f64), 
     )
 }
 
-/// Whether the cursor is over a drawn part of the window. `None` when it
-/// cannot be told yet, in which case the window is left as it is.
-fn cursor_over_pet(app: &AppHandle, window: &WebviewWindow) -> Option<bool> {
+/// Whether the cursor is over a drawn part of the window, and where it is in it.
+/// `None` when it cannot be told yet, in which case the window is left as it is.
+fn cursor_over_pet(app: &AppHandle, window: &WebviewWindow) -> Option<(bool, (f64, f64))> {
     // Read the window first: these calls wait for the main thread, which must
     // not happen while the mask is locked.
     let cursor = app.cursor_position().ok()?;
@@ -116,7 +121,7 @@ fn cursor_over_pet(app: &AppHandle, window: &WebviewWindow) -> Option<bool> {
 
     let mask = app.state::<HitMask>();
     let current = mask.0.lock().ok()?;
-    current.as_ref().map(|grid| grid.contains(x, y))
+    current.as_ref().map(|grid| (grid.contains(x, y), (x, y)))
 }
 
 /// Where the press in progress began, from the window's state when it was first seen.
@@ -134,6 +139,7 @@ pub fn start(app: AppHandle, window_label: &'static str) {
     thread::spawn(move || {
         let mut over_pet: Option<bool> = None;
         let mut pressed_on_pet: Option<bool> = None;
+        let mut last_pointer: Option<(f64, f64)> = None;
         loop {
             thread::sleep(POLL_INTERVAL);
             // A press that began on the pet (a drag, a menu) must keep going to
@@ -151,20 +157,25 @@ pub fn start(app: AppHandle, window_label: &'static str) {
             if !window.is_visible().unwrap_or(true) {
                 continue;
             }
-            let Some(now_over) = cursor_over_pet(&app, &window) else {
+            let Some((now_over, pointer)) = cursor_over_pet(&app, &window) else {
                 continue;
             };
-            if over_pet == Some(now_over) {
-                continue;
-            }
-            match window.set_ignore_cursor_events(!now_over) {
-                Ok(()) => {
-                    over_pet = Some(now_over);
-                    if let Err(error) = app.emit(HOVER_EVENT, now_over) {
-                        log::warn!("failed to emit hover event: {error}");
-                    }
+            if over_pet != Some(now_over) {
+                if let Err(error) = window.set_ignore_cursor_events(!now_over) {
+                    log::warn!("failed to switch click-through: {error}");
+                    continue;
                 }
-                Err(error) => log::warn!("failed to switch click-through: {error}"),
+                over_pet = Some(now_over);
+                if let Err(error) = app.emit(HOVER_EVENT, now_over) {
+                    log::warn!("failed to emit hover event: {error}");
+                }
+            }
+            let moved = now_over && last_pointer != Some(pointer);
+            last_pointer = now_over.then_some(pointer);
+            if moved {
+                if let Err(error) = app.emit(POINTER_EVENT, pointer) {
+                    log::warn!("failed to emit pointer event: {error}");
+                }
             }
         }
     });

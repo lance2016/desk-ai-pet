@@ -16,6 +16,7 @@ const GET_ON_TOP_COMMAND = "get_pet_on_top";
 const SET_ON_TOP_COMMAND = "set_pet_on_top";
 const REQUEST_SCALE_COMMAND = "request_pet_scale";
 const HOVER_EVENT = "pet://hover";
+const POINTER_EVENT = "pet://pointer";
 const APPEARANCE_EVENT = "pet://appearance-changed";
 const APPEARANCE_RESULT_EVENT = "pet://appearance-result";
 const APPEARANCE_TIMEOUT_MS = 8000;
@@ -160,6 +161,11 @@ export const petWindow = {
   /** Calls `handler` when the cursor moves onto or off the parts that take mouse input. */
   onHoverChanged(handler: (hovered: boolean) => void): () => void {
     return subscribe<boolean>(HOVER_EVENT, handler);
+  },
+
+  /** Calls `handler` with the cursor's place in the window, in CSS pixels, each time it moves while on the pet. */
+  onPointerMoved(handler: (x: number, y: number) => void): () => void {
+    return subscribe<[number, number]>(POINTER_EVENT, ([x, y]) => handler(x, y));
   },
 
   /** Top-left corner of the window, or null when there is no native window. */

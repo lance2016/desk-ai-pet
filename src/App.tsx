@@ -26,6 +26,7 @@ import { PetControls } from "./components/PetControls";
 import { QuickChatBar, QuickReplyBubble, useQuickChat } from "./components/QuickChat";
 import { usePetDrop } from "./components/usePetDrop";
 import { ChatLauncher } from "./components/ChatLauncher";
+import { createHoverMark } from "./components/hoverMark";
 import { FocusAura, FOCUS_EXIT_MS } from "./components/FocusAura";
 import { PetSpeech } from "./components/PetSpeech";
 import { PetStage } from "./components/PetStage";
@@ -548,6 +549,25 @@ export default function App({ packId }: AppProps) {
   // The native side knows where the cursor is even while the mouse passes through.
   useEffect(() => petWindow.onHoverChanged(setHovered), []);
 
+  // The styles match `data-hover`, not `:hover`, which WebKit freezes while the pet is not the key window.
+  // The native cursor always gets through; page events only while the window is key, or in a plain browser.
+  useEffect(() => {
+    const hover = createHoverMark((x, y) => document.elementFromPoint(x, y));
+    const onMove = (event: PointerEvent) => hover.at(event.clientX, event.clientY);
+    const root = document.documentElement;
+    window.addEventListener("pointermove", onMove);
+    root.addEventListener("pointerleave", hover.clear);
+    const stopPointer = petWindow.onPointerMoved(hover.at);
+    const stopHover = petWindow.onHoverChanged((on) => { if (!on) hover.clear(); });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      root.removeEventListener("pointerleave", hover.clear);
+      stopPointer();
+      stopHover();
+      hover.clear();
+    };
+  }, []);
+
   useEffect(() => { if (runtime && hovered) runtime.bus.emit("pet.hovered", {}); }, [runtime, hovered]);
 
   useEffect(() => {
@@ -745,7 +765,7 @@ export default function App({ packId }: AppProps) {
   } as CSSProperties;
 
   return (
-    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${speakingFrom ? ` app--speech-${speakingFrom}` : ""}${focusActive ? " app--focus" : ""}${hovered ? "" : " app--pointer-out"}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
+    <main className={`app${dockSide ? ` app--docked-${dockSide}` : ""}${speakingFrom ? ` app--speech-${speakingFrom}` : ""}${focusActive ? " app--focus" : ""}`} style={layout} onContextMenu={onContextMenu} {...browserHover}>
       <div className="pet-frame" style={runtime ? { width: petBox.width, height: petBox.height } : undefined}>
         {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />

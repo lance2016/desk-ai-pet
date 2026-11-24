@@ -1,3 +1,4 @@
+/* Hover looks match `[data-hover]`, never `:hover`: WebKit freezes `:hover` while the pet is not the key window (see hoverMark.ts). */
 :root {
   /* Shared interface tones; the character art keeps its own richer colors. */
   --ink: var(--ui-text);
@@ -183,7 +184,7 @@ body {
 .speech-bubble--passing { animation: speech-in var(--ui-duration) var(--ui-ease), speech-out var(--ui-duration-fast) var(--ui-ease) calc(var(--stay) - var(--ui-duration-fast)) forwards; }
 /* What the pet said by itself: a click answers it. */
 .speech-bubble--answer { pointer-events: auto; cursor: pointer; }
-.speech-bubble--answer:hover { border-color: var(--ui-accent-ring); }
+.speech-bubble--answer[data-hover] { border-color: var(--ui-accent-ring); }
 .speech-bubble::after {
   content: "";
   position: absolute;
@@ -246,14 +247,14 @@ body {
   font-weight: 500;
   cursor: pointer;
 }
-.speech-bubble__choices button:hover { background: var(--ui-fill-strong); }
+.speech-bubble__choices button[data-hover] { background: var(--ui-fill-strong); }
 .speech-bubble__choices button:active { background: var(--ui-border-strong); }
 .speech-bubble__choices button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ui-accent-ring); }
 .speech-bubble__choices button.is-primary { color: var(--ui-action-text); background: var(--ui-action-bg); }
-.speech-bubble__choices button.is-primary:hover { filter: brightness(1.04); }
+.speech-bubble__choices button.is-primary[data-hover] { filter: brightness(1.04); }
 .speech-bubble__choices button.is-primary:active { filter: brightness(.96); }
 .speech-bubble__choices button.is-destructive { color: var(--ui-danger); background: var(--ui-danger-soft); }
-.speech-bubble__choices button.is-destructive:hover { filter: brightness(.98); }
+.speech-bubble__choices button.is-destructive[data-hover] { filter: brightness(.98); }
 .speech-bubble__choices button.is-destructive:active { filter: brightness(.94); }
 .speech-bubble--alert::after { border-color: var(--ui-border-strong); border-width: 0 1px 1px 0; border-style: solid; }
 .speech-bubble--alert small { display: block; margin-top: 2px; color: var(--ui-text-secondary); font-size: 11px; }
@@ -305,7 +306,7 @@ body {
   transform-origin: 50% 12%;
   animation: bell-ring 6s ease-in-out 600ms infinite;
 }
-.speech-bubble--remind:hover .speech-bubble__bell { animation-play-state: paused; }
+.speech-bubble--remind[data-hover] .speech-bubble__bell { animation-play-state: paused; }
 
 /* Two quick swings at the start of each round, then a long rest. */
 @keyframes bell-ring {
@@ -377,7 +378,7 @@ body {
 }
 /* Pills that do something answer the mouse: a tinted surface on hover, a small press. */
 button.status-chip { transition: color var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-button.status-chip:hover { color: var(--ui-accent-strong); background: var(--ui-accent-soft); border-color: var(--ui-accent-ring); }
+button.status-chip[data-hover] { color: var(--ui-accent-strong); background: var(--ui-accent-soft); border-color: var(--ui-accent-ring); }
 button.status-chip:active { transform: scale(.97); }
 .status-chip:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 /* Only says how things are, so it does not look pressable. */
@@ -389,11 +390,7 @@ button.status-chip:active { transform: scale(.97); }
 /* What a click does, above the pill, like the labels over the quick buttons. */
 .status-chip--focus { position: relative; }
 .status-chip--focus::after { content: attr(data-hint); position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 4px 8px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; font-weight: 400; line-height: 1.2; white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-/*
- * Hints over the row open only while the cursor is really on the pet: once it leaves, the window lets the mouse
- * through and the page never hears it go, so `:hover` would stay on and the hint would cover the quick buttons.
- */
-.app:not(.app--pointer-out) .status-chip--focus:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
+.status-chip--focus:is([data-hover], :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
 /* While focusing the bar is gone: the row moves up to just below the pool of light. At an edge the corner rule above holds. */
 .app--focus:not(.app--docked-left, .app--docked-right) .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
@@ -416,7 +413,7 @@ button.status-chip:active { transform: scale(.97); }
   animation: chip-spin 900ms linear infinite;
 }
 .status-chip__close { width: 12px; height: 12px; margin-left: 1px; fill: none; stroke: var(--ui-text-muted); stroke-width: 1.6; stroke-linecap: round; }
-button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text); }
+button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui-text); }
 @keyframes chip-spin { to { transform: rotate(360deg); } }
 
 /*
@@ -440,7 +437,7 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   transition: border-color var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
   animation: speech-in var(--ui-duration) var(--ui-ease);
 }
-.coding-card:hover { border-color: var(--ui-accent-ring); }
+.coding-card[data-hover] { border-color: var(--ui-accent-ring); }
 .coding-card:active { transform: scale(.985); }
 .coding-card:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 .coding-card, .coding-pill { position: relative; }
@@ -470,7 +467,7 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
 }
 /* It covers the quick buttons, so like a help tag it waits for the cursor to rest, and goes at once. */
-.app:not(.app--pointer-out) .coding-pill:is(:hover, :focus-visible) .coding-full { opacity: 1; transform: translate(-50%, 0); transition-delay: 500ms; }
+.coding-pill:is([data-hover], :focus-visible) .coding-full { opacity: 1; transform: translate(-50%, 0); transition-delay: 500ms; }
 .coding-card__head { display: flex; align-items: center; gap: 6px; height: 16px; color: var(--ui-text-secondary); font-size: 11px; }
 .coding-card__who { font-weight: 500; }
 .coding-card__state { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -521,30 +518,29 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   pointer-events: auto;
   transition: opacity var(--ui-duration) var(--ui-ease);
 }
-/* `:hover` only while the cursor is on the pet (see the focus pill's hint); `:where` keeps these rules as specific as before. */
-.pet-bar.is-awake, :where(.app:not(.app--pointer-out)) .pet-bar:hover, .pet-bar:focus-within { opacity: 1; }
+.pet-bar.is-awake, .pet-bar[data-hover], .pet-bar:focus-within { opacity: 1; }
 .pet-bar__item { position: relative; flex: none; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; color: var(--ui-accent-strong); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: 50%; box-shadow: 0 2px 8px rgba(25, 23, 35, .12); font: inherit; cursor: pointer; transform: translateY(var(--rest-y, 0px)); transition: transform var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 /* Every other button rests a little higher; hover and press move a button from wherever it rests. */
 .pet-bar__item:nth-child(even) { --rest-y: -4px; }
 .pet-bar__item .control-icon { display: block; width: 18px; height: 18px; object-fit: contain; }
 .pet-bar__item > span:not(.pet-bar__face) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pet-bar__item::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 7px); z-index: 4; width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-:where(.app:not(.app--pointer-out)) .pet-bar__item:hover, .pet-bar__item:focus-visible { z-index: 3; box-shadow: 0 4px 10px rgba(25, 23, 35, .16); transform: translateY(calc(var(--rest-y, 0px) - 2px)); }
+.pet-bar__item[data-hover], .pet-bar__item:focus-visible { z-index: 3; box-shadow: 0 4px 10px rgba(25, 23, 35, .16); transform: translateY(calc(var(--rest-y, 0px) - 2px)); }
 .pet-bar__item:active { transform: translateY(var(--rest-y, 0px)) scale(.96); }
-:where(.app:not(.app--pointer-out)) .pet-bar__item:hover::after, .pet-bar__item:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.pet-bar__item[data-hover]::after, .pet-bar__item:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 /* A running focus round stays recognizable without turning into a wide banner. */
 .pet-bar__item--stop { color: var(--ui-action-text); background: var(--ui-action-bg); border-color: transparent; box-shadow: 0 2px 9px rgba(95, 77, 163, .3); }
-.pet-bar__item--stop:hover, .pet-bar__item--stop:focus-visible { color: var(--ui-action-text); background: var(--ui-action-bg); }
+.pet-bar__item--stop[data-hover], .pet-bar__item--stop:focus-visible { color: var(--ui-action-text); background: var(--ui-action-bg); }
 .pet-bar__item--stop::after { color: var(--ui-text); }
 .pet-bar__item.pet-bar__item--stop:focus-visible { outline-offset: 2px; }
 /* "互动" while its menu is open: pressed in, and its own label gives way to the menu. Tinted over the surface, which dark mode needs. */
 .pet-bar__item.is-active { background: linear-gradient(var(--ui-accent-soft), var(--ui-accent-soft)), var(--ui-surface); border-color: var(--ui-accent-ring); box-shadow: inset 0 1px 2px rgba(25, 23, 35, .12); }
-.pet-bar__item.is-active::after, .pet-bar__item.is-active:is(:hover, :focus-visible)::after { opacity: 0; }
+.pet-bar__item.is-active::after, .pet-bar__item.is-active:is([data-hover], :focus-visible)::after { opacity: 0; }
 .pet-bar__item:focus-visible, .pet-bar__menu button:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
 /* "互动": the actions and the buttons that did not fit, in a compact floating menu. */
 .pet-bar__menu { position: absolute; left: 50%; bottom: calc(100% + 9px); min-width: 140px; max-height: 180px; overflow-y: auto; padding: 5px; display: grid; gap: 1px; background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 12px; box-shadow: 0 6px 18px rgba(25, 23, 35, .16); transform: translateX(-50%); /* Its box starts at the bar's center and is shifted back by half: that left edge is where it grows from. */ transform-origin: 0 100%; animation: speech-in var(--ui-duration) var(--ui-ease); }
 .pet-bar__menu button { display: flex; align-items: center; gap: 8px; padding: 6px 8px; color: var(--ui-text); background: none; border: 0; border-radius: 8px; font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
-.pet-bar__menu button:hover { background: var(--ui-accent-soft); }
+.pet-bar__menu button[data-hover] { background: var(--ui-accent-soft); }
 .pet-bar__menu .control-icon { width: 18px; height: 18px; flex: none; color: var(--ui-accent-strong); }
 .pet-bar__face { width: 22px; height: 22px; flex: none; overflow: hidden; background: var(--ui-accent-soft); border-radius: 50%; }
 
@@ -554,7 +550,7 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   pointer-events: auto;
   cursor: pointer;
 }
-.speech-bubble--reply:hover { border-color: var(--ui-accent-ring); }
+.speech-bubble--reply[data-hover] { border-color: var(--ui-accent-ring); }
 .speech-bubble__text {
   display: -webkit-box;
   -webkit-line-clamp: 4;
@@ -574,7 +570,7 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 
 /* Handed text above the pet: where it came from, its start, and what can be done with it. Three short rows fit the room above the pet. */
 .speech-bubble--handed { cursor: default; }
-.speech-bubble--handed:hover { border-color: var(--ui-border-strong); }
+.speech-bubble--handed[data-hover] { border-color: var(--ui-border-strong); }
 .speech-bubble--handed .speech-bubble__body { flex: 1; }
 .handed__head { display: flex; align-items: center; gap: 8px; height: 20px; }
 .handed__glyph { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--ui-text-secondary); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
@@ -582,30 +578,30 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
 .handed__size { flex: 1 0 auto; color: var(--ui-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .handed__close { flex: none; width: 20px; height: 20px; margin-right: -4px; padding: 0; display: grid; place-items: center; color: var(--ui-text-muted); background: none; border: 0; border-radius: var(--ui-radius-control); cursor: pointer; transition: color var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease); }
 .handed__close svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
-.handed__close:hover { color: var(--ui-text); background: var(--ui-fill-strong); }
+.handed__close[data-hover] { color: var(--ui-text); background: var(--ui-fill-strong); }
 .handed__excerpt { overflow: hidden; color: var(--ui-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
 .handed__foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .handed__foot button { flex: none; height: 24px; padding: 0 10px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-control); font: inherit; font-size: 12px; cursor: pointer; transition: background-color var(--ui-duration-fast) var(--ui-ease); }
-.handed__foot button:hover:not(:disabled) { background: var(--ui-fill); }
+.handed__foot button[data-hover]:not(:disabled) { background: var(--ui-fill); }
 .handed__foot button:active:not(:disabled) { background: var(--ui-fill-strong); }
 .handed__foot button:disabled { opacity: .45; cursor: default; }
 .handed__foot button:focus-visible, .handed__close:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
 /* Asking in one's own words is the open-ended way in: the one filled button, on the right like a Mac default button. */
 .handed__foot .handed__ask { margin-left: auto; color: var(--ui-action-text); background: var(--ui-action-bg); border-color: transparent; font-weight: 500; }
-.handed__foot .handed__ask:hover:not(:disabled) { background: var(--ui-accent-strong); }
+.handed__foot .handed__ask[data-hover]:not(:disabled) { background: var(--ui-accent-strong); }
 .handed__foot .handed__ask:active:not(:disabled) { background: var(--ui-accent-strong); }
 .handed__foot .handed__ask:focus-visible { outline-offset: 2px; }
 
 /* The chat button: always there, quiet until hovered or until something was copied in another app. */
 .chat-launcher { position: absolute; z-index: 3; width: 40px; height: 40px; padding: 0; background: none; border: 0; border-radius: 50%; opacity: .78; cursor: pointer; pointer-events: auto; transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .chat-launcher img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 4px rgba(53, 43, 102, .22)); -webkit-user-drag: none; }
-:where(.app:not(.app--pointer-out)) .chat-launcher:hover, .chat-launcher.is-hinting { opacity: 1; }
-:where(.app:not(.app--pointer-out)) .chat-launcher:hover { transform: scale(1.06); }
+.chat-launcher[data-hover], .chat-launcher.is-hinting { opacity: 1; }
+.chat-launcher[data-hover] { transform: scale(1.06); }
 .chat-launcher:active { transform: scale(.96); }
 .chat-launcher:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 /* The pet's panel never shows native tooltips, so the button names itself on hover, as the quick buttons do. Above it, in the room above the pet, which it only has while nothing is said there. */
 .chat-launcher::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 4px); width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-:where(.app:not(.app--pointer-out)) .chat-launcher:hover::after, .chat-launcher:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.chat-launcher[data-hover]::after, .chat-launcher:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 /* Just beside the head of the resting pose (--head-*: room between the head and the pet's area), its top level
    with the ears, reaching down from the room above the pet; it gives way to anything said there.
    On the left it turns to face the pet. */
@@ -660,11 +656,11 @@ button.status-chip--stoppable:hover .status-chip__close { stroke: var(--ui-text)
   border-radius: 50%;
   cursor: pointer;
 }
-.quick-chat button:hover:not(:disabled) { background: var(--ui-accent-soft); }
+.quick-chat button[data-hover]:not(:disabled) { background: var(--ui-accent-soft); }
 .quick-chat button:disabled { opacity: .4; cursor: default; }
 .quick-chat button[type="submit"]:not(:disabled) { color: var(--ui-action-text); background: var(--ui-action-bg); }
 .quick-chat button.quick-chat__fix:not(:disabled) { width: auto; padding: 0 11px; border-radius: 14px; color: var(--ui-action-text); background: var(--ui-accent-strong); font: inherit; font-size: 12px; font-weight: 600; }
-.quick-chat button.quick-chat__fix:hover { filter: brightness(1.04); }
+.quick-chat button.quick-chat__fix[data-hover] { filter: brightness(1.04); }
 .quick-chat svg {
   width: 15px; height: 15px;
   fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
