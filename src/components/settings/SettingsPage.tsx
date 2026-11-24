@@ -27,6 +27,7 @@ import { CharacterProfileSettings } from "./CharacterProfileSettings";
 import { HolidaySettings } from "./HolidaySettings";
 import { MailSettings } from "./MailSettings";
 import { AgentSettings } from "./AgentSettings";
+import { DubbingSettings } from "./DubbingSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
 import { DockSettings } from "./DockSettings";
 import { CompanionSettings } from "./CompanionSettings";
@@ -414,6 +415,7 @@ export function SettingsPage({ packId }: { packId: string }) {
             <TranslationShortcutSettings onError={setError} />
             <AgentSettings />
             <MailSettings />
+            <DubbingSettings />
             <div className="settings-group">
               <button type="button" className="settings-row settings-link" onClick={() => go("links")}>
                 <span className="settings-nav__icon settings-nav__icon--links"><SettingsGlyph name="links" /></span>

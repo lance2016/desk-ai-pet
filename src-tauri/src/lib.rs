@@ -7,6 +7,7 @@ mod cloned_voices;
 mod cosyvoice;
 mod database;
 mod diagnostics;
+mod dubbing;
 #[cfg(target_os = "macos")]
 mod floating_panel;
 mod handover;
@@ -62,6 +63,7 @@ const SETTINGS_ID: &str = "settings";
 const NOTES_ID: &str = "notes";
 const CODING_ID: &str = "coding";
 const LINKS_ID: &str = "links";
+const DUBBING_ID: &str = "dubbing";
 const REVIEW_ID: &str = "review";
 const TRANSLATE_ID: &str = "translate";
 const MAIL_CODE_ID: &str = "mail_code";
@@ -103,6 +105,7 @@ struct PetMenu {
     focus: MenuItem<Wry>,
     mail_code: MenuItem<Wry>,
     links: MenuItem<Wry>,
+    dubbing: MenuItem<Wry>,
     /** Whether a focus round or rest is running, so the item knows what a click means. */
     focus_running: AtomicBool,
     /// Whether the right-click menu is open. Opening it runs AppKit's menu loop, which still
@@ -212,6 +215,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let notes = item(NOTES_ID, "备忘")?;
     let coding = item(CODING_ID, "Claude Code 会话")?;
     let links = item(LINKS_ID, "常用链接")?;
+    let dubbing = item(DUBBING_ID, "配音…")?;
     let review = item(REVIEW_ID, "今日回顾")?;
     let translate = item(TRANSLATE_ID, "翻译…")?;
     let mail_code = item(MAIL_CODE_ID, MAIL_CODE_LABEL)?;
@@ -244,6 +248,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &links,
             &review,
             &translate,
+            &dubbing,
             &mail_code,
             &PredefinedMenuItem::separator(app)?,
             &pat,
@@ -259,7 +264,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &quit,
         ],
     )?;
-    Ok(PetMenu { menu, visibility, focus, mail_code, links, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
+    Ok(PetMenu { menu, visibility, focus, mail_code, links, dubbing, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
 }
 
 /// The app's menu bar. It shows only while the settings window keeps the app in the Dock,
@@ -306,10 +311,30 @@ fn show_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Resul
 
 fn hide_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
     window.hide()?;
+    sync_activation_policy(app, Some(SETTINGS_WINDOW))
+}
+
+/// Whether an ordinary window (settings, dubbing) other than `closing` is open.
+fn ordinary_window_open(app: &AppHandle, closing: Option<&str>) -> bool {
+    let settings = closing != Some(SETTINGS_WINDOW)
+        && app
+            .get_webview_window(SETTINGS_WINDOW)
+            .is_some_and(|settings| settings.is_visible().unwrap_or(false));
+    let dubbing = closing != Some(dubbing::WINDOW) && app.get_webview_window(dubbing::WINDOW).is_some();
+    settings || dubbing
+}
+
+/// Keeps the app in the Dock and ⌘Tab while any ordinary window is open, and an accessory
+/// otherwise. `closing` is a window on its way out that still counts as open.
+pub(crate) fn sync_activation_policy(app: &AppHandle, closing: Option<&str>) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
-    app.set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+    app.set_activation_policy(if ordinary_window_open(app, closing) {
+        tauri::ActivationPolicy::Regular
+    } else {
+        tauri::ActivationPolicy::Accessory
+    })?;
     #[cfg(not(target_os = "macos"))]
-    let _ = app;
+    let _ = (app, closing);
     Ok(())
 }
 
@@ -355,6 +380,11 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             };
             if let Err(error) = show_beside_pet(app, label) {
                 log::warn!("failed to open {label}: {error}");
+            }
+        }
+        DUBBING_ID => {
+            if let Err(error) = dubbing::open(app) {
+                log::warn!("failed to open the dubbing window: {error}");
             }
         }
         // The check mark has already been flipped by the time this fires.
@@ -447,23 +477,21 @@ fn show_pet_menu_native(app: &AppHandle, window: &WebviewWindow, menu: &Menu<Wry
     let _ = app;
 
     #[cfg(target_os = "macos")]
-    let settings_open = app
-        .get_webview_window(SETTINGS_WINDOW)
-        .is_some_and(|settings| settings.is_visible().unwrap_or(false));
+    let regular = ordinary_window_open(app, None);
 
     // A regular app can leave its non-activating pet panel behind the full-screen
     // space when a context menu is requested. The accessory policy is the one the
-    // pet uses normally; restore Regular afterward so Settings stays in Dock/⌘Tab.
+    // pet uses normally; restore Regular afterward so Settings and dubbing stay in Dock/⌘Tab.
     #[cfg(target_os = "macos")]
-    if settings_open {
+    if regular {
         app.set_activation_policy(tauri::ActivationPolicy::Accessory)?;
     }
 
     let shown = window.popup_menu(menu);
 
     #[cfg(target_os = "macos")]
-    if settings_open {
-        let restored = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    if regular {
+        let restored = sync_activation_policy(app, None);
         return shown.and(restored);
     }
 
@@ -739,6 +767,13 @@ fn set_links_enabled(app: AppHandle, menu: State<'_, PetMenu>, enabled: bool) ->
     Ok(())
 }
 
+/// Turns the "配音…" menu item on or off; turning it off also closes the window.
+#[tauri::command]
+fn set_dubbing_enabled(app: AppHandle, menu: State<'_, PetMenu>, enabled: bool) -> Result<(), String> {
+    menu.dubbing.set_enabled(enabled).map_err(|error| error.to_string())?;
+    if enabled { Ok(()) } else { dubbing::close(&app) }
+}
+
 /// Opens the Claude Code sessions beside the pet.
 #[tauri::command]
 fn open_coding(app: AppHandle) -> Result<(), String> {
@@ -801,6 +836,7 @@ pub fn run() {
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(llm::LlmState::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
+        .manage(dubbing::LastExport::default())
         .setup(|app| {
             // A desktop pet should not occupy a Dock slot.
             #[cfg(target_os = "macos")]
@@ -885,7 +921,7 @@ pub fn run() {
                         if let Some(state) =
                             app_handle.try_state::<std::sync::Arc<mimo::MimoSpeechState>>()
                         {
-                            state.cancel_all();
+                            state.cancel_window(CHAT_WINDOW);
                         }
                         let _ = handle.emit("pet://chat-hide", ());
                         report("hide chat", handle.hide());
@@ -923,6 +959,9 @@ pub fn run() {
             link_icons::link_icon_page,
             link_icons::link_icon_image,
             set_links_enabled,
+            set_dubbing_enabled,
+            dubbing::dubbing_export,
+            dubbing::dubbing_export_subtitles,
             open_coding,
             open_settings,
             set_pet_dnd,

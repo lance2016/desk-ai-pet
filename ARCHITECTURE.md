@@ -387,6 +387,15 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 
 「待处理」由 `src/agents/codingInbox.ts` 从 `CodingSession` 生成，跨项目按等待、失败、结果排序。等待只看当前回合，失败和结果也会从最近几轮取。标记按会话 ID 和回合结束时间单独保存；已看用 `0` 表示，稍后看存恢复时间，30 分钟后回到待处理。标记由 Coding 面板写入 `ai-pet:coding-inbox-marks:v1`，会话由宠物窗口写入，避免两边覆盖同一份数据。条目的保留时间随会话和最近几轮。
 
+## 配音
+
+「配音」是右键菜单里的独立小工具，开关在「设置 → 小工具」（`ai-pet:dubbing-enabled:v1`，宠物窗口通过 `set_dubbing_enabled` 同步给原生菜单，关掉时一并关窗）。
+
+- **窗口按需创建。** `dubbing` 不在 `tauri.conf.json` 里，由 `dubbing.rs` 的 `open` 在点菜单时用 `WebviewWindowBuilder` 现建，关闭即销毁，不用时不占内存。前端用 `React.lazy` 加载 `DubbingPage`，其他窗口不带它的代码。它是普通窗口：开着时应用是 `Regular`（`sync_activation_policy` 统一判断设置窗口和配音窗口，任何一个开着就留在 Dock 和 ⌘Tab）。
+- **合成复用朗读通道。** 每一句走 `mimo_synthesize`（克隆音色转 CosyVoice，内置音色走 MiMo），最多同时 3 句（`useDubbing`）。音频只留在窗口内存里，按「声音、语气、文字」做键，改了哪句只重做哪句。运行中的语音请求记着发起窗口（`RunningSpeech.window`），关聊天窗口只停聊天窗口的请求，关配音窗口只停配音的。
+- **导出。** 页面把各句 PCM 拼成一个 24 kHz 单声道 WAV（`src/dubbing/wav.ts`，句间停顿 `GAP_SECONDS`），作为原始字节传给 `dubbing_export`（格式放在请求头）。原生端弹保存框，WAV 原样写入，M4A 用系统自带的 `afconvert` 转 AAC。字幕按每句的实际长度算时间轴，由 `dubbing_export_subtitles` 写在刚导出的音频旁边，路径只在原生端保存，页面给不出任意路径。
+- **草稿。** 稿子、声音、语气、导出格式存 `ai-pet:dubbing-draft:v1`，音频不存。
+
 ## 常用链接
 
 「常用链接」使用同一套列表和编辑表单，入口是独立的 `links` 窗口和「设置 → 小工具」下的管理页。窗口沿用提醒、备忘的非激活面板定位和材质。链接用 `LinkStore` 校验，按分组顺序保存到 `ai-pet:links:v1`，各窗口通过 storage 事件更新。打开时走 `systemPlatform.openLink`，启用状态由宠物窗口通过 `set_links_enabled` 同步给原生菜单。用途备注随链接保存，参与搜索。可见行通过 `platform/linkIcons.ts` 请求原生端读取页面的图标声明或站点根目录的 favicon，图标请求限同源，成功或失败都在当前窗口会话中缓存。

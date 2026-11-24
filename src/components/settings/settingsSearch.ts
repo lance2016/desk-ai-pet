@@ -45,6 +45,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "ai", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
   { section: "ai", title: "声音", keywords: "音色 朗读 男声 女声 换声音 试听 克隆" },
   { section: "ai", title: "语气", keywords: "朗读 语速 情绪 风格 音色描述" },
+  { section: "tools", title: "配音", keywords: "文字转语音 TTS 朗读稿子 旁白 导出音频 字幕 srt m4a wav 克隆" },
+  { section: "tools", title: "右键菜单里的「配音…」", keywords: "配音 开关 菜单" },
   { section: "voices", title: "添加声音", keywords: "克隆 复刻 音色 录音 自己的声音 上传 wav mp3" },
   { section: "chat", title: "语音识别语言", keywords: "中文 英文 自动 识别" },
   { section: "companion", title: "深夜关心", keywords: "熬夜 早点睡 关心时间 几点" },

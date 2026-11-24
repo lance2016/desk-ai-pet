@@ -9,6 +9,7 @@ import { agendaChange, hasNewId } from "./agenda/changes";
 import { localTimeText } from "./agenda/chatTools";
 import { refreshHolidays } from "./agenda/Workdays";
 import { linksEnabled, subscribeLinks } from "./links/LinkStore";
+import { dubbingEnabled, subscribeDubbingEnabled } from "./dubbing/DubbingStore";
 import { loadNotes, subscribeNotes } from "./notes/NoteStore";
 import type { ReminderSource } from "./behavior/BehaviorEngine";
 import { Companion, PAT_REPLY } from "./companion";
@@ -37,6 +38,7 @@ import { composeHitMask, headInsets, HIT_CELL_PX, maskToElement, type MaskRect }
 import { saveActiveCharacter } from "./preferences/CharacterPreferences";
 import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
+import { dubbingPlatform } from "./platform/dubbing";
 import { mailCodePlatform } from "./platform/mailCode";
 import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivity";
 import { followClaude, revealClaude } from "./agents/followClaude";
@@ -144,6 +146,10 @@ export default function App({ packId }: AppProps) {
   useEffect(() => {
     void petWindow.setLinksEnabled(showLinks).catch((error: unknown) => console.error("Failed to update the links menu", error));
   }, [showLinks]);
+  const showDubbing = useSyncExternalStore(subscribeDubbingEnabled, dubbingEnabled);
+  useEffect(() => {
+    void dubbingPlatform.setEnabled(showDubbing).catch((error: unknown) => console.error("Failed to update the dubbing menu", error));
+  }, [showDubbing]);
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);

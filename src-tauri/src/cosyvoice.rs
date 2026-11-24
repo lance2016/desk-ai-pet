@@ -246,6 +246,7 @@ pub(crate) fn stream_synthesis(
         crate::mimo::RunningSpeech {
             child: child.clone(),
             cancelled: cancelled.clone(),
+            window: window.clone(),
         },
     ) {
         Ok(registered) => registered,

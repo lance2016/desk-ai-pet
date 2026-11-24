@@ -11,7 +11,8 @@
     "links",
     "coding",
     "translation",
-    "selection-float"
+    "selection-float",
+    "dubbing"
   ],
   "permissions": [
     "core:default",

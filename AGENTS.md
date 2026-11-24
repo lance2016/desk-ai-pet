@@ -98,6 +98,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 钩子转发的字数上限 | `MAX_TASK_CHARS`、`MAX_SUMMARY_CHARS`、`MAX_FORWARDED_CHARS`（`agent_hooks.rs`，按字符） | `reportSchema`（`src/platform/agents.ts`）和 `SESSION_LIMITS`（`src/agents/CodingSession.ts`，按 UTF-16，所以是两倍） |
 | Coding 面板窗口 | `tauri.conf.json` 的 `coding` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=coding` 路由、`lib.rs` 的 `CODING_WINDOW`、`POPOVERS` 和 `open_coding`，`petWindow.ts` 的 `OPEN_CODING_COMMAND` |
 | 常用链接窗口 | `tauri.conf.json`、`capabilities/default.json` 的 `links` 窗口 | `src/main.tsx` 的 `window=links`，`lib.rs` 的 `LINKS_WINDOW`、`POPOVERS`、`open_links`、`set_links_enabled`，以及 `petWindow.ts` 的同名命令 |
+| 配音窗口 | `src-tauri/src/dubbing.rs` 的 `WINDOW`、`URL`（窗口不写进 `tauri.conf.json`，打开时现建）、`capabilities/default.json` 的 `dubbing` | `src/main.tsx` 的 `window=dubbing` 路由 |
+| 配音导出的命令名、格式请求头和长度上限 | `src/platform/dubbing.ts`（`set_dubbing_enabled`、`dubbing_export`、`dubbing_export_subtitles`、`FORMAT_HEADER`）、`MAX_EXPORT_SECONDS`（`src/dubbing/wav.ts`） | `src-tauri/src/dubbing.rs` 的 `FORMAT_HEADER`、`MAX_AUDIO_BYTES`，`lib.rs` 的 `invoke_handler` |
 | 常用链接图标 | `src/platform/linkIcons.ts` 的 `link_icon_page`、`link_icon_image` | `src-tauri/src/link_icons.rs`、`lib.rs` 的 `invoke_handler` |
 | 状态行和状态卡的位置 | `STAGE_MARGIN.bottom`（132，`stageGeometry.ts`） | `.dock-area`、`.status-row`（`src/App.css`：底栏中心在脚下 33px，状态行上沿在窗口底部往上 72px）、`.coding-card` 的高度（66px） |
 | Ghostty 定位终端 | `GHOSTTY`、`GHOSTTY_FOCUS`（`agent_hooks.rs`，用 Ghostty 脚本字典里 `terminal` 的 `tty`、`focus`，`tab` 的 `focused terminal` 和 `perform action "toggle_split_zoom"`，1.4.0 实测；没有文档承诺不变） | Ghostty 的 `Ghostty.sdef`；`src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`（没有它系统不弹授权） |

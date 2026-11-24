@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from "react";
+import React, { Suspense, lazy, useSyncExternalStore } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ChatPage } from "./components/chat/ChatPage";
@@ -16,6 +16,9 @@ import { forwardToLog } from "./platform/diagnostics";
 import { loadActiveCharacter, migrateLegacyCharacterData, subscribeActiveCharacter } from "./preferences/CharacterPreferences";
 import "./ui/tokens.css";
 
+// Only the dubbing window loads its code; the pet and the other windows never do.
+const DubbingPage = lazy(() => import("./components/dubbing/DubbingPage").then((module) => ({ default: module.DubbingPage })));
+
 const view = new URLSearchParams(window.location.search).get("window");
 if (view) document.documentElement.dataset.window = view;
 forwardToLog(view ?? "main");
@@ -30,6 +33,7 @@ function Root() {
   if (view === "coding") return <CodingPanel />;
   if (view === "translation") return <TranslationPanel />;
   if (view === "selection-float") return <SelectionFloat />;
+  if (view === "dubbing") return <Suspense fallback={null}><DubbingPage /></Suspense>;
   if (view === "chat") return <ChatPage key={packId} packId={packId} />;
   return <App key={packId} packId={packId} />;
 }

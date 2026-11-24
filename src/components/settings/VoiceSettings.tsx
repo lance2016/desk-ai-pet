@@ -8,7 +8,7 @@ import { useReadAloud } from "../chat/useReadAloud";
 import { Chevron } from "./Chevron";
 
 /** MiMo's own voices, by the language they speak. */
-const PRESETS: readonly { label: string; voices: readonly [string, string][] }[] = [
+export const PRESETS: readonly { label: string; voices: readonly [string, string][] }[] = [
   { label: "中文", voices: [["冰糖", "冰糖 · 女声"], ["茉莉", "茉莉 · 女声"], ["苏打", "苏打 · 男声"], ["白桦", "白桦 · 男声"]] },
   { label: "English", voices: [["Mia", "Mia · 女声"], ["Chloe", "Chloe · 女声"], ["Milo", "Milo · 男声"], ["Dean", "Dean · 男声"]] },
   { label: "其他", voices: [["mimo_default", "MiMo 默认"]] },

@@ -1,0 +1,79 @@
+/* The dubbing window: a plain macOS tool window on the shared tokens. The one thing that stands out is the line being heard. */
+html.dubbing-window, body.dubbing-window, body.dubbing-window #root { margin: 0; height: 100%; background: var(--ui-window); overflow: hidden; }
+
+.dub-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--ui-text);
+  background: var(--ui-window);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) { .dub-page { color-scheme: dark; } }
+.dub-page :is(button, select, input, textarea) { font: inherit; color: inherit; }
+.dub-page :is(button, select, input, textarea):focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ui-accent-ring); }
+
+/* Voice and delivery: what every line is read with. */
+.dub-toolbar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--ui-border); }
+.dub-field { display: flex; align-items: center; gap: 8px; color: var(--ui-text-secondary); white-space: nowrap; }
+.dub-field--grow { flex: 1; min-width: 0; }
+.dub-field :is(select, input), .dub-format {
+  height: 28px;
+  box-sizing: border-box;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.dub-field select, .dub-format { padding: 0 8px; }
+.dub-field select { min-width: 160px; }
+.dub-field input { flex: 1; min-width: 0; padding: 0 10px; }
+.dub-field input::placeholder, .dub-script textarea::placeholder { color: var(--ui-text-muted); }
+
+/* Script on the left, its lines on the right. */
+.dub-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 12px 16px; }
+.dub-card { min-height: 0; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-card); background: var(--ui-surface); }
+
+.dub-script { position: relative; display: flex; }
+.dub-script textarea { flex: 1; box-sizing: border-box; padding: 14px 16px 30px; border: 0; border-radius: inherit; outline: none; resize: none; background: none; font-size: 14px; line-height: 1.7; user-select: text; }
+.dub-count { position: absolute; right: 12px; bottom: 8px; color: var(--ui-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
+
+.dub-lines { overflow-y: auto; }
+.dub-lines ol { margin: 0; padding: 6px; list-style: none; }
+.dub-empty { margin: 0; padding: 20px; color: var(--ui-text-muted); line-height: 1.7; }
+.dub-line { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: start; gap: 8px; padding: 7px 8px; border-radius: var(--ui-radius-row); transition: background var(--ui-duration) var(--ui-ease); }
+.dub-line + .dub-line { margin-top: 1px; }
+.dub-line__number { color: var(--ui-text-muted); font-size: 11px; line-height: 20px; text-align: right; font-variant-numeric: tabular-nums; }
+.dub-line__text { line-height: 20px; overflow-wrap: anywhere; }
+.dub-line__state { display: flex; align-items: center; gap: 6px; min-height: 20px; color: var(--ui-text-muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dub-line__failed { color: var(--ui-danger); cursor: help; }
+/* The line being heard, so the ear can follow the words. */
+.dub-line.is-playing { background: var(--ui-accent-soft); }
+.dub-line.is-playing .dub-line__number { color: var(--ui-accent); font-weight: 600; }
+
+.dub-icon-button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--ui-fill-strong); cursor: default; transition: background var(--ui-duration-fast) var(--ui-ease); }
+.dub-icon-button:hover { background: var(--ui-accent-soft); color: var(--ui-accent); }
+.dub-icon-button svg { width: 10px; height: 10px; fill: currentColor; }
+
+.dub-spinner { width: 12px; height: 12px; border: 2px solid var(--ui-fill-strong); border-top-color: var(--ui-accent); border-radius: 50%; animation: dub-spin 0.8s linear infinite; }
+@keyframes dub-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dub-spinner { animation-duration: 2.4s; } }
+
+/* Making, hearing and saving it all. */
+.dub-footer { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; }
+.dub-footer__status { flex: 1; min-width: 0; color: var(--ui-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dub-text-link { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--ui-accent); cursor: default; }
+.dub-text-link:hover { text-decoration: underline; }
+.dub-button { height: 28px; padding: 0 12px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-control); background: var(--ui-surface); white-space: nowrap; cursor: default; transition: background var(--ui-duration-fast) var(--ui-ease); }
+.dub-button:hover:not(:disabled) { background: var(--ui-raised); }
+.dub-button:disabled { opacity: .45; }
+.dub-button--primary { border-color: transparent; background: var(--ui-action-bg); color: var(--ui-action-text); font-weight: 500; }
+.dub-button--primary:hover:not(:disabled) { background: var(--ui-accent-strong); }
+.dub-divider { width: 1px; height: 18px; margin: 0 4px; background: var(--ui-border-strong); }
+.dub-check { display: flex; align-items: center; gap: 4px; color: var(--ui-text-secondary); white-space: nowrap; }
+.dub-check input { margin: 0; accent-color: var(--ui-accent); }
+
+@media (max-width: 760px) {
+  .dub-field select { min-width: 120px; }
+}

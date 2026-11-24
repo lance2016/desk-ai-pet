@@ -23,6 +23,8 @@ const CONNECT_TIMEOUT: &str = "10";
 pub(crate) struct RunningSpeech {
     pub(crate) child: Arc<Mutex<Child>>,
     pub(crate) cancelled: Arc<AtomicBool>,
+    /// Label of the window that asked for it, so closing one window stops only its own requests.
+    pub(crate) window: String,
 }
 #[derive(Default)]
 pub struct MimoSpeechState {
@@ -32,8 +34,17 @@ pub struct MimoSpeechState {
 
 impl MimoSpeechState {
     pub fn cancel_all(&self) {
+        self.cancel_where(|_| true);
+    }
+
+    /// Stops the requests the window `label` started; other windows' keep going.
+    pub fn cancel_window(&self, label: &str) {
+        self.cancel_where(|request| request.window == label);
+    }
+
+    fn cancel_where(&self, matches: impl Fn(&RunningSpeech) -> bool) {
         if let Ok(running) = self.running.lock() {
-            for request in running.values() {
+            for request in running.values().filter(|request| matches(request)) {
                 request.cancelled.store(true, Ordering::Relaxed);
                 if let Ok(mut child) = request.child.lock() {
                     let _ = child.kill();
@@ -132,7 +143,7 @@ pub fn mimo_clear_key(app: AppHandle) -> Result<(), String> {
 
 /// Sends one request and waits for the answer. It is registered in `state`
 /// under `TRANSCRIBE_ID` as soon as curl starts, so the user can cancel it; one runs at a time.
-fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Value, String> {
+fn request(app: &AppHandle, state: &MimoSpeechState, window: String, body: Value) -> Result<Value, String> {
     let key = crate::api_keys::store(app)?.load(PROVIDER)?.ok_or("请先在设置 → AI 服务中配置 MiMo API Key")?;
     // Held while curl starts, so the check and the registration are one step.
     let mut running = state.running.lock().map_err(|_| "语音请求状态不可用")?;
@@ -167,7 +178,7 @@ fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Valu
     let cancelled = Arc::new(AtomicBool::new(false));
     running.insert(
         TRANSCRIBE_ID.into(),
-        RunningSpeech { child: child.clone(), cancelled: cancelled.clone() },
+        RunningSpeech { child: child.clone(), cancelled: cancelled.clone(), window },
     );
     drop(running);
     let config = format!(
@@ -217,6 +228,7 @@ fn request(app: &AppHandle, state: &MimoSpeechState, body: Value) -> Result<Valu
 #[tauri::command]
 pub async fn mimo_transcribe(
     app: AppHandle,
+    window: Window,
     state: State<'_, Arc<MimoSpeechState>>,
     audio_base64: String,
     format: String,
@@ -236,9 +248,10 @@ pub async fn mimo_transcribe(
         return Err("录音数据无效或超过 MiMo 允许的 10 MB 限制".into());
     }
     let state = state.inner().clone();
+    let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
         let mime = if format == "wav" { "audio/wav" } else { "audio/mpeg" };
-        let result = request(&app, &state, json!({
+        let result = request(&app, &state, label, json!({
             "model": "mimo-v2.5-asr",
             "messages": [{"role":"user","content":[{"type":"input_audio","input_audio":{"data":format!("data:{mime};base64,{audio_base64}")}}]}],
             "asr_options": {"language": language}
@@ -361,7 +374,7 @@ fn stream_synthesis(
     // Registration is atomic with pending cancellation, including a stop during clone setup.
     let registered = match state.register(
         request_id.clone(),
-        RunningSpeech { child: child.clone(), cancelled: cancelled.clone() },
+        RunningSpeech { child: child.clone(), cancelled: cancelled.clone(), window: window.clone() },
     ) {
         Ok(registered) => registered,
         Err(error) => {
@@ -467,4 +480,32 @@ pub fn mimo_speech_cancel(
     request_id: String,
 ) -> Result<(), String> {
     state.cancel(&request_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn running(state: &MimoSpeechState, id: &str, window: &str) -> Arc<AtomicBool> {
+        let child = Command::new("/bin/sleep").arg("30").spawn().expect("spawn sleep");
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let request = RunningSpeech { child: Arc::new(Mutex::new(child)), cancelled: cancelled.clone(), window: window.into() };
+        assert!(state.register(id.into(), request).expect("register"));
+        cancelled
+    }
+
+    #[test]
+    fn closing_one_window_stops_only_its_own_speech() {
+        let state = MimoSpeechState::default();
+        let chat = running(&state, "read-chat", "chat");
+        let dubbing = running(&state, "read-dub", "dubbing");
+        state.cancel_window("chat");
+        assert!(chat.load(Ordering::Relaxed));
+        assert!(!dubbing.load(Ordering::Relaxed));
+        state.cancel_all();
+        assert!(dubbing.load(Ordering::Relaxed));
+        for request in state.running.lock().unwrap().values() {
+            let _ = request.child.lock().unwrap().wait();
+        }
+    }
 }
