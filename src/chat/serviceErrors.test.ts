@@ -33,6 +33,13 @@ describe("classifyServiceError", () => {
     expect(classifyServiceError("上一条还在回复，稍等一下。")).toBe("running");
   });
 
+  it("tells a message the provider's moderation turned down, which trying again will not fix", () => {
+    expect(classifyServiceError("这条内容未能通过 DeepSeek 的审核。")).toBe("moderated");
+    expect(serviceErrorMessage("DeepSeek", "moderated")).toBe("这条内容没通过 DeepSeek 的审核，换个说法再试。");
+    // A cloned voice Alibaba Cloud turned down is still a voice problem.
+    expect(classifyServiceError("阿里云未通过这个克隆音色的审核，请重新添加一段清晰的录音。")).toBe("voice");
+  });
+
   it("leaves anything else as other", () => {
     expect(classifyServiceError("录音数据无效")).toBe("other");
   });

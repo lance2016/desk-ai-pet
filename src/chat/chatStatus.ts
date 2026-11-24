@@ -25,6 +25,7 @@ const FAILURES: Record<ChatFailure, ChatStatus> = {
   rate: { label: "请求太频繁", tone: "warning" },
   busy: { label: "服务繁忙", tone: "warning" },
   rejected: { label: "发送失败", tone: "error" },
+  moderated: { label: "没通过审核", tone: "warning" },
   running: { label: "稍等", tone: "warning" },
   "key-storage": { label: "本机配置不可用", tone: "warning" },
   other: { label: "出错了", tone: "error" },

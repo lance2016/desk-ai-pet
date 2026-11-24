@@ -1,10 +1,10 @@
 /**
  * Sorts the errors of the DeepSeek, MiMo, and CosyVoice native commands, so the user is
  * told whether to fix a key or check the network. The phrases below match the
- * messages of `failureMessage` (`src/ai/provider.ts`), `src-tauri/src/llm.rs`,
+ * messages of `failureMessage` (`src/ai/provider.ts`), the moderation line in `src/ai/chatRun.ts`, `src-tauri/src/llm.rs`,
  * `src-tauri/src/mimo.rs`, `src-tauri/src/cosyvoice.rs` and `src-tauri/src/api_keys.rs`.
  */
-export type ServiceError = "missing-key" | "bad-key" | "model" | "key-storage" | "billing" | "rate" | "busy" | "rejected" | "running" | "voice" | "network" | "other";
+export type ServiceError = "missing-key" | "bad-key" | "model" | "key-storage" | "billing" | "rate" | "busy" | "rejected" | "moderated" | "running" | "voice" | "network" | "other";
 
 const RULES: ReadonlyArray<[ServiceError, RegExp]> = [
   ["missing-key", /not configured|请先.*配置.*API Key/],
@@ -15,6 +15,7 @@ const RULES: ReadonlyArray<[ServiceError, RegExp]> = [
   ["rate", /过于频繁/],
   ["busy", /服务繁忙/],
   ["rejected", /发不出去/],
+  ["moderated", /未能通过.*审核/],
   ["running", /还在回复/],
   ["voice", /克隆的声音|克隆音色|这段声音/],
   ["network", /网络|network|中断|request failed/i],
@@ -35,6 +36,7 @@ export function serviceErrorMessage(service: "DeepSeek" | "MiMo" | "CosyVoice", 
     case "rate": return `${service} 请求太频繁了，稍等一会儿再试。`;
     case "busy": return `${service} 服务繁忙，稍后再试。`;
     case "rejected": return "这条消息发不出去，换个说法或新开一段聊天。";
+    case "moderated": return `这条内容没通过 ${service} 的审核，换个说法再试。`;
     case "running": return "上一条还在回复，稍等一下。";
     case "voice": return "这个克隆的声音用不了，去设置里换一个声音，或者重新录一段。";
     case "network": return `连不上 ${service}，检查网络后再试一次。`;
