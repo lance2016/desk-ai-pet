@@ -394,8 +394,8 @@ button.status-chip:active { transform: scale(.97); }
  * through and the page never hears it go, so `:hover` would stay on and the hint would cover the quick buttons.
  */
 .app:not(.app--pointer-out) .status-chip--focus:is(:hover, :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
-/* While focusing the bar is gone: the row moves up to just below the pool of light. */
-.app--focus .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
+/* While focusing the bar is gone: the row moves up to just below the pool of light. At an edge the corner rule above holds. */
+.app--focus:not(.app--docked-left, .app--docked-right) .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
 .status-chip__ring circle { fill: none; stroke-width: 2.5; }
 .status-chip__ring-track { stroke: var(--ui-accent-soft); }
