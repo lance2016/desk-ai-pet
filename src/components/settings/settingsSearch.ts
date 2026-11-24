@@ -95,7 +95,7 @@ export const SEARCH_SKIPPED: readonly string[] = [
   // Ways into a page or a form that search already finds by the page or form's own name.
   "角色设定", "新建角色…",
   "右键我", "点我头旁边的小气泡", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
-  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求",
+  "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求", "先连接阿里云百炼",
   // Titles on the developer pages, which search finds by page name only while developer mode is on.
   "系统提示词", "发给 AI 的工具",
   "联网", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "应用", "宠物",
