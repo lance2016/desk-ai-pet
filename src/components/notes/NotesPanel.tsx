@@ -238,7 +238,7 @@ export function NotesPanel() {
   };
 
   return (
-    <main className="today-panel notes-panel">
+    <main className="today-panel notes-panel ui-on-material">
       <header className="today-header" data-tauri-drag-region>
         <div className="today-header__titles" data-tauri-drag-region>
           <h1 data-tauri-drag-region>备忘</h1>

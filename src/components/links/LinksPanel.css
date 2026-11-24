@@ -1,6 +1,6 @@
 .links-view { position: relative; min-height: 0; display: flex; flex: 1; flex-direction: column; }
 .links-header { align-items: center; }
-.links-header h1 { font-size: 17px; }
+.links-header h1 { font-size: var(--ui-font-headline); }
 .links-panel:not(.links-panel--manager) .links-header { display: grid; grid-template-columns: 24px 1fr 24px; gap: 0; padding-inline: 16px; }
 .links-panel:not(.links-panel--manager) .links-header h1 { grid-column: 2; text-align: center; }
 .links-icon-button {
@@ -16,13 +16,13 @@
 .links-view:has(.today-hud) .links-list { padding-bottom: 50px; }
 .links-group + .links-group { margin-top: 10px; }
 .links-group__header, .links-actions { display: flex; align-items: center; justify-content: space-between; }
-.links-group h2 { margin: 4px 8px; color: var(--label-2); font-size: 12px; font-weight: 600; }
+.links-group h2 { margin: 4px 8px; color: var(--label-2); font-size: var(--ui-font-caption); font-weight: 600; }
 .links-rows { list-style: none; margin: 0; padding: 0; }
 .links-row { position: relative; display: flex; align-items: center; border-radius: var(--radius-row); }
 .links-row:hover { background: var(--fill); }
 .links-row.is-selected { background: var(--accent-wash); }
 .links-row__main {
-  min-width: 0; width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 57px 7px 9px;
+  min-width: 0; width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 56px 8px 8px;
   border: 0; border-radius: inherit; color: var(--label); background: none; font: inherit; text-align: left; cursor: pointer;
 }
 .links-site-icon, .links-row__open { color: var(--label-2); }
@@ -30,22 +30,20 @@
 .links-site-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .links-row__text { display: grid; min-width: 0; gap: 1px; }
 .links-row__title { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.links-row__description { color: var(--label-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.links-row__description { color: var(--label-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ui-font-footnote); }
 .links-row__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .links-row__open { position: absolute; right: 9px; display: flex; }
 .links-row__more { position: absolute; right: 28px; opacity: 0; }
 .links-row:hover .links-row__more, .links-row:focus-within .links-row__more, .links-row__more[aria-expanded="true"] { opacity: 1; }
-.links-tag { flex: none; padding: 0 5px; border-radius: var(--radius-control); color: var(--label-2); background: var(--fill); font-size: 10px; font-weight: 600; }
-.links-tag.is-production { color: #925300; background: rgba(243, 165, 38, .18); }
-@media (prefers-color-scheme: dark) { .links-tag.is-production { color: #f6b953; } }
-.links-row__actions { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 8px 7px 32px; }
+.links-tag { flex: none; padding: 0 4px; border-radius: var(--radius-control); color: var(--label-2); background: var(--fill); font-size: var(--ui-font-badge); font-weight: 600; }
+.links-tag.is-production { color: var(--ui-warning); background: var(--ui-warning-soft); }
+.links-row__actions { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 8px 8px 32px; }
 .links-form { display: grid; gap: 8px; padding: 2px 16px 14px; overflow-y: auto; }
-.links-form label { display: grid; gap: 3px; font-weight: 500; }
-.links-form__actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 3px; }
+.links-form label { display: grid; gap: 4px; font-weight: 500; }
+.links-form__actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
 .links-form p[role="alert"] { margin: 0; color: var(--red); }
 .links-panel--manager { height: auto; min-height: 260px; background: var(--group); }
 .links-panel--manager .links-header { padding-left: 16px; }
 /* The settings page has its buttons inherit the text colour; the primary button keeps white on the accent. */
-.links-panel--manager .today-button--primary { color: #fff; }
 .links-panel--manager .links-list { max-height: 390px; }
 .links-panel .today-empty { gap: 8px; }

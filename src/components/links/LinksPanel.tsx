@@ -53,7 +53,7 @@ export function LinksPanel() {
       document.body.classList.remove("today-window");
     };
   }, []);
-  return <main className="today-panel links-panel"><LinksView /></main>;
+  return <main className="today-panel links-panel ui-on-material"><LinksView /></main>;
 }
 
 export function LinksSettings() {

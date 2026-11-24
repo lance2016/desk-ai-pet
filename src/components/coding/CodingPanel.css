@@ -3,18 +3,9 @@
  * material, tokens and HUD from TodayPanel.css. Only what differs is here.
  */
 .coding-panel {
-  --amber: #a15c00;
-  --green: #1f8a4c;
-  --picked: rgba(0, 0, 0, .12);
-}
-@media (prefers-color-scheme: dark) {
-  .coding-panel {
-    --amber: #f0b45a;
-    --green: #62cf8d;
-    --picked: rgba(255, 255, 255, .15);
-  }
-  /* The strong accent is too dark to read on the dark material. */
-  .coding-leave { color: var(--accent); }
+  --amber: var(--ui-warning);
+  --green: var(--ui-positive);
+  --picked: var(--ui-selection);
 }
 
 /*
@@ -24,12 +15,12 @@
 .coding-panel--split { flex-direction: row; }
 .coding-sidebar { flex: none; width: 136px; box-sizing: border-box; display: flex; flex-direction: column; padding: 16px 8px; overflow-y: auto; background: var(--fill); border-right: 1px solid var(--separator); }
 /* Starts after the system close button, which sits on its line. */
-.coding-sidebar__title { margin: 0 4px 12px calc(var(--title-after-close) - 8px); color: var(--label-2); font-size: 13px; font-weight: 600; line-height: 24px; white-space: nowrap; }
+.coding-sidebar__title { margin: 0 4px 12px calc(var(--title-after-close) - 8px); color: var(--label-2); font-size: var(--ui-font-body); font-weight: 600; line-height: 24px; white-space: nowrap; }
 .coding-sidebar ul { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .coding-folder { width: 100%; height: 28px; display: flex; align-items: center; gap: 4px; padding: 0 8px 0 4px; color: var(--label); background: none; border: 0; border-radius: var(--radius-control); font: inherit; text-align: left; cursor: default; transition: background-color var(--ui-duration-fast) var(--ui-ease); }
 .coding-folder:hover { background: var(--fill-strong); }
 .coding-folder.is-picked { background: var(--picked); }
-.coding-folder:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-folder:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 .coding-folder__mark { width: 16px; height: 16px; }
 .coding-folder__mark .today-glyph { width: 14px; height: 14px; }
 .coding-folder .coding-folder__mark--waiting { color: var(--amber); }
@@ -38,16 +29,16 @@
 .coding-folder.is-picked .coding-folder__name { font-weight: 500; }
 .coding-folder.is-quiet .coding-folder__name { color: var(--label-2); }
 .coding-folder__pin { width: 12px; height: 12px; color: var(--label-3); }
-.coding-folder__count { flex: none; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.coding-folder__count { flex: none; color: var(--label-2); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
 
 .coding-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* The close button is over the folder column, not here. */
 .coding-main .today-header { padding-left: 16px; }
-.coding-main__name { margin: 0; color: var(--label); font-size: 17px; font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
+.coding-main__name { margin: 0; color: var(--label); font-size: var(--ui-font-headline); font-weight: 600; line-height: 24px; overflow-wrap: anywhere; }
 .coding-rows { margin: 0; padding: 0; list-style: none; }
-.coding-inbox-empty { margin: 12px 8px; color: var(--label-2); font-size: 12px; }
+.coding-inbox-empty { margin: 12px 8px; color: var(--label-2); font-size: var(--ui-font-caption); }
 .coding-inbox-later { margin-top: 8px; }
-.coding-inbox-later summary { padding: 6px 8px; color: var(--label-2); font-size: 12px; cursor: pointer; }
+.coding-inbox-later summary { padding: 6px 8px; color: var(--label-2); font-size: var(--ui-font-caption); cursor: pointer; }
 
 /* A session is one big target, back to it: its mark, then what it is about and how it stands. Its detail is the button at the end. */
 .coding-row { padding: 0; }
@@ -68,7 +59,7 @@
   text-align: left;
   cursor: default;
 }
-.coding-row__main:focus-visible, .coding-notice button:focus-visible, .coding-leave:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-row__main:focus-visible, .coding-notice button:focus-visible, .coding-leave:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 .coding-row__main:active { background: var(--fill-strong); }
 /* The mark sits on the title's line. */
 .coding-row__mark { flex: none; width: 18px; height: 18px; display: grid; place-items: center; color: var(--label-3); }
@@ -76,16 +67,16 @@
 .coding-row__top { display: flex; align-items: flex-start; gap: 8px; }
 /* One line: the detail shows all of it. */
 .coding-row__top strong { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
-.coding-row__time { flex: none; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 18px; white-space: nowrap; }
-.coding-row__where { overflow: hidden; color: var(--label-2); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.coding-row__time { flex: none; color: var(--label-2); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; line-height: 18px; white-space: nowrap; }
+.coding-row__where { overflow: hidden; color: var(--label-2); font-size: var(--ui-font-footnote); text-overflow: ellipsis; white-space: nowrap; }
 /* What was asked last, in the user's own words. */
-.coding-row__asked { overflow: hidden; color: var(--label-2); font-size: 12px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.coding-row__asked { overflow: hidden; color: var(--label-2); font-size: var(--ui-font-caption); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .coding-row__you { color: var(--label-3); }
 .coding-row__line {
   display: -webkit-box;
   overflow: hidden;
   color: var(--label-2);
-  font-size: 12px;
+  font-size: var(--ui-font-caption);
   line-height: 1.4;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -106,17 +97,17 @@
 /* The detail button, always in sight on the title's line. */
 .coding-tool { flex: none; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-control); cursor: default; transition: color var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease); }
 .coding-tool:hover { color: var(--label); background: var(--fill-strong); }
-.coding-tool:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.coding-tool:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 .coding-tool .today-glyph { width: 15px; height: 15px; }
-.coding-row__info { margin: 5px 4px 0 0; }
+.coding-row__info { margin: 4px 4px 0 0; }
 /* On, it takes the accent colour, as a toggled toolbar button does. */
 .coding-pin.is-on { color: var(--accent); }
 
 /* Ended sessions wait folded at the end of their folder. */
-.coding-fold { width: 100%; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-row); font: inherit; font-size: 12px; text-align: left; cursor: default; }
+.coding-fold { width: 100%; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--label-2); background: none; border: 0; border-radius: var(--radius-row); font: inherit; font-size: var(--ui-font-caption); text-align: left; cursor: default; }
 .coding-fold:hover { background: var(--fill); }
-.coding-fold:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
-.coding-fold__glyph { width: 12px; height: 12px; margin: 0 3px; transition: transform var(--ui-duration) var(--ui-ease); }
+.coding-fold:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.coding-fold__glyph { width: 12px; height: 12px; margin: 0 4px; transition: transform var(--ui-duration) var(--ui-ease); }
 .coding-fold.is-open .coding-fold__glyph { transform: rotate(90deg); }
 
 /* The detail: the way back to the list, the session, the way back to it, then its turns. */
@@ -128,14 +119,14 @@
   margin: 8px 0 0;
   overflow: hidden;
   color: var(--label);
-  font-size: 15px;
+  font-size: var(--ui-font-emphasis);
   font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
-.coding-detail__state { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: 4px 0 0; color: var(--label-2); font-size: 12px; }
+.coding-detail__state { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: 4px 0 0; color: var(--label-2); font-size: var(--ui-font-caption); }
 .coding-detail__state .coding-row__mark { width: 14px; height: 14px; }
 .coding-detail__branch { margin-left: 8px; }
 .coding-detail__state--working .coding-row__mark { color: var(--accent); }
@@ -143,27 +134,27 @@
 .coding-detail__state--failed .coding-row__mark { color: var(--red); }
 .coding-detail__state--completed .coding-row__mark { color: var(--green); }
 .coding-detail__actions { display: flex; gap: 8px; margin-top: 12px; }
-.coding-detail__note { margin: 8px 0 0; color: var(--label-2); font-size: 11px; }
+.coding-detail__note { margin: 8px 0 0; color: var(--label-2); font-size: var(--ui-font-footnote); }
 
 /* Laid out from the bottom (column-reverse), so it opens on the latest turn. */
 .coding-turns { flex: 1; min-height: 0; display: flex; flex-direction: column-reverse; padding: 0 16px 56px; overflow-y: auto; }
 .coding-turns ol { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0; list-style: none; }
-.coding-turns__note { margin: 12px 0; color: var(--label-2); font-size: 11px; text-align: center; }
+.coding-turns__note { margin: 12px 0; color: var(--label-2); font-size: var(--ui-font-footnote); text-align: center; }
 .coding-turn { display: flex; flex-direction: column; }
 /* What the user asked sits on the right, as their own message does in a chat. */
-.coding-turn__asked { align-self: flex-end; max-width: 84%; margin: 0; padding: 6px 10px; color: var(--label); background: var(--accent-wash); border-radius: 12px 12px 4px 12px; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.coding-turn__asked { align-self: flex-end; max-width: 84%; margin: 0; padding: 6px 10px; color: var(--label); background: var(--accent-wash); border-radius: 12px 12px 4px 12px; font-size: var(--ui-font-caption); line-height: 1.45; overflow-wrap: anywhere; }
 .coding-turn__reply { display: flex; gap: 6px; margin-top: 6px; }
 .coding-turn__reply .coding-row__mark { width: 14px; height: 17px; }
 .coding-turn__body { min-width: 0; }
-.coding-turn__text { margin: 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
-.coding-turn__meta { margin: 2px 0 0; color: var(--label-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+.coding-turn__text { margin: 0; font-size: var(--ui-font-caption); line-height: 1.45; overflow-wrap: anywhere; }
+.coding-turn__meta { margin: 2px 0 0; color: var(--label-2); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
 .coding-turn--working .coding-row__mark { color: var(--accent); }
 .coding-turn--waiting :is(.coding-row__mark, .coding-turn__text) { color: var(--amber); }
 .coding-turn--failed :is(.coding-row__mark, .coding-turn__text) { color: var(--red); }
 .coding-turn--completed .coding-row__mark { color: var(--green); }
 
 /* Said once above the list, as plain words: the sessions below may be out of date. */
-.coding-notice { display: flex; align-items: center; gap: 8px; margin: 0 8px 4px; color: var(--label-2); font-size: 12px; }
+.coding-notice { display: flex; align-items: center; gap: 8px; margin: 0 8px 4px; color: var(--label-2); font-size: var(--ui-font-caption); }
 .coding-notice button { flex: none; height: 24px; margin-left: auto; padding: 0 8px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--radius-control); font: inherit; font-weight: 500; cursor: default; }
 .coding-notice button:hover { background: var(--fill-strong); }
 .coding-panel .today-empty p { text-wrap: balance; }

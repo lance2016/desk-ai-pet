@@ -24,6 +24,9 @@
   --ui-sidebar-hover: var(--ui-fill);
   --ui-header-hover: color-mix(in srgb, var(--ui-window), white 65%);
   --ui-scrim: rgba(24, 24, 26, .45);
+  /* The dark toast at the bottom of a panel ("已完成 · 撤销"). */
+  --ui-hud: rgba(38, 38, 40, .88);
+  --ui-hud-text: #ffffff;
 
   /* One accent for a whole window: primary buttons, switches, links, focus, the selected sidebar page. */
   --ui-accent: #6e56cf;
@@ -113,6 +116,7 @@
     --ui-sidebar-hover: rgba(255, 255, 255, .07);
     --ui-header-hover: color-mix(in srgb, var(--ui-window), white 6%);
     --ui-scrim: rgba(0, 0, 0, .55);
+    --ui-hud: rgba(72, 72, 74, .92);
 
     --ui-accent: #b7a9e8;
     --ui-accent-strong: #c5b8ef;
@@ -170,9 +174,6 @@
   --ui-selection: rgba(0, 0, 0, .12);
   /* Laid over the material, stopped at the window's rounded corners. */
   --ui-material-tint: rgba(250, 250, 250, .5);
-  /* The dark toast at the bottom of a panel ("已完成 · 撤销"). */
-  --ui-hud: rgba(38, 38, 40, .88);
-  --ui-hud-text: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -187,6 +188,5 @@
     --ui-field: rgba(255, 255, 255, .07);
     --ui-selection: rgba(255, 255, 255, .15);
     --ui-material-tint: rgba(30, 30, 30, .35);
-    --ui-hud: rgba(72, 72, 74, .92);
   }
 }

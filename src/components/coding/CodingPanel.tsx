@@ -556,7 +556,7 @@ export function CodingPanel() {
 
   if (!group) {
     return (
-      <main className="today-panel coding-panel">
+      <main className="today-panel coding-panel ui-on-material">
         <header className="today-header" data-tauri-drag-region><div className="today-header__titles" data-tauri-drag-region><h1 data-tauri-drag-region>Claude Code</h1></div></header>
         <section className="today-list" aria-label="Claude Code 会话"><Empty hooks={hooks} /></section>
         {toast}
@@ -565,7 +565,7 @@ export function CodingPanel() {
   }
 
   return (
-    <main className="today-panel coding-panel coding-panel--split">
+    <main className="today-panel coding-panel coding-panel--split ui-on-material">
       <Folders groups={groups} current={inboxOpen ? null : group.project} pinned={pinned} inboxCount={inbox.pending.length} onInbox={openInbox} onPick={pick} />
       <div className="coding-main">
         {detail ? (
