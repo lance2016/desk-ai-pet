@@ -413,7 +413,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
       <p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p>
     </div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
-      <label className="action-editor__field">名称<input type="text" className="action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
+      <label className="action-editor__field">名称<input type="text" className="ui-field ui-field--small action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>
     </fieldset>}
     <fieldset className="action-editor__group action-editor__materials" disabled={busy}><legend>动作图片</legend><div className="action-editor__types" role="group" aria-label="素材类型">{([ ["single", "单张图片"], ["frames", "多张图片"], ["sheet", "一排多格"], ["grid", "多行多列"] ] as const).map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p className="action-editor__mode-note">{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张同尺寸图片，按文件名数字顺序播放。" : mode === "sheet" ? "一张图里横排着几个画面，每格一样宽。" : "一张图里排着几行几列画面，按从左到右、从上到下播放，位置统一调整。"}</p>
@@ -437,7 +437,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
     </fieldset>
     <div className="action-editor__preview"><span className="action-editor__preview-label">动作预览</span>{image ? <><div className="action-editor__stage" style={{ aspectRatio: `${canvas.width} / ${canvas.height}` }}><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} randomFlip={randomFlip} resolveAsset={resolveAsset} size={{ width: 240, height: Math.round(240 * canvas.height / canvas.width) }} /></div><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新播放</button></> : <span>选择图片后在这里预览</span>}</div>
     <fieldset className="action-editor__group action-editor__motion" disabled={busy}><legend>动效</legend>
-      <label className="action-editor__field">图片动效 <select value={motion} onChange={(e) => setMotion(e.currentTarget.value as MotionPreset)}>{MOTION_PRESETS.map((value) => <option key={value} value={value}>{MOTION_LABELS[value]}</option>)}</select></label>
+      <label className="action-editor__field">图片动效 <select className="ui-select" value={motion} onChange={(e) => setMotion(e.currentTarget.value as MotionPreset)}>{MOTION_PRESETS.map((value) => <option key={value} value={value}>{MOTION_LABELS[value]}</option>)}</select></label>
       {action.align !== "left" && <><label className="action-editor__field">随机朝左或朝右 <input type="checkbox" checked={randomFlip} onChange={(e) => setRandomFlip(e.currentTarget.checked)} /></label>
       <p>每次播放随机左右镜像，一张图就能朝两边。发夹这类只戴在一侧的饰品，镜像时会换到另一边。</p></>}
       {!own && <p>触发时机和持续时间由宠物行为决定。</p>}

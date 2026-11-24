@@ -117,7 +117,7 @@ export function DubbingPage() {
       <header className="dub-toolbar">
         <label className="dub-field">
           <span>声音</span>
-          <select value={missingVoice ? "" : voice} onChange={(event) => update({ voice: event.currentTarget.value })}>
+          <select className="ui-select ui-select--large" value={missingVoice ? "" : voice} onChange={(event) => update({ voice: event.currentTarget.value })}>
             {missingVoice && <option value="" disabled>已删除的声音</option>}
             {clones && clones.length > 0 && <optgroup label="克隆的声音">{clones.map((clone) => <option key={clone.id} value={`${CLONED_VOICE_PREFIX}${clone.id}`}>{clone.name}</option>)}</optgroup>}
             {PRESETS.map((group) => <optgroup key={group.label} label={group.label}>{group.voices.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</optgroup>)}
@@ -125,7 +125,7 @@ export function DubbingPage() {
         </label>
         <label className="dub-field dub-field--grow">
           <span>语气</span>
-          <input value={draft.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={voice.startsWith(CLONED_VOICE_PREFIX) ? "留空保留录音里的感觉，例如：语速稍慢、像在讲解" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ style: event.currentTarget.value })} />
+          <input className="ui-field" value={draft.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={voice.startsWith(CLONED_VOICE_PREFIX) ? "留空保留录音里的感觉，例如：语速稍慢、像在讲解" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ style: event.currentTarget.value })} />
         </label>
       </header>
 
@@ -172,7 +172,7 @@ export function DubbingPage() {
         <button type="button" className="ui-button ui-button--large" disabled={lines.length === 0 || missingVoice || (!dub.running && progress.missing + progress.failed === 0)} onClick={dub.running ? dub.stop : dub.generate}>{generateLabel}</button>
         <button type="button" className="ui-button ui-button--large" disabled={!allReady} onClick={() => play(true, 0)}>{playing?.all ? "停止播放" : "播放全部"}</button>
         <span className="dub-divider" />
-        <select className="dub-format" aria-label="导出格式" value={draft.format} onChange={(event) => update({ format: event.currentTarget.value as ExportFormat })}>
+        <select className="ui-select ui-select--large" aria-label="导出格式" value={draft.format} onChange={(event) => update({ format: event.currentTarget.value as ExportFormat })}>
           {EXPORT_FORMATS.map((format) => <option key={format} value={format}>{FORMAT_LABELS[format]}</option>)}
         </select>
         <label className="dub-check"><input type="checkbox" checked={draft.subtitles} onChange={(event) => update({ subtitles: event.currentTarget.checked })} />字幕</label>

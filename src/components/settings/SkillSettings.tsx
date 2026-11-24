@@ -38,7 +38,7 @@ function SkillIcon({ id }: { id: ChatRuleId }) {
 }
 
 export function Switch({ label, on, onChange }: { label: string; on: boolean; onChange: () => void }) {
-  return <button type="button" role="switch" aria-label={label} aria-checked={on} className={on ? "toggle is-on" : "toggle"} onClick={onChange}><span /></button>;
+  return <button type="button" role="switch" aria-label={label} aria-checked={on} className={on ? "ui-switch is-on" : "ui-switch"} onClick={onChange}><span /></button>;
 }
 
 /** 「能力」: what the pet may do in a chat, one switch each, and reading webpages. */

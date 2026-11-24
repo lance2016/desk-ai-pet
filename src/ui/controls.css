@@ -44,3 +44,32 @@
 /* The confirming click of something that cannot be taken back: a red fill. */
 .ui-button.ui-button--destructive { color: var(--ui-action-text); background: var(--ui-danger); box-shadow: none; }
 .ui-button.ui-button--destructive:hover:not(:disabled) { background: var(--ui-danger); filter: brightness(1.08); }
+
+/* A switch, 32 × 19 as macOS draws the small one. The knob stays white in both modes. */
+.ui-switch { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--ui-switch-track); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background-color var(--ui-duration) var(--ui-ease); }
+.ui-switch span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform var(--ui-duration) var(--ui-ease); }
+.ui-switch.is-on { background: var(--ui-switch-on); }
+.ui-switch.is-on span { transform: translateX(13px); }
+.ui-switch:disabled { opacity: .45; cursor: default; }
+.ui-switch:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+/* A segmented control, as NSSegmentedControl draws it: a sunken track, the chosen part raised. */
+.ui-segmented { flex: none; display: inline-flex; padding: 2px; background: var(--ui-segment-track); border-radius: var(--ui-radius-control); }
+.ui-segmented button { height: 20px; padding: 0 8px; color: var(--ui-text); background: none; border: 0; border-radius: var(--ui-radius-tag); font: inherit; font-size: var(--ui-font-caption); white-space: nowrap; cursor: pointer; }
+.ui-segmented button.is-selected { background: var(--ui-segment-selected); box-shadow: var(--ui-shadow-control); font-weight: 500; }
+.ui-segmented button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+
+/* A one-line text field: a hairline border on the field colour; the accent border and ring while typing. */
+.ui-field { box-sizing: border-box; min-width: 0; height: 28px; padding: 0 8px; color: var(--ui-text); background: var(--ui-field); border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-control); font: inherit; outline: none; transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
+.ui-field::placeholder { color: var(--ui-text-muted); }
+.ui-field::-webkit-calendar-picker-indicator { opacity: .55; }
+.ui-field:focus { border-color: var(--ui-accent); box-shadow: var(--ui-focus-ring); }
+.ui-field:disabled { opacity: .45; }
+.ui-field--small { height: 24px; padding: 0 6px; font-size: var(--ui-font-caption); }
+
+/* A pop-up button: looks like a push button with the up-down chevron. */
+.ui-select { box-sizing: border-box; appearance: none; -webkit-appearance: none; height: 24px; min-width: 88px; margin: 0; padding: 0 26px 0 10px; color: var(--ui-text); background: var(--ui-field) var(--ui-popup-arrow) no-repeat right 9px center / 8px 12px; border: 0; border-radius: var(--ui-radius-control); box-shadow: var(--ui-shadow-control); font: inherit; cursor: pointer; }
+.ui-select:hover:not(:disabled) { background-color: var(--ui-control-hover); }
+.ui-select:focus-visible { outline: none; box-shadow: var(--ui-shadow-control), var(--ui-focus-ring); }
+.ui-select:disabled { opacity: .45; cursor: default; }
+.ui-select--large { height: 28px; }

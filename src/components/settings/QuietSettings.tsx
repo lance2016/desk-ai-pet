@@ -27,9 +27,9 @@ export function QuietSettings({ onError, during }: { onError: (message: string |
 
   return (
     <article className="settings-card">
-      <div className="settings-row"><div className="settings-row__body"><strong>手动勿扰</strong><span>宠物不主动说话，到点的提醒先攒在脚下，关掉后再弹出</span></div><button type="button" role="switch" aria-checked={value.doNotDisturb} aria-label="手动勿扰" className={value.doNotDisturb ? "toggle is-on" : "toggle"} onClick={() => updateDoNotDisturb(!value.doNotDisturb)}><span /></button></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>手动勿扰</strong><span>宠物不主动说话，到点的提醒先攒在脚下，关掉后再弹出</span></div><button type="button" role="switch" aria-checked={value.doNotDisturb} aria-label="手动勿扰" className={value.doNotDisturb ? "ui-switch is-on" : "ui-switch"} onClick={() => updateDoNotDisturb(!value.doNotDisturb)}><span /></button></div>
       <div className="settings-divider" />
-      <div className="settings-row"><div className="settings-row__body"><strong>定时勿扰</strong><span>每天这段时间不主动说话，提醒照常弹出</span></div><button type="button" role="switch" aria-checked={hours.enabled} aria-label="定时勿扰" className={hours.enabled ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, quietHours: { ...hours, enabled: !hours.enabled } })}><span /></button></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>定时勿扰</strong><span>每天这段时间不主动说话，提醒照常弹出</span></div><button type="button" role="switch" aria-checked={hours.enabled} aria-label="定时勿扰" className={hours.enabled ? "ui-switch is-on" : "ui-switch"} onClick={() => update({ ...value, quietHours: { ...hours, enabled: !hours.enabled } })}><span /></button></div>
       {/* Greyed out, not hidden, when off: the greetings still go by these times. */}
       <div className={hours.enabled ? "quiet-hours" : "quiet-hours is-off"}>
         <label>从<TimeField disabled={!hours.enabled} value={hours.start} onChange={(start) => update({ ...value, quietHours: { ...hours, start } })} /></label>

@@ -18,18 +18,11 @@ html.dubbing-window, body.dubbing-window, body.dubbing-window #root { margin: 0;
 .dub-toolbar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--ui-border); }
 .dub-field { display: flex; align-items: center; gap: 8px; color: var(--ui-text-secondary); white-space: nowrap; }
 .dub-field--grow { flex: 1; min-width: 0; }
-.dub-field :is(select, input), .dub-format {
-  height: 28px;
-  box-sizing: border-box;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: var(--ui-radius-control);
-  background: var(--ui-surface);
-  color: var(--ui-text);
-}
-.dub-field select, .dub-format { padding: 0 8px; }
-.dub-field select { min-width: 160px; }
-.dub-field input { flex: 1; min-width: 0; padding: 0 10px; }
-.dub-field input::placeholder, .dub-script textarea::placeholder { color: var(--ui-text-muted); }
+/* The page resets controls to inherit the label's grey; fields keep the text colour. */
+.dub-field :is(.ui-select, .ui-field) { color: var(--ui-text); }
+.dub-field .ui-select { min-width: 160px; }
+.dub-field .ui-field { flex: 1; }
+.dub-script textarea::placeholder { color: var(--ui-text-muted); }
 
 /* Script on the left, its lines on the right. */
 .dub-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 12px 16px; }
@@ -70,5 +63,5 @@ html.dubbing-window, body.dubbing-window, body.dubbing-window #root { margin: 0;
 .dub-check input { margin: 0; accent-color: var(--ui-accent); }
 
 @media (max-width: 760px) {
-  .dub-field select { min-width: 120px; }
+  .dub-field .ui-select { min-width: 120px; }
 }

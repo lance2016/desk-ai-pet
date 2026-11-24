@@ -76,7 +76,7 @@ export function PromptPreview({ packId, persona, actions, onError }: { packId: s
   return <div className="settings-section">
     <div className="prompt-toolbar">
       <p>按当前角色、时间和开关拼出来，每次聊天开头发给 AI 的就是这些。共 {chars(preview.prompt)} 字</p>
-      <div className="segmented" role="radiogroup" aria-label="显示方式" onKeyDown={moveRadioChoice}>
+      <div className="ui-segmented" role="radiogroup" aria-label="显示方式" onKeyDown={moveRadioChoice}>
         {VIEWS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={view === value} className={view === value ? "is-selected" : ""} onClick={() => setView(value)}>{label}</button>)}
       </div>
     </div>

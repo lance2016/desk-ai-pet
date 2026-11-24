@@ -78,11 +78,11 @@ export function FactSettings({ who }: { who: string }) {
 
   return <div className="settings-section">
     <div className="settings-section__intro"><h2>关于你</h2><p>称呼和记忆每次聊天都会带上，所有角色共用</p></div>
-    <article className="settings-card ai-settings"><label className="ai-preference">你的称呼<input value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} placeholder="例如：阿龙" onChange={(event) => setNickname(event.currentTarget.value)} onBlur={saveNickname} /></label>{profileStatus && <p className="ai-settings__status" role="status">{profileStatus}</p>}</article>
+    <article className="settings-card ai-settings"><label className="ai-preference">你的称呼<input className="ui-field" value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} placeholder="例如：阿龙" onChange={(event) => setNickname(event.currentTarget.value)} onBlur={saveNickname} /></label>{profileStatus && <p className="ai-settings__status" role="status">{profileStatus}</p>}</article>
     <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>聊天时自动记住</strong><span>{learning ? `你在聊天里说起的偏好、习惯和长期安排，${who}会记下来` : "已关闭：不再记新的，已有的照常使用"}</span></div>
-        <button type="button" role="switch" aria-label="聊天时自动记住" aria-checked={learning} className={learning ? "toggle is-on" : "toggle"} onClick={toggleLearning}><span /></button>
+        <button type="button" role="switch" aria-label="聊天时自动记住" aria-checked={learning} className={learning ? "ui-switch is-on" : "ui-switch"} onClick={toggleLearning}><span /></button>
       </div>
     </div>
     <div className="settings-group-head">
@@ -92,7 +92,7 @@ export function FactSettings({ who }: { who: string }) {
     </div>
     <div className="settings-group fact-settings">
       <form className="settings-row fact-add" onSubmit={add}>
-        <input aria-label="新的记忆" value={draft} maxLength={FACT_LIMITS.text} disabled={full} placeholder={full ? `最多 ${FACT_LIMITS.items} 条，删掉几条才能再加` : "写一件关于你的事，如：不吃香菜、每周三下午开例会"} onChange={(event) => setDraft(event.currentTarget.value)} />
+        <input className="ui-field ui-field--small" aria-label="新的记忆" value={draft} maxLength={FACT_LIMITS.text} disabled={full} placeholder={full ? `最多 ${FACT_LIMITS.items} 条，删掉几条才能再加` : "写一件关于你的事，如：不吃香菜、每周三下午开例会"} onChange={(event) => setDraft(event.currentTarget.value)} />
         <button type="submit" className="ui-button ui-button--small" disabled={full || !draft.trim()}>添加</button>
       </form>
       {facts.length === 0
@@ -100,7 +100,7 @@ export function FactSettings({ who }: { who: string }) {
         : <ul className="fact-list">{shown.map((fact) => <li key={fact.id} className="settings-row fact-row">
           {editing?.id === fact.id
             ? <form className="fact-edit" onSubmit={saveEdit}>
-              <input autoFocus aria-label="修改这条记忆" value={editing.text} maxLength={FACT_LIMITS.text} onChange={(event) => setEditing({ id: fact.id, text: event.currentTarget.value })} onKeyDown={editKeys} />
+              <input className="ui-field ui-field--small" autoFocus aria-label="修改这条记忆" value={editing.text} maxLength={FACT_LIMITS.text} onChange={(event) => setEditing({ id: fact.id, text: event.currentTarget.value })} onKeyDown={editKeys} />
               <button type="submit" className="ui-button ui-button--small ui-button--primary" disabled={!editing.text.trim()}>保存</button>
               <button type="button" className="ui-button ui-button--small" onClick={() => setEditing(null)}>取消</button>
             </form>

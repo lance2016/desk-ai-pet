@@ -64,7 +64,7 @@ export function AgentSettings() {
       </div>
       <div className="settings-row">
         <div className="settings-row__body"><strong>宠物跟着反应</strong><span>有会话等你、做完或出错时，宠物会做动作、说一句。关掉后只在脚下的卡片上显示</span></div>
-        <button type="button" role="switch" aria-label="宠物跟着反应" aria-checked={reacts} className={reacts ? "toggle is-on" : "toggle"} onClick={toggleReacts}><span /></button>
+        <button type="button" role="switch" aria-label="宠物跟着反应" aria-checked={reacts} className={reacts ? "ui-switch is-on" : "ui-switch"} onClick={toggleReacts}><span /></button>
       </div>
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}

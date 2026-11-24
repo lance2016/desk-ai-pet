@@ -73,7 +73,7 @@ export function DiagnosticsSettings({ onError }: { onError: (message: string | n
       </div>
       <h2 className="settings-group-title">日志</h2>
       <div className="log-viewer__bar">
-        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="日志级别">
+        <div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="日志级别">
           {LEVELS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={level === value} className={level === value ? "is-selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}
         </div>
         <input type="search" className="log-viewer__search" placeholder="搜索" aria-label="搜索日志" value={query} onChange={(event) => setQuery(event.currentTarget.value)} />

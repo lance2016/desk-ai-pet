@@ -218,23 +218,16 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 /* ---------- Controls ---------- */
-.toggle { flex: none; width: 32px; height: 19px; padding: 2px; background: var(--switch-track); border: 0; border-radius: 10px; cursor: pointer; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .06); transition: background-color var(--ui-duration) var(--ui-ease); }
-.toggle span { display: block; width: 15px; height: 15px; background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform var(--ui-duration) var(--ui-ease); }
-.toggle.is-on { background: var(--switch-track-on); }
-.toggle.is-on span { transform: translateX(13px); }
-.toggle:disabled { opacity: .45; cursor: default; }
 
 /* Segmented control, as NSSegmentedControl draws it. */
-.segmented { flex: none; display: inline-flex; padding: 2px; background: var(--segment-track); border-radius: var(--radius-control); }
-.segmented button { min-width: 44px; height: 20px; padding: 0 8px; background: none; border: 0; border-radius: var(--ui-radius-tag); font-size: var(--ui-font-caption); white-space: nowrap; cursor: pointer; }
-.segmented button.is-selected { background: var(--segment-selected); box-shadow: var(--control-shadow); font-weight: 500; }
 
 /* Push button. */
 /* ConfirmButton waiting for its second click. */
 .backup-confirm { align-items: flex-start; padding: 10px 0; }
 .backup-confirm .settings-row__body span { line-height: 1.45; }
 .settings-button-row { flex: none; display: flex; gap: 6px; }
-.settings-field { box-sizing: border-box; height: 24px; padding: 0 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+/* Settings rows give each part of a segmented control the same width. */
+.settings-page .ui-segmented button { min-width: 44px; }
 .settings-link { padding: 0; color: var(--accent-strong); background: none; border: 0; font-size: var(--ui-font-caption); cursor: pointer; }
 @media (prefers-color-scheme: dark) { .settings-link { color: var(--accent); } }
 /* A few words that do something right there ("恢复默认"). Not `.settings-link`, which is a whole row. */
@@ -352,8 +345,7 @@ button.dock-row__body { cursor: pointer; }
 .action-editor .action-editor__prompt { margin: 0; text-align: left; }
 .action-editor .action-editor__adjust { margin-left: 8px; height: 24px; }
 .action-editor__field { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; }
-.action-editor__field input[type=number] { width: 60px; height: 24px; padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
-.action-editor__field select { min-width: 110px; height: 24px; padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.action-editor__field input[type=number] { width: 60px; }
 .action-editor__motion { padding-top: 8px; padding-bottom: 8px; }
 .action-editor__motion .action-editor__field { margin: 4px 0; }
 .action-editor__advanced { margin: 0 0 12px; }
@@ -366,7 +358,7 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__footer .save-button { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
 .action-editor__footer button:disabled { opacity: .45; cursor: default; }
 .action-editor__footer .is-danger { margin-right: auto; color: var(--red); }
-.action-editor__name { width: 180px; height: 24px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: inherit; }
+.action-editor__name { width: 180px; }
  .action-editor__sequence { margin-top: 16px; }
 .action-editor__sequence-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--ui-font-caption); }
 .action-editor__sequence-head span { color: var(--label-2); font-size: var(--ui-font-footnote); }
@@ -382,7 +374,7 @@ button.dock-row__body { cursor: pointer; }
 .layer-card header { display: flex; align-items: center; gap: 8px; }
 .layer-card header img { width: 44px; height: 44px; object-fit: contain; background: var(--fill); border-radius: var(--radius-control); }
 .layer-card header label { flex: 1; min-width: 0; display: grid; gap: 4px; color: var(--label-2); font-size: var(--ui-font-footnote); }
-.layer-card header input, .layer-card__fields input, .layer-card__fields select { box-sizing: border-box; width: 100%; min-width: 0; height: 24px; padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.layer-card header .ui-field, .layer-card__fields :is(.ui-field, .ui-select) { width: 100%; min-width: 0; }
 .layer-card header button { color: var(--red); background: none; border: 0; cursor: pointer; }
 .layer-card__fields { margin: 12px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .layer-card__fields label { display: grid; gap: 4px; color: var(--label-2); font-size: var(--ui-font-footnote); }
@@ -440,7 +432,7 @@ button.dock-row__body { cursor: pointer; }
 .ai-badge.is-ready { color: var(--green); background: var(--green-wash); }
 .ai-settings form label { display: block; margin-bottom: 6px; font-weight: 500; }
 .ai-settings__key { display: flex; gap: 8px; }
-.ai-settings__key input { box-sizing: border-box; flex: 1; min-width: 0; height: 26px; padding: 0 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.ai-settings__key .ui-field { flex: 1; }
 .ai-settings button { height: 24px; padding: 0 12px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
 .ai-settings button:hover:not(:disabled) { background: var(--button-hover); }
 .ai-settings button:disabled { opacity: .45; cursor: default; }
@@ -463,13 +455,14 @@ button.dock-row__body { cursor: pointer; }
 .mail-accounts:last-child { margin-bottom: 0; }
 .mail-form { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; }
 .ai-settings .mail-form label { margin: 0; color: var(--label-2); font-weight: 400; text-align: right; }
-.mail-form input { box-sizing: border-box; width: 100%; height: 26px; padding: 0 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.mail-form .ui-field { width: 100%; }
 .mail-form button { grid-column: 2; justify-self: end; margin-top: 2px; }
 .mail-try .mail-tester { padding: 0 0 12px; }
 .mail-tester p { color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.6; }
 .mail-tester label { display: block; margin: 0 0 6px; font-weight: 500; }
 .mail-tester label span { color: var(--label-2); font-weight: 400; }
-.mail-tester input, .mail-tester textarea { box-sizing: border-box; display: block; width: 100%; padding: 4px 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.mail-tester .ui-field { display: block; width: 100%; }
+.mail-tester textarea { box-sizing: border-box; display: block; width: 100%; padding: 4px 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 .mail-tester input { height: 26px; margin-bottom: 10px; }
 .mail-tester textarea { height: 120px; resize: vertical; font-size: var(--ui-font-caption); line-height: 1.55; }
 .mail-tester__hint { margin: 10px 0 0; }
@@ -514,7 +507,7 @@ button.dock-row__body { cursor: pointer; }
 .fact-empty { margin: 0; padding: 12px 0; color: var(--label-2); font-size: var(--ui-font-caption); line-height: 1.5; }
 .fact-add, .fact-edit { gap: 6px; }
 .fact-edit { flex: 1; min-width: 0; display: flex; align-items: center; }
-.fact-add input, .fact-edit input { box-sizing: border-box; flex: 1; min-width: 0; height: 26px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
+.fact-add .ui-field, .fact-edit .ui-field { flex: 1; }
 .fact-add input:disabled { opacity: .45; }
 .fact-undo { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-row); background: var(--fill); font-size: var(--ui-font-caption); }
 .fact-undo span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -592,10 +585,11 @@ button.dock-row__body { cursor: pointer; }
 .ai-log-copy { display: flex; justify-content: flex-end; padding-bottom: 10px; }
 @media (max-width: 880px) { .ai-page__intro { align-items: flex-start; flex-direction: column; gap: 8px; } }
 .model-custom { gap: 8px; }
-.model-custom input { box-sizing: border-box; flex: 1; min-width: 0; height: 26px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: inherit; }
+.model-custom .ui-field { flex: 1; }
 .ai-preference { display: grid; gap: 6px; margin-bottom: 12px; font-weight: 500; }
 .ai-preference:last-child { margin-bottom: 0; }
-.ai-preference input, .ai-preference textarea, .ai-preference select { box-sizing: border-box; width: 100%; padding: 4px 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-weight: 400; }
+.ai-preference :is(.ui-field, .ui-select) { width: 100%; font-weight: 400; }
+.ai-preference textarea { box-sizing: border-box; width: 100%; padding: 4px 8px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font-weight: 400; }
 .ai-preference textarea { height: 64px; resize: vertical; }
 .ai-preference__count { justify-self: end; color: var(--label-3); font-size: var(--ui-font-footnote); font-weight: 400; font-variant-numeric: tabular-nums; }
 
@@ -620,17 +614,10 @@ button.dock-row__body { cursor: pointer; }
 
 .quiet-hours { display: flex; gap: 16px; padding: 0 0 12px; color: var(--label-2); font-size: var(--ui-font-caption); }
 .quiet-hours label { display: flex; align-items: center; gap: 6px; }
-.quiet-hours input { height: 22px; padding: 0 6px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); }
 /* A time or a choice at the end of a row looks like the quiet-hours fields. */
 /* A value at the end of a row. The time field and the pop-up button share height, corner and type so a list of them lines up. */
-.settings-row > :is(.time-field, select) { box-sizing: border-box; flex: none; height: 24px; margin: 0; color: var(--label); border-radius: var(--radius-control); font: inherit; font-variant-numeric: tabular-nums; }
-.settings-row > .time-field { padding: 0 6px; background: var(--field); border: 1px solid var(--field-border); }
-.settings-page .time-field { box-sizing: border-box; width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
-/* A macOS pop-up button (a push button with the up-down chevron), not the glossy Aqua menu WebKit draws by default. */
-.settings-row > select { appearance: none; -webkit-appearance: none; min-width: 88px; padding: 0 26px 0 10px; background: var(--field) var(--popup-arrow) no-repeat right 9px center / 8px 12px; border: 0; box-shadow: var(--control-shadow); cursor: pointer; }
-.settings-row > select:hover:not(:disabled) { background-color: var(--fill-strong); }
-.settings-row > select:focus-visible { outline: none; box-shadow: var(--control-shadow), 0 0 0 3px var(--accent-ring); }
-.settings-row > :is(.time-field, select):disabled { opacity: .45; cursor: default; }
+.settings-row > .time-field { flex: none; margin: 0; }
+.settings-page .time-field { width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* Shortcut recorder: the field itself is the record button, the clear button sits inside it. */
 .shortcut-field { flex: none; display: flex; align-items: center; gap: 10px; }
@@ -694,7 +681,7 @@ button.dock-row__body { cursor: pointer; }
 .welcome__note { margin: 8px 0 0; color: var(--label-3); font-size: var(--ui-font-footnote); }
 .welcome h2, .cropper__card h2 { margin: 0; font-size: var(--ui-font-emphasis); }
 .welcome p { margin: 8px 0 16px; color: var(--label-2); font-size: var(--ui-font-caption); line-height: 1.7; }
-.welcome input { box-sizing: border-box; width: 100%; height: 30px; padding: 0 10px; background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); text-align: center; }
+.welcome .ui-field { width: 100%; text-align: center; }
 .welcome__link { margin: 0; padding: 0; color: var(--accent-strong); background: none; border: 0; border-radius: var(--ui-radius-tag); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .welcome__actions, .cropper__actions { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
 .welcome__actions button, .cropper__actions button { min-height: 30px; padding: 0 16px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: var(--ui-font-body); cursor: pointer; }
@@ -842,7 +829,7 @@ button.dock-row__body { cursor: pointer; }
 }
 
 /* ---------- Read-aloud voice (VoiceSettings) and the sheet that adds a cloned voice (VoiceCloneSheet) ---------- */
-.settings-row > select + .voice-preview { min-width: 52px; }
+.settings-row > .ui-select + .voice-preview { min-width: 52px; }
 /* The sentence 试听 reads, so the user knows what they will hear. */
 .voice-sample { display: block; margin-top: 4px; color: var(--label-3); font-size: var(--ui-font-footnote); line-height: 1.5; quotes: "试听：「" "」"; }
 /* The style line spans the row: its label above, the field under it, the count and reset below. */
@@ -858,7 +845,7 @@ button.dock-row__body { cursor: pointer; }
 .voice-clone__card h2 { margin: 0; font-size: var(--ui-font-emphasis); font-weight: 600; }
 .voice-clone__card p { margin: 0; color: var(--label-2); font-size: var(--ui-font-caption); line-height: 1.5; }
 .voice-clone__field { display: grid; gap: 6px; font-weight: 500; }
-.voice-clone__field input { box-sizing: border-box; height: 26px; padding: 0 8px; color: var(--label); background: var(--field); border: 1px solid var(--field-border); border-radius: var(--radius-control); font: inherit; font-weight: 400; }
+.voice-clone__field .ui-field { font-weight: 400; }
 .voice-clone__source { justify-self: start; }
 .voice-clone__panel { display: grid; gap: 8px; padding: 12px; background: var(--fill); border-radius: var(--radius-row); }
 .voice-clone__panel blockquote { margin: 0; color: var(--label); font-size: var(--ui-font-body); line-height: 1.7; }

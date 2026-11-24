@@ -213,7 +213,7 @@ export function NotesPanel() {
     if (editing?.id === note.id) {
       return (
         <li key={note.id} id={`note-${note.id}`} className="today-row note-row is-editing">
-          <textarea ref={editField} className="today-field note-field" autoFocus rows={1} value={editing.text} maxLength={NOTE_LIMITS.text} aria-label="备忘内容"
+          <textarea ref={editField} className="ui-field note-field" autoFocus rows={1} value={editing.text} maxLength={NOTE_LIMITS.text} aria-label="备忘内容"
             onChange={(event) => setEditing({ ...editing, text: event.currentTarget.value })}
             onKeyDown={(event) => fieldKeys(event, saveEdit, () => { setEditing(null); setError(""); })} />
           <div className="today-edit__actions">

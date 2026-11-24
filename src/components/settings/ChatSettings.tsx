@@ -24,8 +24,8 @@ export function ChatSettings({ packId, onError }: { packId: string; onError: (me
     <QuickChatSettings onError={onError} />
     <h2 className="settings-group-title">聊天时</h2>
     <div className="settings-group">
-      <div className="settings-row"><div className="settings-row__body"><strong>自动生成聊天标题</strong><span>在本机整理开场白中的空格和标点</span></div><button type="button" role="switch" aria-label="自动生成聊天标题" aria-checked={autoTitles} className={autoTitles ? "toggle is-on" : "toggle"} onClick={toggleAutoTitles}><span /></button></div>
-      <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说就选「自动」</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>自动生成聊天标题</strong><span>在本机整理开场白中的空格和标点</span></div><button type="button" role="switch" aria-label="自动生成聊天标题" aria-checked={autoTitles} className={autoTitles ? "ui-switch is-on" : "ui-switch"} onClick={toggleAutoTitles}><span /></button></div>
+      <div className="settings-row"><div className="settings-row__body"><strong>语音识别语言</strong><span>中英文混着说就选「自动」</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="语音识别语言">{LANGUAGES.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? "is-selected" : ""} onClick={() => updateLanguage(value)}>{label}</button>)}</div></div>
     </div>
   </div>;
 }

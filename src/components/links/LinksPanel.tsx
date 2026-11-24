@@ -74,7 +74,7 @@ export function LinksSettings() {
       <div className="settings-group">
         <div className="settings-row">
           <span className="settings-row__body"><strong>启用常用链接</strong><span>从宠物右键菜单或快捷按钮打开面板</span></span>
-          <button type="button" role="switch" className={enabled ? "toggle is-on" : "toggle"} aria-checked={enabled} aria-label="启用常用链接" onClick={toggle}><span /></button>
+          <button type="button" role="switch" className={enabled ? "ui-switch is-on" : "ui-switch"} aria-checked={enabled} aria-label="启用常用链接" onClick={toggle}><span /></button>
         </div>
       </div>
       {error && <p role="alert">没能保存设置，请重试。</p>}
@@ -224,7 +224,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
         />
       ) : (
         <>
-          <label className="links-search"><Glyph name="search" /><input ref={search} className="today-field" type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label>
+          <label className="links-search"><Glyph name="search" /><input ref={search} className="ui-field" type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label>
           <div className="links-list" ref={scroll}>
             {results.length === 0 && <div className="today-empty"><Glyph name="globe" /><strong>{links.length ? "没有匹配的链接" : "还没有常用链接"}</strong>{links.length === 0 && <button type="button" className="ui-button ui-button--primary" onClick={() => startEdit("new")}>添加链接</button>}</div>}
             {groups.map(([name, entries], groupIndex) => (
@@ -306,12 +306,12 @@ function LinkForm({ initial, groups, isFull, onSave, onCancel }: {
   };
   return (
     <form className="links-form" onSubmit={submit}>
-      <label>名称<input ref={first} name="name" className="today-field" defaultValue={fields.name} maxLength={LINK_LIMITS.name} required /></label>
-      <label>地址<input name="url" className="today-field" type="text" inputMode="url" placeholder="https://" defaultValue={fields.url} maxLength={LINK_LIMITS.url} required /></label>
-      <label>分组<input name="group" className="today-field" list="work-link-groups" placeholder="未分组" defaultValue={fields.group} maxLength={LINK_LIMITS.group} /></label>
+      <label>名称<input ref={first} name="name" className="ui-field" defaultValue={fields.name} maxLength={LINK_LIMITS.name} required /></label>
+      <label>地址<input name="url" className="ui-field" type="text" inputMode="url" placeholder="https://" defaultValue={fields.url} maxLength={LINK_LIMITS.url} required /></label>
+      <label>分组<input name="group" className="ui-field" list="work-link-groups" placeholder="未分组" defaultValue={fields.group} maxLength={LINK_LIMITS.group} /></label>
       <datalist id="work-link-groups">{groups.map((group) => <option key={group} value={group} />)}</datalist>
-      <label>环境标签<input name="tag" className="today-field" placeholder="可选，例如 TEST" defaultValue={fields.tag} maxLength={LINK_LIMITS.tag} /></label>
-      <label>用途备注<input name="description" className="today-field" placeholder="可选，例如：查询居住证何时到期" defaultValue={fields.description} maxLength={LINK_LIMITS.description} /></label>
+      <label>环境标签<input name="tag" className="ui-field" placeholder="可选，例如 TEST" defaultValue={fields.tag} maxLength={LINK_LIMITS.tag} /></label>
+      <label>用途备注<input name="description" className="ui-field" placeholder="可选，例如：查询居住证何时到期" defaultValue={fields.description} maxLength={LINK_LIMITS.description} /></label>
       {error && <p role="alert">{error}</p>}
       <div className="links-form__actions"><button type="button" className="ui-button" onClick={onCancel}>取消</button><button type="submit" className="ui-button ui-button--primary">保存</button></div>
     </form>

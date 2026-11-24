@@ -59,23 +59,8 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 .today-quiet .today-glyph { width: 11px; height: 11px; }
 
 /* Fields and buttons share one look and one focus ring. */
-.today-field {
-  box-sizing: border-box;
-  min-width: 0;
-  height: 28px;
-  padding: 0 8px;
-  color: var(--label);
-  background: var(--field);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-control);
-  font: inherit;
-  outline: none;
-  transition: border-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease);
-}
-.today-field--small { height: 24px; padding: 0 6px; font-size: var(--ui-font-caption); }
-.today-field--time { width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
-.today-field::-webkit-calendar-picker-indicator { opacity: .55; }
-.today-field:focus, .today-add__field:focus-within { border-color: var(--accent); box-shadow: var(--ui-focus-ring); }
+.today-time { width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+.today-add__field:focus-within { border-color: var(--accent); box-shadow: var(--ui-focus-ring); }
 
 .today-panel button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 
@@ -102,20 +87,6 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 
 /* Segmented control, as NSSegmentedControl draws it. */
 .today-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.today-segmented { display: inline-flex; padding: 2px; background: var(--fill-strong); border-radius: var(--radius-control); }
-.today-segmented button {
-  height: 20px;
-  padding: 0 8px;
-  color: var(--label);
-  background: none;
-  border: 0;
-  border-radius: var(--ui-radius-tag);
-  font: inherit;
-  font-size: var(--ui-font-footnote);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.today-segmented button.is-on { background: var(--ui-segment-selected); box-shadow: var(--ui-shadow-control); font-weight: 500; }
 .today-when__past { color: var(--red); font-size: var(--ui-font-footnote); }
 .today-when-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .today-when__hint { margin: 0; color: var(--label-2); font-size: var(--ui-font-footnote); }
@@ -257,5 +228,5 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 
 @media (prefers-reduced-motion: reduce) {
   .today-hud { animation: none; }
-  .today-field, .today-add__field, .today-check { transition: none; }
+  .today-add__field, .today-check { transition: none; }
 }

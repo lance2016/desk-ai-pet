@@ -57,7 +57,7 @@ export function TimeField({ value, onChange, label, disabled, className }: TimeF
       autoComplete="off"
       spellCheck={false}
       maxLength={5}
-      className={className ? `time-field ${className}` : "time-field"}
+      className={className ? `time-field ui-field ui-field--small ${className}` : "time-field ui-field ui-field--small"}
       aria-label={label}
       disabled={disabled}
       value={draft ?? value}

@@ -77,7 +77,7 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
     <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>声音</strong><span>{characterName}读回复时用，每个角色各自设置</span><q className="voice-sample">{PREVIEW_TEXT}</q></div>
-        <select aria-label="声音" value={preferences.voice} onChange={(event) => update({ ...preferences, voice: event.currentTarget.value })}>
+        <select className="ui-select" aria-label="声音" value={preferences.voice} onChange={(event) => update({ ...preferences, voice: event.currentTarget.value })}>
           {PRESETS.map((group) => <optgroup key={group.label} label={group.label}>{group.voices.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</optgroup>)}
           {clones && clones.length > 0 && <optgroup label="克隆的声音">{clones.map((voice) => <option key={voice.id} value={`${CLONED_VOICE_PREFIX}${voice.id}`}>{voice.name}</option>)}</optgroup>}
           {missing && <option value={preferences.voice} disabled>已删除的声音</option>}

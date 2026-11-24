@@ -88,7 +88,7 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
           <strong>聊天按钮</strong>
           <span>{display.chatLauncher === "none" ? "不显示时，点宠物打开输入条" : "点按钮打开输入条，点宠物只是和它玩"}</span>
         </div>
-        <div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="聊天按钮在头的哪一侧">
+        <div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="聊天按钮在头的哪一侧">
           {LAUNCHERS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={display.chatLauncher === value} className={display.chatLauncher === value ? "is-selected" : ""} onClick={() => updateDisplay({ chatLauncher: value })}>{label}</button>)}
         </div>
       </div>
@@ -97,7 +97,7 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
           <strong>复制后提示</strong>
           <span>{display.chatLauncher === "none" ? "要先显示聊天按钮" : "在别的应用里复制后，聊天按钮会跳一跳，1 分钟内点它可以翻译、解释或存进备忘。不点就不会读取复制的内容"}</span>
         </div>
-        <button type="button" role="switch" aria-label="复制后提示" aria-checked={display.copyHint} disabled={display.chatLauncher === "none"} className={display.copyHint ? "toggle is-on" : "toggle"} onClick={() => updateDisplay({ copyHint: !display.copyHint })}><span /></button>
+        <button type="button" role="switch" aria-label="复制后提示" aria-checked={display.copyHint} disabled={display.chatLauncher === "none"} className={display.copyHint ? "ui-switch is-on" : "ui-switch"} onClick={() => updateDisplay({ copyHint: !display.copyHint })}><span /></button>
       </div>
     </article>
   );

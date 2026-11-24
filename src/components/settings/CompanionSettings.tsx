@@ -29,7 +29,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
   const toggle = (key: Switch, title: string, description: string, setting?: ReactNode, disabled = false) => <div className="settings-row">
     <div className="settings-row__body"><strong>{title}</strong><span>{description}</span></div>
     {setting}
-    <button type="button" role="switch" aria-label={title} aria-checked={value[key]} disabled={disabled} className={value[key] ? "toggle is-on" : "toggle"} onClick={() => update({ ...value, [key]: !value[key] })}><span /></button>
+    <button type="button" role="switch" aria-label={title} aria-checked={value[key]} disabled={disabled} className={value[key] ? "ui-switch is-on" : "ui-switch"} onClick={() => update({ ...value, [key]: !value[key] })}><span /></button>
   </div>;
   const preview = async () => {
     setTestBusy(true);
@@ -58,14 +58,14 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       {toggle("night", "深夜关心", "过了这个时间还在用电脑，提醒你早点休息",
         <TimeField label="深夜关心时间" value={value.nightTime} disabled={!value.night} onChange={(nightTime) => update({ ...value, nightTime })} />)}
       {toggle("rest", "休息一下", "连续用电脑这么久，提醒你起来活动；离开 5 分钟后重新计时",
-        <select aria-label="使用多久后提醒" value={value.restMinutes} disabled={!value.rest} onChange={(event) => update({ ...value, restMinutes: Number(event.currentTarget.value) })}><option value={60}>60 分钟</option><option value={90}>90 分钟</option><option value={120}>120 分钟</option></select>)}
+        <select className="ui-select" aria-label="使用多久后提醒" value={value.restMinutes} disabled={!value.rest} onChange={(event) => update({ ...value, restMinutes: Number(event.currentTarget.value) })}><option value={60}>60 分钟</option><option value={90}>90 分钟</option><option value={120}>120 分钟</option></select>)}
       {toggle("headsUp", "提醒前说一声", "一次性的提醒，到点前 10 分钟先说一声；刚设不到 1 小时的不说")}
       {toggle("followUp", "回来问一句", "提醒响过后你离开了一阵，回来时顺着那件事问一句")}
       {toggle("welcomeBack", "回来打招呼", "离开 30 分钟以上再回来时，说声欢迎回来")}
       {toggle("careByModel", "关心的话由 AI 来写", "带上今天做了什么，按角色的语气说；关掉后每次都是固定的一句")}
       <div className="settings-row">
         <div className="settings-row__body"><strong>预览一句</strong><span>现在就说一次选中的这句，不占用当天的次数</span></div>
-        <select aria-label="要预览的话" value={tried} disabled={testBusy} onChange={(event) => setTried(event.currentTarget.value)}>{OCCASIONS.map((occasion) => <option key={occasion.id} value={occasion.id}>{occasion.title}</option>)}</select>
+        <select className="ui-select" aria-label="要预览的话" value={tried} disabled={testBusy} onChange={(event) => setTried(event.currentTarget.value)}>{OCCASIONS.map((occasion) => <option key={occasion.id} value={occasion.id}>{occasion.title}</option>)}</select>
         <button type="button" className="ui-button ui-button--small" disabled={testBusy} onClick={() => void preview()}>{testBusy ? "正在准备…" : "预览"}</button>
       </div>
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}

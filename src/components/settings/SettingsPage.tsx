@@ -388,16 +388,16 @@ export function SettingsPage({ packId }: { packId: string }) {
           <div className="settings-section">
             <h2 className="settings-group-title">宠物</h2>
             <div className="settings-group">
-              <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "toggle is-on" : "toggle"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡</span></div><div className="segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "ui-switch is-on" : "ui-switch"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
             <h2 className="settings-group-title">提醒</h2>
             <HolidaySettings />
             <h2 className="settings-group-title">应用</h2>
             <div className="settings-group">
               <LaunchAtLoginRow onError={setError} />
-              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>侧栏多出「开发者」：提示词、工具定义和请求记录。打开期间，最近 100 次实际发给 AI 的内容和回复会留在本机</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "toggle is-on" : "toggle"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
+              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>侧栏多出「开发者」：提示词、工具定义和请求记录。打开期间，最近 100 次实际发给 AI 的内容和回复会留在本机</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "ui-switch is-on" : "ui-switch"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
             </div>
           </div>
         )}

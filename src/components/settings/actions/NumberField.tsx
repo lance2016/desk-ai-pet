@@ -15,7 +15,7 @@ interface Props {
 export function NumberField({ value, onChange, min, max, step }: Props) {
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
-  return <input type="number" min={min} max={max} step={step} value={text}
+  return <input className="ui-field ui-field--small" type="number" min={min} max={max} step={step} value={text}
     onChange={(event) => {
       const next = event.currentTarget.value;
       setText(next);

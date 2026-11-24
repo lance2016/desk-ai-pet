@@ -72,9 +72,9 @@ export function MailSettings() {
       {expanded && <>
         <form className="mail-form" onSubmit={(event) => void save(event)}>
           <label htmlFor="mail-address">邮箱地址</label>
-          <input id="mail-address" type="email" autoComplete="off" spellCheck={false} value={draftAddress} onChange={(event) => setDraftAddress(event.currentTarget.value)} placeholder="name@163.com" />
+          <input className="ui-field ui-field--small" id="mail-address" type="email" autoComplete="off" spellCheck={false} value={draftAddress} onChange={(event) => setDraftAddress(event.currentTarget.value)} placeholder="name@163.com" />
           <label htmlFor="mail-password">授权码</label>
-          <input id="mail-password" type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.currentTarget.value)} placeholder="粘贴 163 给的授权码，不是登录密码" />
+          <input className="ui-field ui-field--small" id="mail-password" type="password" autoComplete="off" value={password} onChange={(event) => setPassword(event.currentTarget.value)} placeholder="粘贴 163 给的授权码，不是登录密码" />
           <button type="submit" className="is-primary" disabled={busy || !draftAddress.trim() || !password.trim()}>{busy ? "连接中…" : "连接并保存"}</button>
         </form>
         <ol className="mail-steps">

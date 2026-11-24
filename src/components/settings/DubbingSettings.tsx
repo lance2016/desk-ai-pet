@@ -9,7 +9,7 @@ export function DubbingSettings() {
     <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>右键菜单里的「配音…」</strong><span>把一段稿子用克隆的声音或内置音色读出来，导出成音频和字幕。窗口打开时才加载，关掉就不占内存</span></div>
-        <button type="button" role="switch" aria-label="右键菜单里的配音" aria-checked={enabled} className={enabled ? "toggle is-on" : "toggle"} onClick={() => setDubbingEnabled(!enabled)}><span /></button>
+        <button type="button" role="switch" aria-label="右键菜单里的配音" aria-checked={enabled} className={enabled ? "ui-switch is-on" : "ui-switch"} onClick={() => setDubbingEnabled(!enabled)}><span /></button>
       </div>
     </div>
   </>;

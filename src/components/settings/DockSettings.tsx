@@ -165,7 +165,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
       <div className="dock-editor">
         <label className="dock-editor__field">
           <span>名称</span>
-          <input key={item.label} className="settings-field" defaultValue={item.label} maxLength={DOCK_LIMITS.label} placeholder={defaults?.label}
+          <input key={item.label} className="ui-field ui-field--small" defaultValue={item.label} maxLength={DOCK_LIMITS.label} placeholder={defaults?.label}
             onBlur={(event) => { const label = event.currentTarget.value.trim(); if (label !== item.label) update(key, { label: label || defaults?.label || item.label }); }}
             onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
         </label>
@@ -239,7 +239,7 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10" /></svg>
                   </button>
                 )}
-                <button type="button" role="switch" aria-checked={item.enabled} aria-label={`显示“${label}”按钮`} className={item.enabled ? "toggle is-on" : "toggle"} onClick={() => toggle(key)}><span /></button>
+                <button type="button" role="switch" aria-checked={item.enabled} aria-label={`显示“${label}”按钮`} className={item.enabled ? "ui-switch is-on" : "ui-switch"} onClick={() => toggle(key)}><span /></button>
               </div>
               {open && item.kind === "control" && editor(item)}
             </li>

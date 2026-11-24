@@ -148,8 +148,8 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
   return <div className="voice-clone" role="dialog" aria-modal="true" aria-labelledby="voice-clone-title" onKeyDown={onKeyDown}>
     <form ref={card} className="voice-clone__card" onSubmit={(event) => void save(event)}>
       <h2 id="voice-clone-title">添加克隆声音</h2>
-      <label className="voice-clone__field">名字<input ref={nameField} value={name} maxLength={NAME_LIMIT} placeholder="例如：我的声音" onChange={(event) => setName(event.currentTarget.value)} /></label>
-      <div className="segmented voice-clone__source" role="radiogroup" aria-label="声音来源" onKeyDown={moveRadioChoice}>
+      <label className="voice-clone__field">名字<input className="ui-field ui-field--small" ref={nameField} value={name} maxLength={NAME_LIMIT} placeholder="例如：我的声音" onChange={(event) => setName(event.currentTarget.value)} /></label>
+      <div className="ui-segmented voice-clone__source" role="radiogroup" aria-label="声音来源" onKeyDown={moveRadioChoice}>
         {([["record", "录一段"], ["file", "选文件"]] as const).map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={source === value} className={source === value ? "is-selected" : ""} disabled={Boolean(recording)} onClick={() => switchSource(value)}>{label}</button>)}
       </div>
       {source === "record" ? <div className="voice-clone__panel">

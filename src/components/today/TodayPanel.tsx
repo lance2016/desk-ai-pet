@@ -89,9 +89,9 @@ function Segmented<Key extends string>({ label, options, value, onPick }: { labe
   };
   const focusable = value ?? options[0][0];
   return (
-    <div className="today-segmented" role="radiogroup" aria-label={label} onKeyDown={move}>
+    <div className="ui-segmented" role="radiogroup" aria-label={label} onKeyDown={move}>
       {options.map(([key, text]) => (
-        <button key={key} type="button" role="radio" aria-checked={value === key} tabIndex={key === focusable ? 0 : -1} className={value === key ? "is-on" : undefined} onClick={() => onPick(key)}>{text}</button>
+        <button key={key} type="button" role="radio" aria-checked={value === key} tabIndex={key === focusable ? 0 : -1} className={value === key ? "is-selected" : undefined} onClick={() => onPick(key)}>{text}</button>
       ))}
     </div>
   );
@@ -142,8 +142,8 @@ function WhenField({ draft, onChange, now }: { draft: Draft; onChange: (draft: D
     <div className="today-when-stack">
       <div className="today-when">
         <Segmented label="提醒日期" options={DAYS} value={day} onPick={pick} />
-        {day === "other" && <input className="today-field today-field--small" type="date" aria-label="提醒日期" value={date} min={today} onChange={(event) => { const value = event.currentTarget.value; if (value) onChange({ ...draft, time: `${value}T${clock}` }); }} />}
-        {draft.time !== null && <TimeField className="today-field today-field--small today-field--time" label="提醒时刻" value={clock} onChange={(value) => onChange({ ...draft, time: `${date}T${value}` })} />}
+        {day === "other" && <input className="ui-field ui-field--small" type="date" aria-label="提醒日期" value={date} min={today} onChange={(event) => { const value = event.currentTarget.value; if (value) onChange({ ...draft, time: `${value}T${clock}` }); }} />}
+        {draft.time !== null && <TimeField className="today-time" label="提醒时刻" value={clock} onChange={(value) => onChange({ ...draft, time: `${date}T${value}` })} />}
         {draft.repeat === null && at !== null && at < now && <span className="today-when__past">这个时间已经过了，保存时会改到明天</span>}
       </div>
       {draft.repeat !== null && <RepeatField repeat={draft.repeat} now={now} onChange={(repeat) => onChange({ ...draft, repeat })} />}
@@ -308,7 +308,7 @@ export function TodayPanel() {
     if (editing?.id === item.id) {
       return (
         <li key={item.id} className="today-row is-editing" onKeyDown={editKeys}>
-          <input className="today-field" autoFocus value={editing.draft.text} maxLength={AGENDA_LIMITS.text} aria-label="提醒内容" onChange={(event) => changeEditing({ ...editing, draft: { ...editing.draft, text: event.currentTarget.value } })} />
+          <input className="ui-field" autoFocus value={editing.draft.text} maxLength={AGENDA_LIMITS.text} aria-label="提醒内容" onChange={(event) => changeEditing({ ...editing, draft: { ...editing.draft, text: event.currentTarget.value } })} />
           <WhenField draft={editing.draft} now={now} onChange={(draft) => changeEditing({ ...editing, draft })} />
           <div className="today-edit__actions">
             <button type="button" className="ui-button ui-button--danger" onClick={() => remove(item)}>删除</button>
