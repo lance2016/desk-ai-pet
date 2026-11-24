@@ -179,6 +179,8 @@ export function TodayPanel() {
   const addInput = useRef<HTMLInputElement>(null);
   const editingRef = useRef(editing);
   editingRef.current = editing;
+  /** Return in the time field commits the time and then saves in the same keypress, before a render: saving reads the ref. */
+  const changeEditing = (next: { id: string; draft: Draft }) => { editingRef.current = next; setEditing(next); };
 
   useEffect(() => {
     document.documentElement.classList.add("today-window");
@@ -257,6 +259,7 @@ export function TodayPanel() {
   };
 
   const saveEdit = () => {
+    const editing = editingRef.current;
     if (!editing) return;
     const { draft, moved } = upcoming(editing.draft, Date.now());
     const read = readDraft(draft);
@@ -305,8 +308,8 @@ export function TodayPanel() {
     if (editing?.id === item.id) {
       return (
         <li key={item.id} className="today-row is-editing" onKeyDown={editKeys}>
-          <input className="today-field" autoFocus value={editing.draft.text} maxLength={AGENDA_LIMITS.text} aria-label="提醒内容" onChange={(event) => setEditing({ ...editing, draft: { ...editing.draft, text: event.currentTarget.value } })} />
-          <WhenField draft={editing.draft} now={now} onChange={(draft) => setEditing({ ...editing, draft })} />
+          <input className="today-field" autoFocus value={editing.draft.text} maxLength={AGENDA_LIMITS.text} aria-label="提醒内容" onChange={(event) => changeEditing({ ...editing, draft: { ...editing.draft, text: event.currentTarget.value } })} />
+          <WhenField draft={editing.draft} now={now} onChange={(draft) => changeEditing({ ...editing, draft })} />
           <div className="today-edit__actions">
             <button type="button" className="today-button today-button--danger" onClick={() => remove(item)}>删除</button>
             <span className="today-edit__spacer" />
