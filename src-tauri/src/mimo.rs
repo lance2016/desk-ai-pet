@@ -300,7 +300,7 @@ pub async fn mimo_synthesize(
     tauri::async_runtime::spawn_blocking(move || {
         let cancel_id = request_id.clone();
         if let Some(id) = cloned {
-            let result = crate::cloned_voices::ensure_service_voice(&app, &id).and_then(|service_voice| {
+            let result = crate::cloned_voices::ensure_service_voice(&app, &id).and_then(|(service_voice, model)| {
                 crate::cosyvoice::stream_synthesis(
                     app,
                     target,
@@ -308,6 +308,7 @@ pub async fn mimo_synthesize(
                     request_id,
                     text,
                     service_voice,
+                    model,
                     style,
                 )
             });

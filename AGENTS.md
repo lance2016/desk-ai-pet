@@ -126,6 +126,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 朗读的字数上限 | `MAX_SPOKEN_CHARS`（`src/components/chat/spokenText.ts`，按字符） | `mimo_synthesize` 的 3000 字检查（`mimo.rs`） |
 | MiMo 音色列表 | `MIMO_VOICES`（`src/types.ts`）、`PRESETS`（`VoiceSettings.tsx`，界面上的分组和男女声） | `mimo_synthesize` 里的音色名单（`mimo.rs`） |
 | 克隆声音的写法（`clone:` 加 16 位小写十六进制） | `CLONED_VOICE_PREFIX`、`CLONED_VOICE_PATTERN`（`src/types.ts`）、`clonedVoiceSchema`（`src/platform/cosyvoice.ts`） | `VOICE_PREFIX`、`valid_id`（`src-tauri/src/cloned_voices.rs`） |
+| 克隆模型 | `CLONE_MODELS`（`src/platform/cosyvoice.ts`）、`CLONE_MODEL_INFO`（`VoiceCloneSheet.tsx`，界面上的名字和介绍） | `MODELS`、`DEFAULT_MODEL`（`src-tauri/src/cosyvoice.rs`；只放支持给克隆声音加语气的模型，`cosyvoice-v3-plus` 不支持） |
 | 克隆声音的上限 | `MAX_CLONES`（`ClonedVoiceSettings.tsx`）、`MAX_FILE_BYTES`（`VoiceCloneSheet.tsx`，3 MB 的 base64 不超过原生端上限） | `MAX_VOICES`、`MAX_SAMPLE_BASE64`（`cloned_voices.rs`；整个请求体走 curl 配置的一行，curl 限 10 MB） |
 | 克隆声音的错误措辞 | `RULES` 的 `voice`（`src/chat/serviceErrors.ts`：`克隆的声音\|这段声音`） | `ensure_service_voice`（`cloned_voices.rs`）、`stream_synthesis`（`cosyvoice.rs`） |
 | 快捷键禁用名单 | `RESERVED_SHORTCUTS`（`QuickChatPreferences.ts`） | `RESERVED_SHORTCUTS`（`quick_chat.rs`） |

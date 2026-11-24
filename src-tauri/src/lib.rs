@@ -1042,6 +1042,7 @@ pub fn run() {
             cloned_voices::cloned_voice_list,
             cloned_voices::cloned_voice_add,
             cloned_voices::cloned_voice_remove,
+            cloned_voices::cloned_voice_switch_model,
             show_pet_menu,
             get_pet_on_top,
             set_pet_on_top,

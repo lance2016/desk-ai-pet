@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import { startAudioCapture, type AudioCapture } from "../../platform/audioCapture";
-import { cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
+import { CLONE_MODELS, cosyvoicePlatform, type ClonedVoice, type CloneModel } from "../../platform/cosyvoice";
 import { isComposing } from "../keyboard";
 import { moveRadioChoice } from "./radioKeys";
 
@@ -11,6 +11,12 @@ const MIN_RECORD_SECONDS = 3;
 const MAX_FILE_BYTES = 3_000_000;
 const NAME_LIMIT = 20;
 const SCRIPT = "今天天气不错，我泡了一杯茶，打算把手头的事慢慢做完。等忙完了，再出去走一走，晒晒太阳。路上有风，也有树叶的声音，今天就先到这里吧。";
+
+/** The name and one-line introduction shown for each clone model. */
+export const CLONE_MODEL_INFO: Record<CloneModel, { label: string; detail: string }> = {
+  "cosyvoice-v3.5-flash": { label: "Flash", detail: "费用低、出声快，日常朗读和聊天够用。多数声音先用它试试" },
+  "cosyvoice-v3.5-plus": { label: "Plus", detail: "音色细节更足，适合用 Flash 克隆得不够像的声音。按字数收费比 Flash 贵，出声可能慢一点" },
+};
 
 type Format = "wav" | "mp3";
 type Sample = { base64: string; format: Format; seconds: number; from: string };
@@ -46,6 +52,7 @@ const clock = (seconds: number) => `0:${String(Math.floor(seconds)).padStart(2, 
 export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedVoice) => void; onClose: () => void }) {
   const [name, setName] = useState("");
   const [source, setSource] = useState<Source>("record");
+  const [model, setModel] = useState<CloneModel>(CLONE_MODELS[0]);
   const [sample, setSample] = useState<Sample | null>(null);
   const [recording, setRecording] = useState<"starting" | "on" | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -86,7 +93,7 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
   const startRecording = async () => {
     setProblem(""); setSample(null); setSeconds(0); setRecording("starting");
     try {
-      const started = await startAudioCapture(() => { if (capture.current === started) void stopRecording(); }, MAX_RECORD_SECONDS);
+      const started = await startAudioCapture(() => { if (capture.current === started) void stopRecording(); }, MAX_RECORD_SECONDS, false);
       if (closed.current) { void started.stop().catch(() => {}); return; }
       capture.current = started;
       setRecording("on");
@@ -126,7 +133,7 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
     event.preventDefault();
     if (!sample || !consent || !name.trim()) return;
     setSaving(true); setProblem("");
-    try { onAdded(await cosyvoicePlatform.addVoice(name.trim(), sample.base64, sample.format, sample.seconds)); }
+    try { onAdded(await cosyvoicePlatform.addVoice(name.trim(), sample.base64, sample.format, sample.seconds, model)); }
     catch (reason) {
       console.error("Could not add a cloned voice", reason);
       const text = String(reason).replace(/^Error:\s*/, "");
@@ -153,7 +160,7 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
         {([["record", "录一段"], ["file", "选文件"]] as const).map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={source === value} className={source === value ? "is-selected" : ""} disabled={Boolean(recording)} onClick={() => switchSource(value)}>{label}</button>)}
       </div>
       {source === "record" ? <div className="voice-clone__panel">
-        <p>用平常说话的语气读这段：</p>
+        <p>录音不做降噪，找个安静的地方，用平常说话的语气读这段：</p>
         <blockquote>{SCRIPT}</blockquote>
         <div className="voice-clone__row">
           {recording === "on"
@@ -169,6 +176,13 @@ export function VoiceCloneSheet({ onAdded, onClose }: { onAdded: (voice: ClonedV
         </div>
       </div>}
       {sample && <audio className="voice-clone__play" controls src={`data:${sample.format === "wav" ? "audio/wav" : "audio/mpeg"};base64,${sample.base64}`} aria-label="听一下这段声音" />}
+      <div className="voice-clone__model" role="group" aria-labelledby="voice-clone-model">
+        <span id="voice-clone-model">模型</span>
+        <div className="ui-segmented" role="radiogroup" aria-label="克隆模型" onKeyDown={moveRadioChoice}>
+          {CLONE_MODELS.map((value) => <button key={value} type="button" role="radio" aria-checked={model === value} className={model === value ? "is-selected" : ""} onClick={() => setModel(value)}>{CLONE_MODEL_INFO[value].label}</button>)}
+        </div>
+        <p>{CLONE_MODEL_INFO[model].detail}</p>
+      </div>
       <label className="voice-clone__consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.currentTarget.checked)} />这是我自己的声音，或者声音的主人同意我这样用</label>
       <p className="voice-clone__note">录音会上传到阿里云百炼创建 CosyVoice 音色，并保留在云端直到删除。原始片段也保存在本机、不进备份；朗读时会把文字发给阿里云合成。</p>
       {problem && <p className="voice-clone__problem" role="alert">{problem}</p>}

@@ -1,9 +1,13 @@
 export type AudioCapture = { stop: () => Promise<{ base64: string; seconds: number }> };
 
-/** Records from the microphone until stopped, or until `maxSeconds` have been recorded, when `onLimit` is called. */
-export async function startAudioCapture(onLimit: () => void, maxSeconds = 120): Promise<AudioCapture> {
+/**
+ * Records from the microphone until stopped, or until `maxSeconds` have been recorded, when `onLimit` is called.
+ * `cleanUp` turns on the system's echo cancelling, noise suppression and gain control: good for speech
+ * recognition, but they strip breath and overtones, so voice samples for cloning are recorded without them.
+ */
+export async function startAudioCapture(onLimit: () => void, maxSeconds = 120, cleanUp = true): Promise<AudioCapture> {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("当前系统暂不支持录音。");
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: cleanUp, noiseSuppression: cleanUp, autoGainControl: cleanUp } });
   let context: AudioContext;
   try { context = new AudioContext({ sampleRate: 24_000 }); }
   catch { stream.getTracks().forEach((track) => track.stop()); throw new Error("无法初始化录音设备。"); }

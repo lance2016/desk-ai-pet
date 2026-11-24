@@ -16,7 +16,10 @@ const ENROLLMENT_ENDPOINT: &str =
     "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization";
 const SPEECH_ENDPOINT: &str =
     "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer";
-const MODEL: &str = "cosyvoice-v3.5-flash";
+/// Models a cloned voice can be bound to. Keep in sync with `CLONE_MODELS` in `src/platform/cosyvoice.ts`.
+pub(crate) const MODELS: [&str; 2] = ["cosyvoice-v3.5-flash", "cosyvoice-v3.5-plus"];
+/// The model of voices saved before the choice existed.
+pub(crate) const DEFAULT_MODEL: &str = MODELS[0];
 const CONNECT_TIMEOUT: &str = "10";
 const REQUEST_TIMEOUT: &str = "120";
 
@@ -148,6 +151,7 @@ pub(crate) fn create_voice(
     app: &AppHandle,
     audio_data_url: &str,
     prefix: &str,
+    model: &str,
 ) -> Result<(String, String), String> {
     let response = request_json(
         app,
@@ -156,7 +160,7 @@ pub(crate) fn create_voice(
             "model": "voice-enrollment",
             "input": {
                 "action": "create_voice",
-                "target_model": MODEL,
+                "target_model": model,
                 "prefix": prefix,
                 "audio": audio_data_url,
                 "max_prompt_audio_length": 20.0,
@@ -223,6 +227,7 @@ pub(crate) fn stream_synthesis(
     request_id: String,
     text: String,
     voice_id: String,
+    model: String,
     instruction: String,
 ) -> Result<(), String> {
     let key = read_key(&app)?;
@@ -235,7 +240,7 @@ pub(crate) fn stream_synthesis(
     if !instruction.trim().is_empty() {
         input["instruction"] = Value::String(instruction);
     }
-    let body = json!({"model": MODEL, "input": input});
+    let body = json!({"model": model, "input": input});
     let config = speech_config(&key, &body);
     let mut child = curl_command(SPEECH_ENDPOINT, true)?;
     let stdout = child.stdout.take();

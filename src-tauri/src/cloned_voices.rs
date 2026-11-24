@@ -19,6 +19,7 @@ const MAX_VOICES: usize = 10;
 const MAX_NAME_CHARS: usize = 20;
 const ID_BYTES: usize = 8;
 const STORAGE_ERROR: &str = "克隆的声音没能读写，请检查应用数据目录的访问权限。";
+const REJECTED: &str = "阿里云未通过这个克隆音色的审核，请换一段清晰、无背景音乐的录音再试。";
 
 /// Serializes voice enrollment and local index updates so concurrent requests cannot create duplicates.
 static VOICE_LOCK: Mutex<()> = Mutex::new(());
@@ -31,12 +32,27 @@ pub struct ClonedVoice {
     pub format: String,
     pub seconds: f64,
     pub created_at: u64,
+    /// The CosyVoice model the cloud voice is bound to; it can only be read with this model.
+    #[serde(default = "default_model")]
+    pub model: String,
     /// Missing for voices saved by older releases until their first CosyVoice use.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_voice_id: Option<String>,
     /// Cloud voice readiness; absent for clones made before CosyVoice migration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_status: Option<String>,
+}
+
+fn default_model() -> String {
+    crate::cosyvoice::DEFAULT_MODEL.to_owned()
+}
+
+fn check_model(model: &str) -> Result<(), String> {
+    if crate::cosyvoice::MODELS.contains(&model) {
+        Ok(())
+    } else {
+        Err("不支持这个克隆模型，请重新选择。".into())
+    }
 }
 
 fn folder(app: &AppHandle) -> Result<PathBuf, String> {
@@ -122,6 +138,26 @@ fn make_data_url(format: &str, sample: &str) -> String {
     format!("data:{};base64,{sample}", data_url(format))
 }
 
+/// Creates the cloud voice and returns its ID and status, removing it again when Aliyun rejects it.
+fn enroll(
+    app: &AppHandle,
+    id: &str,
+    format: &str,
+    sample: &str,
+    model: &str,
+) -> Result<(String, String), String> {
+    let prefix = format!("ap{}", &id[..8]);
+    let (service_voice_id, created_status) =
+        crate::cosyvoice::create_voice(app, &make_data_url(format, sample), &prefix, model)?;
+    let service_status =
+        crate::cosyvoice::voice_status(app, &service_voice_id).unwrap_or(created_status);
+    if service_status == "UNDEPLOYED" {
+        let _ = crate::cosyvoice::delete_voice(app, &service_voice_id);
+        return Err(REJECTED.into());
+    }
+    Ok((service_voice_id, service_status))
+}
+
 fn new_id() -> Result<String, String> {
     let mut bytes = [0u8; ID_BYTES];
     SystemRandom::new()
@@ -136,8 +172,10 @@ fn add_voice(
     audio_base64: String,
     format: String,
     seconds: f64,
+    model: String,
 ) -> Result<ClonedVoice, String> {
     let name = check_sample(&name, &audio_base64, &format, seconds)?;
+    check_model(&model)?;
     let _guard = VOICE_LOCK.lock().map_err(|_| STORAGE_ERROR.to_owned())?;
     let dir = folder(&app)?;
     let voices = read_index(&dir)?;
@@ -148,15 +186,7 @@ fn add_voice(
     }
 
     let id = new_id()?;
-    let prefix = format!("ap{}", &id[..8]);
-    let (service_voice_id, created_status) =
-        crate::cosyvoice::create_voice(&app, &make_data_url(&format, &audio_base64), &prefix)?;
-    let service_status =
-        crate::cosyvoice::voice_status(&app, &service_voice_id).unwrap_or(created_status);
-    if service_status == "UNDEPLOYED" {
-        let _ = crate::cosyvoice::delete_voice(&app, &service_voice_id);
-        return Err("阿里云未通过这个克隆音色的审核，请换一段清晰、无背景音乐的录音再试。".into());
-    }
+    let (service_voice_id, service_status) = enroll(&app, &id, &format, &audio_base64, &model)?;
     if let Err(_) = fs::create_dir_all(&dir) {
         let _ = crate::cosyvoice::delete_voice(&app, &service_voice_id);
         return Err(STORAGE_ERROR.to_owned());
@@ -177,6 +207,7 @@ fn add_voice(
         format,
         seconds,
         created_at,
+        model,
         service_voice_id: Some(service_voice_id.clone()),
         service_status: Some(service_status),
     };
@@ -202,9 +233,10 @@ pub async fn cloned_voice_add(
     audio_base64: String,
     format: String,
     seconds: f64,
+    model: String,
 ) -> Result<ClonedVoice, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        add_voice(app, name, audio_base64, format, seconds)
+        add_voice(app, name, audio_base64, format, seconds, model)
     })
     .await
     .map_err(|_| "声音创建任务异常".to_owned())?
@@ -245,8 +277,55 @@ pub async fn cloned_voice_remove(app: AppHandle, id: String) -> Result<(), Strin
         .map_err(|_| "声音删除任务异常".to_owned())?
 }
 
+/// Clones the saved sample again for another model, then removes the cloud voice of the old one.
+fn switch_model(app: AppHandle, id: String, model: String) -> Result<ClonedVoice, String> {
+    if !valid_id(&id) {
+        return Err("找不到这个克隆的声音。".into());
+    }
+    check_model(&model)?;
+    let _guard = VOICE_LOCK.lock().map_err(|_| STORAGE_ERROR.to_owned())?;
+    let dir = folder(&app)?;
+    let mut voices = read_index(&dir)?;
+    let position = voices
+        .iter()
+        .position(|voice| voice.id == id)
+        .ok_or_else(|| "找不到这个克隆的声音。".to_owned())?;
+    if voices[position].model == model {
+        return Ok(voices[position].clone());
+    }
+    let sample = fs::read_to_string(dir.join(format!("{id}.b64")))
+        .map_err(|_| "找不到原来的录音，请删掉这个声音再重新添加。".to_owned())?;
+    let format = voices[position].format.clone();
+    let (service_voice_id, service_status) = enroll(&app, &id, &format, &sample, &model)?;
+    let old_service_voice = voices[position].service_voice_id.replace(service_voice_id.clone());
+    voices[position].service_status = Some(service_status);
+    voices[position].model = model;
+    if let Err(error) = write_index(&dir, &voices) {
+        let _ = crate::cosyvoice::delete_voice(&app, &service_voice_id);
+        return Err(error);
+    }
+    if let Some(old) = old_service_voice {
+        if let Err(error) = crate::cosyvoice::delete_voice(&app, &old) {
+            log::warn!("Could not delete the cloud voice of the previous model: {error}");
+        }
+    }
+    Ok(voices[position].clone())
+}
+
+#[tauri::command]
+pub async fn cloned_voice_switch_model(
+    app: AppHandle,
+    id: String,
+    model: String,
+) -> Result<ClonedVoice, String> {
+    tauri::async_runtime::spawn_blocking(move || switch_model(app, id, model))
+        .await
+        .map_err(|_| "换模型任务异常".to_owned())?
+}
+
 /// Enrolls a voice saved by an older release the first time the user reads with it.
-pub fn ensure_service_voice(app: &AppHandle, id: &str) -> Result<String, String> {
+/// Returns the cloud voice ID and the model it must be read with.
+pub fn ensure_service_voice(app: &AppHandle, id: &str) -> Result<(String, String), String> {
     if !valid_id(id) {
         return Err("找不到这个克隆的声音，请重新添加。".into());
     }
@@ -257,15 +336,16 @@ pub fn ensure_service_voice(app: &AppHandle, id: &str) -> Result<String, String>
         .iter()
         .position(|voice| voice.id == id)
         .ok_or_else(|| "这个克隆的声音已经删除，请重新添加。".to_owned())?;
+    let model = voices[position].model.clone();
     if let Some(service_voice_id) = voices[position].service_voice_id.clone() {
         if voices[position].service_status.as_deref() == Some("OK") {
-            return Ok(service_voice_id);
+            return Ok((service_voice_id, model));
         }
         match crate::cosyvoice::voice_status(app, &service_voice_id)?.as_str() {
             "OK" => {
                 voices[position].service_status = Some("OK".into());
                 write_index(&dir, &voices)?;
-                return Ok(service_voice_id);
+                return Ok((service_voice_id, model));
             }
             "DEPLOYING" => return Err("这个克隆音色还在阿里云审核或处理中，请稍后再试听。".into()),
             "UNDEPLOYED" => {
@@ -279,16 +359,8 @@ pub fn ensure_service_voice(app: &AppHandle, id: &str) -> Result<String, String>
 
     let sample = fs::read_to_string(dir.join(format!("{id}.b64")))
         .map_err(|_| "找不到原来的录音，请重新添加这个克隆的声音。".to_owned())?;
-    let prefix = format!("ap{}", &id[..8]);
     let format = voices[position].format.clone();
-    let (service_voice_id, created_status) =
-        crate::cosyvoice::create_voice(app, &make_data_url(&format, &sample), &prefix)?;
-    let service_status =
-        crate::cosyvoice::voice_status(app, &service_voice_id).unwrap_or(created_status);
-    if service_status == "UNDEPLOYED" {
-        let _ = crate::cosyvoice::delete_voice(app, &service_voice_id);
-        return Err("阿里云未通过这个克隆音色的审核，请重新添加一段清晰的录音。".into());
-    }
+    let (service_voice_id, service_status) = enroll(app, id, &format, &sample, &model)?;
     voices[position].service_voice_id = Some(service_voice_id.clone());
     voices[position].service_status = Some(service_status.clone());
     if let Err(error) = write_index(&dir, &voices) {
@@ -298,5 +370,25 @@ pub fn ensure_service_voice(app: &AppHandle, id: &str) -> Result<String, String>
     if service_status == "DEPLOYING" {
         return Err("这个克隆音色已提交到阿里云，审核或处理完成后再试听。".into());
     }
-    Ok(service_voice_id)
+    Ok((service_voice_id, model))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn voices_saved_before_the_model_choice_read_as_flash() {
+        let saved = r#"[{"id":"1254182bada45b28","name":"a","format":"wav","seconds":13.6,"createdAt":1,"serviceVoiceId":"cosyvoice-v3.5-flash-ap1254182b-x","serviceStatus":"OK"}]"#;
+        let voices: Vec<ClonedVoice> = serde_json::from_str(saved).unwrap();
+        assert_eq!(voices[0].model, "cosyvoice-v3.5-flash");
+    }
+
+    #[test]
+    fn only_listed_models_are_accepted() {
+        assert!(check_model("cosyvoice-v3.5-plus").is_ok());
+        assert!(check_model("cosyvoice-v3.5-flash").is_ok());
+        assert!(check_model("cosyvoice-v3-plus").is_err());
+        assert!(check_model("").is_err());
+    }
 }
