@@ -212,6 +212,8 @@ export interface ActivityUpdate {
   noChip?: boolean;
   /** Its standing line gets a button saying this, such as "回到终端" (`pet.activity_opened`; whoever reports it does it). */
   opens?: string;
+  /** A result the user still needs, such as a code to type: when done, its line stands until clicked away instead of being said in passing. */
+  keep?: boolean;
 }
 
 /** One part of the status row at the pet's feet. Each part is its own button, or a plain label. */

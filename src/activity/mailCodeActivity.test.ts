@@ -6,8 +6,8 @@ describe("mailCodeActivity", () => {
     expect(mailCodeActivity({ kind: "waiting" })).toEqual({ activity: { id: MAIL_CODE_ACTIVITY, state: "running", label: "等验证码", icon: "mail", cancellable: true } });
   });
 
-  it("is done with the code once one is found", () => {
-    expect(mailCodeActivity({ kind: "found", code: "384920", sender: "网易邮件中心", copied: true }).activity).toMatchObject({ state: "done", text: "验证码 384920，已复制（网易邮件中心）" });
+  it("is done with the code once one is found, and keeps it up for the user to type", () => {
+    expect(mailCodeActivity({ kind: "found", code: "384920", sender: "网易邮件中心", copied: true }).activity).toMatchObject({ state: "done", text: "验证码 384920，已复制（网易邮件中心）", keep: true });
     expect(mailCodeActivity({ kind: "found", code: "1234", sender: "GitHub", copied: false }).activity.text).toBe("验证码 1234（GitHub），没能复制，手动输一下吧");
   });
 

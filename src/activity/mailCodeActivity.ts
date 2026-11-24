@@ -27,7 +27,7 @@ export function mailCodeActivity(update: MailCodeUpdate): { activity: ActivityUp
     case "cancelled":
       return { activity: { ...BASE, state: "cancelled" } };
     case "found":
-      return { activity: { ...BASE, state: "done", text: update.copied ? LINES.found(update.code, update.sender) : LINES.notCopied(update.code, update.sender) } };
+      return { activity: { ...BASE, state: "done", keep: true, text: update.copied ? LINES.found(update.code, update.sender) : LINES.notCopied(update.code, update.sender) } };
     case "unrecognized":
       return { activity: { ...BASE, state: "failed", text: LINES.unrecognized(update.sender) } };
     case "timeout":

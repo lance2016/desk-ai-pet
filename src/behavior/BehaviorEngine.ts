@@ -471,7 +471,8 @@ export class BehaviorEngine {
     else if (action !== undefined) this.react(action);
     // A success is said in passing, not stood on the line: the card at the pet's feet keeps it.
     // Called out from the edge for it, the pet stays out while it says it, as after a greeting.
-    if (update.state === "done" && update.text) {
+    // One the user still needs (`keep`) stands on the line instead, and the pet stays out until it is clicked away.
+    if (update.state === "done" && update.text && !update.keep) {
       this.say(update.text);
       if (this.returnTo) this.returnTo = { ...this.returnTo, at: now + BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs };
     }

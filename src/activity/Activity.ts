@@ -17,6 +17,7 @@ export const activityUpdateSchema = z.object({
   cancellable: z.boolean().optional(),
   noChip: z.boolean().optional(),
   opens: z.string().trim().min(1).max(ACTIVITY_LIMITS.opens).optional(),
+  keep: z.boolean().optional(),
 }) satisfies z.ZodType<ActivityUpdate>;
 
 const MINUTE_MS = 60_000;

@@ -10,13 +10,14 @@ const ongoing = (update: ActivityUpdate) => update.state === "running" || update
 
 const sameReport = (a: ActivityUpdate, b: ActivityUpdate) =>
   a.state === b.state && a.label === b.label && a.text === b.text && a.icon === b.icon && (a.cancellable ?? false) === (b.cancellable ?? false)
-  && (a.noChip ?? false) === (b.noChip ?? false) && a.opens === b.opens;
+  && (a.noChip ?? false) === (b.noChip ?? false) && a.opens === b.opens && (a.keep ?? false) === (b.keep ?? false);
 
 /**
  * The things going on that the pet shows: a chip at its feet while one runs or
  * waits for the user, and a standing line when one waits for the user or failed.
- * A success is only said in passing (the engine says it), so it is not kept: it
- * would stand over a reminder the user has to act on. It only keeps track; the engine decides how the pet reacts.
+ * A success is only said in passing (the engine says it), so it is not kept, unless
+ * the user still needs it (`keep`, a code to type); due reminders stand ahead of it.
+ * It only keeps track; the engine decides how the pet reacts.
  */
 export class ActivityBoard {
   private entries: Entry[] = [];
@@ -26,7 +27,8 @@ export class ActivityBoard {
     const before = this.entries.find((entry) => entry.update.id === update.id);
     if (before ? sameReport(before.update, update) : update.state === "cancelled") return false;
     // Over with nothing to tell, or done (said in passing): nothing is left to show.
-    const kept: Entry[] = ongoing(update) || (update.state === "failed" && update.text) ? [{ update, seen: false }] : [];
+    const stands = (update.state === "failed" || (update.state === "done" && update.keep)) && update.text;
+    const kept: Entry[] = ongoing(update) || stands ? [{ update, seen: false }] : [];
     this.entries = before ? this.entries.flatMap((entry) => entry === before ? kept : [entry]) : [...this.entries, ...kept];
     return true;
   }

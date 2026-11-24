@@ -1257,7 +1257,7 @@ describe("activities", () => {
     return shown;
   };
 
-  it("comes out from the edge, says the copied code in passing, and goes back without a line to click away", () => {
+  it("comes out from the edge with the code on a line that stays until clicked away, then goes back", () => {
     const { bus, renderer, docks, passSteps, said } = withScenes();
     const shown = watchAlert(bus);
     bus.emit("pet.drag_started", {});
@@ -1266,23 +1266,27 @@ describe("activities", () => {
     mail(bus, { kind: "found", code: "384920", sender: "网易邮件中心", copied: true });
     expect(renderer.last).toBe("happy");
     expect(docks).toEqual(["right", null]);
-    expect(last(said)).toBe("验证码 384920，已复制（网易邮件中心）");
-    expect(shown.every((alert) => alert.text === null)).toBe(true);
-    // It stays out while it says it, then goes back by itself.
-    passSteps(BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs - 1_000);
+    expect(last(shown)).toEqual({ text: "验证码 384920，已复制（网易邮件中心）", icon: "mail" });
+    expect(said).not.toContain("验证码 384920，已复制（网易邮件中心）");
+    // The user may have looked away: it stays out with the code.
+    passSteps(BEHAVIOR_CONFIG.backToEdgeAfterGreetingMs + 60_000);
     expect(docks).toEqual(["right", null]);
-    passSteps(2_000);
+    expect(last(shown)?.text).toBe("验证码 384920，已复制（网易邮件中心）");
+    bus.emit("pet.alert_dismissed", {});
+    expect(last(shown)?.text).toBeNull();
+    passSteps(BEHAVIOR_CONFIG.backToEdgeAfterAlertMs + 1_000);
     expect(last(docks)).toBe("right");
   });
 
-  it("keeps a due reminder on the line when a success comes in: the success is only said", () => {
+  it("keeps a due reminder ahead of a found code, which waits its turn on the line", () => {
     const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() }]);
-    const { bus, pass, said } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
+    const { bus, pass } = setup({ extraAnimations: SCENE_ACTIONS, reminders });
     const shown = watchAlert(bus);
     pass(0);
     mail(bus, { kind: "found", code: "57743", sender: "Telegram", copied: true });
-    expect(last(said)).toBe("验证码 57743，已复制（Telegram）");
-    expect(last(shown)).toMatchObject({ heading: "到点啦", text: "开会" });
+    expect(last(shown)).toMatchObject({ heading: "到点啦", text: "开会", queued: 1 });
+    bus.emit("pet.alert_dismissed", {});
+    expect(last(shown)).toMatchObject({ text: "验证码 57743，已复制（Telegram）" });
   });
 
   it("puts a due reminder ahead of an activity's line, says one more waits, and shows it next", () => {

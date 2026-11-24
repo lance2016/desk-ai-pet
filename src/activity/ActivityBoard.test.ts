@@ -73,6 +73,16 @@ describe("ActivityBoard", () => {
     expect(board.chips()).toEqual([]);
   });
 
+  it("keeps a success the user still needs up until it is dismissed, without a chip", () => {
+    const board = new ActivityBoard();
+    board.report(build("a", "running"));
+    board.report(build("a", "done", { text: "验证码 1234", keep: true }));
+    expect(board.notice()?.text).toBe("验证码 1234");
+    expect(board.chips()).toEqual([]);
+    board.dismiss();
+    expect(board.notice()).toBeNull();
+  });
+
   it("counts every line waiting to stand", () => {
     const board = new ActivityBoard();
     board.report(build("a", "failed", { text: "没成" }));
