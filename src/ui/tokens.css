@@ -27,6 +27,9 @@
   /* The dark toast at the bottom of a panel ("已完成 · 撤销"). */
   --ui-hud: rgba(38, 38, 40, .88);
   --ui-hud-text: #ffffff;
+  /* A button on that toast ("撤销"), at rest and under the pointer. */
+  --ui-hud-fill: rgba(255, 255, 255, .16);
+  --ui-hud-fill-hover: rgba(255, 255, 255, .26);
 
   /* One accent for a whole window: primary buttons, switches, links, focus, the selected sidebar page. */
   --ui-accent: #6e56cf;

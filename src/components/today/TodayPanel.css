@@ -218,8 +218,8 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
   animation: today-hud-in var(--ui-duration) var(--ui-ease);
 }
 .today-hud span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.today-hud button { flex: none; height: 22px; padding: 0 8px; color: #fff; background: rgba(255, 255, 255, .16); border: 0; border-radius: var(--radius-control); font: inherit; font-weight: 600; cursor: pointer; }
-.today-hud button:hover { background: rgba(255, 255, 255, .26); }
+.today-hud button { flex: none; height: 22px; padding: 0 8px; color: var(--ui-hud-text); background: var(--ui-hud-fill); border: 0; border-radius: var(--radius-control); font: inherit; font-weight: 600; cursor: pointer; }
+.today-hud button:hover { background: var(--ui-hud-fill-hover); }
 
 @keyframes today-hud-in {
   from { opacity: 0; transform: translateY(6px); }
