@@ -45,5 +45,7 @@
 .links-form p[role="alert"] { margin: 0; color: var(--red); }
 .links-panel--manager { height: auto; min-height: 260px; background: var(--group); }
 .links-panel--manager .links-header { padding-left: 16px; }
+/* The settings page has its buttons inherit the text colour; the primary button keeps white on the accent. */
+.links-panel--manager .today-button--primary { color: #fff; }
 .links-panel--manager .links-list { max-height: 390px; }
 .links-panel .today-empty { gap: 8px; }

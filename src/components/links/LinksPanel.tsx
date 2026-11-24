@@ -74,7 +74,7 @@ export function LinksSettings() {
       <div className="settings-group">
         <div className="settings-row">
           <span className="settings-row__body"><strong>启用常用链接</strong><span>从宠物右键菜单或快捷按钮打开面板</span></span>
-          <button type="button" role="switch" className={enabled ? "toggle is-on" : "toggle"} aria-checked={enabled} aria-label="启用常用链接" onClick={toggle} />
+          <button type="button" role="switch" className={enabled ? "toggle is-on" : "toggle"} aria-checked={enabled} aria-label="启用常用链接" onClick={toggle}><span /></button>
         </div>
       </div>
       {error && <p role="alert">没能保存设置，请重试。</p>}
