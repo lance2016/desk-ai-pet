@@ -198,7 +198,8 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-count { flex: none; align-self: center; padding: 0 4px; color: var(--label-2); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
 .chat-mic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-control); color: var(--label-2); background: none; cursor: pointer; }
 .chat-mic:hover:not(:disabled) { color: var(--label); background: var(--fill-strong); }
-.chat-input.is-recording .chat-mic:not(.chat-mic--cancel, .chat-mic--attach) { color: #fff; background: var(--red); animation: chat-pulse 1.2s ease-in-out infinite; }
+/* Red-filled like a confirming destructive button, and with its words: dark on the pale dark-mode red. */
+.chat-input.is-recording .chat-mic:not(.chat-mic--cancel, .chat-mic--attach) { color: var(--ui-action-text); background: var(--red); animation: chat-pulse 1.2s ease-in-out infinite; }
 .chat-mic:disabled { opacity: .35; cursor: default; }
 .chat-mic.is-unconfigured { position: relative; color: var(--label-3); }
 .chat-mic.is-unconfigured::after { content: ""; position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
