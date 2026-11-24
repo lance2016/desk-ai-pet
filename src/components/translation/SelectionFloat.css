@@ -1,23 +1,23 @@
 html[data-window="selection-float"], html[data-window="selection-float"] body, html[data-window="selection-float"] #root { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; }
 /* Same tokens as the chat and translation windows. */
 .selection-float, .selection-result {
-  --surface: #fff;
-  --border: rgba(0, 0, 0, .1);
-  --label: rgba(0, 0, 0, .85);
-  --label-2: rgba(0, 0, 0, .55);
-  --fill: rgba(0, 0, 0, .05);
-  --accent-strong: #6f58c9;
-  --accent-ring: rgba(138, 114, 224, .38);
-  --radius-control: 6px;
-  box-sizing: border-box; width: 100%; height: 100%; color: var(--label); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; font: 500 12px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  --surface: var(--ui-surface);
+  --border: var(--ui-border-strong);
+  --label: var(--ui-text);
+  --label-2: var(--ui-text-secondary);
+  --fill: var(--ui-fill);
+  --accent-strong: var(--ui-accent-strong);
+  --accent-ring: var(--ui-accent-ring);
+  --radius-control: var(--ui-radius-control);
+  box-sizing: border-box; width: 100%; height: 100%; color: var(--label); background: var(--surface); border: 1px solid var(--border); border-radius: var(--ui-radius-card); font: 500 12px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
-  .selection-float, .selection-result { --surface: #2e2d34; --border: rgba(255, 255, 255, .14); --label: rgba(255, 255, 255, .88); --label-2: rgba(255, 255, 255, .6); --fill: rgba(255, 255, 255, .08); --accent-strong: #a693f5; --accent-ring: rgba(166, 147, 245, .45); color-scheme: dark; }
+  .selection-float, .selection-result { color-scheme: dark; }
 }
-.selection-float { display: flex; align-items: center; gap: 1px; padding: 3px; }
+.selection-float { display: flex; align-items: center; gap: 1px; padding: 4px; }
 .selection-float button, .selection-result button { border: 0; border-radius: var(--radius-control); color: inherit; background: transparent; font: inherit; cursor: pointer; }
 .selection-float button:hover, .selection-result button:hover { background: var(--fill); }
-.selection-float button:focus-visible, .selection-result button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.selection-float button:focus-visible, .selection-result button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 .selection-float button { flex: 1; height: 100%; white-space: nowrap; }
 .selection-float button.is-primary { color: var(--accent-strong); font-weight: 600; }
 .selection-float button:disabled { opacity: .45; cursor: default; }
@@ -28,11 +28,11 @@ html[data-window="selection-float"], html[data-window="selection-float"] body, h
 .selection-result header, .selection-result footer { display: flex; align-items: center; justify-content: space-between; }
 .selection-result__close { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; color: var(--label-2); }
 /* Switches what is done with the same text, like a segmented control. */
-.selection-result__tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: 7px; }
-.selection-result__tabs button { padding: 3px 9px; color: var(--label-2); }
-.selection-result__tabs button.is-current { color: var(--label); background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); font-weight: 600; }
-.selection-result__body { flex: 1; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: 13px; user-select: text; }
+.selection-result__tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--ui-radius-control); }
+.selection-result__tabs button { padding: 4px 8px; color: var(--label-2); }
+.selection-result__tabs button.is-current { color: var(--label); background: var(--surface); box-shadow: var(--ui-shadow-control); font-weight: 600; }
+.selection-result__body { flex: 1; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: var(--ui-font-body); user-select: text; }
 .selection-result__message { margin: 0; color: var(--label-2); }
 .selection-result footer { justify-content: flex-end; gap: 4px; }
-.selection-result footer button { padding: 5px 8px; color: var(--accent-strong); font-weight: 600; }
+.selection-result footer button { padding: 4px 8px; color: var(--accent-strong); font-weight: 600; }
 .selection-result button:disabled { opacity: .45; cursor: default; }

@@ -4,18 +4,18 @@
  * title bar names the window and closes it, so the page has neither.
  */
 .translation {
-  --bg: #f3f2f7;
-  --group: #fff;
-  --group-border: rgba(0, 0, 0, .07);
-  --label: rgba(0, 0, 0, .85);
-  --label-2: rgba(0, 0, 0, .55);
-  --field-border: rgba(0, 0, 0, .14);
-  --accent: #8a72e0;
-  --accent-strong: #6f58c9;
-  --accent-ring: rgba(138, 114, 224, .38);
-  --accent-wash: rgba(138, 114, 224, .12);
-  --radius-group: 10px;
-  --radius-control: 6px;
+  --bg: var(--ui-window);
+  --group: var(--ui-surface);
+  --group-border: var(--ui-border-subtle);
+  --label: var(--ui-text);
+  --label-2: var(--ui-text-secondary);
+  --field-border: var(--ui-border-strong);
+  --accent: var(--ui-accent);
+  --accent-strong: var(--ui-accent-strong);
+  --accent-ring: var(--ui-accent-ring);
+  --accent-wash: var(--ui-accent-soft);
+  --radius-group: var(--ui-radius-card);
+  --radius-control: var(--ui-radius-control);
 
   box-sizing: border-box;
   min-height: 100vh;
@@ -26,49 +26,34 @@
   background: var(--bg);
   font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
 }
-@media (prefers-color-scheme: dark) {
-  .translation {
-    --bg: #222127;
-    --group: #2e2d34;
-    --group-border: rgba(255, 255, 255, .06);
-    --label: rgba(255, 255, 255, .88);
-    --label-2: rgba(255, 255, 255, .6);
-    --field-border: rgba(255, 255, 255, .14);
-    --accent: #a693f5;
-    --accent-strong: #7d66e0;
-    --accent-ring: rgba(166, 147, 245, .45);
-    --accent-wash: rgba(166, 147, 245, .2);
-    color-scheme: dark;
-  }
-}
-html[data-window="translation"], html[data-window="translation"] body, html[data-window="translation"] #root { margin: 0; background: #f3f2f7; }
-@media (prefers-color-scheme: dark) { html[data-window="translation"], html[data-window="translation"] body, html[data-window="translation"] #root { background: #222127; } }
+@media (prefers-color-scheme: dark) { .translation { color-scheme: dark; } }
+html[data-window="translation"], html[data-window="translation"] body, html[data-window="translation"] #root { margin: 0; background: var(--ui-window); }
 
 .translation * { box-sizing: border-box; }
 .translation ::selection { background: var(--accent-wash); }
 .translation button, .translation select, .translation textarea { font: inherit; color: inherit; }
-.translation :is(button, select):focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.translation :is(button, select):focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 
-.translation-hint { margin: 0; color: var(--label-2); font-size: 12px; }
+.translation-hint { margin: 0; color: var(--label-2); font-size: var(--ui-font-caption); }
 .translation-language { display: flex; align-items: center; gap: 8px; margin: 14px 0 8px; color: var(--label-2); }
 .translation select { padding: 2px 4px; color: var(--accent-strong); background: transparent; border: 0; border-radius: var(--radius-control); font-weight: 600; cursor: pointer; }
 .translation textarea { width: 100%; min-height: 130px; padding: 12px 14px; resize: vertical; color: var(--label); background: var(--group); border: 1px solid var(--field-border); border-radius: var(--radius-group); outline: none; line-height: 1.6; }
-.translation textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.translation textarea:focus { border-color: var(--accent); box-shadow: var(--ui-focus-ring); }
 .translation textarea::placeholder { color: var(--label-2); }
 
 .translation-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
-.translation-actions span { color: var(--label-2); font-size: 12px; }
-.translation-actions button { min-height: 28px; padding: 0 18px; color: #fff; background: var(--accent-strong); border: 0; border-radius: var(--radius-control); font-weight: 600; cursor: pointer; }
+.translation-actions span { color: var(--label-2); font-size: var(--ui-font-caption); }
+.translation-actions button { min-height: 28px; padding: 0 18px; color: var(--ui-action-text); background: var(--ui-action-bg); border: 0; border-radius: var(--radius-control); font-weight: 600; cursor: pointer; }
 .translation-actions button:hover:not(:disabled) { filter: brightness(1.08); }
 .translation-actions button:disabled { opacity: .45; cursor: default; }
 
-.translation-message { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 6px 6px 10px; color: var(--label); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-control); font-size: 12px; }
-.translation-message button, .translation-permission, .translation-result button { padding: 2px 6px; color: var(--accent-strong); background: transparent; border: 0; border-radius: var(--radius-control); font-size: 12px; font-weight: 600; cursor: pointer; }
+.translation-message { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 6px 6px 10px; color: var(--label); background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-control); font-size: var(--ui-font-caption); }
+.translation-message button, .translation-permission, .translation-result button { padding: 2px 6px; color: var(--accent-strong); background: transparent; border: 0; border-radius: var(--radius-control); font-size: var(--ui-font-caption); font-weight: 600; cursor: pointer; }
 .translation-message button { flex: none; }
 .translation-permission { margin-top: 6px; }
 .translation :is(.translation-message, .translation-result) button:hover, .translation-permission:hover { background: var(--accent-wash); }
 
 .translation-result { margin-top: 16px; padding: 12px 14px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .translation-result > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.translation-result strong { font-size: 12px; color: var(--label-2); }
+.translation-result strong { font-size: var(--ui-font-caption); color: var(--label-2); }
 .translation-result p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; font-size: 14px; user-select: text; }
