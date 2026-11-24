@@ -962,6 +962,7 @@ pub fn run() {
             set_dubbing_enabled,
             dubbing::dubbing_export,
             dubbing::dubbing_export_subtitles,
+            dubbing::dubbing_discard,
             open_coding,
             open_settings,
             set_pet_dnd,

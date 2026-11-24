@@ -391,7 +391,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 
 「配音」是右键菜单里的独立小工具，开关在「设置 → 小工具」（`ai-pet:dubbing-enabled:v1`，宠物窗口通过 `set_dubbing_enabled` 同步给原生菜单，关掉时一并关窗）。
 
-- **窗口按需创建。** `dubbing` 不在 `tauri.conf.json` 里，由 `dubbing.rs` 的 `open` 在点菜单时用 `WebviewWindowBuilder` 现建，关闭即销毁，不用时不占内存。前端用 `React.lazy` 加载 `DubbingPage`，其他窗口不带它的代码。它是普通窗口：开着时应用是 `Regular`（`sync_activation_policy` 统一判断设置窗口和配音窗口，任何一个开着就留在 Dock 和 ⌘Tab）。
+- **窗口按需创建。** `dubbing` 不在 `tauri.conf.json` 里，由 `dubbing.rs` 的 `open` 在点菜单时用 `WebviewWindowBuilder` 现建，关闭即销毁，不用时不占内存。页面拦下每一次关闭（`dubbingPlatform.onCloseRequested`）：有生成了没导出的声音时先弹系统确认框，同意后由原生的 `dubbing_discard` 销毁窗口（网页自己销毁要多给窗口一项权限）。前端用 `React.lazy` 加载 `DubbingPage`，其他窗口不带它的代码。它是普通窗口：开着时应用是 `Regular`（`sync_activation_policy` 统一判断设置窗口和配音窗口，任何一个开着就留在 Dock 和 ⌘Tab）。
 - **合成复用朗读通道。** 每一句走 `mimo_synthesize`（克隆音色转 CosyVoice，内置音色走 MiMo），最多同时 3 句（`useDubbing`）。音频只留在窗口内存里，按「声音、语气、文字」做键，改了哪句只重做哪句。运行中的语音请求记着发起窗口（`RunningSpeech.window`），关聊天窗口只停聊天窗口的请求，关配音窗口只停配音的。
 - **导出。** 页面把各句 PCM 拼成一个 24 kHz 单声道 WAV（`src/dubbing/wav.ts`，句间停顿 `GAP_SECONDS`），作为原始字节传给 `dubbing_export`（格式放在请求头）。原生端弹保存框，WAV 原样写入，M4A 用系统自带的 `afconvert` 转 AAC。字幕按每句的实际长度算时间轴，由 `dubbing_export_subtitles` 写在刚导出的音频旁边，路径只在原生端保存，页面给不出任意路径。
 - **草稿。** 稿子、声音、语气、导出格式存 `ai-pet:dubbing-draft:v1`，音频不存。

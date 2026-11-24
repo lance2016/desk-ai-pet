@@ -5,6 +5,7 @@ import { EXPORT_FORMATS, loadDraft, saveDraft, type DubbingDraft, type ExportFor
 import { MAX_SCRIPT_CHARS, splitScript } from "../../dubbing/script";
 import { MAX_EXPORT_SECONDS, encodeWav, pcmSeconds, toSrt, totalSeconds } from "../../dubbing/wav";
 import { cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
+import { dialogPlatform } from "../../platform/dialog";
 import { dubbingPlatform } from "../../platform/dubbing";
 import { petWindow } from "../../platform/petWindow";
 import { CLONED_VOICE_PREFIX, PERSONA_LIMITS } from "../../types";
@@ -53,6 +54,18 @@ export function DubbingPage() {
   const pieces = lines.map((line) => dub.clips.get(line.key)).map((clip) => (clip?.status === "ready" ? clip.pcm : null));
   const allReady = lines.length > 0 && pieces.every((pcm) => pcm !== null);
   const readyPieces = pieces.filter((pcm): pcm is Uint8Array => pcm !== null);
+  /** The audio made so far, by its lines; it differs from what was last exported until it is exported again. */
+  const madeKey = lines.filter((_, index) => pieces[index] !== null).map((line) => line.key).join("\n");
+  const exportedKey = useRef("");
+  const unsavedRef = useRef(false);
+  unsavedRef.current = madeKey !== "" && madeKey !== exportedKey.current;
+
+  // Closing destroys the window and the audio in it: ask first while some was made and not exported.
+  useEffect(() => dubbingPlatform.onCloseRequested(async () => !unsavedRef.current || dialogPlatform.confirm({
+    message: "关掉配音窗口？",
+    detail: "已经生成的声音还没导出，关掉后就没了，要重新生成。稿子会留着。",
+    action: "关掉",
+  })), []);
 
   // New words or a new voice make what is playing out of date.
   useEffect(() => { player.current?.stop(); setPlaying(null); }, [lines]);
@@ -80,6 +93,7 @@ export function DubbingPage() {
     try {
       const audio = await dubbingPlatform.exportAudio(encodeWav(readyPieces), draft.format);
       if (!audio) return;
+      exportedKey.current = madeKey;
       if (!draft.subtitles) { setNotice(`已导出：${audio}`); return; }
       const subtitles = await dubbingPlatform.exportSubtitles(toSrt(lines.map((line, index) => ({ text: line.text, pcm: readyPieces[index] }))));
       setNotice(`已导出：${audio}、${subtitles}`);

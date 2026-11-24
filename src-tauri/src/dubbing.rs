@@ -85,6 +85,16 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
     window.set_focus().map_err(|error| error.to_string())
 }
 
+/// Closes the window for good once the page has agreed to it: the page holds every close back to
+/// ask first when audio was made and not exported (`src/platform/dubbing.ts`).
+#[tauri::command]
+pub fn dubbing_discard(app: AppHandle) -> Result<(), String> {
+    match app.get_webview_window(WINDOW) {
+        Some(window) => window.destroy().map_err(|error| error.to_string()),
+        None => Ok(()),
+    }
+}
+
 /// Closes the window if it is open; used when the tool is turned off.
 pub fn close(app: &AppHandle) -> Result<(), String> {
     match app.get_webview_window(WINDOW) {
