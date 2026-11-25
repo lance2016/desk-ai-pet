@@ -196,6 +196,8 @@ export default function App({ packId }: AppProps) {
   const barAwake = useLingering(hovered, displayPreferences.controlsLingerMs);
   /** The bar has been pushed up onto the pet: it shows only while the mouse is there. */
   const barTucked = insets.bottom > FREE_OVERHANG_PX;
+  // Under the menu bar there is no room above the head: the bubble speaks from beside it.
+  const speakingFrom = speechSide(insets, head, Boolean(dockSide));
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }
     : { width: 0, height: 0 };
@@ -734,7 +736,7 @@ export default function App({ packId }: AppProps) {
       controlsElement?.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [runtime, barShown, barAwake, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
+  }, [runtime, barShown, barAwake, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle, speakingFrom]);
 
   // Without a pet there is no mask: let the error message take the mouse instead.
   useEffect(() => { if (loadError) maskToElement(loadErrorRef.current); }, [loadError]);
@@ -751,8 +753,6 @@ export default function App({ packId }: AppProps) {
     petWindow.showMenu().catch((error) => console.error("Failed to open the pet menu", error));
   };
 
-  // Under the menu bar there is no room above the head: the bubble speaks from beside it.
-  const speakingFrom = speechSide(insets, head, Boolean(dockSide));
   // Overlays stay inside the part of the window that is on screen.
   const layout = {
     "--stage-side": `${STAGE_MARGIN.side}px`,

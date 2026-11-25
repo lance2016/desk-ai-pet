@@ -367,6 +367,8 @@ body {
   transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
 }
 .pet-tip:is([data-hover], :focus-visible)::after { opacity: 1; transform: translate(var(--tip-x, -50%), 0); }
+/* A disabled button fades, tag and all: it says nothing until it can be used. */
+.pet-tip:disabled::after { content: none; }
 /* Under the bar a tag covers the quick buttons: like a system help tag it waits for the cursor to rest, and goes at once. */
 .status-row .pet-tip:is([data-hover], :focus-visible)::after { transition-delay: 500ms; }
 /* At a screen edge the row sits in the corner: its tags open along the screen, not off it. */
@@ -644,9 +646,9 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
 .chat-launcher.is-hinting img { filter: drop-shadow(0 0 5px var(--ui-accent-ring)) drop-shadow(0 2px 4px rgba(53, 43, 102, .22)); }
 @keyframes launcher-hint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-/* The bar, the chat button and the status row come and go the same way: a fade, never a jump.
-   After their own rules, so a hovered or bouncing button still fades. */
-.pet-bar, .chat-launcher, .status-row, .status-row > * { animation: pet-fade-in var(--ui-duration) var(--ui-ease); }
+/* The bar, the chat button and the status row come and go the same way: a fade, never a jump. The coding card keeps
+   its own entrance, and a bouncing chat button its bounce. After their own rules, so a hovered or bouncing button still fades out. */
+.pet-bar, .chat-launcher, .status-row, .status-row > .status-chip { animation: pet-fade-in var(--ui-duration) var(--ui-ease); }
 .pet-bar.is-leaving, .chat-launcher.is-leaving, .status-row.is-leaving { opacity: 0; pointer-events: none; transition: opacity var(--ui-duration) var(--ui-ease); }
 @keyframes pet-fade-in { from { opacity: 0; } }
 
