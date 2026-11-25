@@ -1081,6 +1081,9 @@ pub fn run() {
                 let settings_handle = settings.clone();
                 let app_handle = app.handle().clone();
                 settings.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(focused) = event {
+                        log::info!("Input window {SETTINGS_WINDOW} focus changed: {focused}");
+                    }
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
                         report("hide settings", hide_settings_window(&app_handle, &settings_handle));

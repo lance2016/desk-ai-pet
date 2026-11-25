@@ -27,6 +27,19 @@ function send(level: Level, window: string, message: string): void {
   invoke("diagnostics_log", { level, window, message }).catch(() => {});
 }
 
+/** Reports a click that failed to focus an editable field after its default action. */
+export function checkInputFocus(window: "settings" | "dubbing", field: "search" | "script" | "style", input: HTMLInputElement | HTMLTextAreaElement | null): void {
+  if (!isTauri() || !input) return;
+  requestAnimationFrame(() => {
+    if (!input.isConnected) return;
+    const windowFocused = document.hasFocus();
+    const fieldFocused = document.activeElement === input;
+    if (!windowFocused || !fieldFocused) {
+      send("warn", window, `Input click did not focus: field=${field} windowFocused=${windowFocused} fieldFocused=${fieldFocused}`);
+    }
+  });
+}
+
 /**
  * Sends this window's warnings and errors, uncaught errors and unhandled
  * promise rejections to the log file. Call once per window. Does nothing outside the desktop app.

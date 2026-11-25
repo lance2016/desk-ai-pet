@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import { isComposing } from "../keyboard";
 import { searchSettings, type SearchEntry } from "./settingsSearch";
 import { Icon } from "../../ui/icons";
+import { checkInputFocus } from "../../platform/diagnostics";
 
 /** A search result: where it is, plus the line under its title. */
 export interface SearchResult extends SearchEntry {
@@ -55,14 +56,17 @@ export function SettingsSearch({ entries, children, icon, onPick }: SettingsSear
   const searching = query.trim() !== "";
 
   return <>
-    <div className="ui-search settings-search" role="search">
-      <Icon name="search" />
-      <input
-        ref={field} type="search" placeholder="搜索" aria-label="搜索设置和功能" value={query} spellCheck={false}
-        role="combobox" aria-expanded={searching} aria-controls={listId} aria-autocomplete="list"
-        aria-activedescendant={searching && results.length > 0 ? optionId(Math.min(active, results.length - 1)) : undefined}
-        onChange={(event) => { setQuery(event.currentTarget.value); setActive(0); }} onKeyDown={onKeyDown}
-      />
+    <div role="search">
+      <label className="ui-search settings-search">
+        <Icon name="search" />
+        <input
+          ref={field} type="search" placeholder="搜索" aria-label="搜索设置和功能" value={query} spellCheck={false}
+          role="combobox" aria-expanded={searching} aria-controls={listId} aria-autocomplete="list"
+          aria-activedescendant={searching && results.length > 0 ? optionId(Math.min(active, results.length - 1)) : undefined}
+          onClick={(event) => checkInputFocus("settings", "search", event.currentTarget)}
+          onChange={(event) => { setQuery(event.currentTarget.value); setActive(0); }} onKeyDown={onKeyDown}
+        />
+      </label>
     </div>
     {!searching ? children : results.length === 0
       ? <p className="settings-results__empty" role="status">没有找到“{query.trim()}”</p>

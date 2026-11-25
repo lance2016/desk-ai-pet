@@ -64,6 +64,7 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
     }
     let window = WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::App(URL.into()))
         .title(TITLE)
+        .accept_first_mouse(true)
         .inner_size(SIZE.0, SIZE.1)
         .min_inner_size(MIN_SIZE.0, MIN_SIZE.1)
         .center()
@@ -71,6 +72,9 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     let handle = app.clone();
     window.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(focused) = event {
+            log::info!("Input window {WINDOW} focus changed: {focused}");
+        }
         if let tauri::WindowEvent::Destroyed = event {
             // Segments still being made would only be thrown away now.
             if let Some(state) = handle.try_state::<Arc<crate::mimo::MimoSpeechState>>() {

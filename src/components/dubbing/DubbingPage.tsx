@@ -5,6 +5,7 @@ import { EXPORT_FORMATS, loadDraft, saveDraft, type DubbingDraft, type ExportFor
 import { MAX_SCRIPT_CHARS, splitScript } from "../../dubbing/script";
 import { MAX_EXPORT_SECONDS, encodeWav, pcmSeconds, toSrt, totalSeconds } from "../../dubbing/wav";
 import { cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
+import { checkInputFocus } from "../../platform/diagnostics";
 import { dialogPlatform } from "../../platform/dialog";
 import { dubbingPlatform } from "../../platform/dubbing";
 import { petWindow } from "../../platform/petWindow";
@@ -126,13 +127,13 @@ export function DubbingPage() {
         </label>
         <label className="dub-field dub-field--grow">
           <span>语气</span>
-          <input className="ui-field" value={draft.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={voice.startsWith(CLONED_VOICE_PREFIX) ? "留空保留录音里的感觉，例如：语速稍慢、像在讲解" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ style: event.currentTarget.value })} />
+          <input className="ui-field" value={draft.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={voice.startsWith(CLONED_VOICE_PREFIX) ? "留空保留录音里的感觉，例如：语速稍慢、像在讲解" : "例如：轻快、带点笑意，语速稍慢"} onClick={(event) => checkInputFocus("dubbing", "style", event.currentTarget)} onChange={(event) => update({ style: event.currentTarget.value })} />
         </label>
       </header>
 
       <main className="dub-body">
         <section className="dub-card dub-script" aria-label="稿子">
-          <textarea value={draft.text} maxLength={MAX_SCRIPT_CHARS} placeholder="把要配音的文字贴在这里，会按句子自动分段" onChange={(event) => update({ text: event.currentTarget.value })} />
+          <textarea value={draft.text} maxLength={MAX_SCRIPT_CHARS} placeholder="把要配音的文字贴在这里，会按句子自动分段" onClick={(event) => checkInputFocus("dubbing", "script", event.currentTarget)} onChange={(event) => update({ text: event.currentTarget.value })} />
           <small className="dub-count">{[...draft.text].length} / {MAX_SCRIPT_CHARS}</small>
         </section>
 
