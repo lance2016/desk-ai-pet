@@ -12,7 +12,10 @@ import { ConfirmButton } from "../ConfirmButton";
 import { shrinkImage } from "./shrinkImage";
 import { moveRadioChoice } from "./radioKeys";
 import { Icon } from "../../ui/icons";
+import { loadDisplayPreferences, saveDisplayPreferences, type DisplayPreferences } from "../../preferences/DisplayPreferences";
 
+/** How long the quick buttons stay after the mouse leaves the pet. Shared by every character. */
+const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
 /** Uploaded icons are scaled down to this side, so they do not fill up local storage. */
 const ICON_MAX_SIDE = 128;
 const ICON_OPTIONS: Record<DockCommand, ControlIconPreset[]> = {
@@ -64,6 +67,12 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
   /** The character as it looks now; undefined while reading, null when it has no picture of its own yet. */
   const [portrait, setPortrait] = useState<string | null | undefined>(undefined);
   const rows = useRef(new Map<string, HTMLLIElement>());
+  const [linger, setLinger] = useState(() => loadDisplayPreferences().controlsLingerMs);
+  const updateLinger = (value: DisplayPreferences["controlsLingerMs"]) => {
+    // Read again to keep display preferences changed on another page.
+    const next: DisplayPreferences = { ...loadDisplayPreferences(), controlsLingerMs: value };
+    try { saveDisplayPreferences(next); setLinger(value); onError(null); } catch (reason) { console.error("Could not save the display setting", reason); onError("设置没能保存，请再试一次。"); }
+  };
   // Another window (or the action library) may change the dock; follow it unless a drag is under way.
   const draggingRef = useRef(false);
   draggingRef.current = dragging !== null;
@@ -264,6 +273,10 @@ export function DockSettings({ packId, controls, actions, resolveAsset, onError 
         </li>
       </ul>
       <p className="settings-footnote">拖动排序，点名称可以改名、换图标</p>
+
+      <div className="settings-group">
+        <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡；所有角色共用</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={linger === option.value} className={linger === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
+      </div>
 
       <div className="settings-actions">
         <ConfirmButton className="ui-button" confirm={{ message: "恢复默认快捷按钮？", detail: "调整过的按钮、顺序、名字和图标都会改回这个角色原来的样子。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认快捷按钮</ConfirmButton>

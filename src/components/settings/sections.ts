@@ -15,8 +15,8 @@ const group = (...ids: SettingsSection[]) => ids.map((id) => ({ id, label: LABEL
 export const ACCOUNT_SECTION: SettingsSection = "character";
 /** Sidebar entries below the avatar row, in order, grouped by the user's task rather than implementation detail. */
 export const NAV_GROUPS = [
-  { title: "角色与外观", items: group("actions", "dock") },
-  { title: "聊天", items: group("chat", "skills", "memory", "ai") },
+  { title: "宠物", items: group("actions", "dock") },
+  { title: "对话", items: group("chat", "skills", "memory", "ai") },
   { title: "陪伴与工具", items: group("companion", "tools") },
   { title: "应用", items: group("general", "privacy", "guide", "about") },
 ] as const;

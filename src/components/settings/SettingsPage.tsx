@@ -1,4 +1,5 @@
-import { TranslationShortcutSettings } from "./TranslationShortcutSettings";
+import { TranslationSettings, TranslationShortcutRow } from "./TranslationSettings";
+import { QuickChatShortcutRow } from "./QuickChatSettings";
 import { ai } from "../../ai";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { appendUserActions, loadUserActions } from "../../actions/UserActions";
@@ -9,7 +10,7 @@ import { chatPictureActions, loadChatAppearance, pictureFor } from "../../prefer
 import { characterPictures } from "../../appearance/characterPictures";
 import { characterName } from "../../preferences/ChatPreferences";
 import { isOnboarded, markOnboarded } from "../../preferences/UserProfile";
-import { loadDisplayPreferences, saveDisplayPreferences, saveOnTop, type DisplayPreferences } from "../../preferences/DisplayPreferences";
+import { saveOnTop } from "../../preferences/DisplayPreferences";
 import { systemPlatform } from "../../platform/system";
 import { CHAT_LIMITS } from "../../chat/ChatThreads";
 import { createLocalPetStorage } from "../../storage/PetStorage";
@@ -58,8 +59,14 @@ const SCALES = [
   { value: 1, label: "标准" },
   { value: 1.3, label: "大" },
 ] as const;
-/** How long the quick buttons stay after the mouse leaves the pet. Shared by every character. */
-const LINGER_OPTIONS = [{ value: 400, label: "快" }, { value: 700, label: "标准" }, { value: 1200, label: "慢" }] as const;
+/** Shortcuts the app keeps to itself, listed on 「通用 › 快捷键」 so every key can be found in one place. */
+const FIXED_SHORTCUTS: readonly [string, string][] = [
+  ["打开设置", "⌘ ,"],
+  ["新聊天", "⌘ N"],
+  ["关闭窗口或面板", "⌘ W"],
+  ["在设置里搜索", "⌘ F"],
+  ["退出 AI Pet", "⌘ Q"],
+];
 /** Looking for a search result's title on a page that is still loading: every 100 ms, for 1.5 s. */
 const FIND_INTERVAL_MS = 100;
 const FIND_TRIES = 15;
@@ -110,7 +117,6 @@ const ONLINE: readonly [string, string, string][] = [
   ["阿里云百炼 · 创建克隆音色", "录音片段；创建后的音色会保存在云端，直到删除", "添加克隆声音时"],
   ["阿里云百炼 · CosyVoice 朗读", "这条回复的文字和已创建的克隆音色 ID", "使用克隆音色朗读时"],
   ["163 邮箱", "只读最新几封邮件，不标已读", "查收时"],
-  ["节假日数据", "不带个人信息", "缺数据时"],
   ["GitHub · 检查更新", "不带个人信息", "每天一次"],
 ];
 
@@ -146,7 +152,6 @@ export function SettingsPage({ packId }: { packId: string }) {
   const [persona, setPersona] = useState<PetPersona | undefined>(undefined);
   const [scale, setScale] = useState(() => storage.loadScale() ?? 1);
   const [onTop, setOnTop] = useState(true);
-  const [display, setDisplay] = useState(loadDisplayPreferences);
   const [version, setVersion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [packInfo, setPackInfo] = useState<{ id: string; canvas: { width: number; height: number } } | null>(null);
@@ -196,7 +201,7 @@ export function SettingsPage({ packId }: { packId: string }) {
     petWindow.getOnTop().then(setOnTop).catch((reason: unknown) => console.warn("Could not read the on-top setting", reason));
     systemPlatform.appVersion().then(setVersion).catch((reason: unknown) => console.warn("Could not read the app version", reason));
     // The window is hidden, not closed: the size may have been changed from the pet menu meanwhile.
-    const onFocus = () => { setScale(storage.loadScale() ?? 1); setDisplay(loadDisplayPreferences()); };
+    const onFocus = () => setScale(storage.loadScale() ?? 1);
     window.addEventListener("focus", onFocus);
     return () => {
       stopOnTop();
@@ -258,12 +263,6 @@ export function SettingsPage({ packId }: { packId: string }) {
       console.error("Could not save always on top", reason);
       setError("已经生效，但没能记住，下次打开会恢复原样。");
     }
-  };
-
-  const updateLinger = (value: DisplayPreferences["controlsLingerMs"]) => {
-    // Read again to preserve display preferences changed in another settings page.
-    const next: DisplayPreferences = { ...loadDisplayPreferences(), controlsLingerMs: value };
-    try { saveDisplayPreferences(next); setDisplay(next); setError(null); } catch (reason) { console.error("Could not save the display setting", reason); setError("设置没能保存，请再试一次。"); }
   };
 
   const updateDeveloper = (enabled: boolean) => {
@@ -372,26 +371,29 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "general" && (
           <div className="settings-section">
-            <h2 className="settings-group-title">宠物</h2>
+            <h2 className="settings-group-title">宠物显示</h2>
             <div className="settings-group">
               <div className="settings-row"><div className="settings-row__body"><strong>总在最前面</strong><span>也会盖在全屏应用上面</span></div><button type="button" role="switch" aria-checked={onTop} aria-label="总在最前面" className={onTop ? "ui-switch is-on" : "ui-switch"} onClick={() => void updateOnTop(!onTop)}><span /></button></div>
               <div className="settings-row"><div className="settings-row__body"><strong>宠物大小</strong><span>也可以在右键菜单里调整</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="宠物大小">{SCALES.map((item) => <button key={item.value} type="button" role="radio" aria-checked={scale === item.value} className={scale === item.value ? "is-selected" : ""} onClick={() => void updateScale(item.value)}>{item.label}</button>)}</div></div>
-              <div className="settings-row"><div className="settings-row__body"><strong>快捷按钮停留</strong><span>鼠标移开后，宠物脚下的按钮多久变淡</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="快捷按钮停留时间">{LINGER_OPTIONS.map((option) => <button key={option.value} type="button" role="radio" aria-checked={display.controlsLingerMs === option.value} className={display.controlsLingerMs === option.value ? "is-selected" : ""} onClick={() => updateLinger(option.value)}>{option.label}</button>)}</div></div>
             </div>
-            <h2 className="settings-group-title">提醒</h2>
-            <HolidaySettings />
-            <h2 className="settings-group-title">应用</h2>
+            <h2 className="settings-group-title">启动</h2>
             <div className="settings-group">
               <LaunchAtLoginRow onError={setError} />
-              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>侧栏多出「开发者」：提示词、工具定义和请求记录。打开期间，最近 100 次实际发给 AI 的内容和回复会留在本机</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "ui-switch is-on" : "ui-switch"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
             </div>
+            <h2 className="settings-group-title">快捷键</h2>
+            <div className="settings-group">
+              <QuickChatShortcutRow onError={setError} />
+              <TranslationShortcutRow onError={setError} />
+              {FIXED_SHORTCUTS.map(([title, keys]) => <div key={title} className="settings-row"><div className="settings-row__body"><strong>{title}</strong></div><kbd className="settings-row__value settings-keys">{keys}</kbd></div>)}
+            </div>
+            <p className="settings-footnote">上面两个可以改，点一下再按新的组合键；其余是固定的</p>
           </div>
         )}
 
         {section === "tools" && (
           <div className="settings-section">
             <h2 className="settings-group-title">划词翻译</h2>
-            <TranslationShortcutSettings onError={setError} />
+            <TranslationSettings onError={setError} />
             <AgentSettings />
             <MailSettings />
             <DubbingSettings />
@@ -435,7 +437,8 @@ export function SettingsPage({ packId }: { packId: string }) {
             <h2 className="settings-group-title">什么时候会连网</h2>
             <div className="settings-group">
               {(allOnline ? ONLINE : ONLINE.slice(0, ONLINE_SHOWN)).map(([title, detail, when]) => <InfoRow key={title} title={title} detail={detail} value={when} />)}
-              {!allOnline && <button type="button" className="settings-more" onClick={() => setAllOnline(true)}>显示全部 {ONLINE.length} 项</button>}
+              <HolidaySettings />
+              {!allOnline && <button type="button" className="settings-more" onClick={() => setAllOnline(true)}>显示全部 {ONLINE.length + 1} 项</button>}
             </div>
           </div>
         )}
@@ -449,8 +452,10 @@ export function SettingsPage({ packId }: { packId: string }) {
               {currentNotes && <div className="settings-row"><div className="settings-row__body"><strong>{CURRENT_VERSION} 新功能</strong><span>这次更新加了 {currentNotes.features.length} 个新功能</span></div><button type="button" className="ui-button ui-button--small" onClick={() => setWhatsNew(true)}>查看</button></div>}
               <UpdateRow />
             </div>
+            <h2 className="settings-group-title">排查问题</h2>
             <div className="settings-group">
               <button type="button" className="settings-row settings-link" onClick={() => go("diagnostics")}><span className="settings-nav__icon settings-nav__icon--diagnostics"><SettingsGlyph name="diagnostics" /></span><span className="settings-row__body"><strong>日志与诊断</strong><span>出了问题看日志，或导出诊断信息发给帮你排查的人</span></span><Chevron /></button>
+              <div className="settings-row"><div className="settings-row__body"><strong>开发者模式</strong><span>侧栏多出「开发者」：提示词、工具定义和请求记录。打开期间，最近 100 次实际发给 AI 的内容和回复会留在本机</span></div><button type="button" role="switch" aria-label="开发者模式" aria-checked={developer} className={developer ? "ui-switch is-on" : "ui-switch"} onClick={() => updateDeveloper(!developer)}><span /></button></div>
             </div>
           </div>
         )}

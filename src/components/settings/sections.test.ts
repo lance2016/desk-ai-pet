@@ -4,8 +4,8 @@ import { ACCOUNT_SECTION, DEVELOPER_GROUP, NAV_GROUPS, SECTIONS, SUB_PAGES } fro
 describe("settings navigation", () => {
   it("groups user settings by what they help the user do", () => {
     expect(NAV_GROUPS.map(({ title, items }) => [title, items.map(({ id }) => id)])).toEqual([
-      ["角色与外观", ["actions", "dock"]],
-      ["聊天", ["chat", "skills", "memory", "ai"]],
+      ["宠物", ["actions", "dock"]],
+      ["对话", ["chat", "skills", "memory", "ai"]],
       ["陪伴与工具", ["companion", "tools"]],
       ["应用", ["general", "privacy", "guide", "about"]],
     ]);

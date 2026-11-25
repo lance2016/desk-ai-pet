@@ -14,18 +14,11 @@ const HINTS = {
   reserved: "这个组合已经被系统占用，换一个试试。",
 } as const;
 
-/** Records the global shortcut that opens the quick chat bar under the pet, and places the chat button beside it. */
-export function QuickChatSettings({ onError }: { onError: (message: string | null) => void }) {
+/** The row on 「通用 › 快捷键」 that records the global shortcut opening the quick chat bar under the pet. */
+export function QuickChatShortcutRow({ onError }: { onError: (message: string | null) => void }) {
   const [shortcut, setShortcut] = useState(loadQuickChatShortcut);
   const [recording, setRecording] = useState(false);
   const [hint, setHint] = useState<string>(HINTS.recording);
-  const [display, setDisplay] = useState(loadDisplayPreferences);
-  /** Read again before saving: the general page saves other display settings into the same place. */
-  const updateDisplay = (change: Partial<DisplayPreferences>) => {
-    const next = { ...loadDisplayPreferences(), ...change };
-    try { saveDisplayPreferences(next); setDisplay(next); onError(null); }
-    catch (reason) { console.error("Could not save the chat button setting", reason); onError("设置没能保存，请再试一次。"); }
-  };
 
   /** Registers `next`, saves it on success, and puts the old one back on failure. */
   const apply = async (next: QuickChatShortcut | null) => {
@@ -68,21 +61,34 @@ export function QuickChatSettings({ onError }: { onError: (message: string | nul
   }, [recording, shortcut]);
 
   return (
-    <article className="settings-card">
-      <div className="settings-row">
-        <div className="settings-row__body">
-          <strong>快捷键</strong>
-          <span>{recording ? hint : "在任何应用里按下，叫出宠物脚下的输入条"}</span>
-        </div>
-        <ShortcutField
-          name="快速聊天快捷键"
-          label={shortcut ? quickChatShortcutLabel(shortcut) : null}
-          recording={recording}
-          onRecord={() => (recording ? stop(shortcut) : void startRecording())}
-          onClear={() => void apply(null)}
-          onRestore={shortcut !== DEFAULT_QUICK_CHAT_SHORTCUT ? () => void apply(DEFAULT_QUICK_CHAT_SHORTCUT) : undefined}
-        />
+    <div className="settings-row">
+      <div className="settings-row__body">
+        <strong>打开快速聊天</strong>
+        <span>{recording ? hint : "在任何应用里按下，叫出宠物脚下的输入条"}</span>
       </div>
+      <ShortcutField
+        name="快速聊天快捷键"
+        label={shortcut ? quickChatShortcutLabel(shortcut) : null}
+        recording={recording}
+        onRecord={() => (recording ? stop(shortcut) : void startRecording())}
+        onClear={() => void apply(null)}
+        onRestore={shortcut !== DEFAULT_QUICK_CHAT_SHORTCUT ? () => void apply(DEFAULT_QUICK_CHAT_SHORTCUT) : undefined}
+      />
+    </div>
+  );
+}
+
+/** Where the chat button sits beside the pet's head, and whether it hops after a copy. Its shortcut is on 「通用」. */
+export function QuickChatSettings({ onError }: { onError: (message: string | null) => void }) {
+  const [display, setDisplay] = useState(loadDisplayPreferences);
+  /** Read again before saving: the dock page saves other display settings into the same place. */
+  const updateDisplay = (change: Partial<DisplayPreferences>) => {
+    const next = { ...loadDisplayPreferences(), ...change };
+    try { saveDisplayPreferences(next); setDisplay(next); onError(null); }
+    catch (reason) { console.error("Could not save the chat button setting", reason); onError("设置没能保存，请再试一次。"); }
+  };
+  return (
+    <article className="settings-card">
       <div className="settings-row">
         <div className="settings-row__body">
           <strong>聊天按钮</strong>

@@ -20,7 +20,7 @@ export function ChatSettings({ packId, onError }: { packId: string; onError: (me
     catch (reason) { console.error("Could not save the voice language", reason); onError("识别语言没能保存，请再试一次。"); }
   };
   return <div className="settings-section">
-    <div className="settings-section__intro"><h2>快速聊天</h2><p>在宠物旁边打字聊天，所有角色共用</p></div>
+    <div className="settings-section__intro"><h2>快速聊天</h2><p>点聊天按钮或按快捷键，在宠物旁边打字聊天，所有角色共用。快捷键在「通用」里改</p></div>
     <QuickChatSettings onError={onError} />
     <h2 className="settings-group-title">聊天时</h2>
     <div className="settings-group">
