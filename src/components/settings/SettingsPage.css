@@ -64,10 +64,7 @@
 /* Dark mode changes only sizes here; the colours change in tokens.css. */
 @media (prefers-color-scheme: dark) {
   .settings-page {
-    --search-height: 30px;
-    --search-radius: 15px;
     --list-border: transparent;
-    --row-detail-size: 12px;
     color-scheme: dark;
   }
 }
@@ -135,7 +132,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--guide { --tile: var(--ui-tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { margin: 0 0 16px; }
-/* The sidebar search is the system one: a capsule in dark mode (`--search-*` above). */
+/* The sidebar search: the same size, corners and type in light and dark mode (`--search-*` above). */
 .settings-search.ui-search { height: var(--search-height); border-radius: var(--search-radius); }
 .settings-results { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .settings-result { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px; border-radius: var(--ui-radius-row); cursor: default; }
@@ -187,14 +184,16 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 /* The character page shows its name in the portrait card; the heading stays for VoiceOver only. */
 .settings-header--quiet { min-height: 40px; padding-block: 0; }
 .settings-header--quiet h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.settings-section { box-sizing: border-box; max-width: 800px; padding: 0 36px 36px; }
+.settings-section { box-sizing: border-box; max-width: calc(var(--content-width) + 72px); padding: 0 36px 36px; }
 .settings-content > .settings-error { margin: 0 36px 12px; max-width: 728px; }
 
 .settings-group-title, .settings-section__intro h2 { margin: 20px 4px 8px; font-size: var(--ui-font-body); font-weight: 600; }
-.settings-section > .settings-group-title:first-child, .settings-section > .settings-section__intro:first-child h2 { margin-top: 4px; }
+/* Every page starts the same distance under its header, whether with a title, an intro or a box. */
+.settings-section > .settings-group-title:first-child, .settings-section > .settings-section__intro:first-child h2 { margin-top: 8px; }
+.settings-section > .settings-section__intro:first-child > p:first-child { margin-top: 8px; }
+.settings-section > :first-child:not(.settings-group-title, .settings-section__intro, input[hidden]) { margin-top: 8px; }
 .settings-section__intro { margin: 0; }
-.settings-section__intro p { margin: -4px 4px 8px; color: var(--label-2); font-size: var(--ui-font-footnote); }
-.settings-section__intro--spaced h2 { margin-top: 24px; }
+.settings-section__intro p { max-width: 75ch; margin: -4px 4px 8px; color: var(--label-2); font-size: var(--ui-font-footnote); }
 
 .settings-group, .settings-card { box-sizing: border-box; margin: 0; padding: 0 12px; list-style: none; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .settings-group { border-color: var(--list-border); }
@@ -582,7 +581,6 @@ button.dock-row__body { cursor: pointer; }
 .ai-preference:last-child { margin-bottom: 0; }
 .ai-preference :is(.ui-field, .ui-select) { width: 100%; font-weight: 400; }
 .ai-preference textarea { height: 64px; }
-.ai-preference__count { justify-self: end; color: var(--label-3); font-size: var(--ui-font-footnote); font-weight: 400; font-variant-numeric: tabular-nums; }
 
 .look-settings { padding-top: 4px; padding-bottom: 4px; }
 .look-row { padding: 10px 0; }
@@ -693,7 +691,7 @@ button.dock-row__body { cursor: pointer; }
 
 /* ---------- "功能一览": every feature, what it does and how to start it ---------- */
 .guide-group > summary { display: flex; align-items: baseline; gap: 8px; margin: 20px 4px 8px; list-style: none; cursor: pointer; }
-.guide-group:first-child > summary { margin-top: 4px; }
+.guide-group:first-child > summary { margin-top: 8px; }
 .guide-group > summary::-webkit-details-marker { display: none; }
 .guide-group > summary::before { content: "›"; align-self: center; width: 10px; color: var(--label-2); transition: rotate var(--ui-duration) var(--ui-ease); }
 .guide-group[open] > summary::before { rotate: 90deg; }
@@ -747,10 +745,8 @@ button.dock-row__body { cursor: pointer; }
 /* Forms stay about as wide as System Settings draws them, so a label and its switch are not a screen apart. */
 .settings-page { --content-width: 680px; }
 .settings-content:has(> .action-library, > .action-editor) { --content-width: 1048px; }
-.settings-section { max-width: calc(var(--content-width) + 72px); }
 .settings-header h1, .settings-header__back { max-width: var(--content-width); margin-left: auto; margin-right: auto; }
 .settings-content > .settings-error { box-sizing: border-box; width: calc(100% - 72px); max-width: var(--content-width); margin-left: auto; margin-right: auto; }
-.settings-section__intro p { max-width: 75ch; }
 .action-editor { box-sizing: border-box; max-width: 1120px; padding: 0 36px 36px; }
 /* The title and the way back are in the settings header, as on any sub page; this line only says what the page is for. */
 .action-editor__header { margin: 0 0 18px; }

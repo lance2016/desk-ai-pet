@@ -91,14 +91,14 @@ export function MailSettings() {
           <li>按提示用手机验证，复制页面给出的授权码。</li>
           <li>回到这里粘贴，点「连接并保存」。已加过的邮箱再填一次，会换成新的授权码。</li>
         </ol>
-        <p>只在你查收时读最新几封邮件，不标已读，不保存，也不发给 AI。</p>
+        <p>只在你查收时读最新几封邮件，见「隐私与数据」</p>
         <div className="ai-settings__actions">
           <button type="button" className="ai-settings__link" onClick={open163}>打开 163 邮箱 ↗</button>
         </div>
       </>}
       {status && <p className="ai-settings__status" role="status">{status}</p>}
     </article>
-    <p className="settings-footnote">会一起查所有加过的邮箱，取最新的一条。邮件没到会接着等，最多 2 分钟。目前只支持 163 邮箱。</p>
+    <p className="settings-footnote">会一起查所有加过的邮箱，取最新的一条。邮件没到会接着等，最多 2 分钟。目前只支持 163 邮箱</p>
     <details className="ai-disclosure ai-disclosure--standalone mail-try">
       <summary><span><strong>认不出验证码？</strong><small>把邮件贴进来，看看卡在哪一步</small></span></summary>
       <MailCodeTester />

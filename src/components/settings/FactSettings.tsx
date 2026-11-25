@@ -87,7 +87,7 @@ export function FactSettings({ who }: { who: string }) {
     <div className="settings-group-head">
       <h2 className="settings-group-title">已记住的事</h2>
       <span className="settings-group-head__count">{facts.length} / {FACT_LIMITS.items}</span>
-      {facts.length > 0 && <ConfirmButton className="ui-button ui-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空…</ConfirmButton>}
+      {facts.length > 0 && <ConfirmButton className="ui-button ui-button--small" confirm={{ message: "清空全部记忆？", detail: `你写的和聊天里记的都会删掉，${who}不再记得这些事。不能撤销。`, action: "清空" }} onConfirm={() => { if (change(() => [])) { setRemoved(null); setEditing(null); } }}>清空</ConfirmButton>}
     </div>
     <div className="settings-group fact-settings">
       <form className="settings-row fact-add" onSubmit={add}>

@@ -60,7 +60,7 @@ export function CosyVoiceKeySettings() {
 
   return <ServiceRow name="阿里云百炼 · CosyVoice" purpose="创建克隆的声音，并用它朗读" configured={configured} optional expanded={expanded} onToggle={() => setExpanded((open) => !open)} status={status}>
     <form onSubmit={(event) => void saveKey(event)}><label htmlFor="cosyvoice-key">百炼 API Key</label><div className="ai-settings__key"><input className="ui-field ui-field--small" id="cosyvoice-key" type="password" autoComplete="off" autoFocus value={key} onChange={(event) => setKey(event.currentTarget.value)} placeholder={configured ? "输入新的 API Key 以替换" : "粘贴百炼 API Key"} /><button type="submit" disabled={busy || !key.trim()}>保存</button></div></form>
-    <p>使用中国内地（北京）地域的百炼 API Key。录音会上传到阿里云创建并保存克隆音色；朗读时发送文字。删除云端音色也需要保留这个 Key。</p>
+    <p>使用中国内地（北京）地域的百炼 API Key，删除云端音色也要用它。录音和朗读的文字会发给阿里云，见「隐私与数据」</p>
     <div className="ai-settings__actions">
       {configured && <ConfirmButton disabled={busy} confirm={{ message: "移除阿里云百炼 API Key？", detail: "移除后将无法创建、试听或删除云端克隆音色。要删除云端音色，请先在「克隆的声音」里删除。", action: "移除" }} onConfirm={() => void clearKey()}>移除 API Key</ConfirmButton>}
       <button type="button" className="ai-settings__link" onClick={openConsole}>获取百炼 API Key ↗</button>

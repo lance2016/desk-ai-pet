@@ -92,8 +92,8 @@ export function ClonedVoiceSettings({ onOpenAI }: { onOpenAI: () => void }) {
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}
     <p className="settings-footnote">Flash 费用低、出声快；Plus 音色细节更足，适合克隆得不够像的声音。换模型会用本机保存的录音重新创建云端音色并删掉旧的，用它的角色不用重新选</p>
-    <p className="settings-footnote">只用你自己的声音，或者声音的主人同意你这样用。创建音色时，录音会上传并保存在阿里云百炼；原始录音留在本机、不进备份。删除云端音色需要保留可用的百炼 API Key；换成别的账号的 Key 后，原来的声音不再显示，换回来就会回来。</p>
-    {voices?.some((voice) => !voice.serviceVoiceId) && <p className="settings-footnote">旧版留下的录音会在第一次试听时自动上传到百炼创建 CosyVoice 音色；不想上传的话，请先删除这个声音。</p>}
+    <p className="settings-footnote">只用你自己的声音，或者声音的主人同意你这样用。录音存在哪里、发给谁，见「隐私与数据」。删除云端音色需要保留可用的百炼 API Key；换成别的账号的 Key 后，原来的声音不再显示，换回来就会回来</p>
+    {voices?.some((voice) => !voice.serviceVoiceId) && <p className="settings-footnote">旧版留下的录音会在第一次试听时自动上传到百炼创建 CosyVoice 音色；不想上传的话，请先删除这个声音</p>}
     {adding && <VoiceCloneSheet onAdded={added} onClose={() => setAdding(false)} />}
   </div>;
 }

@@ -68,7 +68,7 @@ export function DiagnosticsSettings({ onError }: { onError: (message: string | n
           <div className="settings-row__body"><strong>日志文件</strong><span>{entries === null ? "正在读取…" : empty ? "还没有日志" : `共 ${entries.length} 条，其中错误 ${errors} 条`}</span></div>
           <div className="settings-button-row">
             <button type="button" className="ui-button ui-button--small" onClick={reveal}>在访达中显示</button>
-            <ConfirmButton className="ui-button ui-button--small" disabled={empty} confirm={{ message: "清理日志？", detail: "日志文件会全部删掉，不能撤销。", action: "清理" }} onConfirm={clear}>清理…</ConfirmButton>
+            <ConfirmButton className="ui-button ui-button--small" disabled={empty} confirm={{ message: "清理日志？", detail: "日志文件会全部删掉，不能撤销。", action: "清理" }} onConfirm={clear}>清理</ConfirmButton>
           </div>
         </div>
       </div>

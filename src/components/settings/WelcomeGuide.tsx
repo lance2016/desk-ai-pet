@@ -79,7 +79,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
       {step === 0 && <form onSubmit={saveName}>
         <h2 id="welcome-title">你好，我是{name}！</h2>
         <p>以后我会陪在你的桌面上。我该怎么称呼你？</p>
-        <input className="ui-field" value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} autoFocus placeholder="比如：阿龙。留空也可以" onChange={(event) => setNickname(event.currentTarget.value)} />
+        <input className="ui-field" aria-label="怎么称呼你" value={nickname} maxLength={USER_PROFILE_LIMITS.nickname} autoFocus placeholder="比如：阿龙。留空也可以" onChange={(event) => setNickname(event.currentTarget.value)} />
         <div className="welcome__actions"><button type="submit" className="is-primary">下一步</button></div>
       </form>}
 
@@ -95,7 +95,7 @@ export function WelcomeGuide({ name, avatar, onClose }: Props) {
               <li>在「API Keys」里新建一个 API Key，复制下来</li>
               <li>粘贴到下面，点「保存」</li>
             </ol>
-            <input className="ui-field" type="password" autoComplete="off" value={key} autoFocus placeholder="粘贴 DeepSeek API Key，一般以 sk- 开头" onChange={(event) => setKey(event.currentTarget.value)} />
+            <input className="ui-field" aria-label="DeepSeek API Key" type="password" autoComplete="off" value={key} autoFocus placeholder="粘贴 DeepSeek API Key，一般以 sk- 开头" onChange={(event) => setKey(event.currentTarget.value)} />
             <p className="welcome__note">保存后会发一条很短的消息试试能不能连上，费用极少。</p>
           </>}
         <div className="welcome__actions">

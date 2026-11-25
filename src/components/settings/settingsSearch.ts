@@ -72,7 +72,6 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "tools", title: "Claude Code", keywords: "Agent 编程 代码 状态 等你确认 做完了 钩子 hooks 连接 断开 会话" },
   { section: "tools", title: "宠物跟着反应", keywords: "Claude Code 编码助手 动作 气泡 通知 关闭 安静 会话" },
   { section: "tools", title: "让编码助手截图", keywords: "截图 截屏 screenshot capture Claude Code Codex 编码助手 命令 文档 README 界面" },
-  { section: "links", title: "常用链接", keywords: "网址 地址 书签 工作环境 分组 排序" },
   { section: "tools", title: "查收验证码", keywords: "邮箱 邮件 验证码" },
   { section: "tools", title: "163 邮箱", keywords: "授权码 IMAP 邮箱 添加 多个" },
   { section: "tools", title: "翻译快捷键", keywords: "划词翻译" },
@@ -107,7 +106,7 @@ export const SEARCH_SKIPPED: readonly string[] = [
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求", "先连接阿里云百炼",
   // Titles on the developer pages, which search finds by page name only while developer mode is on.
   "系统提示词", "发给 AI 的工具",
-  "联网", "邮箱", "链接列表", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "专注", "应用", "宠物",
+  "联网", "邮箱", "链接列表", "常用链接", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "专注", "应用", "宠物",
   "提醒", "备份", "导入", "辅助功能权限", "诊断", "宠物显示", "启动", "排查问题",
   // The fixed shortcuts, found through the 「快捷键」 group.
   "打开设置", "新聊天", "关闭窗口或面板", "在设置里搜索", "退出 AI Pet",
