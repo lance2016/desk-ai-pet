@@ -40,6 +40,7 @@ import { WhatsNewSheet } from "./WhatsNewSheet";
 import { CURRENT_VERSION, markWhatsNewSeen, notesFor, shouldShowWhatsNew } from "../../update/WhatsNew";
 import { LaunchAtLoginRow } from "./LaunchAtLoginRow";
 import { hasUnsavedChanges, setUnsavedChanges } from "./unsavedChanges";
+import { dialogPlatform } from "../../platform/dialog";
 import { canShortcut } from "../../preferences/ActionPreferences";
 import "./SettingsPage.css";
 import { moveRadioChoice } from "./radioKeys";
@@ -67,6 +68,8 @@ const FIXED_SHORTCUTS: readonly [string, string][] = [
   ["在设置里搜索", "⌘ F"],
   ["退出 AI Pet", "⌘ Q"],
 ];
+/** Asked before leaving the action editor with changes, in the editor's own words. */
+const DISCARD_ACTION_EDITS = { message: "放弃对这个动作的改动？", detail: "还没保存的名称、图片和动效会丢掉。", action: "放弃改动" };
 /** Looking for a search result's title on a page that is still loading: every 100 ms, for 1.5 s. */
 const FIND_INTERVAL_MS = 100;
 const FIND_TRIES = 15;
@@ -285,20 +288,17 @@ export function SettingsPage({ packId }: { packId: string }) {
   /** Nested pages keep the top-level category selected (e.g. logs keep About lit). */
   const activeSection = parent ? SUB_PAGES[parent] ?? parent : section;
   const navGroups = developer ? [...NAV_GROUPS, DEVELOPER_GROUP] : NAV_GROUPS;
-  /** The action editor has unsaved changes: the first click on another page only warns. */
-  const [leaving, setLeaving] = useState<SettingsSection | null>(null);
-  /** Shows page `id`; returns false when unsaved changes hold the user on this one. */
-  const go = (id: SettingsSection): boolean => {
-    if (id !== section && hasUnsavedChanges() && leaving !== id) {
-      setLeaving(id);
-      setError("动作还没保存。再点一次离开，改动会丢掉。");
-      return false;
-    }
+  const show = (id: SettingsSection) => {
     setUnsavedChanges(false);
-    setLeaving(null);
     setSection(id);
     setError(null);
-    return true;
+  };
+  /** Shows page `id`, then runs `then`. With unsaved action edits, a native alert asks first, as the editor's own back button does. */
+  const go = (id: SettingsSection, then?: () => void) => {
+    if (id === section || !hasUnsavedChanges()) { show(id); then?.(); return; }
+    dialogPlatform.confirm(DISCARD_ACTION_EDITS)
+      .then((leave) => { if (leave) { show(id); then?.(); } })
+      .catch((reason: unknown) => console.error("Could not ask about unsaved changes", reason));
   };
   // A page asked for from another window goes through `go` too, so unsaved action edits still warn first.
   const goRef = useRef(go);
@@ -313,10 +313,7 @@ export function SettingsPage({ packId }: { packId: string }) {
   ], [developer]);
   /** The title a search result points at; the page scrolls to it and flashes it. */
   const [found, setFound] = useState<{ title: string; at: number } | null>(null);
-  const openResult = (entry: SearchResult) => {
-    if (!go(entry.section)) return;
-    setFound(entry.place ? { title: entry.title, at: Date.now() } : null);
-  };
+  const openResult = (entry: SearchResult) => go(entry.section, () => setFound(entry.place ? { title: entry.title, at: Date.now() } : null));
   useEffect(() => {
     if (!found) return;
     // Pages load their parts on their own time, so look for the title a few times before giving up.

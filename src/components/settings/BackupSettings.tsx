@@ -2,8 +2,9 @@ import { useState, type ChangeEvent } from "react";
 import { listAppearances, replaceAppearances } from "../../appearance/AppearanceStore";
 import { systemPlatform } from "../../platform/system";
 import { worklogPlatform } from "../../platform/worklog";
-import { backupFileName, createBackup, localData, parseBackup, restoreBackup, summarizeBackup, type Backup, type BackupSummary, type WorkLogAccess } from "../../storage/Backup";
+import { backupFileName, createBackup, localData, parseBackup, restoreBackup, summarizeBackup, type Backup, type WorkLogAccess } from "../../storage/Backup";
 import { exportWorkLog } from "../../worklog/store";
+import { dialogPlatform } from "../../platform/dialog";
 
 /** How long to let the restored data reach the disk before restarting. */
 const FLUSH_WAIT_MS = 1_000;
@@ -21,7 +22,6 @@ function dateText(time: number): string {
 export function BackupSettings({ onError }: { onError: (message: string | null) => void }) {
   const [busy, setBusy] = useState(false);
   const [exported, setExported] = useState(false);
-  const [pending, setPending] = useState<{ backup: Backup; summary: BackupSummary } | null>(null);
 
   const exportData = async () => {
     setBusy(true);
@@ -47,21 +47,32 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
       onError("这个文件太大了，不像是 AI Pet 的备份。");
       return;
     }
+    let backup: Backup;
     try {
-      const backup = parseBackup(await file.text());
-      setPending({ backup, summary: summarizeBackup(backup) });
+      backup = parseBackup(await file.text());
       onError(null);
     } catch (error) {
       console.warn("Rejected a backup file", error);
       onError("这个文件不是 AI Pet 的备份，或者已经损坏。");
+      return;
     }
+    // Everything here is replaced, so the native alert asks first, as for any step that cannot be undone.
+    const summary = summarizeBackup(backup);
+    const contents = `提醒 ${summary.reminders} 条、备忘 ${summary.notes} 条${summary.loggedDays > 0 ? `、${summary.loggedDays} 天的工作日志` : ""}${summary.pictures > 0 ? `、动作图片 ${summary.pictures} 张` : ""}`;
+    try {
+      const replace = await dialogPlatform.confirm({
+        message: `恢复 ${dateText(summary.exportedAt)} 的备份？`,
+        detail: `备份里有${contents}。现在的数据会被替换，不能撤销；宠物会重新打开。API Key 不在备份里，可能要重新填。`,
+        action: "替换并重新打开",
+      });
+      if (replace) await restore(backup);
+    } catch (error) { console.error("Could not ask before restoring", error); }
   };
 
-  const restore = async () => {
-    if (!pending) return;
+  const restore = async (backup: Backup) => {
     setBusy(true);
     try {
-      await restoreBackup(pending.backup, replaceAppearances, WORK_LOG);
+      await restoreBackup(backup, replaceAppearances, WORK_LOG);
     } catch (error) {
       setBusy(false);
       console.error("Could not restore the backup", error);
@@ -79,7 +90,6 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
     }
   };
 
-  const { summary } = pending ?? {};
   return (
     <div className="settings-group">
       <div className="settings-row">
@@ -87,23 +97,11 @@ export function BackupSettings({ onError }: { onError: (message: string | null) 
         <button type="button" className="ui-button ui-button--small" disabled={busy} onClick={() => void exportData()}>导出…</button>
       </div>
       <div className="settings-row">
-        <div className="settings-row__body"><strong>从备份恢复</strong><span>替换这台电脑上的数据，宠物会重新打开</span></div>
+        <div className="settings-row__body"><strong>从备份恢复</strong><span>{busy ? "正在恢复，完成后宠物会重新打开…" : "替换这台电脑上的数据，宠物会重新打开"}</span></div>
         <label className={busy ? "ui-button ui-button--small icon-upload is-disabled" : "ui-button ui-button--small icon-upload"}>
           <input type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void pick(event)} />选择文件…
         </label>
       </div>
-      {summary && (
-        <div className="settings-row backup-confirm" role="alertdialog" aria-label="确认恢复">
-          <div className="settings-row__body">
-            <strong>恢复 {dateText(summary.exportedAt)} 的备份？</strong>
-            <span>备份里有提醒 {summary.reminders} 条、备忘 {summary.notes} 条{summary.loggedDays > 0 ? `、${summary.loggedDays} 天的工作日志` : ""}{summary.pictures > 0 ? `、动作图片 ${summary.pictures} 张` : ""}。现在的数据会被替换，不能撤销。API Key 不在备份里，可能要重新填。</span>
-          </div>
-          <div className="settings-button-row">
-            <button type="button" className="ui-button ui-button--small" disabled={busy} onClick={() => setPending(null)}>取消</button>
-            <button type="button" className="ui-button ui-button--small ui-button--destructive" disabled={busy} onClick={() => void restore()}>{busy ? "正在恢复…" : "替换并重新打开"}</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
