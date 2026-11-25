@@ -1,4 +1,32 @@
 {
+  "2.0.0-rc-2": {
+    "features": [
+      {
+        "icon": "paw",
+        "color": "green",
+        "title": "换上森林猫图标",
+        "detail": "AI Pet 换上新的手绘森林猫应用图标。"
+      },
+      {
+        "icon": "mic",
+        "color": "purple",
+        "title": "克隆的声音可以直接试听",
+        "detail": "打开列表先显示本机音色，再在后台核对云端状态。每个音色旁都有试听按钮，可以用它当前的模型听一段。"
+      },
+      {
+        "icon": "search",
+        "color": "blue",
+        "title": "配音和设置输入更顺手",
+        "detail": "切回配音窗口时，首次点击就能进入输入框。设置搜索框的放大镜和边缘也能点。"
+      },
+      {
+        "icon": "text",
+        "color": "teal",
+        "title": "改善 Chrome 划词取字",
+        "detail": "在 Chrome 选中文字后用快捷键打开翻译，能更可靠地带入选中的内容。"
+      }
+    ]
+  },
   "2.0.0-rc-1": {
     "features": [
       {
