@@ -62,6 +62,8 @@ function errorReply(detail: string): QuickReply {
 }
 
 const MISSING_KEY_REPLY = errorReply("API key is not configured");
+/** Said when the user stopped a reply that had already done something, before it wrote a word. */
+const STOPPED_TEXT = "已停止回复。";
 
 interface Request {
   id: string;
@@ -163,6 +165,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const [reply, setReply] = useState<QuickReply | null>(null);
+  const replyRef = useRef(reply);
+  replyRef.current = reply;
   const [keyMissing, setKeyMissing] = useState(false);
   const [handed, setHanded] = useState<Handover | null>(null);
   const [copiedAt, setCopiedAt] = useState<number | null>(null);
@@ -192,8 +196,10 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   /** Talking counts as being with the pet: it wakes up and does not doze off mid-chat. */
   const wakePet = () => runtimeRef.current?.bus.emit("pet.wake_up", {});
   const show = () => {
-    // Asked again while it is open (another click on the pet): the conversation goes on.
-    if (!openRef.current) {
+    // Asked again while it is open (another click on the pet), or while its last answer is still up above the pet:
+    // the conversation goes on. An error up there starts afresh.
+    const answerUp = replyRef.current !== null && replyRef.current.status !== "error";
+    if (!openRef.current && !answerUp) {
       sessionThread.current = null;
       setAnswering(answerable(spokenRef.current, Date.now()));
     }
@@ -321,7 +327,10 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
           if (openRef.current) setHanded((now) => now ?? current.handed);
         } else answered(current);
         clearReplying(current.threadId);
-        setReply(event.kind === "error" ? errorReply(event.text || "回复中断") : null);
+        // What the tools did stays on show with its undo, however the reply ended.
+        const saved = current.lines.length > 0 ? { saved: current.lines } : {};
+        if (event.kind === "error") setReply({ ...errorReply(event.text || "回复中断"), ...saved });
+        else setReply(current.lines.length > 0 ? { text: replyText.current.trim() || STOPPED_TEXT, status: "done", ...saved } : null);
         if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
         return;
       }
