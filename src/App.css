@@ -415,13 +415,13 @@ body {
   white-space: nowrap;
   cursor: pointer;
 }
-/* Pills that do something answer the mouse: a tinted surface on hover, a small press. */
+/* Pills that do something answer the mouse: a tinted surface on hover, a small press. Tints go over the surface: dark ones are see-through. */
 button.status-chip { transition: color var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-button.status-chip[data-hover] { color: var(--ui-accent-strong); background: var(--ui-accent-soft); border-color: var(--ui-accent-ring); }
+button.status-chip[data-hover] { color: var(--ui-accent-strong); background: linear-gradient(var(--ui-accent-soft), var(--ui-accent-soft)), var(--ui-surface); border-color: var(--ui-accent-ring); }
 button.status-chip:active { transform: scale(.97); }
 .status-chip:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
-/* Only says how things are, so it does not look pressable. */
-.status-chip--label { cursor: default; color: var(--ui-text-muted); background: color-mix(in srgb, var(--ui-surface) 78%, transparent); border-color: transparent; box-shadow: none; }
+/* Only says how things are, so it does not look pressable: flat, with no lift. Still opaque, as the only sign that "勿扰" is on. */
+.status-chip--label { cursor: default; color: var(--ui-text-secondary); background: var(--ui-surface); border-color: var(--ui-border-strong); box-shadow: none; }
 .status-chip--rest { padding-left: 5px; }
 /* The focus round: the lotus and the time left, a little larger than the other pills. Clicking it asks whether to stop. */
 .status-chip--focus { gap: 6px; height: 26px; padding: 0 10px 0 8px; color: var(--ui-text); border-radius: 13px; font-size: 13px; font-weight: 500; }
@@ -437,7 +437,7 @@ button.status-chip:active { transform: scale(.97); }
 /* Something going on: a spinner while it runs, a still dot in the reminder's amber while it waits for the user. */
 .status-chip--activity { padding-left: 6px; cursor: default; }
 .status-chip--stoppable { padding-right: 5px; cursor: pointer; }
-.status-chip--asking { color: var(--ui-warning); background: var(--ui-warning-soft); }
+.status-chip--asking { color: var(--ui-warning); background: linear-gradient(var(--ui-warning-soft), var(--ui-warning-soft)), var(--ui-surface); }
 .status-chip__dot { width: 6px; height: 6px; margin: 0 2px; background: currentColor; border-radius: 50%; }
 .status-chip__spinner {
   width: 10px;
