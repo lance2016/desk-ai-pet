@@ -210,7 +210,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | 事件 | 数据 | 谁发出 |
 |---|---|---|
 | `pet.clicked` | `{ region: "head" \| "body" }` | `PetStage` |
-| `pet.petted` | 无，摸摸头：长按宠物 0.5 秒不动，或右键菜单「摸摸头」 | `PetStage`、`App`（菜单） |
+| `pet.petted` | 无，摸摸头：按住宠物 0.5 秒以上不动再松手，或右键菜单「摸摸头」 | `PetStage`、`App`（菜单） |
 | `pet.chat_requested` | 无，聊天按钮或全局快捷键打开快速聊天输入条；宠物先醒来、从边上出来 | `useQuickChat` |
 | `pet.chat_phase` | `{ phase: "idle" \| "listening" \| "thinking" \| "talking" \| "failed" }`，对话进行到哪一步 | `useQuickChat`、`App`（转发聊天窗口的） |
 | `pet.noted` | 无，新增了一条提醒或备忘 | `App`（比较存储变化） |
@@ -245,7 +245,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 
 动作统计监听 `pet.action.started`，以实际开始的 `actionId` 为键写入 `characterKey(packId, CHARACTER_DATA.actionTriggerStats)`。该键从本次更新开始为空，不迁移旧历史；动作库手动预览会计入，跨窗口存储变化会刷新动作库计数。请求被控制器拒绝时不会产生事件，也不会计数。
 
-单击宠物：聊天按钮不显示时意思是“我要跟你说话”，`useQuickChat` 收到 `pet.clicked` 就打开输入条；显示按钮时只是碰碰它。两种情况 `BehaviorEngine` 都只负责叫醒和从边上出来，不播反应、不加属性。摸摸头不抢这个入口，改由 `pet.petted` 触发：`PetStage` 按下后计时 500 毫秒，期间没松手也没移动就发 `pet.petted`，之后松手不再算点击，移动仍然开始拖动。事件里仍带 `region`，但不再区分头部和身体。
+单击宠物：聊天按钮不显示时意思是“我要跟你说话”，`useQuickChat` 收到 `pet.clicked` 就打开输入条；显示按钮时只是碰碰它。两种情况 `BehaviorEngine` 都先叫醒、从边上出来；醒着又没贴边时看一眼（`look_around`，3 秒内最多一次，专注时不动），让人知道点上了，不加属性。摸摸头不抢这个入口，改由 `pet.petted` 触发：`PetStage` 在松手时结算，按住 500 毫秒以上、中间没移动就发 `pet.petted`，否则发 `pet.clicked`；移动超过 4 像素就是拖动，不再算摸头。以前按住满 500 毫秒当场就算摸头，想拖但停顿了一下的人会先摸一次头。事件里仍带 `region`，但不再区分头部和身体。
 
 ## 动作调度规则
 

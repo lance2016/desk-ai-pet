@@ -7,15 +7,18 @@ import type { HitRegion } from "../types";
 const DRAG_THRESHOLD_PX = 4;
 /** Bit of `PointerEvent.buttons` that is set while the primary button is held. */
 const PRIMARY_BUTTON_MASK = 1;
-/** Holding the pet still this long pats it instead of clicking (which opens the chat bar). */
+/**
+ * Let go after holding the pet still this long, and it was a pat, not a click. Settled on release, so a
+ * press that pauses and then pulls is only a drag.
+ */
 const LONG_PRESS_MS = 500;
 
 interface Press {
   screenX: number;
   screenY: number;
   region: HitRegion;
-  /** Set once holding still has patted the pet; letting go is then not a click. */
-  petted: boolean;
+  /** When the button went down (`Date.now()`). */
+  at: number;
 }
 
 /** Where the cursor and the window were when the drag began, both read from the native side. */
@@ -55,13 +58,6 @@ interface PetStageProps {
 export function PetStage({ runtime, hostRef }: PetStageProps) {
   const press = useRef<Press | null>(null);
   const drag = useRef<Drag | null>(null);
-  const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancelLongPress = () => {
-    if (longPress.current !== null) clearTimeout(longPress.current);
-    longPress.current = null;
-  };
-  useEffect(() => cancelLongPress, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -132,15 +128,7 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     if (!region) return;
     // Keep receiving moves and the release even when the cursor leaves the window.
     event.currentTarget.setPointerCapture(event.pointerId);
-    press.current = { screenX: event.screenX, screenY: event.screenY, region, petted: false };
-    cancelLongPress();
-    longPress.current = setTimeout(() => {
-      longPress.current = null;
-      const held = press.current;
-      if (!held) return;
-      press.current = { ...held, petted: true };
-      runtime.bus.emit("pet.petted", {});
-    }, LONG_PRESS_MS);
+    press.current = { screenX: event.screenX, screenY: event.screenY, region, at: Date.now() };
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -155,19 +143,15 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     // A release can still be missed. A move without the primary button held
     // must not turn that stale press into a drag.
     if ((event.buttons & PRIMARY_BUTTON_MASK) === 0) {
-      cancelLongPress();
       press.current = null;
       return;
     }
     if (Math.hypot(event.screenX - start.screenX, event.screenY - start.screenY) < DRAG_THRESHOLD_PX) return;
-    // Still a drag after a pat: people often press, pause and then pull.
-    cancelLongPress();
     press.current = null;
     beginDrag();
   };
 
   const onPointerUp = () => {
-    cancelLongPress();
     if (drag.current) {
       void endDrag();
       return;
@@ -175,19 +159,18 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
     const start = press.current;
     if (!runtime || !start) return;
     press.current = null;
-    if (!start.petted) runtime.bus.emit("pet.clicked", { region: start.region });
+    if (Date.now() - start.at >= LONG_PRESS_MS) runtime.bus.emit("pet.petted", {});
+    else runtime.bus.emit("pet.clicked", { region: start.region });
   };
 
   /** The press was taken away (for example by the system): finish without a click. */
   const onPointerCancel = () => {
-    cancelLongPress();
     press.current = null;
     void endDrag();
   };
 
   /** The menu itself is opened by the app root; here the press must not turn into a pat. */
   const onContextMenu = () => {
-    cancelLongPress();
     press.current = null;
   };
 

@@ -148,6 +148,8 @@ export const BEHAVIOR_CONFIG = {
   cheerGapMs: 10_000,
   /** Shortest time between two glances at the cursor. */
   glanceGapMs: 30_000,
+  /** Shortest time between two looks up at a click: each click shows it landed, a burst of them does not set the pet twitching. */
+  clickGlanceGapMs: 3_000,
   /** The pet sits down to write when an agent sets to work, at most this often. */
   agentWorkGapMs: 10 * 60_000,
 };
@@ -232,6 +234,7 @@ export class BehaviorEngine {
   private yawnedFor: number | null = null;
   private lastCheerAt = -Infinity;
   private lastGlanceAt = -Infinity;
+  private lastClickGlanceAt = -Infinity;
 
   constructor(private readonly deps: BehaviorDeps) {
     this.random = deps.random ?? Math.random;
@@ -347,9 +350,19 @@ export class BehaviorEngine {
     }
   }
 
-  /** A click opens the quick chat bar; here it only gets the pet's attention. */
+  /**
+   * A click wakes the pet or brings it out from the edge. Awake and out, it looks up, so the click
+   * shows it landed (the quick chat bar opens on it only when there is no chat button). Not during
+   * a focus round: the pet keeps its pose.
+   */
   private onClicked(): void {
-    this.rouse();
+    if (this.rouse()) return;
+    const now = Date.now();
+    const { controller, focus } = this.deps;
+    // Already looking (the cursor just came onto it): that is answer enough.
+    if (controller.current?.id === GLANCE_ACTION || now - this.lastClickGlanceAt < BEHAVIOR_CONFIG.clickGlanceGapMs || focus.get().phase === "focusing") return;
+    this.lastClickGlanceAt = now;
+    controller.request(GLANCE_ACTION);
   }
 
   /** A pat: count every deliberate pat, then react when the controller can play the matching action. */

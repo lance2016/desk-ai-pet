@@ -310,16 +310,42 @@ describe("user interaction", () => {
     expect(state.get().stats).toMatchObject({ mood: 53, affinity: 52 });
   });
 
-  it("leaves a plain click to the chat bar: no reaction, no stats", () => {
-    const { bus, state, renderer } = setup();
+  it("looks up at a plain click, once in a while, without the pat's stats", () => {
+    const { bus, state, renderer } = setup({ extraAnimations: SCENE_ACTIONS });
     const start = Date.now();
     for (let click = 0; click < 3; click += 1) {
       bus.emit("pet.clicked", { region: "body" });
       vi.advanceTimersByTime(600);
     }
-    expect(renderer.played).toEqual(["idle"]);
+    expect(renderer.played.filter((id) => id === "look_around")).toHaveLength(1);
     expect(state.get().stats).toMatchObject({ mood: 50, affinity: 50 });
     expect(state.get().lastInteractionAt).toBeGreaterThan(start);
+    vi.advanceTimersByTime(BEHAVIOR_CONFIG.clickGlanceGapMs);
+    bus.emit("pet.clicked", { region: "body" });
+    expect(renderer.played.filter((id) => id === "look_around")).toHaveLength(2);
+  });
+
+  it("answers a click even right after it glanced at the cursor", () => {
+    const { bus, renderer, pass } = setup({ extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.hovered", {});
+    pass(3_200);
+    bus.emit("pet.clicked", { region: "body" });
+    expect(renderer.played.filter((id) => id === "look_around")).toHaveLength(2);
+  });
+
+  it("does not start over a glance it is already giving", () => {
+    const { bus, renderer } = setup({ extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.hovered", {});
+    bus.emit("pet.clicked", { region: "body" });
+    expect(renderer.played.filter((id) => id === "look_around")).toHaveLength(1);
+  });
+
+  it("keeps still at a click during a focus round", () => {
+    const { bus, controller } = setup({ extraAnimations: SCENE_ACTIONS });
+    bus.emit("pet.focus_toggled", {});
+    const pose = controller.current?.id;
+    bus.emit("pet.clicked", { region: "body" });
+    expect(controller.current?.id).toBe(pose);
   });
 
   it("gives no stats for a pat the pet could not react to", () => {
