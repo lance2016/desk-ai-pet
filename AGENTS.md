@@ -288,7 +288,7 @@ pnpm exec tsc --noEmit && pnpm test
 | 改了什么 | 更新哪份 |
 |---|---|
 | 用户能感知的行为、命令、限制 | `README.md` |
-| 用户能用的功能：新增、改名、去掉，或者换了用法 | `src/guide/featureGuide.json`（「设置 → 功能一览」，每条写清做什么、怎么用、在哪一页设置） |
+| 用户能用的功能：新增、改名、去掉，或者换了用法 | `src/guide/featureGuide.json`（「设置 → 功能一览」，每条写清做什么、怎么用、在哪一页设置；说明两行以内，不超过 80 字，有测试守着，细节写进 `docs/USER_GUIDE.md`） |
 | 设置页新加或改名的行、分组标题 | `SETTINGS_INDEX`（`src/components/settings/settingsSearch.ts`，带上用户可能搜的词）；不该被搜到的放 `SEARCH_SKIPPED`。漏了测试会失败 |
 | 发新版本 | `src/update/releaseNotes.json` 加这一版的新功能（没有测试会失败） |
 | 模块、事件、调度规则、属性数值 | `ARCHITECTURE.md` |

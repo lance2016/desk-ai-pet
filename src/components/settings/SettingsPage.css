@@ -694,7 +694,13 @@ button.dock-row__body { cursor: pointer; }
 .cropper__replace input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
 /* ---------- "功能一览": every feature, what it does and how to start it ---------- */
-.guide > section:first-child > .settings-group-title { margin-top: 4px; }
+.guide-group > summary { display: flex; align-items: baseline; gap: 8px; margin: 20px 4px 8px; list-style: none; cursor: pointer; }
+.guide-group:first-child > summary { margin-top: 4px; }
+.guide-group > summary::-webkit-details-marker { display: none; }
+.guide-group > summary::before { content: "›"; align-self: center; width: 10px; color: var(--label-2); transition: rotate var(--ui-duration) var(--ui-ease); }
+.guide-group[open] > summary::before { rotate: 90deg; }
+.guide-group > summary .settings-group-title { margin: 0; }
+.guide-group > summary span { color: var(--label-2); font-size: var(--ui-font-footnote); }
 .guide-list { padding: 0; }
 .guide-feature { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; }
 .guide-feature + .guide-feature { border-top: 1px solid var(--separator); }

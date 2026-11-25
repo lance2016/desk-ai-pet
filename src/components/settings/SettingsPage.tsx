@@ -325,6 +325,8 @@ export function SettingsPage({ packId }: { packId: string }) {
       if (!label && tries < FIND_TRIES) return;
       window.clearInterval(timer);
       if (!label) return;
+      const folded = label.closest("details");
+      if (folded) folded.open = true;
       lit = label.closest(".settings-row, .guide-feature, .ai-settings__head, .settings-section__intro") ?? label;
       lit.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       lit.classList.remove("is-search-hit");

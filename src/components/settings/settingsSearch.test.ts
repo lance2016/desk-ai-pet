@@ -24,6 +24,9 @@ describe("settings search index", () => {
   });
 });
 
+/** About two lines of 「功能一览」 at the default window width. */
+const FEATURE_DETAIL_LIMIT = 80;
+
 describe("feature guide", () => {
   it("uses icons, colours and pages that exist", () => {
     for (const group of FEATURE_GUIDE) {
@@ -36,6 +39,11 @@ describe("feature guide", () => {
         if (feature.section !== undefined) expect(isSection(feature.section), feature.section).toBe(true);
       }
     }
+  });
+
+  it("keeps each description to about two lines; the details belong in the user guide", () => {
+    const long = FEATURE_GUIDE.flatMap((group) => group.features).filter((feature) => feature.detail.length > FEATURE_DETAIL_LIMIT);
+    expect(long.map((feature) => feature.title)).toEqual([]);
   });
 
   it("gives every feature its own title, so search can scroll to it", () => {

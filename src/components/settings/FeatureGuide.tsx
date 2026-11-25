@@ -6,11 +6,14 @@ import { Icon } from "../../ui/icons";
 /** A way to start a feature that is a key combination, set like a key cap. */
 const isKeys = (how: string) => /[⌘⌃⌥⇧]/.test(how);
 
-/** "功能一览": everything the pet can do and how to start it, from featureGuide.json. */
+/**
+ * "功能一览": everything the pet can do and how to start it, from featureGuide.json. Each of the four
+ * groups folds, the first open, so the page starts at a glance; a search hit opens its group.
+ */
 export function FeatureGuide({ onOpen }: { onOpen: (section: SettingsSection) => void }) {
   return <div className="settings-section guide">
-    {FEATURE_GUIDE.map((group) => <section key={group.title} aria-label={group.title}>
-      <h2 className="settings-group-title">{group.title}</h2>
+    {FEATURE_GUIDE.map((group, index) => <details key={group.title} className="guide-group" open={index === 0}>
+      <summary><h2 className="settings-group-title">{group.title}</h2><span>{group.features.length} 项</span></summary>
       <ul className="settings-group guide-list">
         {group.features.map((feature) => {
           const section = feature.section && isSection(feature.section) ? feature.section : null;
@@ -30,6 +33,6 @@ export function FeatureGuide({ onOpen }: { onOpen: (section: SettingsSection) =>
           </li>;
         })}
       </ul>
-    </section>)}
+    </details>)}
   </div>;
 }
