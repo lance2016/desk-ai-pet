@@ -31,7 +31,8 @@ html[data-window="translation"], html[data-window="translation"] body, html[data
 
 .translation * { box-sizing: border-box; }
 .translation ::selection { background: var(--accent-wash); }
-.translation button, .translation select, .translation textarea { font: inherit; color: inherit; }
+/* Weightless for buttons, as in settings: a button's own class decides its colour and type. */
+:where(.translation) button, .translation select, .translation textarea { font: inherit; color: inherit; }
 .translation :is(button, select):focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 
 .translation-hint { margin: 0; color: var(--label-2); font-size: var(--ui-font-caption); }

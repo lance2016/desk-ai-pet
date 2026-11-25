@@ -11,7 +11,8 @@ html.dubbing-window, body.dubbing-window, body.dubbing-window #root { margin: 0;
   -webkit-font-smoothing: antialiased;
 }
 @media (prefers-color-scheme: dark) { .dub-page { color-scheme: dark; } }
-.dub-page :is(button, select, input, textarea) { font: inherit; color: inherit; }
+/* Weightless for buttons, as in settings: a button's own class decides its colour and type. */
+:where(.dub-page) button, .dub-page :is(select, input, textarea) { font: inherit; color: inherit; }
 .dub-page :is(button, select, input, textarea):focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
 
 /* Voice and delivery: what every line is read with. */
