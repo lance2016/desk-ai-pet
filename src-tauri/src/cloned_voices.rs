@@ -221,9 +221,38 @@ fn add_voice(
     Ok(voice)
 }
 
+/// Leaves out voices the saved API Key cannot see, such as ones made under a replaced key.
+/// Any other failure (offline, no key) keeps the voice.
+fn visible_voices(app: &AppHandle, voices: Vec<ClonedVoice>) -> Vec<ClonedVoice> {
+    let missing: Vec<bool> = std::thread::scope(|scope| {
+        let checks: Vec<_> = voices
+            .iter()
+            .map(|voice| {
+                scope.spawn(move || {
+                    voice.service_voice_id.as_deref().is_some_and(|service_voice_id| {
+                        crate::cosyvoice::voice_status(app, service_voice_id)
+                            .is_err_and(|error| error == crate::cosyvoice::MISSING_VOICE)
+                    })
+                })
+            })
+            .collect();
+        checks.into_iter().map(|check| check.join().unwrap_or(false)).collect()
+    });
+    voices
+        .into_iter()
+        .zip(missing)
+        .filter_map(|(voice, missing)| (!missing).then_some(voice))
+        .collect()
+}
+
 #[tauri::command]
-pub fn cloned_voice_list(app: AppHandle) -> Result<Vec<ClonedVoice>, String> {
-    read_index(&folder(&app)?)
+pub async fn cloned_voice_list(app: AppHandle) -> Result<Vec<ClonedVoice>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let voices = read_index(&folder(&app)?)?;
+        Ok(visible_voices(&app, voices))
+    })
+    .await
+    .map_err(|_| "声音列表读取任务异常".to_owned())?
 }
 
 #[tauri::command]

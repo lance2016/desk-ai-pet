@@ -22,6 +22,15 @@ pub(crate) const MODELS: [&str; 2] = ["cosyvoice-v3.5-flash", "cosyvoice-v3.5-pl
 pub(crate) const DEFAULT_MODEL: &str = MODELS[0];
 const CONNECT_TIMEOUT: &str = "10";
 const REQUEST_TIMEOUT: &str = "120";
+/// Returned when the voice belongs to another account or workspace than the saved API Key.
+pub(crate) const MISSING_VOICE: &str = "当前的阿里云百炼 API Key 下没有这个克隆音色，请重新添加。";
+
+fn missing_resource(body: &str) -> bool {
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|result| result.get("code")?.as_str().map(|code| code == "BadRequest.ResourceNotExist"))
+        .unwrap_or(false)
+}
 
 fn key_error(status: u16, enrollment: bool) -> String {
     match status {
@@ -137,6 +146,9 @@ fn request_json(
         .map(|(body, status)| (body, status.trim().parse::<u16>().unwrap_or_default()))
         .unwrap_or((response.as_ref(), 0));
     if !exit.is_some_and(|status| status.success()) || !(200..300).contains(&status) {
+        if missing_resource(body) {
+            return Err(MISSING_VOICE.into());
+        }
         return Err(key_error(status, enrollment));
     }
     let result: Value =
@@ -202,14 +214,17 @@ pub(crate) fn voice_status(app: &AppHandle, voice_id: &str) -> Result<String, St
     }
 }
 
+/// A voice the saved API Key cannot see counts as deleted, so the local copy can always go.
 pub(crate) fn delete_voice(app: &AppHandle, voice_id: &str) -> Result<(), String> {
-    request_json(
+    match request_json(
         app,
         ENROLLMENT_ENDPOINT,
         json!({"model":"voice-enrollment","input":{"action":"delete_voice","voice_id":voice_id}}),
         false,
-    )?;
-    Ok(())
+    ) {
+        Err(error) if error != MISSING_VOICE => Err(error),
+        _ => Ok(()),
+    }
 }
 
 fn speech_config(key: &str, body: &Value) -> String {
@@ -354,4 +369,19 @@ pub(crate) fn stream_synthesis(
         }
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_missing_resource_reads_as_a_missing_voice() {
+        // Aliyun's reply to query_voice for a voice made under another API Key.
+        assert!(missing_resource(
+            r#"{"request_id":"4669bc7b","code":"BadRequest.ResourceNotExist","message":"The Required resource not exist"}"#
+        ));
+        assert!(!missing_resource(r#"{"code":"InvalidApiKey","message":"Invalid API-key provided."}"#));
+        assert!(!missing_resource("curl: (6) Could not resolve host"));
+    }
 }
