@@ -26,7 +26,7 @@ import { loadDeveloperMode, saveDeveloperMode } from "../../preferences/Develope
 import { CharacterSettings } from "./CharacterSettings";
 import { CharacterProfileSettings } from "./CharacterProfileSettings";
 import { HolidaySettings } from "./HolidaySettings";
-import { MailSettings } from "./MailSettings";
+import { MailEntryRow, MailSettings } from "./MailSettings";
 import { AgentSettings } from "./AgentSettings";
 import { DubbingSettings } from "./DubbingSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
@@ -76,6 +76,7 @@ const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
   companion: "早安 问候 关心 勿扰 免打扰",
   tools: "划词 翻译 编码助手 Claude Code 邮箱 邮件 验证码 常用链接",
   links: "常用链接 网址 环境 域名 书签 地址",
+  mail: "邮箱 邮件 验证码 163 授权码",
   skills: "开关 关闭 提醒 备忘 日报 记忆 动作 安静 网页 链接",
   prompt: "系统提示词 system prompt 对话规则 修改规则 改写",
   toolDefs: "工具 tool function 函数 参数 schema 开关",
@@ -86,7 +87,7 @@ const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "
 /** Each page's glyph on its tile in the sidebar. */
 const PAGE_ICONS: Record<SettingsSection, IconName> = {
   character: "user", characterProfile: "user_plus", general: "gear", companion: "heart", dock: "dock", actions: "paw",
-  chat: "chat", ai: "layers", skills: "skills", voices: "waveform", memory: "bookmark", tools: "wrench", links: "link",
+  chat: "chat", ai: "layers", skills: "skills", voices: "waveform", memory: "bookmark", tools: "wrench", links: "link", mail: "mail",
   privacy: "shield", guide: "bulb", about: "info", diagnostics: "lines", prompt: "document", toolDefs: "braces", developer: "code",
 };
 
@@ -390,23 +391,29 @@ export function SettingsPage({ packId }: { packId: string }) {
           </div>
         )}
 
+        {/* Every tool the same way: a group of its own, turning it on or connecting first, then how to reach it, then its settings. */}
         {section === "tools" && (
           <div className="settings-section">
             <h2 className="settings-group-title">划词翻译</h2>
-            <TranslationSettings onError={setError} />
+            <TranslationSettings onError={setError} onOpenShortcuts={() => void go("general")} />
             <AgentSettings />
-            <MailSettings />
+            <h2 className="settings-group-title">查收验证码</h2>
+            <div className="settings-group">
+              <MailEntryRow icon={<span className="settings-nav__icon settings-nav__icon--mail"><SettingsGlyph name="mail" /></span>} onOpen={() => void go("mail")} />
+            </div>
             <DubbingSettings />
+            <h2 className="settings-group-title">常用链接</h2>
             <div className="settings-group">
               <button type="button" className="settings-row settings-link" onClick={() => go("links")}>
                 <span className="settings-nav__icon settings-nav__icon--links"><SettingsGlyph name="links" /></span>
-                <span className="settings-row__body"><strong>常用链接</strong><span>管理环境地址和常用工作入口</span></span>
+                <span className="settings-row__body"><strong>链接列表</strong><span>启用开关、环境地址和常用工作入口都在里面</span></span>
                 <Chevron />
               </button>
             </div>
           </div>
         )}
 
+        {section === "mail" && <MailSettings />}
         {section === "links" && <LinksSettings />}
 
         {section === "dock" && packInfo && <DockSettings key={packInfo.id} packId={packInfo.id} controls={baseControls} actions={actions} resolveAsset={resolveAsset} onError={setError} />}

@@ -22,7 +22,7 @@ describe("settings navigation", () => {
     expect(developer).toEqual(["prompt", "toolDefs", "developer"]);
   });
 
-  it("places character details under Characters, diagnostics under About, cloned voices under AI, and links under Tools", () => {
-    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about", voices: "ai", links: "tools" });
+  it("places character details under Characters, diagnostics under About, cloned voices under AI, and links and mail under Tools", () => {
+    expect(SUB_PAGES).toEqual({ characterProfile: "character", diagnostics: "about", voices: "ai", links: "tools", mail: "tools" });
   });
 });

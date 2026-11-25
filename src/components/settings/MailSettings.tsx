@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Chevron } from "./Chevron";
 import { mailCodePlatform } from "../../platform/mailCode";
 import { systemPlatform } from "../../platform/system";
 import { ConfirmButton } from "../ConfirmButton";
@@ -15,6 +16,15 @@ function saveError(reason: unknown, doing: string): string {
   return HAS_CHINESE.test(text) ? text : `${doing}失败，请再试一次。`;
 }
 
+/** The row on 「小工具」 into this page, with how many mailboxes are set up. */
+export function MailEntryRow({ icon, onOpen }: { icon: ReactNode; onOpen: () => void }) {
+  const [addresses, setAddresses] = useState<string[] | undefined>(undefined);
+  useEffect(() => { mailCodePlatform.accounts().then(setAddresses).catch((reason: unknown) => { console.warn("Could not read the mailboxes", reason); setAddresses([]); }); }, []);
+  const summary = addresses === undefined ? "检查中" : addresses.length === 0 ? "还没加邮箱，加一个 163 邮箱才能查收" : addresses.length === 1 ? `已配置 ${addresses[0]}` : `已配置 ${addresses.length} 个邮箱，查收时一起找`;
+  return <button type="button" className="settings-row settings-link" onClick={onOpen}>{icon}<span className="settings-row__body"><strong>163 邮箱</strong><span>{summary}</span></span><Chevron /></button>;
+}
+
+/** 「小工具 › 查收验证码」: the 163 mailboxes the pet looks in, and a way to see why a code was missed. */
 export function MailSettings() {
   const [addresses, setAddresses] = useState<string[] | undefined>(undefined);
   const [draftAddress, setDraftAddress] = useState("");
@@ -54,13 +64,12 @@ export function MailSettings() {
   };
   const open163 = () => void systemPlatform.openLink(MAIL_163).catch((reason: unknown) => { console.error("Could not open 163 mail", reason); setStatus("没能打开网页，可以自己在浏览器里打开 mail.163.com。"); });
 
-  // Rendered inside the "小工具" page, so it brings no section of its own.
-  return <>
-    <div className="settings-section__intro"><h2>查收验证码</h2><p>右键点宠物选「查收验证码」，它会找到验证码并复制好</p></div>
+  return <div className="settings-section">
+    <div className="settings-section__intro"><h2>163 邮箱</h2><p>右键点宠物选「查收验证码」，它在这些邮箱里找到验证码并复制好</p></div>
     <article className="settings-card ai-settings mail-settings">
       <div className="ai-settings__head">
-        <div><strong>163 邮箱</strong><span>{saved.length > 1 ? `已连上 ${saved.length} 个，查收时一起找` : "可以加几个，查收时一起找"}</span></div>
-        <span className={saved.length ? "ai-badge is-ready" : "ai-badge"}>{addresses === undefined ? "检查中" : saved.length ? "已连上" : "未配置"}</span>
+        <div><strong>邮箱</strong><span>{saved.length > 1 ? `已配置 ${saved.length} 个，查收时一起找` : "可以加几个，查收时一起找"}</span></div>
+        <span className={saved.length ? "ai-badge is-ready" : "ai-badge"}>{addresses === undefined ? "检查中" : saved.length ? "已配置" : "未配置"}</span>
         {saved.length > 0 && <button type="button" className="ui-button ui-button--small" aria-expanded={expanded} onClick={() => setExpanded((open) => !open)}>{expanded ? "收起" : "添加"}</button>}
       </div>
       {saved.length > 0 && <ul className="mail-accounts">
@@ -94,5 +103,5 @@ export function MailSettings() {
       <summary><span><strong>认不出验证码？</strong><small>把邮件贴进来，看看卡在哪一步</small></span></summary>
       <MailCodeTester />
     </details>
-  </>;
+  </div>;
 }

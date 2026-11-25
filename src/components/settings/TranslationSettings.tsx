@@ -4,6 +4,7 @@ import { quickChatShortcutLabel, recordShortcut } from "../../preferences/QuickC
 import { DEFAULT_TRANSLATION_SHORTCUT, loadTranslationShortcut, saveTranslationShortcut } from "../../preferences/TranslationShortcut";
 import { loadSelectionFloat, saveSelectionFloat } from "../../preferences/SelectionFloat";
 import { ShortcutField } from "./ShortcutField";
+import { Chevron } from "./Chevron";
 
 /** The row on 「通用 › 快捷键」 that records the shortcut translating the selected text. */
 export function TranslationShortcutRow({ onError }: { onError: (message: string | null) => void }) {
@@ -44,8 +45,9 @@ export function TranslationShortcutRow({ onError }: { onError: (message: string 
   );
 }
 
-/** The selection button and the translation window on 「小工具」. The shortcut is on 「通用」. */
-export function TranslationSettings({ onError }: { onError: (message: string | null) => void }) {
+/** The selection button, the shortcut (set on 「通用」) and the translation window on 「小工具」. */
+export function TranslationSettings({ onError, onOpenShortcuts }: { onError: (message: string | null) => void; onOpenShortcuts: () => void }) {
+  const shortcut = loadTranslationShortcut();
   const [selectionFloat, setSelectionFloat] = useState(loadSelectionFloat);
   const [trusted, setTrusted] = useState<boolean | null>(null);
   useEffect(() => {
@@ -61,7 +63,7 @@ export function TranslationSettings({ onError }: { onError: (message: string | n
   const openTranslation = () => void translationPlatform.open().catch((error: unknown) => { console.error("Could not open translation", error); onError("没能打开翻译，请再试一次。"); });
   const openAccessibility = () => void translationPlatform.openAccessibilitySettings().catch((error: unknown) => { console.error("Could not open accessibility settings", error); onError("请在系统设置中打开辅助功能。"); });
   return (
-    <article className="settings-card">
+    <div className="settings-group">
       <div className="settings-row">
         <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译、解释、总结、润色按钮</span></div>
         <button type="button" role="switch" aria-checked={selectionFloat} aria-label="划词浮钮" className={selectionFloat ? "ui-switch is-on" : "ui-switch"} onClick={() => void toggleSelectionFloat()}><span /></button>
@@ -72,10 +74,15 @@ export function TranslationSettings({ onError }: { onError: (message: string | n
           <button type="button" className="ui-button ui-button--small" onClick={openAccessibility}>打开系统设置…</button>
         </div>
       )}
+      <button type="button" className="settings-row settings-link" onClick={onOpenShortcuts}>
+        <span className="settings-row__body"><strong>翻译快捷键</strong><span>选中文字后按下，打开翻译窗口；在「通用 › 快捷键」里改</span></span>
+        <span className="settings-row__value">{shortcut ? quickChatShortcutLabel(shortcut) : "未设置"}</span>
+        <Chevron />
+      </button>
       <div className="settings-row">
         <div className="settings-row__body"><strong>翻译窗口</strong><span>打开窗口，自己粘贴原文</span></div>
         <button type="button" className="ui-button ui-button--small" onClick={openTranslation}>打开翻译</button>
       </div>
-    </article>
+    </div>
   );
 }

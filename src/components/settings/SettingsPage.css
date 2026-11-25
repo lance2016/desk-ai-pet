@@ -124,7 +124,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--character, .settings-nav__icon--characterProfile { --tile: var(--ui-tile-purple); }
 .settings-nav__icon--actions, .settings-nav__icon--companion { --tile: var(--ui-tile-pink); }
 .settings-nav__icon--dock, .settings-nav__icon--links { --tile: var(--ui-tile-indigo); }
-.settings-nav__icon--chat { --tile: var(--ui-tile-green); }
+.settings-nav__icon--chat, .settings-nav__icon--mail { --tile: var(--ui-tile-green); }
 .settings-nav__icon--ai, .settings-nav__icon--privacy { --tile: var(--ui-tile-blue); }
 .settings-nav__icon--memory { --tile: var(--ui-tile-orange); }
 .settings-nav__icon--voices { --tile: var(--ui-tile-red); }

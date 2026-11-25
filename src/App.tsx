@@ -503,7 +503,7 @@ export default function App({ packId }: AppProps) {
         const { activity, say } = mailCodeActivity(update);
         runtime.bus.emit("pet.activity", activity);
         if (say) runtime.say(say);
-        if (update.kind === "unset") void petWindow.openSettings("tools").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
+        if (update.kind === "unset") void petWindow.openSettings("mail").catch((error: unknown) => console.error("Failed to open the mailbox settings", error));
       }),
       runtime.bus.on("pet.activity_chip_clicked", ({ id }) => {
         if (id === MAIL_CODE_ACTIVITY) void mailCodePlatform.cancel().catch((error: unknown) => console.error("Failed to stop waiting for a mail code", error));
