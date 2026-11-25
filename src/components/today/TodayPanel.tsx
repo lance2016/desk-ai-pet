@@ -204,10 +204,12 @@ export function TodayPanel() {
   const isEditing = editing !== null;
   /** The row whose actions a right-click opened. */
   const [actionsId, setActionsId] = useState<string | null>(null);
+  // Shown again, the panel starts with every row folded, as the links panel does.
+  useEffect(() => petWindow.onShown(() => setActionsId(null)), []);
   useEffect(() => {
     if (isEditing) return;
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (actionsId !== null && event.key === "Escape" && !event.isComposing) { event.preventDefault(); setActionsId(null); return; }
+      if (actionsId !== null && event.key === "Escape" && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); setActionsId(null); return; }
       if (escapeHidesPanel(event)) void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason));
     };
     window.addEventListener("keydown", onKey);

@@ -314,7 +314,8 @@ pub fn start_selection_monitor(app: AppHandle) {
                 }
             }
             if !app.state::<SelectionFloat>().expanded.load(Ordering::Relaxed) && visible_at.is_some_and(|at| at.elapsed() >= LIFETIME) {
-                hide_selection_float(&app); visible_at = None;
+                // Gone on its own: selecting the same text again is asking for it again.
+                hide_selection_float(&app); visible_at = None; last_shown = None;
             }
         }
     });

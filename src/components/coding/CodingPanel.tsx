@@ -416,7 +416,8 @@ export function CodingPanel() {
   const [hooks, setHooks] = useState<ClaudeHooksState | undefined>(undefined);
   /** Whether connected could not be read: not the same as not connected. */
   const [hooksUnread, setHooksUnread] = useState(false);
-  /** What went wrong last; it stays until the next thing works or the panel shows again. */
+  /** What went wrong last; it stays until the next thing works. Not cleared when the panel shows again:
+   * 「回到终端」 puts the panel away before it knows whether it worked, and a failure is said there. */
   const [failure, setFailure] = useState("");
   const [hud, setHud] = useState<{ text: string; undo?: { key: string; until: number | null } } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -448,7 +449,6 @@ export function CodingPanel() {
       setInboxOpen(false);
       setChosen(null);
       setPicked(null);
-      setFailure("");
       readHooks();
     };
     readHooks();
