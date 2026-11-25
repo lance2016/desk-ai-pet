@@ -15,7 +15,7 @@ import { canShortcut, loadDisabledIdleActions, saveDisabledIdleActions } from ".
 import { loadArtPrompts, saveArtPrompts } from "../../../preferences/ArtPromptPreferences";
 import { dockControls, loadDock, saveDock, setDockAction, subscribeDock } from "../../../preferences/DockPreferences";
 import { loadActionTriggerStats, subscribeActionTriggerStats } from "../../../preferences/ActionTriggerStats";
-import { Icon, type IconName } from "../../../ui/icons";
+import { Icon } from "../../../ui/icons";
 
 const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined)[] }[] = [
   { title: "先画这几张", note: "先确定待机形象，再补常用动作", tiers: ["required", "core"] },
@@ -25,16 +25,15 @@ const DRAW_GROUPS: { title: string; note: string; tiers: (ActionTier | undefined
   { title: "其他", note: "角色自带的额外动作", tiers: [undefined] },
 ];
 
-const SCENE_GROUPS: { scene: ActionScene | undefined; title: string; note: string; icon: IconName }[] = [
-  { scene: "companion", title: "平时陪着你", note: "宠物空闲时自己的小动作", icon: "moon" },
-  { scene: "touch", title: "你碰它的时候", note: "点击、摸摸头或拖动时", icon: "heart" },
-  { scene: "chat", title: "聊天的时候", note: "等回复时思考，回复失败时困惑", icon: "chat" },
-  { scene: "tasks", title: "帮你做事的时候", note: "提醒、备忘和专注计时", icon: "bell" },
-  { scene: "play", title: "小玩法", note: "喂食和敲木鱼等互动", icon: "star" },
-  { scene: undefined, title: "其他", note: "这个角色自带的其他动作", icon: "square_plus" },
+const SCENE_GROUPS: { scene: ActionScene | undefined; title: string; note: string }[] = [
+  { scene: "companion", title: "平时陪着你", note: "宠物空闲时自己的小动作" },
+  { scene: "touch", title: "你碰它的时候", note: "点击、摸摸头或拖动时" },
+  { scene: "chat", title: "聊天的时候", note: "等回复时思考，回复失败时困惑" },
+  { scene: "tasks", title: "帮你做事的时候", note: "提醒、备忘和专注计时" },
+  { scene: "play", title: "小玩法", note: "喂食和敲木鱼等互动" },
+  { scene: undefined, title: "其他", note: "这个角色自带的其他动作" },
 ];
 
-const MINE_ICON: IconName = "square_plus";
 const PREVIEW_SIZE = { width: 340, height: 284 };
 
 type SceneFilter = "all" | ActionScene | "other" | "mine";
@@ -269,8 +268,8 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
 
   // The user's own actions come first: they are what the user is most likely to come back for.
   const descriptors = [
-    { key: "mine" as const, title: "我的动作", note: "自己创建的动作", icon: MINE_ICON, scene: undefined },
-    ...SCENE_GROUPS.map((group) => ({ key: group.scene ?? "other", title: group.title, note: group.note, icon: group.icon, scene: group.scene })),
+    { key: "mine" as const, title: "我的动作", note: "自己创建的动作", scene: undefined },
+    ...SCENE_GROUPS.map((group) => ({ key: group.scene ?? "other", title: group.title, note: group.note, scene: group.scene })),
   ];
   const categoryCount = (key: SceneFilter) => actions.filter((action) => {
     if (key === "all") return true;
@@ -384,7 +383,6 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
 
     {groupsToRender.length > 0 ? groupsToRender.map((group) => <section className={`action-library__group${group.key === "mine" ? " action-library__group--mine" : ""}`} key={group.key}>
       <header className="action-library__group-head">
-        <span className={`action-library__group-icon action-library__group-icon--${group.key}`} aria-hidden="true"><Icon name={group.icon} /></span>
         <div><h2>{group.title}</h2><p>{group.note}</p></div>
         <span className="action-library__group-count">{group.items.length}</span>
         {group.key === "mine" && canCreate && <button type="button" className="ui-link action-library__new-link" onClick={() => setEditing(draft)}>＋ 新建</button>}

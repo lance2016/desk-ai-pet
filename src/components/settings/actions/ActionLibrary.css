@@ -80,13 +80,6 @@
 
 .action-library__group { margin: 0 0 18px; scroll-margin-top: 16px; }
 .action-library__group-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; }
-.action-library__group-icon { flex: none; width: 24px; height: 24px; display: grid; place-items: center; color: var(--accent-strong); background: var(--accent-wash); border-radius: 7px; }
-.action-library__group-icon svg { width: 14px; height: 14px; fill: currentColor; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; }
-.action-library__group-icon--touch { color: #d84e76; background: rgba(216, 78, 118, .12); }
-.action-library__group-icon--chat { color: #188ab2; background: rgba(24, 138, 178, .12); }
-.action-library__group-icon--tasks { color: var(--green); background: var(--green-wash); }
-.action-library__group-icon--play { color: #bd7814; background: rgba(189, 120, 20, .12); }
-.action-library__group-icon--other, .action-library__group-icon--mine { color: var(--label-2); background: var(--fill-strong); }
 .action-library__group-head > div { flex: 1; min-width: 0; }
 .action-library__group-head h2 { margin: 0; font-size: var(--ui-font-caption); font-weight: 600; }
 .action-library__group-head p { margin: 1px 0 0; color: var(--label-2); font-size: var(--ui-font-footnote); }
@@ -191,7 +184,6 @@ button.ui-link.action-library__clear { margin-top: 2px; padding: 4px; font-size:
 .action-guide { margin-bottom: 24px; }
 .action-library__group { margin-bottom: 28px; }
 .action-library__group-head { margin-bottom: 10px; }
-.action-library__group-icon { display: none; }
 .action-library__group-head h2 { font-size: var(--ui-font-body); }
 .action-library__grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-items: stretch; }
 .action-tile { display: flex; flex-direction: column; border-radius: var(--ui-radius-card); }
