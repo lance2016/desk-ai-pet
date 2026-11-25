@@ -45,7 +45,8 @@
         "transparent": true,
         "shadow": true,
         "alwaysOnTop": false,
-        "skipTaskbar": false
+        "skipTaskbar": false,
+        "acceptFirstMouse": true
       },
       {
         "label": "chat",
@@ -85,7 +86,8 @@
         "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
         "shadow": true,
         "alwaysOnTop": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "acceptFirstMouse": true
       },
       {
         "label": "selection-float",
@@ -119,7 +121,8 @@
         "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
         "shadow": true,
         "alwaysOnTop": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "acceptFirstMouse": true
       },
       {
         "label": "notes",
@@ -139,7 +142,8 @@
         "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
         "shadow": true,
         "alwaysOnTop": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "acceptFirstMouse": true
       },
       {
         "label": "links",
@@ -159,7 +163,8 @@
         "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
         "shadow": true,
         "alwaysOnTop": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "acceptFirstMouse": true
       },
       {
         "label": "coding",
@@ -179,7 +184,8 @@
         "windowEffects": { "effects": ["popover"], "state": "active", "radius": 12 },
         "shadow": true,
         "alwaysOnTop": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "acceptFirstMouse": true
       }
     ],
     "security": {
