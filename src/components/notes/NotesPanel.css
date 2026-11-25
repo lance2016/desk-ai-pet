@@ -45,9 +45,13 @@
 .note-row__more { margin-left: 6px; padding: 0 2px; color: var(--accent-strong); background: none; border: 0; border-radius: var(--ui-radius-tag); font: inherit; cursor: pointer; }
 .note-row__meta .today-glyph { width: 11px; height: 11px; color: var(--accent); }
 
-.note-row__tools { flex: none; display: flex; align-items: flex-start; gap: 1px; padding-top: 6px; opacity: 0; }
-/* Keyboard users see the tools as soon as anything in the row has focus. */
-.note-row:hover .note-row__tools, .note-row:focus-within .note-row__tools { opacity: 1; }
+.note-row__tools { flex: none; display: flex; align-items: flex-start; gap: 1px; padding-top: 6px; }
+/* Editing stays in sight, so a first-time user finds how to change a note; the rest wait for the pointer.
+ * Keyboard users see them as soon as anything in the row has focus. */
+.note-row__tools .note-tool:not(.note-tool--edit) { opacity: 0; }
+.note-row:hover .note-tool, .note-row:focus-within .note-tool { opacity: 1; }
+.note-row__tools .note-tool--edit { color: var(--label-3); }
+.note-row.has-actions .today-row__actions { padding-left: 8px; }
 .note-tool {
   display: grid;
   place-items: center;

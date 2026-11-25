@@ -187,6 +187,10 @@ html.today-window, body.today-window, body.today-window #root { margin: 0; heigh
 .today-row:hover .today-row__remove, .today-row__remove:focus-visible { opacity: 1; }
 .today-row__remove:hover { color: var(--red); background: var(--red-wash); }
 
+/* A right-click on a row: what can be done with it, in a line under it, as in the links panel. */
+.today-row.has-actions { flex-wrap: wrap; background: var(--fill); }
+.today-row__actions { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; padding: 0 4px 8px 32px; }
+
 /* Editing in place: the row opens into a small form. */
 .today-row.is-editing { flex-direction: column; align-items: stretch; gap: 8px; margin: 2px 0; padding: 10px; background: var(--accent-wash); }
 .today-edit__actions { display: flex; align-items: center; gap: 6px; }

@@ -202,12 +202,17 @@ export function TodayPanel() {
 
   // Esc from anywhere else in the panel puts it away, unless a reminder is open for editing.
   const isEditing = editing !== null;
+  /** The row whose actions a right-click opened. */
+  const [actionsId, setActionsId] = useState<string | null>(null);
   useEffect(() => {
     if (isEditing) return;
-    const onKey = (event: globalThis.KeyboardEvent) => { if (escapeHidesPanel(event)) void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason)); };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (actionsId !== null && event.key === "Escape" && !event.isComposing) { event.preventDefault(); setActionsId(null); return; }
+      if (escapeHidesPanel(event)) void petWindow.hideSelf().catch((reason: unknown) => console.warn("Could not put the panel away", reason));
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isEditing]);
+  }, [isEditing, actionsId]);
 
   // Chat asks to fix what the AI understood: open that item for editing.
   useEffect(() => petWindow.onTodayItemRequested((id) => {
@@ -310,12 +315,15 @@ export function TodayPanel() {
     }
     const at = shownAt(item, now);
     const overdue = !finished && at <= now;
+    const toggleDone = () => change((list) => setAgendaItemDone(list, item.id, !finished, Date.now()));
+    const startEdit = () => { setActionsId(null); setEditing({ id: item.id, draft: draftOf(item) }); };
+    const showActions = actionsId === item.id;
     return (
-      <li key={item.id} className={finished ? "today-row is-done" : "today-row"}>
-        <button type="button" role="checkbox" aria-checked={finished} aria-label={`${finished ? "标为未完成" : "完成"}：${item.text}`} className={overdue ? "today-check is-due" : "today-check"} onClick={() => change((list) => setAgendaItemDone(list, item.id, !finished, Date.now()))}>
+      <li key={item.id} className={`today-row${finished ? " is-done" : ""}${showActions ? " has-actions" : ""}`} onContextMenu={(event) => { event.preventDefault(); setActionsId(item.id); }}>
+        <button type="button" role="checkbox" aria-checked={finished} aria-label={`${finished ? "标为未完成" : "完成"}：${item.text}`} className={overdue ? "today-check is-due" : "today-check"} onClick={toggleDone}>
           <Glyph name="check" />
         </button>
-        <button type="button" className="today-row__main" title="点一下修改" onClick={() => setEditing({ id: item.id, draft: draftOf(item) })}>
+        <button type="button" className="today-row__main" title="点一下编辑" onClick={startEdit}>
           <span className="today-row__text">{item.text}</span>
           <span className="today-row__meta">
             <time className={overdue ? "today-row__time is-due" : "today-row__time"}>{reminderLabel(at, now)}{overdue && " · 已到点"}</time>
@@ -323,6 +331,11 @@ export function TodayPanel() {
           </span>
         </button>
         <button type="button" className="today-row__remove" aria-label={`删除：${item.text}`} title="删除" onClick={() => remove(item)}><Glyph name="close" /></button>
+        {showActions && <div className="today-row__actions">
+          <button type="button" className="ui-button" onClick={startEdit}>编辑</button>
+          <button type="button" className="ui-button" onClick={() => { setActionsId(null); toggleDone(); }}>{finished ? "标为未完成" : "完成"}</button>
+          <button type="button" className="ui-button ui-button--danger" onClick={() => { setActionsId(null); remove(item); }}>删除</button>
+        </div>}
       </li>
     );
   };

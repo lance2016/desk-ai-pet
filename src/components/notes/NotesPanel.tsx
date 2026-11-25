@@ -8,7 +8,6 @@ import "./NotesPanel.css";
 import { Icon } from "../../ui/icons";
 import { UNDO_MS } from "../../ui/feedback";
 
-/** How long "已复制" or "撤销" stays up. */
 /** A copy is only confirmed; a removed or pushed-out note can be taken back. */
 const HUD_MS = { copied: 1_600, removed: UNDO_MS, pushed: UNDO_MS } as const;
 /** From this many notes on, the count says how close the list is to full. */
@@ -108,12 +107,17 @@ export function NotesPanel() {
 
   // Esc from anywhere else in the panel puts it away, unless a note is open for editing.
   const isEditing = editing !== null;
+  /** The note whose actions a right-click opened. */
+  const [actionsId, setActionsId] = useState<string | null>(null);
   useEffect(() => {
     if (isEditing) return;
-    const onKey = (event: globalThis.KeyboardEvent) => { if (escapeHidesPanel(event)) hidePanel(); };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (actionsId !== null && event.key === "Escape" && !event.isComposing) { event.preventDefault(); setActionsId(null); return; }
+      if (escapeHidesPanel(event)) hidePanel();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isEditing]);
+  }, [isEditing, actionsId]);
 
   // Chat asks to show a note it just saved: clear the search so it is visible, then highlight it.
   useEffect(() => petWindow.onNoteRequested((id) => {
@@ -219,14 +223,24 @@ export function NotesPanel() {
         </li>
       );
     }
+    const togglePin = () => change((list) => setNotePinned(list, note.id, !note.pinned));
+    const startEdit = () => { setActionsId(null); setEditing({ id: note.id, text: note.text }); setError(""); };
+    const showActions = actionsId === note.id;
     return (
-      <li key={note.id} id={`note-${note.id}`} className={flashId === note.id ? "today-row note-row is-flashing" : "today-row note-row"}>
+      <li key={note.id} id={`note-${note.id}`} className={`today-row note-row${flashId === note.id ? " is-flashing" : ""}${showActions ? " has-actions" : ""}`} onContextMenu={(event) => { event.preventDefault(); setActionsId(note.id); }}>
         <NoteBody note={note} now={now} expanded={expanded.has(note.id)} onToggle={() => toggleExpanded(note.id)} onCopy={() => void copy(note)} />
+        {/* Editing is always in sight; pinning and deleting wait for the pointer. */}
         <span className="note-row__tools">
-          <button type="button" className={note.pinned ? "note-tool is-on" : "note-tool"} aria-pressed={note.pinned} aria-label={note.pinned ? "取消置顶" : "置顶"} title={note.pinned ? "取消置顶" : "置顶"} onClick={() => change((list) => setNotePinned(list, note.id, !note.pinned))}><Glyph name="pin" /></button>
-          <button type="button" className="note-tool" aria-label="编辑" title="编辑" onClick={() => { setEditing({ id: note.id, text: note.text }); setError(""); }}><Glyph name="edit" /></button>
           <button type="button" className="note-tool note-tool--danger" aria-label="删除" title="删除" onClick={() => remove(note)}><Glyph name="close" /></button>
+          <button type="button" className={note.pinned ? "note-tool is-on" : "note-tool"} aria-pressed={note.pinned} aria-label={note.pinned ? "取消置顶" : "置顶"} title={note.pinned ? "取消置顶" : "置顶"} onClick={togglePin}><Glyph name="pin" /></button>
+          <button type="button" className="note-tool note-tool--edit" aria-label="编辑" title="编辑" onClick={startEdit}><Glyph name="edit" /></button>
         </span>
+        {showActions && <div className="today-row__actions">
+          <button type="button" className="ui-button" onClick={() => { setActionsId(null); void copy(note); }}>复制</button>
+          <button type="button" className="ui-button" onClick={startEdit}>编辑</button>
+          <button type="button" className="ui-button" onClick={() => { setActionsId(null); togglePin(); }}>{note.pinned ? "取消置顶" : "置顶"}</button>
+          <button type="button" className="ui-button ui-button--danger" onClick={() => { setActionsId(null); remove(note); }}>删除</button>
+        </div>}
       </li>
     );
   };
