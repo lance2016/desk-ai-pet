@@ -318,8 +318,6 @@ body {
   11% { transform: rotate(-4deg); }
 }
 
-}
-
 /*
  * `translate` and `scale` rather than `transform`, so the entrance adds to an element's own transform
  * instead of replacing it until the end (the "互动" menu, once centred by one, opened half its width off).
