@@ -20,6 +20,29 @@ const FLOAT_WIDTH: f64 = 216.0;
 const FLOAT_HEIGHT: f64 = 38.0;
 const RESULT_WIDTH: f64 = 340.0;
 const RESULT_HEIGHT: f64 = 220.0;
+/// The float keeps this far from the edges of the usable area (menu bar and Dock excluded).
+const EDGE_GAP: f64 = 8.0;
+/// How far the float sits from the cursor, so it does not cover the last word selected.
+const CURSOR_GAP: (f64, f64) = (10.0, 12.0);
+
+/// Where a float of `size` goes for a selection made from `start` to `end`, inside `work`. Below
+/// the cursor, unless the selection was made upwards (the text is under the cursor, not above it)
+/// or there is no room below: then above it, clear of the line the cursor is on.
+fn float_spot(start: (f64, f64), end: (f64, f64), size: (f64, f64), work: crate::Area) -> (f64, f64) {
+    let (left, top) = (work.x + EDGE_GAP, work.y + EDGE_GAP);
+    let right = (work.x + work.width - EDGE_GAP - size.0).max(left);
+    let bottom = (work.y + work.height - EDGE_GAP - size.1).max(top);
+    let below = end.1 + CURSOR_GAP.1;
+    let above = end.1 - CURSOR_GAP.1 - size.1;
+    let upwards = end.1 < start.1 - CURSOR_GAP.1;
+    let y = if (upwards || below > bottom) && above >= top { above } else { below };
+    ((end.0 + CURSOR_GAP.0).clamp(left, right), y.clamp(top, bottom))
+}
+
+/// The usable area under a point on screen, in logical pixels.
+fn work_area_at(app: &AppHandle, point: (f64, f64)) -> Option<crate::Area> {
+    crate::work_area_under(app, crate::Area { x: point.0, y: point.1, width: 0.0, height: 0.0 })
+}
 
 #[cfg(target_os = "macos")]
 mod accessibility {
@@ -177,18 +200,14 @@ pub fn expand_selection_float(app: AppHandle) -> Result<String, String> {
     let text = app.state::<SelectionFloat>().text.lock().map_err(|_| "Selection unavailable")?.clone().ok_or("Selection expired")?;
     let window = app.get_webview_window("selection-float").ok_or("Window unavailable")?;
     window.set_size(tauri::LogicalSize::new(RESULT_WIDTH, RESULT_HEIGHT)).map_err(|error| error.to_string())?;
-    // Keep the result inside the current monitor after growing the window.
-    if let (Ok(origin), Ok(scale), Ok(monitors)) = (window.outer_position(), window.scale_factor(), app.available_monitors()) {
+    // Keep the result inside the usable area after growing the window.
+    if let (Ok(origin), Ok(scale)) = (window.outer_position(), window.scale_factor()) {
         let (x, y) = (origin.x as f64 / scale, origin.y as f64 / scale);
-        if let Some(monitor) = monitors.iter().find(|monitor| {
-            let scale = monitor.scale_factor();
-            let (left, top) = (monitor.position().x as f64 / scale, monitor.position().y as f64 / scale);
-            x >= left && x < left + monitor.size().width as f64 / scale && y >= top && y < top + monitor.size().height as f64 / scale
-        }) {
-            let monitor_scale = monitor.scale_factor();
-            let (left, top) = (monitor.position().x as f64 / monitor_scale, monitor.position().y as f64 / monitor_scale);
-            let (right, bottom) = (left + monitor.size().width as f64 / monitor_scale, top + monitor.size().height as f64 / monitor_scale);
-            let _ = window.set_position(tauri::LogicalPosition::new(x.clamp(left, (right - RESULT_WIDTH).max(left)), y.clamp(top, (bottom - RESULT_HEIGHT).max(top))));
+        if let Some(work) = work_area_at(&app, (x, y)) {
+            let (left, top) = (work.x + EDGE_GAP, work.y + EDGE_GAP);
+            let right = (work.x + work.width - EDGE_GAP - RESULT_WIDTH).max(left);
+            let bottom = (work.y + work.height - EDGE_GAP - RESULT_HEIGHT).max(top);
+            let _ = window.set_position(tauri::LogicalPosition::new(x.clamp(left, right), y.clamp(top, bottom)));
         }
     }
     app.state::<SelectionFloat>().expanded.store(true, Ordering::Relaxed);
@@ -217,12 +236,15 @@ pub fn start_selection_monitor(app: AppHandle) {
         let mut down_in_float = false;
         let mut visible_at: Option<Instant> = None;
         let mut previous_click: Option<(Instant, (f64, f64))> = None;
+        // The text the float last came up for. Dragging a scroll bar or a window is a drag too,
+        // and the selection it reads is the same: the float has already offered it.
+        let mut last_shown: Option<String> = None;
         loop {
             thread::sleep(POLL);
             let enabled = app.state::<SelectionFloat>().enabled.load(Ordering::Relaxed);
             if !enabled || !accessibility::trusted() {
                 if visible_at.is_some() { hide_selection_float(&app); }
-                down = None; down_in_float = false; visible_at = None; previous_click = None;
+                down = None; down_in_float = false; visible_at = None; previous_click = None; last_shown = None;
                 // Off, it sleeps until `set_selection_float` turns it on; on without the permission it keeps looking.
                 if !enabled { thread::park(); }
                 continue;
@@ -250,26 +272,19 @@ pub fn start_selection_monitor(app: AppHandle) {
                 let distance = (point.0 - start.0).hypot(point.1 - start.1);
                 let prior = previous_click.map(|(at, previous)| (at.elapsed(), (point.0 - previous.0).hypot(point.1 - previous.1)));
                 if selection_gesture(distance, prior) {
-                    previous_click = None;
+                    // The click after a double click, a triple click selecting the paragraph, belongs to the same gesture.
+                    previous_click = Some((Instant::now(), point));
+                    let text = accessibility::selected();
+                    if text.is_some() && text == last_shown { continue; }
                     hide_selection_float(&app);
                     visible_at = None;
-                    if let Some(text) = accessibility::selected() {
+                    last_shown = text.clone();
+                    if let Some(text) = text {
                         if let Some(window) = app.get_webview_window("selection-float") {
                             let _ = window.set_size(tauri::LogicalSize::new(FLOAT_WIDTH, FLOAT_HEIGHT));
-                            let mut x = point.0 + 10.0;
-                            let mut y = point.1 + 12.0;
-                            if let Ok(monitors) = app.available_monitors() {
-                                if let Some(monitor) = monitors.iter().find(|monitor| {
-                                    let scale = monitor.scale_factor(); let origin = monitor.position(); let size = monitor.size();
-                                    let (left, top) = (origin.x as f64 / scale, origin.y as f64 / scale);
-                                    point.0 >= left && point.0 < left + size.width as f64 / scale && point.1 >= top && point.1 < top + size.height as f64 / scale
-                                }) {
-                                    let scale = monitor.scale_factor(); let origin = monitor.position(); let size = monitor.size();
-                                    let (left, top) = (origin.x as f64 / scale, origin.y as f64 / scale);
-                                    x = x.clamp(left, (left + size.width as f64 / scale - FLOAT_WIDTH).max(left));
-                                    y = y.clamp(top, (top + size.height as f64 / scale - FLOAT_HEIGHT).max(top));
-                                }
-                            }
+                            let (x, y) = work_area_at(&app, point)
+                                .map(|work| float_spot(start, point, (FLOAT_WIDTH, FLOAT_HEIGHT), work))
+                                .unwrap_or((point.0 + CURSOR_GAP.0, point.1 + CURSOR_GAP.1));
                             if let Ok(mut value) = app.state::<SelectionFloat>().text.lock() { *value = Some(text); }
                             let _ = window.emit("pet://selection-float-reset", ());
                             let _ = window.set_position(tauri::LogicalPosition::new(x, y));
@@ -286,6 +301,8 @@ pub fn start_selection_monitor(app: AppHandle) {
                     }
                 } else if let Some(window) = app.get_webview_window("selection-float") {
                     previous_click = Some((Instant::now(), point));
+                    // A plain click ends the selection: the same text selected again may come up again.
+                    last_shown = None;
                     // Keep the button alive for its own click; the webview handles it.
                     let inside = window.outer_position().ok().zip(window.scale_factor().ok()).is_some_and(|(origin, scale)| {
                         let (x, y) = (origin.x as f64 / scale, origin.y as f64 / scale);
@@ -305,6 +322,43 @@ pub fn start_selection_monitor(app: AppHandle) {
 
 #[cfg(not(target_os = "macos"))]
 pub fn start_selection_monitor(_app: AppHandle) {}
+
+#[cfg(test)]
+mod placement_tests {
+    use super::{float_spot, CURSOR_GAP, EDGE_GAP, FLOAT_HEIGHT, FLOAT_WIDTH};
+    use crate::Area;
+
+    /// A screen with a 25px menu bar and a 70px Dock.
+    const WORK: Area = Area { x: 0.0, y: 25.0, width: 1440.0, height: 805.0 };
+    const SIZE: (f64, f64) = (FLOAT_WIDTH, FLOAT_HEIGHT);
+
+    #[test]
+    fn sits_below_and_right_of_where_the_selection_ended() {
+        assert_eq!(float_spot((200.0, 300.0), (500.0, 300.0), SIZE, WORK), (500.0 + CURSOR_GAP.0, 300.0 + CURSOR_GAP.1));
+    }
+
+    #[test]
+    fn goes_above_the_cursor_for_a_selection_made_upwards() {
+        let (_, y) = float_spot((500.0, 400.0), (200.0, 300.0), SIZE, WORK);
+        assert_eq!(y, 300.0 - CURSOR_GAP.1 - FLOAT_HEIGHT);
+    }
+
+    #[test]
+    fn goes_above_the_cursor_when_there_is_no_room_below_instead_of_over_the_text() {
+        let (_, y) = float_spot((200.0, 800.0), (500.0, 800.0), SIZE, WORK);
+        assert_eq!(y, 800.0 - CURSOR_GAP.1 - FLOAT_HEIGHT);
+    }
+
+    #[test]
+    fn keeps_off_the_menu_bar_and_the_screen_edge() {
+        // Selected upwards to the first line: no room above, so below it, and never under the menu bar.
+        let (x, y) = float_spot((1430.0, 60.0), (1430.0, 30.0), SIZE, WORK);
+        assert_eq!(y, 30.0 + CURSOR_GAP.1);
+        assert_eq!(x, 1440.0 - EDGE_GAP - FLOAT_WIDTH);
+        let (_, y) = float_spot((200.0, 10.0), (200.0, 10.0), SIZE, WORK);
+        assert_eq!(y, 25.0 + EDGE_GAP);
+    }
+}
 
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
