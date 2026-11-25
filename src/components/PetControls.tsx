@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type Ref } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Ref } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
 import { barLayout, dockControls, loadDock, subscribeDock, type DockCommand, type DockItem } from "../preferences/DockPreferences";
 import { linksEnabled, subscribeLinks } from "../links/LinkStore";
@@ -9,6 +9,8 @@ import { DockButtonFace } from "./DockButtonFace";
 
 type DockControlItem = Extract<DockItem, { kind: "control" }>;
 const CONTROL_CLICK_GUARD_MS = 500;
+/** How much higher the middle button rests than the two at the ends. */
+const ARC_RISE_PX = 4;
 /** The character's own buttons go into the pet menu too; reminders, notes and focus have menu items already. */
 const MENU_COMMANDS: ReadonlySet<DockCommand> = new Set(["feed", "wooden_fish", "sleep_toggle"]);
 /** During a focus round only the ways to jot down a stray thought stay on the bar. */
@@ -109,12 +111,20 @@ export function PetControls({ runtime, awake, tucked, focusing, leaving, ref }: 
   const pick = (run: () => void) => { setMenuOpen(false); run(); };
   const actionLabel = (id: string) => runtime.manifest.animations.find((entry) => entry.id === id)?.label ?? id;
 
-  const controlButton = (item: DockControlItem) => {
+  /** How high each button rests: the middle highest, the ends level, so five read as an arc rather than a zigzag. */
+  const count = bar.length + (menu.length > 0 ? 1 : 0);
+  const restOf = (index: number): CSSProperties => {
+    const middle = (count - 1) / 2;
+    const rise = middle === 0 ? 0 : ARC_RISE_PX * (1 - ((index - middle) / middle) ** 2);
+    return { "--rest-y": `${-Math.round(rise * 2) / 2}px` } as CSSProperties;
+  };
+  const firstBar = menu.length > 0 ? 1 : 0;
+
+  const controlButton = (item: DockControlItem, index: number) => {
     const label = labelOf(item);
     // Nothing is greyed out while the pet sleeps: the character's own buttons wake it up first.
-    const active = item.command === "focus_toggle" && focusPhase === "focusing";
     return (
-      <button key={item.id} type="button" className={`pet-bar__item pet-tip${active ? " pet-bar__item--stop" : ""}`} aria-label={label} data-tip={label} onClick={() => pick(() => emitControl(item))}>
+      <button key={item.id} type="button" className="pet-bar__item pet-tip" style={restOf(firstBar + index)} aria-label={label} data-tip={label} onClick={() => pick(() => emitControl(item))}>
         <ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} />
         <span>{label}</span>
       </button>
@@ -127,7 +137,7 @@ export function PetControls({ runtime, awake, tucked, focusing, leaving, ref }: 
         {menu.length > 0 && (
           // The menu grows from its own button, not from the middle of the bar.
           <span className="pet-bar__anchor">
-            <button type="button" className={`pet-bar__item pet-tip${menuOpen ? " is-active" : ""}`} aria-label="互动" data-tip="互动" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
+            <button type="button" className={`pet-bar__item pet-tip${menuOpen ? " is-active" : ""}`} style={restOf(0)} aria-label="互动" data-tip="互动" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
               <InteractIcon />
               <span>互动</span>
             </button>

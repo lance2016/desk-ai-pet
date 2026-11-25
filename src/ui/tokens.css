@@ -62,6 +62,9 @@
   /* System colours for icon tiles: the settings sidebar, the feature guide and rows that lead to another page. */
   --ui-tile-orange: #ff9500;
   --ui-tile-yellow: #f5b400;
+  /* The due-reminder tile in the pet's bubble, and the glyph on it: dark, since white on amber reads at only 2:1. */
+  --ui-alert-tile: #f5a524;
+  --ui-alert-tile-ink: #3d2600;
   --ui-tile-green: #34c759;
   --ui-tile-teal: #30b0c7;
   --ui-tile-blue: #007aff;
