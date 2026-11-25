@@ -763,7 +763,7 @@ export default function App({ packId }: AppProps) {
         {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} launcher={launcherMounted && launcherStyle !== "none" ? (aside) => <ChatLauncher ref={launcherRef} side={launcherStyle} aside={aside} leaving={!launcherShown} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} overPet={!dockSide && !speakingFrom} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} launcher={launcherMounted && launcherStyle !== "none" ? (aside) => <ChatLauncher ref={launcherRef} side={launcherStyle} aside={aside} leaving={!launcherShown} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
       {runtime && barMounted && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} leaving={!barShown} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}

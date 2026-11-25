@@ -106,7 +106,7 @@ body {
   50% { opacity: calc(var(--pool-glow) * .6); transform: scale(.975, .985); }
 }
 
-/* Overlays are laid out inside the on-screen part of the window. */
+/* Overlays are laid out inside the on-screen part of the window. Bubbles start in its middle; PetSpeech moves them over the pet. */
 .speech-area,
 .dock-area {
   position: absolute;
@@ -189,7 +189,8 @@ body {
 .speech-bubble::after {
   content: "";
   position: absolute;
-  left: 50%;
+  /* Under the pet: PetSpeech moves it back by as much as it moved the bubble to keep it on screen. */
+  left: var(--tail-x, 50%);
   bottom: -6px;
   width: 10px;
   height: 10px;

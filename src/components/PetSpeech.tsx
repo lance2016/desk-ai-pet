@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type Ref } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import type { PetRuntime } from "../core/PetRuntime";
 import { SpeechQueue, fitSpeech, speechDuration } from "../core/SpeechQueue";
 import { codingSessionsSnapshot, subscribeCodingSessions } from "../agents/codingStore";
@@ -7,6 +7,7 @@ import type { PetEvents, StatusChip } from "../types";
 import { CodingCard, codingHasNews, useCodingNow } from "./CodingCard";
 import { speechShown } from "./speechShown";
 import { FADE_OUT_MS, useHeld, useLingering } from "./presence";
+import { bubblePlacement } from "./bubblePlacement";
 import { Icon } from "../ui/icons";
 
 interface PetSpeechProps {
@@ -24,6 +25,8 @@ interface PetSpeechProps {
   hideBadge?: boolean;
   /** There is little room under the pet (at a screen edge, or with the window hanging off the bottom): the coding card keeps to one line. */
   tight?: boolean;
+  /** Bubbles go above the pet, centred on it: not when it peeks from a screen edge or speaks from beside its head. */
+  overPet?: boolean;
 }
 
 type StandingAlert = PetEvents["pet.alert"] & { text: string };
@@ -33,6 +36,32 @@ const openReminders = () => void petWindow.openToday().catch((error: unknown) =>
 const LOTUS = "/focus/lotus.png";
 
 const ALERT_ICONS = { bell: "bell", mail: "mail", timer: "timer", agent: "terminal" } as const;
+
+/**
+ * Keeps the bubbles in the room above the pet centred on it, moved only as far as the screen edge needs,
+ * their tails still pointing at it. The room spans the on-screen part of the window, the pet is in the window's middle.
+ * Measured after every render and whenever a bubble or the room changes size: a bubble's width is its words.
+ */
+function useBubblesOverPet(area: RefObject<HTMLDivElement | null>, on: boolean): void {
+  useLayoutEffect(() => {
+    const room = area.current;
+    if (!room) return;
+    const bubbles = () => [...room.children].filter((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains("speech-bubble"));
+    const place = () => {
+      const { left, right } = room.getBoundingClientRect();
+      for (const bubble of bubbles()) {
+        if (!on) { bubble.style.removeProperty("left"); bubble.style.removeProperty("--tail-x"); continue; }
+        const { shift, tail } = bubblePlacement(bubble.offsetWidth, window.innerWidth / 2, left, right);
+        bubble.style.left = `${shift}px`;
+        bubble.style.setProperty("--tail-x", `${tail}px`);
+      }
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    for (const element of [room, ...bubbles()]) observer.observe(element);
+    return () => observer.disconnect();
+  });
+}
 
 /** A ring that fills as the focus round or the rest goes by. */
 function ProgressRing({ progress }: { progress: number }) {
@@ -89,7 +118,9 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
  * until one of its buttons is. A line the pet said by itself can be clicked to
  * answer it. Each part of the status row does its own thing.
  */
-export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, launcher, hideBadge, tight }: PetSpeechProps) {
+export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, launcher, hideBadge, tight, overPet = true }: PetSpeechProps) {
+  const areaRef = useRef<HTMLDivElement>(null);
+  useBubblesOverPet(areaRef, overPet);
   const [line, setLine] = useState<string | null>(null);
   const [alert, setAlert] = useState<StandingAlert | null>(null);
   const [chips, setChips] = useState<StatusChip[]>([]);
@@ -138,7 +169,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   if (reply) {
     return (
       <>
-        <div className="speech-area" aria-live="polite">{launcher?.(said)}{reply}</div>
+        <div ref={areaRef} className="speech-area" aria-live="polite">{launcher?.(said)}{reply}</div>
         {statusRow}
       </>
     );
@@ -161,7 +192,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   const lastChoice = (standing?.choices?.length ?? 0) - 1;
   return (
     <>
-      <div className="speech-area" aria-live="polite">
+      <div ref={areaRef} className="speech-area" aria-live="polite">
         {launcher?.(said)}
         {/* --stay: how long the queue keeps the line up, so the bubble can fade out just before it goes. */}
         {passing && !answerable && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}>{passing}</p>}
