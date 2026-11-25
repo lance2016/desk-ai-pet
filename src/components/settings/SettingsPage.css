@@ -471,9 +471,6 @@ button.dock-row__body { cursor: pointer; }
 .mail-tester__spot mark { padding: 0 2px; color: var(--label); background: var(--green-wash); border-radius: var(--ui-radius-tag); box-shadow: inset 0 -1.5px 0 var(--green); }
 .mail-steps { margin: 12px 0 0; padding-left: 18px; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.6; }
 .ai-settings__status { padding: 8px 10px; background: var(--fill); border-radius: var(--radius-row); color: var(--label) !important; }
-.ai-instructions { margin-top: 10px; padding: 12px; }
-.ai-instructions label { display: block; margin-bottom: 6px; font-weight: 500; }
-.ai-instructions p { margin: 4px 0 8px; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.5; }
 .ai-instructions__foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; color: var(--label-2); font-size: var(--ui-font-footnote); }
 .ai-preview__head { display: flex; align-items: center; gap: 16px; }
 .ai-preview__head > div { flex: 1; min-width: 0; }
@@ -503,7 +500,6 @@ button.dock-row__body { cursor: pointer; }
 .fact-undo { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-row); background: var(--fill); font-size: var(--ui-font-caption); }
 .fact-undo span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fact-undo button { flex: none; padding: 0 2px; border: 0; border-radius: var(--ui-radius-tag); color: var(--accent-strong); background: none; font-weight: 600; cursor: pointer; }
-.ai-instructions label { font-weight: 500; }
 .ai-connection-form { padding: 12px 0; border-top: 1px solid var(--separator); }
 .ai-connection-form .ai-settings__actions { flex-wrap: wrap; }
 .ai-model { margin-top: 8px; }
