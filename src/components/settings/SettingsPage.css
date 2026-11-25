@@ -315,8 +315,6 @@ button.dock-row__body { cursor: pointer; }
 
 /* ---------- Action editor ---------- */
 .action-editor { box-sizing: border-box; max-width: 640px; padding: 0 28px 28px; }
-.action-editor__header { position: sticky; top: 45px; z-index: 4; margin: 0 -28px 12px; padding: 8px 28px 10px; background: var(--bg); border-bottom: 1px solid var(--separator); }
-.action-editor__header h2 { margin: 4px 0 2px; font-size: var(--ui-font-emphasis); }
 .action-editor__header p, .action-editor__group p { color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.6; }
 .action-editor__header p { margin: 0; }
 .action-editor__preview { position: relative; height: 210px; display: grid; place-items: center; margin: 12px 0; color: var(--label-2); background: var(--fill); border-radius: var(--radius-group); }
@@ -324,9 +322,6 @@ button.dock-row__body { cursor: pointer; }
 .action-editor__replay { position: absolute; right: 10px; bottom: 10px; height: 22px; padding: 0 8px; background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); font-size: var(--ui-font-caption); cursor: pointer; }
 .action-editor__group { margin: 14px 0; padding: 12px; background: var(--group); border: 1px solid var(--group-border); border-radius: var(--radius-group); }
 .action-editor__group legend { padding: 0 4px; font-weight: 600; }
-.action-editor__types { display: flex; flex-wrap: wrap; gap: 6px; }
-.action-editor__types button { min-height: 28px; padding: 0 12px; color: var(--label-2); background: var(--field); border: 0; border-radius: var(--radius-control); box-shadow: var(--control-shadow); cursor: pointer; }
-.action-editor__types button.is-selected { color: var(--ui-action-text); background: var(--ui-action-bg); box-shadow: none; }
 .action-editor__mode-note { margin: 8px 0 10px; }
 .action-editor__dropzone { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px; background: var(--fill); border: 1px dashed var(--group-border); border-radius: var(--radius-row); transition: background-color var(--ui-duration-fast) var(--ui-ease), border-color var(--ui-duration-fast) var(--ui-ease); }
 .action-editor__dropzone.is-dragging { background: var(--accent-wash); border-color: var(--accent); }
@@ -373,6 +368,9 @@ button.dock-row__body { cursor: pointer; }
 .layer-card header button { color: var(--red); background: none; border: 0; cursor: pointer; }
 .layer-card__fields { margin: 12px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .layer-card__fields label { display: grid; gap: 4px; color: var(--label-2); font-size: var(--ui-font-footnote); }
+.layer-card__more { margin: 0 0 12px; }
+.layer-card__more summary { color: var(--accent-strong); font-size: var(--ui-font-caption); cursor: pointer; }
+.layer-card__more .layer-card__fields { margin-bottom: 0; }
 
 /* ---------- Character, AI, voice, quiet hours ---------- */
 /* The character page, laid out like the account page in System Settings: the portrait is the title. */
@@ -754,8 +752,8 @@ button.dock-row__body { cursor: pointer; }
 .settings-content > .settings-error { box-sizing: border-box; width: calc(100% - 72px); max-width: var(--content-width); margin-left: auto; margin-right: auto; }
 .settings-section__intro p { max-width: 75ch; }
 .action-editor { box-sizing: border-box; max-width: 1120px; padding: 0 36px 36px; }
-.action-editor__header { position: static; margin: 0 0 18px; padding: 0 0 14px; }
-.action-editor__header h2 { margin-top: 12px; }
+/* The title and the way back are in the settings header, as on any sub page; this line only says what the page is for. */
+.action-editor__header { margin: 0 0 18px; }
 .action-editor__dropzone { cursor: pointer; }
 .action-editor__preview { height: auto; min-height: 260px; padding: 24px; }
 .action-editor__stage { width: min(240px, 100%); overflow: hidden; border: 1px solid var(--group-border); background: var(--group); }

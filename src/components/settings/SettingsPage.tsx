@@ -30,6 +30,7 @@ import { MailEntryRow, MailSettings } from "./MailSettings";
 import { AgentSettings } from "./AgentSettings";
 import { DubbingSettings } from "./DubbingSettings";
 import { ActionLibrary } from "./actions/ActionLibrary";
+import type { EditorHeader } from "./actions/ActionEditor";
 import { DockSettings } from "./DockSettings";
 import { CompanionSettings } from "./CompanionSettings";
 import { WelcomeGuide } from "./WelcomeGuide";
@@ -280,6 +281,8 @@ export function SettingsPage({ packId }: { packId: string }) {
     }
   };
 
+  /** A page shown inside the action library (the editor), with its own title and way back. */
+  const [subPage, setSubPage] = useState<(EditorHeader & { back: () => void }) | null>(null);
   const name = current ? characterName(packId, current.name) : "";
   const label = sectionLabel(section);
   const title = PER_CHARACTER.includes(section) && name ? `${label} · ${name}` : label;
@@ -364,8 +367,10 @@ export function SettingsPage({ packId }: { packId: string }) {
       <section className="settings-content" ref={contentRef}>
         {/* The character page's portrait and name are its title. */}
         <header ref={headerRef} data-tauri-drag-region="deep" className={section === ACCOUNT_SECTION ? "settings-header settings-header--quiet" : "settings-header"}>
-          {parent && <div className="settings-header__back"><SettingsBackButton destination={sectionLabel(parent)} onBack={() => go(parent)} /></div>}
-          <h1>{title}</h1>
+          {subPage
+            ? <div className="settings-header__back"><SettingsBackButton destination={label} disabled={subPage.busy} confirm={subPage.dirty ? DISCARD_ACTION_EDITS : undefined} onBack={subPage.back} /></div>
+            : parent && <div className="settings-header__back"><SettingsBackButton destination={sectionLabel(parent)} onBack={() => go(parent)} /></div>}
+          <h1>{subPage?.title ?? title}</h1>
         </header>
         {error && <p className="settings-error" role="status">{error}</p>}
 
@@ -419,7 +424,7 @@ export function SettingsPage({ packId }: { packId: string }) {
 
         {section === "companion" && <CompanionSettings name={name || "宠物"} onError={setError} />}
 
-        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
+        {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} onSubPage={setSubPage} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} profileIcon={<span className="settings-nav__icon settings-nav__icon--characterProfile"><SettingsGlyph name="characterProfile" /></span>} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
         {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} onOpenClones={() => void go("voices")} />}

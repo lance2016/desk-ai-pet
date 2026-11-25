@@ -8,10 +8,10 @@ import { sampleAdjustedMotion, sampleMotion } from "../../../renderer/motions";
 import { ConfirmButton } from "../../ConfirmButton";
 import { NumberField } from "./NumberField";
 import { setUnsavedChanges } from "../unsavedChanges";
+import { moveRadioChoice } from "../radioKeys";
 import { LayerEditor } from "./LayerEditor";
 import { CopyButton } from "./CopyButton";
 import { PictureCropper } from "../PictureCropper";
-import { SettingsBackButton } from "../SettingsBackButton";
 import { placeFrames, readFirstFrame, type FirstFrame, type PickedFrames } from "./placePicture";
 import type { PictureCrop } from "../../../appearance/pictureCrop";
 import { cropFromPlacement, fittedPlacement, promptPlacement, restingPlacement, type Rect, type Size } from "../../../appearance/stagePlacement";
@@ -22,7 +22,10 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_SHEET_WIDTH = 8192;
 const MOTION_LABELS: Record<MotionPreset, string> = { none: "无", breathe: "呼吸", bounce: "跳跃", sway: "摇摆", squash: "压缩", wiggle: "抖动", pop: "弹出", tilt: "歪头", nod: "点头", float: "上飘淡出" };
 type Mode = "single" | "frames" | "sheet" | "grid";
-interface Props { initialFile?: File; action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by. */ reference?: { image: string; frames: number }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; }
+interface Props { initialFile?: File; action: AnimationEntry; packId: string; /** Start empty instead of showing the borrowed picture: a custom character draws its own. */ blank?: boolean; /** What to paste into an image model to get this picture: filled in for a pack action, the bare template for the user's own. */ prompt: string; /** The character's idle picture as it shows now, to size this one by. */ reference?: { image: string; frames: number }; canvas: { width: number; height: number }; resolveAsset: (file: string) => string; onClose: () => void; onSaved: () => void; /** The settings header shows the title and the way back, as for any sub page. */ onHeader: (header: EditorHeader) => void; }
+
+/** What the settings header needs from the editor: its title, and whether leaving loses changes or must wait. */
+export interface EditorHeader { title: string; dirty: boolean; busy: boolean }
 
 function decode(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("图片无法读取，请换一张图片")); image.src = src; });
@@ -129,7 +132,7 @@ function FrameThumbnail({ image, frames, index }: { image: string; frames: numbe
   return <canvas ref={ref} width={144} height={144} aria-label={`第 ${index + 1} 帧图片`} />;
 }
 
-export function ActionEditor({ initialFile, action, packId, blank = false, prompt, reference, canvas, resolveAsset, onClose, onSaved }: Props) {
+export function ActionEditor({ initialFile, action, packId, blank = false, prompt, reference, canvas, resolveAsset, onClose, onSaved, onHeader }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<Mode>(initialFile && action.id === "wooden_fish" ? "grid" : action.frames > 1 && !blank ? "sheet" : "single");
@@ -170,6 +173,7 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
   const snapshot = JSON.stringify({ mode, image, frames, fps, motion, loop, motionSpeed, motionStrength, randomFlip, layers, label, seconds });
   const dirty = baseline !== null && snapshot !== baseline;
   useEffect(() => { setUnsavedChanges(dirty); }, [dirty]);
+  useEffect(() => { onHeader({ title, dirty, busy }); }, [onHeader, title, dirty, busy]);
   useEffect(() => () => setUnsavedChanges(false), []);
   useEffect(() => { if (!busy && baseline === null) setBaseline(snapshot); }, [busy, baseline, snapshot]);
 
@@ -408,15 +412,13 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
   };
   return <div ref={editorRef} className="action-editor" aria-label={title}>
     <div className="action-editor__header">
-      <SettingsBackButton destination="动作库" disabled={busy} confirm={dirty ? { message: "放弃对这个动作的改动？", detail: "还没保存的名称、图片和动效会丢掉。", action: "放弃改动" } : undefined} onBack={onClose} />
-      <h2>{title}</h2>
       <p>{own ? "起个名字，选好图片和动效。做好后可以在动作库播放，也能放进快捷按钮。" : blank ? `这张画的是：${action.pose ?? action.description ?? "这个动作的样子"}` : "替换外观，宠物原来的触发方式会保留。"}</p>
     </div>
     {own && <fieldset className="action-editor__group" disabled={busy}><legend>动作</legend>
       <label className="action-editor__field">名称<input type="text" className="ui-field ui-field--small action-editor__name" value={label} maxLength={USER_ACTION_LIMITS.label} placeholder="比如：转圈圈" onChange={(e) => setLabel(e.currentTarget.value)} /></label>
       <label className="action-editor__field">播放时长 <span><NumberField min={USER_ACTION_LIMITS.minDuration / 1000} max={USER_ACTION_LIMITS.maxDuration / 1000} step={0.5} value={seconds} onChange={setSeconds} /> 秒</span></label>
     </fieldset>}
-    <fieldset className="action-editor__group action-editor__materials" disabled={busy}><legend>动作图片</legend><div className="action-editor__types" role="group" aria-label="素材类型">{([ ["single", "单张图片"], ["frames", "多张图片"], ["sheet", "一排多格"], ["grid", "多行多列"] ] as const).map(([value, label]) => <button key={value} type="button" className={mode === value ? "is-selected" : ""} aria-pressed={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p className="action-editor__mode-note">{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张同尺寸图片，按文件名数字顺序播放。" : mode === "sheet" ? "一张图里横排着几个画面，每格一样宽。" : "一张图里排着几行几列画面，按从左到右、从上到下播放，位置统一调整。"}</p>
+    <fieldset className="action-editor__group action-editor__materials" disabled={busy}><legend>动作图片</legend><div className="ui-segmented action-editor__types" role="radiogroup" aria-label="素材类型" onKeyDown={moveRadioChoice}>{([ ["single", "单张图片"], ["frames", "多张图片"], ["sheet", "一排多格"], ["grid", "多行多列"] ] as const).map(([value, label]) => <button key={value} type="button" role="radio" className={mode === value ? "is-selected" : ""} aria-checked={mode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><p className="action-editor__mode-note">{mode === "single" ? "一张图片配合动效，例如呼吸或摇摆。" : mode === "frames" ? "选择多张同尺寸图片，按文件名数字顺序播放。" : mode === "sheet" ? "一张图里横排着几个画面，每格一样宽。" : "一张图里排着几行几列画面，按从左到右、从上到下播放，位置统一调整。"}</p>
       {mode === "grid" && <div className="action-editor__field"><label>行数 <NumberField min={1} max={16} value={gridRows} onChange={setGridRows} /></label><label>列数 <NumberField min={1} max={16} value={gridColumns} onChange={setGridColumns} /></label>{gridSource && <button type="button" className="ui-button" onClick={() => { setError(""); void openGrid(gridSource, gridRows, gridColumns, sourceNames[0]?.split(" · ")[0] ?? "宫格图片").catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "这张图片没法按这个行列数拆分")); }}>重新拆分并调整位置</button>}</div>}
       {mode === "sheet" && <label className="action-editor__field">帧数<NumberField min={1} max={16} value={frames} onChange={changeSheetFrames} /></label>}
       <div className={draggingFiles ? "action-editor__dropzone is-dragging" : "action-editor__dropzone"} onClick={(event) => { if (event.target === event.currentTarget || event.target instanceof HTMLSpanElement && !event.target.closest("label")) fileRef.current?.click(); }} onDragOver={dragOver} onDragLeave={dragLeave} onDrop={dropFiles}>
@@ -431,14 +433,14 @@ export function ActionEditor({ initialFile, action, packId, blank = false, promp
         <div className="action-editor__sequence-head"><strong>帧顺序</strong><span>按顺序播放，可调整或删除</span></div>
         <div className="action-editor__frames" aria-label="帧顺序">{Array.from({ length: frames }, (_, index) => <div key={index}><FrameThumbnail image={image} frames={frames} index={index} /><span title={sourceNames[index] ?? `第 ${index + 1} 帧`}>第 {index + 1} 帧</span><div className="action-editor__frame-controls"><button type="button" disabled={busy || index === 0} aria-label={`第 ${index + 1} 帧前移`} onClick={() => void editFrameOrder(index, -1)}>←</button><button type="button" disabled={busy || index === frames - 1} aria-label={`第 ${index + 1} 帧后移`} onClick={() => void editFrameOrder(index, 1)}>→</button><button type="button" disabled={busy} aria-label={`删除第 ${index + 1} 帧`} onClick={() => void editFrameOrder(index, 0)}>×</button></div></div>)}</div>
         <label className="action-editor__field">播放速度 <span><NumberField min={1} max={30} value={fps} onChange={setFps} /> 帧 / 秒</span></label>
-        <label className="action-editor__field">循环播放 <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.currentTarget.checked)} /></label>
+        <div className="action-editor__field"><span>循环播放</span><button type="button" role="switch" aria-label="循环播放" aria-checked={loop} className={loop ? "ui-switch is-on" : "ui-switch"} onClick={() => setLoop(!loop)}><span /></button></div>
         {duration && fps > 0 && (frames - 1) / fps * 1000 > duration && <p className="settings-error">这个动作会在 {(duration / 1000).toFixed(1)} 秒后结束，当前速度可能播放不到最后一帧。可以{own ? "加长播放时长、" : ""}提高帧速或减少帧数。</p>}
       </div>}
     </fieldset>
     <div className="action-editor__preview"><span className="action-editor__preview-label">动作预览</span>{image ? <><div className="action-editor__stage" style={{ aspectRatio: `${canvas.width} / ${canvas.height}` }}><VisualPreview key={previewVersion} image={image} frames={frames} fps={fps} motion={motion} loop={loop} speed={motionSpeed} strength={motionStrength} duration={duration} layers={layers} stage={canvas} align={action.align} randomFlip={randomFlip} resolveAsset={resolveAsset} size={{ width: 240, height: Math.round(240 * canvas.height / canvas.width) }} /></div><button type="button" className="action-editor__replay" onClick={() => setPreviewVersion((value) => value + 1)}>重新播放</button></> : <span>选择图片后在这里预览</span>}</div>
     <fieldset className="action-editor__group action-editor__motion" disabled={busy}><legend>动效</legend>
       <label className="action-editor__field">图片动效 <select className="ui-select" value={motion} onChange={(e) => setMotion(e.currentTarget.value as MotionPreset)}>{MOTION_PRESETS.map((value) => <option key={value} value={value}>{MOTION_LABELS[value]}</option>)}</select></label>
-      {action.align !== "left" && <><label className="action-editor__field">随机朝左或朝右 <input type="checkbox" checked={randomFlip} onChange={(e) => setRandomFlip(e.currentTarget.checked)} /></label>
+      {action.align !== "left" && <><div className="action-editor__field"><span>随机朝左或朝右</span><button type="button" role="switch" aria-label="随机朝左或朝右" aria-checked={randomFlip} className={randomFlip ? "ui-switch is-on" : "ui-switch"} onClick={() => setRandomFlip(!randomFlip)}><span /></button></div>
       <p>每次播放随机左右镜像，一张图就能朝两边。发夹这类只戴在一侧的饰品，镜像时会换到另一边。</p></>}
       {!own && <p>触发时机和持续时间由宠物行为决定。</p>}
     </fieldset>

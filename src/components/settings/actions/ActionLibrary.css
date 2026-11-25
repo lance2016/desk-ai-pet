@@ -142,6 +142,7 @@ button.ui-link.action-library__clear { margin-top: 2px; padding: 4px; font-size:
 .action-preview__actions { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .action-preview__secondary { min-height: 28px; padding: 0 8px; color: var(--label-2); background: var(--fill); border: 0; border-radius: var(--ui-radius-control); font-size: var(--ui-font-footnote); cursor: pointer; }
 .action-preview__secondary.is-selected { color: var(--accent-strong); background: var(--accent-wash); }
+.action-preview__switch { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; color: var(--label-2); font-size: var(--ui-font-footnote); }
 
 @media (max-width: 680px) {
   .action-library__grid { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); }

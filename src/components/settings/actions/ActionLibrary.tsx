@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./ActionLibrary.css";
 import { loadAppearance, type ActionAppearance, type AppearanceLayer } from "../../../appearance/AppearanceStore";
 import { ActionThumbnail } from "./ActionThumbnail";
-import { ActionEditor, VisualPreview } from "./ActionEditor";
+import { ActionEditor, VisualPreview, type EditorHeader } from "./ActionEditor";
+import { moveRadioChoice } from "../radioKeys";
 import { CopyButton } from "./CopyButton";
 import { PromptField } from "./PromptField";
 import { draftUserAction, isUserAction, USER_ACTION_LIMITS } from "../../../actions/UserActions";
@@ -49,6 +50,8 @@ interface Props {
   resolveAsset: (file: string) => string;
   onActionsChanged: () => void;
   onPicturesChanged: () => void;
+  /** While an action is being edited: its title for the settings header and the way back to the library. */
+  onSubPage: (page: (EditorHeader & { back: () => void }) | null) => void;
 }
 
 interface PreviewArt {
@@ -63,11 +66,12 @@ interface PreviewArt {
   layers: AppearanceLayer[];
 }
 
-export function ActionLibrary({ actions, controls, packId, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged, onPicturesChanged }: Props) {
+export function ActionLibrary({ actions, controls, packId, custom: isCustomPack, characterName, canvas, resolveAsset, onActionsChanged, onPicturesChanged, onSubPage }: Props) {
   const uploadRef = useRef<HTMLInputElement>(null);
   const uploadAction = useRef<AnimationEntry | null>(null);
   const [initialFile, setInitialFile] = useState<File | undefined>();
   const [editing, setEditing] = useState<AnimationEntry | null>(null);
+  const [editorHeader, setEditorHeader] = useState<EditorHeader | null>(null);
   const [revision, setRevision] = useState(0);
   const [appearances, setAppearances] = useState<Record<string, ActionAppearance> | null>(null);
   const [inDock, setInDock] = useState(() => loadDock(packId, dockControls(controls), actions).filter((item) => item.kind === "action" && item.enabled).map((item) => item.id));
@@ -246,9 +250,14 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   const closeEditor = () => {
     const created = editing?.id === "";
     setEditing(null);
+    setEditorHeader(null);
     setInitialFile(undefined);
     if (created) requestAnimationFrame(() => document.querySelector(".action-library__group--mine")?.scrollIntoView({ block: "start" }));
   };
+
+  // The editor is a sub page of the library: the settings header carries its title and the way back.
+  useEffect(() => { onSubPage(editing && editorHeader ? { ...editorHeader, back: closeEditor } : null); }, [editing, editorHeader]);
+  useEffect(() => () => onSubPage(null), []);
 
   const play = async (action: AnimationEntry) => {
     try {
@@ -263,7 +272,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
   if (editing) {
     const idleArt = artFor(base ?? editing);
     const reference = idleArt ? { image: idleArt.image, frames: idleArt.frames } : undefined;
-    return <ActionEditor initialFile={initialFile} key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} prompt={isUserAction(editing) ? usablePrompts.action : promptFor(editing)} reference={reference} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} />;
+    return <ActionEditor initialFile={initialFile} key={editing.id || "new"} action={editing} packId={packId} blank={isCustomPack && !isUserAction(editing)} prompt={isUserAction(editing) ? usablePrompts.action : promptFor(editing)} reference={reference} canvas={canvas} resolveAsset={resolveAsset} onClose={closeEditor} onSaved={() => { setRevision((value) => value + 1); onPicturesChanged(); if (isUserAction(editing)) onActionsChanged(); }} onHeader={setEditorHeader} />;
   }
 
   // The user's own actions come first: they are what the user is most likely to come back for.
@@ -351,16 +360,17 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
       {canCreate && <button type="button" className="action-library__create" onClick={() => setEditing(draft)}><Icon name="plus" />新建动作</button>}
     </div>
 
-    <div className="action-library__filters" role="group" aria-label="按图片状态筛选">
-      {filterOptions.map((option) => <button key={option.key} type="button" aria-pressed={assetFilter === option.key} className={assetFilter === option.key ? "is-selected" : ""} onClick={() => setAssetFilter(option.key)}>
-        {option.label}<span>{option.count}</span>
-      </button>)}
+    {/* The scene is the one filter; whether a picture is drawn yet only matters while a custom character is still being drawn. */}
+    <div className="action-library__categories" role="radiogroup" aria-label="按动作场景筛选" onKeyDown={moveRadioChoice}>
+      <button type="button" role="radio" aria-checked={sceneFilter === "all"} className={sceneFilter === "all" ? "is-selected" : ""} onClick={() => setSceneFilter("all")}>所有场景</button>
+      {descriptors.filter((group) => categoryCount(group.key as SceneFilter) > 0).map((group) => <button key={group.key} type="button" role="radio" aria-checked={sceneFilter === group.key} className={sceneFilter === group.key ? "is-selected" : ""} onClick={() => setSceneFilter(group.key as SceneFilter)}>{group.title}<span>{categoryCount(group.key as SceneFilter)}</span></button>)}
     </div>
 
-    <nav className="action-library__categories" aria-label="按动作场景筛选">
-      <button type="button" aria-pressed={sceneFilter === "all"} className={sceneFilter === "all" ? "is-selected" : ""} onClick={() => setSceneFilter("all")}>所有场景</button>
-      {descriptors.filter((group) => categoryCount(group.key as SceneFilter) > 0).map((group) => <button key={group.key} type="button" aria-pressed={sceneFilter === group.key} className={sceneFilter === group.key ? "is-selected" : ""} onClick={() => setSceneFilter(group.key as SceneFilter)}>{group.title}<span>{categoryCount(group.key as SceneFilter)}</span></button>)}
-    </nav>
+    {isCustomPack && <div className="action-library__filters" role="radiogroup" aria-label="按图片状态筛选" onKeyDown={moveRadioChoice}>
+      {filterOptions.map((option) => <button key={option.key} type="button" role="radio" aria-checked={assetFilter === option.key} className={assetFilter === option.key ? "is-selected" : ""} onClick={() => setAssetFilter(option.key)}>
+        {option.label}<span>{option.count}</span>
+      </button>)}
+    </div>}
     {!isCustomPack && <details className="action-guide">
       <summary><span>用 AI 画动作图</span><small>复制提示词模板，交给绘图工具</small></summary>
       <div className="action-guide__single">
@@ -421,7 +431,7 @@ export function ActionLibrary({ actions, controls, packId, custom: isCustomPack,
             <div className="action-preview__actions">
               {canShortcut(previewAction) && <>
                 <button type="button" className={inDock.includes(previewAction.id) ? "action-preview__secondary is-selected" : "action-preview__secondary"} aria-pressed={inDock.includes(previewAction.id)} onClick={() => toggleDock(previewAction.id)}>{inDock.includes(previewAction.id) ? "已加入快捷按钮" : "加入快捷按钮"}</button>
-                {previewAction.category === "idle" && <button type="button" className={disabledIdle.includes(previewAction.id) ? "action-preview__secondary" : "action-preview__secondary is-selected"} role="switch" aria-label="空闲时自动播放" aria-checked={!disabledIdle.includes(previewAction.id)} onClick={() => toggleIdle(previewAction.id)}>{disabledIdle.includes(previewAction.id) ? "空闲时播放：关闭" : "空闲时播放：开启"}</button>}
+                {previewAction.category === "idle" && <label className="action-preview__switch"><span>空闲时自动播放</span><button type="button" role="switch" aria-label="空闲时自动播放" aria-checked={!disabledIdle.includes(previewAction.id)} className={disabledIdle.includes(previewAction.id) ? "ui-switch" : "ui-switch is-on"} onClick={() => toggleIdle(previewAction.id)}><span /></button></label>}
                 <button type="button" className="action-preview__secondary" title="在桌面宠物上播放这个动作" onClick={() => void play(previewAction)}>在桌面播放</button>
               </>}
               <button type="button" className="action-library__button" onClick={() => previewArt ? openEditor(previewAction) : uploadDirect(previewAction)}>{previewArt ? "编辑图片" : "上传图片"}</button>
