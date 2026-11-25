@@ -45,11 +45,15 @@ function useCut(lines: RefObject<HTMLElement | null>[]): boolean {
   return cut;
 }
 
+/** Turns that need the user get the whole card; one at work or just done needs nothing from them, and keeps to a line. */
+const CARD_TURNS: ReadonlySet<CodingSession["turn"]> = new Set(["waiting", "failed"]);
+
 /**
- * Claude Code's sessions under the quick buttons, as one card about the session
- * that most needs the user: who it is and how things stand, what it is about,
- * and where. Beside other pills it keeps to one line. With nothing going on it
- * is not there: the sessions are a quick button or a menu item away. A click opens all the sessions.
+ * Claude Code's sessions under the quick buttons, about the session that most
+ * needs the user. When it waits for them or went wrong, a card: who it is and how
+ * things stand, what it is about, and where. Otherwise, beside other pills, or with
+ * little room, one line. With nothing going on it is not there: the sessions are a
+ * quick button or a menu item away. A click opens all the sessions.
  */
 export function CodingCard({ sessions, compact, now }: { sessions: readonly CodingSession[]; compact: boolean; now: number }) {
   const titleRef = useRef<HTMLElement>(null);
@@ -61,13 +65,13 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
   const title = sessionTitle(head);
   const state = standing(view, head, now);
   const others = view.waiting.length + view.working.length - 1;
-  if (compact) {
+  if (compact || !CARD_TURNS.has(head.turn)) {
     // A cut title shows whole in the pill's help tag. The card has none: its cut lines are a summary, and a click shows them in full.
     return (
       <button type="button" className={`status-chip coding-pill coding-pill--${head.turn}${cut ? " pet-tip" : ""}`} data-tip={cut ? title : undefined} aria-label={`Claude Code，${state}：${title}`} onClick={() => openCoding(head.project)}>
         <TurnMark turn={head.turn} />
-        {/* The mark alone would read a finished turn as a finished task. */}
-        <span className="coding-pill__state">{stateWord(head)}</span>
+        {/* The mark alone would read a finished turn as a finished task. With one session, how long it has worked too. */}
+        <span className="coding-pill__state">{others > 0 ? stateWord(head) : state}</span>
         <span ref={titleRef} className="coding-pill__title">{title}</span>
         {others > 0 && <span className="coding-pill__more">+{others}</span>}
       </button>
