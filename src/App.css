@@ -432,8 +432,12 @@ button.status-chip:active { transform: scale(.97); }
 .status-chip__stop { display: none; width: 18px; height: 18px; fill: currentColor; stroke-width: 2; }
 .status-chip--focus:is([data-hover], :focus-visible) .status-chip__lotus { display: none; }
 .status-chip--focus:is([data-hover], :focus-visible) .status-chip__stop { display: block; }
-/* While focusing the bar is gone: the row moves up to just below the pool of light. At an edge the corner rule above holds. */
-.app--focus:not(.app--docked-left, .app--docked-right) .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
+/*
+ * While focusing the row stays where it always is, under the bar, which comes back on hover with notes and reminders.
+ * The focus pill is 4px taller than the other pills: with the window off the bottom it keeps 8px clear of the screen edge.
+ * At an edge the corner rule above holds.
+ */
+.app--focus:not(.app--docked-left, .app--docked-right) .status-row { top: calc(100% - max(72px + var(--overhang), var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
 .status-chip__ring circle { fill: none; stroke-width: 2.5; }
 .status-chip__ring-track { stroke: var(--ui-accent-soft); }
@@ -532,7 +536,7 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
   transition: opacity var(--ui-duration) var(--ui-ease);
 }
 .pet-bar.is-awake, .pet-bar[data-hover], .pet-bar:focus-within { opacity: 1; }
-/* Pushed up onto the legs (the window hangs off the bottom): out of sight and out of the way until the mouse is on the pet. */
+/* Out of sight and out of the way until the mouse is on the pet: pushed up onto the legs (the window hangs off the bottom), or during a focus round. */
 .pet-bar.is-tucked:not(.is-awake, :focus-within) { opacity: 0; pointer-events: none; }
 .pet-bar__item { position: relative; flex: none; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; color: var(--ui-accent-strong); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: 50%; box-shadow: 0 2px 8px rgba(25, 23, 35, .12); font: inherit; cursor: pointer; transform: translateY(var(--rest-y, 0px)); transition: transform var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 /* Every other button rests a little higher; hover and press move a button from wherever it rests. */

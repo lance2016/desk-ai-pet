@@ -11,13 +11,17 @@ type DockControlItem = Extract<DockItem, { kind: "control" }>;
 const CONTROL_CLICK_GUARD_MS = 500;
 /** The character's own buttons go into the pet menu too; reminders, notes and focus have menu items already. */
 const MENU_COMMANDS: ReadonlySet<DockCommand> = new Set(["feed", "wooden_fish", "sleep_toggle"]);
+/** During a focus round only the ways to jot down a stray thought stay on the bar. */
+const FOCUS_COMMANDS: ReadonlySet<DockCommand> = new Set(["notes_open", "today_open"]);
 
 interface PetControlsProps {
   runtime: PetRuntime;
   /** The mouse is on the pet: the bar shows fully; otherwise it stays faint. */
   awake: boolean;
-  /** Pushed up onto the pet's legs (the window hangs off the bottom of the screen): hidden unless `awake`. */
+  /** Hidden unless `awake`: pushed up onto the pet's legs (the window hangs off the bottom of the screen), or during a focus round. */
   tucked?: boolean;
+  /** A focus round is on: only notes and reminders. */
+  focusing?: boolean;
   /** On its way out: it fades and takes no clicks. */
   leaving?: boolean;
   /** The bar and its menu, measured for the clickable area. */
@@ -28,7 +32,7 @@ interface PetControlsProps {
  * The floating controls under the pet: the buttons that fit, and "互动" for the actions and the rest.
  * Only reports what was pressed; the pet decides what to do.
  */
-export function PetControls({ runtime, awake, tucked, leaving, ref }: PetControlsProps) {
+export function PetControls({ runtime, awake, tucked, focusing, leaving, ref }: PetControlsProps) {
   const snapshot = useSyncExternalStore(runtime.state.subscribe, runtime.state.get);
   const showLinks = useSyncExternalStore(subscribeLinks, linksEnabled);
   const packId = runtime.manifest.id;
@@ -90,7 +94,7 @@ export function PetControls({ runtime, awake, tucked, leaving, ref }: PetControl
   const pressFromMenuRef = useRef(pressFromMenu);
   pressFromMenuRef.current = pressFromMenu;
   useEffect(() => petWindow.onDockMenu((key) => pressFromMenuRef.current(key)), []);
-  const shown = enabledItems.filter((item) => item.kind === "control" || runtime.registry.has(item.id));
+  const shown = enabledItems.filter((item) => (item.kind === "control" ? !focusing || FOCUS_COMMANDS.has(item.command) : !focusing && runtime.registry.has(item.id)));
   const { bar, menu } = barLayout(shown);
   const [menuOpen, setMenuOpen] = useState(false);
   // The menu is a quick pick: it closes once the mouse leaves the pet or the bar goes away.

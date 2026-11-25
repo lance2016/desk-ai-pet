@@ -184,10 +184,10 @@ export default function App({ packId }: AppProps) {
   usePetDrop(runtime !== null && !focusMode && !quickChat.pending, quickChat.receive);
   const quickReplyShown = quickChat.bubble;
   const launcherStyle = displayPreferences.chatLauncher;
-  /** Focus leaves only the pet, its pool of light and the status row (the focus pill) on stage. */
+  /** Focus leaves only the pet, its pool of light, the status row (the focus pill) and, on hover, notes and reminders on stage. */
   const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open && !focusMode;
-  /** The bar under the pet stays hidden while focused, dragged, docked, or giving way to chat. */
-  const barShown = !dragging && !dockSide && !quickChat.open && !focusMode;
+  /** The bar under the pet stays hidden while dragged, docked, or giving way to chat. While focused it keeps notes and reminders, shown only on hover. */
+  const barShown = !dragging && !dockSide && !quickChat.open;
   // Both fade out before they go, rather than vanish: they stay mounted that long, taking no clicks.
   const launcherMounted = useLingering(launcherShown, FADE_OUT_MS);
   const barMounted = useLingering(barShown, FADE_OUT_MS);
@@ -772,7 +772,7 @@ export default function App({ packId }: AppProps) {
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
       {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} overPet={!dockSide && !speakingFrom} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} launcher={launcherMounted && launcherStyle !== "none" ? (aside) => <ChatLauncher ref={launcherRef} side={launcherStyle} aside={aside} leaving={!launcherShown} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
-      {runtime && barMounted && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} tucked={barTucked} leaving={!barShown} />}
+      {runtime && barMounted && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} tucked={barTucked || focusMode} focusing={focusMode} leaving={!barShown} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}
     </main>
