@@ -230,6 +230,7 @@ public/pets/                 内置角色：six-six（小祭司，默认）、gi
 | `pet.wake_up` | 无 | `PetControls` |
 | `pet.focus_toggled` | 无，开始一轮专注；专注中则在常驻气泡里问要不要停 | `PetControls`、`PetSpeech`（气泡按钮） |
 | `pet.focus_badge_clicked` | 无，点了脚下的专注或休息倒计时 | `PetSpeech` |
+| `pet.drop_refused` | 无，专注时有东西拖到宠物身上（光标只显示禁止，宠物说一句原因；一次拖动最多说一次） | `App`（`usePetDrop`） |
 | `pet.action.started` | `{ actionId }` | `ActionController` |
 | `pet.action.completed` | `{ actionId }` | `ActionController` |
 | `pet.say` | `{ text }`，气泡里显示的一句话 | `PetRuntime.say()` |

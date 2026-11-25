@@ -280,6 +280,8 @@ export interface PetEvents {
   "pet.focus_stopped": Record<string, never>;
   /** A focus round ran to its end. */
   "pet.focus_completed": Record<string, never>;
+  /** Something was dragged onto the pet while it takes nothing (a focus round): the cursor alone did not say why. */
+  "pet.drop_refused": Record<string, never>;
   /**
    * A greeting the pet should call out, coming out to meet the user.
    * `offerMove`: earlier reminders are still open; the pet offers to move them to today.

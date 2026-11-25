@@ -49,13 +49,14 @@ const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION]);
 
 /** What the pet says around a focus round. Shown in the speech bubble. */
 const FOCUS_LINES = {
-  started: (minutes: number) => `好，我陪你专注 ${minutes} 分钟！`,
+  started: (minutes: number) => `好，我陪你专注 ${minutes} 分钟。`,
   askStop: (minutes: number) => `已经专注 ${minutes} 分钟了，现在停下，这轮就不算了。`,
   askRest: (minutes: number) => `还能休息 ${minutes} 分钟，要提前开始下一轮吗？`,
   stopped: "好，先停一下，随时再开始。",
   finished: "专注完成！辛苦啦，起来活动一下吧～",
   interrupted: "电脑睡着时这轮专注到点了，这轮先不算，随时再开始。",
   restOver: "休息好啦，要不要再来一轮？",
+  busy: "专注中先不接东西，这一轮完了再给我吧。",
 };
 
 /** Putting an activity's line away; the other button takes the user to it. */
@@ -264,6 +265,7 @@ export class BehaviorEngine {
       bus.on("pet.focus_toggled", () => this.onFocusToggled()),
       bus.on("pet.focus_stopped", () => this.onFocusStopped()),
       bus.on("pet.focus_badge_clicked", () => this.onFocusBadgeClicked()),
+      bus.on("pet.drop_refused", () => { if (this.deps.focus.get().phase === "focusing") this.say(FOCUS_LINES.busy); }),
       bus.on("pet.alert_dismissed", () => this.dismissAlert()),
       bus.on("pet.activity_open_requested", () => this.openActivity()),
       bus.on("pet.reminders_done", () => this.answerReminders("done")),

@@ -72,7 +72,8 @@ body {
   bottom: 0;
   width: 122%;
   aspect-ratio: 640 / 204;
-  transform: translate(-50%, 44%);
+  /* Sunk 44% under the feet, but never past the top of the status row (72px over the window's bottom, 60px under the feet): at the largest size it would reach into the focus pill. */
+  transform: translate(-50%, min(44%, 50px));
 }
 .focus-aura__ripple, .focus-aura__progress { position: absolute; inset: 0; width: 100%; height: 100%; }
 /*

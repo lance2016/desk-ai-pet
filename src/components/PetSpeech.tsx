@@ -167,7 +167,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
       {codingShown && <CodingCard sessions={coding} now={codingNow} compact={shownChips.length > 0 || Boolean(tight)} />}
     </div>
   );
-  if (reply) {
+  if (reply && !standing) {
     return (
       <>
         <div ref={areaRef} className="speech-area" aria-live="polite">{launcher?.(said)}{reply}</div>

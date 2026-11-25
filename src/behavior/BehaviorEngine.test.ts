@@ -881,12 +881,21 @@ describe("focus companion", () => {
     expect(shown[shown.length - 1].text).toBeNull();
   });
 
+  it("says why it takes nothing dragged onto it during a focus round", () => {
+    const { bus, said } = setup();
+    bus.emit("pet.drop_refused", {});
+    expect(said).not.toContain("专注中先不接东西，这一轮完了再给我吧。");
+    bus.emit("pet.focus_toggled", {});
+    bus.emit("pet.drop_refused", {});
+    expect(said[said.length - 1]).toBe("专注中先不接东西，这一轮完了再给我吧。");
+  });
+
   it("runs the length chosen in settings, read when the round starts", () => {
     let minutes: FocusMinutes = 50;
     const { bus, focus, said, passSteps } = setup({ focusMinutes: () => minutes });
     bus.emit("pet.focus_toggled", {});
     minutes = 25;
-    expect(said[said.length - 1]).toBe("好，我陪你专注 50 分钟！");
+    expect(said[said.length - 1]).toBe("好，我陪你专注 50 分钟。");
     passSteps(FOCUS_CONFIG.focusMs);
     expect(focus.get().phase).toBe("focusing");
     passSteps(25 * 60_000);

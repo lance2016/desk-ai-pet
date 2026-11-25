@@ -190,7 +190,7 @@ export default function App({ packId }: AppProps) {
   const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences);
   const quickChat = useQuickChat(runtime, packId, { style: displayPreferences.chatLauncher, copyHint: displayPreferences.copyHint });
   // Nothing is handed to the pet while it keeps a focus round or is still answering.
-  usePetDrop(runtime !== null && !focusMode && !quickChat.pending, quickChat.receive);
+  usePetDrop(runtime !== null && !focusMode && !quickChat.pending, quickChat.receive, focusMode ? () => runtime?.bus.emit("pet.drop_refused", {}) : undefined);
   const quickReplyShown = quickChat.bubble;
   const launcherStyle = displayPreferences.chatLauncher;
   /** Focus leaves only the pet, its pool of light, the status row (the focus pill) and, on hover, notes and reminders on stage. */
