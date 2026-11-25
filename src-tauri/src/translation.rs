@@ -4,7 +4,10 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Default)]
-pub struct Selection(Mutex<Value>);
+pub struct Selection {
+    payload: Mutex<Value>,
+    reading: AtomicBool,
+}
 
 #[derive(Default)]
 pub struct SelectionFloat {
@@ -46,14 +49,18 @@ fn work_area_at(app: &AppHandle, point: (f64, f64)) -> Option<crate::Area> {
 
 #[cfg(target_os = "macos")]
 mod accessibility {
+    use objc2_app_kit::NSRunningApplication;
     use std::ffi::{c_char, c_void, CStr};
     use std::ptr;
+    use std::time::{Duration, Instant};
+
     type CF = *const c_void;
     #[link(name = "ApplicationServices", kind = "framework")]
     unsafe extern "C" {
         fn AXIsProcessTrusted() -> bool;
         fn AXUIElementCreateSystemWide() -> CF;
         fn AXUIElementCopyAttributeValue(element: CF, attribute: CF, value: *mut CF) -> i32;
+        fn AXUIElementCopyParameterizedAttributeValue(element: CF, attribute: CF, parameter: CF, value: *mut CF) -> i32;
         fn AXUIElementGetPid(element: CF, pid: *mut i32) -> i32;
         fn AXUIElementSetMessagingTimeout(element: CF, seconds: f32) -> i32;
     }
@@ -67,60 +74,112 @@ mod accessibility {
         fn CFStringGetMaximumSizeForEncoding(length: isize, encoding: u32) -> isize;
         fn CFStringGetCString(value: CF, buffer: *mut c_char, size: isize, encoding: u32) -> bool;
     }
+
     const UTF8: u32 = 0x0800_0100;
-    /// How long a read may wait on the app that has the selection. The default is
-    /// about 6 seconds, and the reads run on the main thread when the shortcut is pressed.
     const AX_TIMEOUT_SECONDS: f32 = 1.0;
-    unsafe fn attribute(element: CF, name: &CStr) -> Option<CF> {
-        let key = unsafe { CFStringCreateWithCString(ptr::null(), name.as_ptr(), UTF8) };
-        if key.is_null() { return None; }
-        let mut value = ptr::null();
-        let result = unsafe { AXUIElementCopyAttributeValue(element, key, &mut value) };
-        unsafe { CFRelease(key) };
-        if result == 0 && !value.is_null() { Some(value) } else { None }
+    const CHROME_RETRY_INTERVAL: Duration = Duration::from_millis(60);
+    const CHROME_READY_WINDOW: Duration = Duration::from_millis(240);
+    const MAX_SELECTION_BYTES: usize = 16_000;
+
+    /// An owned result from a Core Foundation Create or Copy call.
+    struct OwnedCf(CF);
+    impl OwnedCf {
+        fn new(value: CF) -> Option<Self> { (!value.is_null()).then(|| Self(value)) }
     }
-    unsafe fn string(value: CF) -> Option<String> {
-        if unsafe { CFGetTypeID(value) != CFStringGetTypeID() } { return None; }
-        let length = unsafe { CFStringGetLength(value) };
-        if length > 16_000 { return None; }
-        let size = unsafe { CFStringGetMaximumSizeForEncoding(length, UTF8) } + 1;
-        if size <= 0 || size > 64_001 { return None; }
-        let mut bytes = vec![0u8; size as usize];
-        if !unsafe { CFStringGetCString(value, bytes.as_mut_ptr().cast(), size, UTF8) } { return None; }
-        unsafe { CStr::from_ptr(bytes.as_ptr().cast()) }.to_str().ok().map(str::to_owned)
+    impl Drop for OwnedCf {
+        fn drop(&mut self) { unsafe { CFRelease(self.0) }; }
     }
-    pub fn trusted() -> bool { unsafe { AXIsProcessTrusted() } }
-    pub fn selected() -> Option<String> {
-        if !trusted() { return None; }
+
+    fn attribute(element: &OwnedCf, name: &CStr, parameter: Option<&OwnedCf>) -> Option<OwnedCf> {
         unsafe {
-            let system = AXUIElementCreateSystemWide();
-            if system.is_null() { return None; }
-            // On the system-wide element this is the default for every element read after it.
-            AXUIElementSetMessagingTimeout(system, AX_TIMEOUT_SECONDS);
-            let focused = attribute(system, c"AXFocusedUIElement");
-            CFRelease(system);
-            let focused = focused?;
-            let mut pid = 0;
-            if AXUIElementGetPid(focused, &mut pid) != 0 || pid == std::process::id() as i32 {
-                CFRelease(focused);
-                return None;
-            }
-            AXUIElementSetMessagingTimeout(focused, AX_TIMEOUT_SECONDS);
-            let role = attribute(focused, c"AXRole");
-            let subrole = attribute(focused, c"AXSubrole");
-            let mut secure = false;
-            for value in [role, subrole].into_iter().flatten() {
-                secure |= string(value).is_some_and(|s| s.contains("Secure"));
-                CFRelease(value);
-            }
-            if secure { CFRelease(focused); return None; }
-            let value = attribute(focused, c"AXSelectedText");
-            CFRelease(focused);
-            let value = value?;
-            let text = string(value);
-            CFRelease(value);
-            text.filter(|s| !s.trim().is_empty() && s.len() <= 16_000)
+            let key = OwnedCf::new(CFStringCreateWithCString(ptr::null(), name.as_ptr(), UTF8))?;
+            let mut value = ptr::null();
+            let result = match parameter {
+                Some(parameter) => AXUIElementCopyParameterizedAttributeValue(element.0, key.0, parameter.0, &mut value),
+                None => AXUIElementCopyAttributeValue(element.0, key.0, &mut value),
+            };
+            if result == 0 { OwnedCf::new(value) } else { None }
         }
+    }
+
+    fn string(value: OwnedCf) -> Option<String> {
+        unsafe {
+            if CFGetTypeID(value.0) != CFStringGetTypeID() { return None; }
+            let length = CFStringGetLength(value.0);
+            if length as usize > MAX_SELECTION_BYTES { return None; }
+            let size = CFStringGetMaximumSizeForEncoding(length, UTF8) + 1;
+            if size <= 0 { return None; }
+            let mut bytes = vec![0u8; size as usize];
+            if !CFStringGetCString(value.0, bytes.as_mut_ptr().cast(), size, UTF8) { return None; }
+            CStr::from_ptr(bytes.as_ptr().cast()).to_str().ok().map(str::to_owned)
+        }
+    }
+
+    fn pid(element: &OwnedCf) -> Option<i32> {
+        let mut pid = 0;
+        (unsafe { AXUIElementGetPid(element.0, &mut pid) } == 0 && pid > 0).then_some(pid)
+    }
+
+    fn is_chrome(pid: i32) -> bool {
+        objc2::rc::autoreleasepool(|_| {
+            NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
+                .and_then(|app| app.bundleIdentifier())
+                .is_some_and(|id| {
+                    let id = id.to_string();
+                    id == "com.google.Chrome" || id.starts_with("com.google.Chrome.")
+                })
+        })
+    }
+
+    fn selection_text(value: Option<OwnedCf>) -> Option<String> {
+        value.and_then(string).filter(|s| !s.trim().is_empty() && s.len() <= MAX_SELECTION_BYTES)
+    }
+
+    pub fn trusted() -> bool { unsafe { AXIsProcessTrusted() } }
+
+    pub fn selected(from_shortcut: bool) -> Option<String> {
+        if !trusted() { return None; }
+        let system = OwnedCf::new(unsafe { AXUIElementCreateSystemWide() })?;
+        // On the system-wide element this is the default for every element read after it.
+        unsafe { AXUIElementSetMessagingTimeout(system.0, AX_TIMEOUT_SECONDS) };
+        let app = attribute(&system, c"AXFocusedApplication", None)?;
+        let source_pid = pid(&app)?;
+        if source_pid == std::process::id() as i32 { return None; }
+
+        let chrome = is_chrome(source_pid);
+        if chrome {
+            // Chromium enables its basic web accessibility tree when a client reads the app role.
+            // The renderer may need a moment to publish the updated focus and selection.
+            let _ = attribute(&app, c"AXRole", None);
+        }
+        let deadline = Instant::now() + CHROME_READY_WINDOW;
+        loop {
+            if let Some(focused) = attribute(&system, c"AXFocusedUIElement", None) {
+                if pid(&focused) != Some(source_pid) { return None; }
+                let role = attribute(&focused, c"AXRole", None).and_then(string);
+                let subrole = attribute(&focused, c"AXSubrole", None).and_then(string);
+                if [role.as_deref(), subrole.as_deref()].into_iter().flatten().any(|s| s.contains("Secure")) {
+                    return None;
+                }
+                if let Some(text) = selection_text(attribute(&focused, c"AXSelectedText", None)) {
+                    return Some(text);
+                }
+                // A Chrome webpage can expose its selection as a text marker range.
+                if chrome {
+                    if let Some(range) = attribute(&focused, c"AXSelectedTextMarkerRange", None) {
+                        if let Some(text) = selection_text(attribute(&focused, c"AXStringForTextMarkerRange", Some(&range))) {
+                            return Some(text);
+                        }
+                    }
+                }
+            }
+            if !chrome || !from_shortcut || Instant::now() >= deadline { break; }
+            std::thread::sleep(CHROME_RETRY_INTERVAL);
+        }
+        if from_shortcut {
+            log::warn!("No selection text returned by accessibility (Chrome: {chrome})");
+        }
+        None
     }
 }
 
@@ -130,7 +189,7 @@ pub const WINDOW: &str = "translation";
 /// Must be called on the main thread.
 fn show_selection(app: &AppHandle, text: Option<String>, auto: bool, result: Option<String>) {
     let status = if !selection_status() { "permission" } else if text.is_none() { "empty" } else { "ok" };
-    if let Ok(mut state) = app.state::<Selection>().0.lock() { *state = json!({"text": text.unwrap_or_default(), "status": status, "auto": auto, "result": result.unwrap_or_default()}); }
+    if let Ok(mut state) = app.state::<Selection>().payload.lock() { *state = json!({"text": text.unwrap_or_default(), "status": status, "auto": auto, "result": result.unwrap_or_default()}); }
     if let Some(window) = app.get_webview_window(WINDOW) {
         let _ = window.emit("pet://translation-open", ());
     }
@@ -155,13 +214,24 @@ pub fn selection_status() -> bool {
 /// so a selection it found is translated straight away, as the float's 翻译 does. From the menu it
 /// only opens the panel: the user may want to type something else.
 pub fn open(app: &AppHandle, auto: bool) {
-    #[cfg(target_os = "macos")]
-    let text = accessibility::selected();
-    #[cfg(not(target_os = "macos"))]
-    let text: Option<String> = None;
-    hide_selection_float(app);
-    let auto = auto && text.is_some();
-    show_selection(app, text, auto, None);
+    if app.state::<Selection>().reading.swap(true, Ordering::AcqRel) { return; }
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(target_os = "macos")]
+        let text = accessibility::selected(auto);
+        #[cfg(not(target_os = "macos"))]
+        let text: Option<String> = None;
+        let handle = app.clone();
+        if let Err(error) = app.run_on_main_thread(move || {
+            handle.state::<Selection>().reading.store(false, Ordering::Release);
+            hide_selection_float(&handle);
+            let auto = auto && text.is_some();
+            show_selection(&handle, text, auto, None);
+        }) {
+            app.state::<Selection>().reading.store(false, Ordering::Release);
+            log::warn!("Failed to schedule translation panel: {error}");
+        }
+    });
 }
 
 #[tauri::command]
@@ -169,7 +239,7 @@ pub fn open_translation(app: AppHandle) { open(&app, false); }
 
 #[tauri::command]
 pub fn take_translation_selection(state: State<'_, Selection>) -> Value {
-    state.0.lock().map(|mut value| std::mem::take(&mut *value)).unwrap_or(Value::Null)
+    state.payload.lock().map(|mut value| std::mem::take(&mut *value)).unwrap_or(Value::Null)
 }
 
 fn hide_selection_float(app: &AppHandle) {
@@ -274,7 +344,7 @@ pub fn start_selection_monitor(app: AppHandle) {
                 if selection_gesture(distance, prior) {
                     // The click after a double click, a triple click selecting the paragraph, belongs to the same gesture.
                     previous_click = Some((Instant::now(), point));
-                    let text = accessibility::selected();
+                    let text = accessibility::selected(false);
                     if text.is_some() && text == last_shown { continue; }
                     hide_selection_float(&app);
                     visible_at = None;
