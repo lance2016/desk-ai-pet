@@ -1,6 +1,6 @@
 [package]
 name = "ai-pet"
-version = "2.0.0-preview-8"
+version = "2.0.0-preview-9"
 description = "A desktop pet that lives on your screen"
 authors = ["you"]
 edition = "2024"
