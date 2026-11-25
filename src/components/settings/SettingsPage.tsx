@@ -72,7 +72,7 @@ const FIND_INTERVAL_MS = 100;
 const FIND_TRIES = 15;
 /** Other words people look a page up by, old names included. */
 const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
-  ai: "AI 对话 DeepSeek MiMo API Key 模型 语音",
+  ai: "AI 对话 DeepSeek MiMo 百炼 API Key 模型 语音",
   companion: "早安 问候 关心 勿扰 免打扰",
   tools: "划词 翻译 编码助手 Claude Code 邮箱 邮件 验证码 常用链接",
   links: "常用链接 网址 环境 域名 书签 地址",
@@ -416,10 +416,10 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "actions" && packInfo && <ActionLibrary key={packInfo.id} actions={actions} controls={baseControls} packId={packInfo.id} custom={isCustomCharacter(packInfo.id)} characterName={name || "这个角色"} canvas={packInfo.canvas} resolveAsset={resolveAsset} onActionsChanged={() => setUserActionsRevision((value) => value + 1)} onPicturesChanged={reloadCatalog} />}
 
         {section === "character" && !welcome && packInfo?.id === packId && <CharacterSettings key={packId} packId={packId} catalog={catalog} profileIcon={<span className="settings-nav__icon settings-nav__icon--characterProfile"><SettingsGlyph name="characterProfile" /></span>} onCatalogChange={reloadCatalog} onOpenProfile={() => void go("characterProfile")} onLookChange={() => setLookRevision((value) => value + 1)} />}
-        {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} />}
+        {section === "characterProfile" && packInfo?.id === packId && <CharacterProfileSettings key={packId} packId={packId} persona={persona} actions={packActions} current={catalog.find((entry) => entry.id === packId)} onCatalogChange={reloadCatalog} onLookChange={() => setLookRevision((value) => value + 1)} onOpenClones={() => void go("voices")} />}
         {section === "chat" && packInfo && <ChatSettings key={packId} packId={packId} onError={setError} />}
         {section === "skills" && <SkillList actions={chatActions} onError={setError} />}
-        {section === "ai" && <AISettings packId={packId} persona={persona} characterName={name || "这个角色"} clonesIcon={<span className="settings-nav__icon settings-nav__icon--voices"><SettingsGlyph name="voices" /></span>} onOpenClones={() => void go("voices")} />}
+        {section === "ai" && <AISettings clonesIcon={<span className="settings-nav__icon settings-nav__icon--voices"><SettingsGlyph name="voices" /></span>} onOpenClones={() => void go("voices")} />}
         {section === "voices" && <ClonedVoiceSettings onOpenAI={() => void go("ai")} />}
         {section === "memory" && <FactSettings who={name || "宠物"} />}
         {section === "prompt" && <PromptPreview packId={packId} persona={persona} actions={chatActions} onError={setError} />}

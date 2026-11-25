@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PetPersona } from "../../assets/Manifest";
 import { classifyServiceError, serviceErrorMessage } from "../../chat/serviceErrors";
 import { cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
 import { loadVoicePreferences, resetVoicePreferences, saveVoicePreferences, voiceDefaults, type VoicePreferences } from "../../preferences/VoicePreferences";
 import { CLONED_VOICE_PREFIX, PERSONA_LIMITS } from "../../types";
 import { useReadAloud } from "../chat/useReadAloud";
-import { Chevron } from "./Chevron";
 
 /** MiMo's own voices, by the language they speak. */
 export const PRESETS: readonly { label: string; voices: readonly [string, string][] }[] = [
@@ -21,13 +20,11 @@ interface Props {
   packId: string;
   persona?: PetPersona;
   characterName: string;
-  /** The icon of the cloned-voices page, drawn by the settings page. */
-  clonesIcon: ReactNode;
   onOpenClones: () => void;
 }
 
-/** 「朗读声音」: the voice the current character reads replies in, and how it sounds. Each character keeps its own. */
-export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOpenClones }: Props) {
+/** 「角色设定 › 朗读声音」: the voice the current character reads replies in, and how it sounds. Each character keeps its own. */
+export function VoiceSettings({ packId, persona, characterName, onOpenClones }: Props) {
   const [preferences, setPreferences] = useState(() => loadVoicePreferences(packId, persona));
   const [clones, setClones] = useState<ClonedVoice[] | null>(null);
   const [status, setStatus] = useState("");
@@ -76,7 +73,7 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
     <h2 className="settings-group-title">朗读声音</h2>
     <div className="settings-group">
       <div className="settings-row">
-        <div className="settings-row__body"><strong>声音</strong><span>{characterName}读回复时用，每个角色各自设置</span><q className="voice-sample">{PREVIEW_TEXT}</q></div>
+        <div className="settings-row__body"><strong>声音</strong><span>点回复下方的喇叭时，{characterName}用这个声音读。<button type="button" className="ui-link voice-clones-link" onClick={onOpenClones}>{clones?.length ? `克隆的声音（${clones.length}）` : "添加克隆的声音"}</button></span></div>
         <select className="ui-select" aria-label="声音" value={preferences.voice} onChange={(event) => update({ ...preferences, voice: event.currentTarget.value })}>
           {PRESETS.map((group) => <optgroup key={group.label} label={group.label}>{group.voices.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</optgroup>)}
           {clones && clones.length > 0 && <optgroup label="克隆的声音">{clones.map((voice) => <option key={voice.id} value={`${CLONED_VOICE_PREFIX}${voice.id}`}>{voice.name}</option>)}</optgroup>}
@@ -85,11 +82,10 @@ export function VoiceSettings({ packId, persona, characterName, clonesIcon, onOp
         <button type="button" className="ui-button ui-button--small voice-preview" aria-label={phase ? "停止试听" : "试听这个声音"} onClick={() => preview.toggle(PREVIEW_KEY, PREVIEW_TEXT)}>{previewLabel}</button>
       </div>
       <div className="settings-row voice-style">
-        <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>{cloned ? "克隆音色默认保留录音里的感觉，也可以在这里调整" : "一句话写清语速和情绪"}</span></label>
-        <textarea className="ui-textarea" id="voice-style" value={cloned && preferences.style === defaultStyle ? "" : preferences.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={cloned ? "留空保留录音音色；填写后调整语速和情绪" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ ...preferences, style: event.currentTarget.value })} />
-        <span className="voice-style__foot">{changed ? <button type="button" className="ui-link" onClick={reset}>恢复{characterName}的默认声音</button> : <span />}<small>{preferences.style.length} / {PERSONA_LIMITS.voiceStyle}</small></span>
+        <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>{cloned ? "留空就保留录音里的感觉" : "一句话写清语速和情绪"}</span></label>
+        <input className="ui-field ui-field--small" id="voice-style" value={cloned && preferences.style === defaultStyle ? "" : preferences.style} maxLength={PERSONA_LIMITS.voiceStyle} placeholder={cloned ? "留空保留录音音色" : "例如：轻快、带点笑意，语速稍慢"} onChange={(event) => update({ ...preferences, style: event.currentTarget.value })} />
+        {changed && <span className="voice-style__foot"><button type="button" className="ui-link" onClick={reset}>恢复{characterName}的默认声音</button></span>}
       </div>
-      <button type="button" className="settings-row settings-link" onClick={onOpenClones}>{clonesIcon}<span className="settings-row__body"><strong>克隆的声音</strong><span>{clones?.length ? `已有 ${clones.length} 个，录一段或选个文件再加` : "录一段或选个文件，让角色用这个声音说话"}</span></span><Chevron /></button>
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}
   </>;

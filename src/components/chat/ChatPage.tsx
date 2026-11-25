@@ -157,7 +157,8 @@ export function ChatPage({ packId }: { packId: string }) {
   /** The last failure, for the status line; cleared on the next attempt. */
   const [failure, setFailure] = useState<ChatFailure | null>(null);
   /** Where the user fixes the error on show: a settings section, or the system's microphone permission. */
-  const [errorFix, setErrorFix] = useState<"ai" | "voice" | "microphone" | null>(null);
+  /** Where "去设置" goes: a key on 「AI 服务」, the character's voice on 「角色设定」, or the system's microphone setting. */
+  const [errorFix, setErrorFix] = useState<"ai" | "characterProfile" | "microphone" | null>(null);
   /** What the last reply saved, as the AI understood it with a way to correct it, and what it could not save. */
   const [savedLines, setSavedLines] = useState<EffectLine[]>([]);
   /** Replies the user saved as notes in this window, by text, with the note they became. */
@@ -187,7 +188,7 @@ export function ChatPage({ packId }: { packId: string }) {
     console.warn(`${service} request failed`, detail);
     if (kind === "missing-key") { if (voice) setVoiceMissing(true); else { setKeyMissing(true); return; } }
     else setFailure(voice ? "voice" : kind);
-    setErrorFix(fixedInSettings(kind) ? (voice ? "voice" : "ai") : null);
+    setErrorFix(fixedInSettings(kind) ? "ai" : null);
     setError(kind === "other" && voice ? "语音识别失败，可以再识别一次，或者稍后再试。" : serviceErrorMessage(service, kind));
   };
   const startAttempt = () => { setError(""); setNotice(""); setFailure(null); setErrorFix(null); };
@@ -211,7 +212,7 @@ export function ChatPage({ packId }: { packId: string }) {
     const service = readingVoiceIsClone.current ? "CosyVoice" : "MiMo";
     console.warn(`${service} read-aloud failed`, detail);
     if (kind === "missing-key" && service === "MiMo") setVoiceMissing(true);
-    setErrorFix(isKeyProblem(kind) || kind === "voice" ? "voice" : null);
+    setErrorFix(isKeyProblem(kind) ? "ai" : kind === "voice" ? "characterProfile" : null);
     setError(service === "CosyVoice" && kind === "voice" ? detail : kind === "other" ? READ_ALOUD_FAILED : serviceErrorMessage(service, kind));
   };
   const readingVoiceIsClone = useRef(false);
@@ -550,7 +551,7 @@ export function ChatPage({ packId }: { packId: string }) {
     catch (reason) { console.error("Could not clear the chats", reason); setError("没能清除聊天记录，请再试一次。"); }
   };
   const status = chatStatus({ keyMissing, pending: pending || answeredElsewhere, recording, transcribing, failure });
-  // DeepSeek, MiMo, and CosyVoice keys all live on the "AI 服务" page.
+  // DeepSeek, MiMo, and CosyVoice keys all live on the "AI 服务" page; each character's voice on its "角色设定".
   const openSettingsAt = (section: SettingsSection) => void petWindow.openSettings(section).catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
   const openSettings = () => openSettingsAt("ai");
   const toggleRecording = () => {
@@ -560,7 +561,7 @@ export function ChatPage({ packId }: { packId: string }) {
   };
   const fixError = () => {
     if (errorFix === "microphone") void systemPlatform.openMicrophoneSettings().catch((reason: unknown) => console.error("Could not open microphone settings", reason));
-    else if (errorFix) openSettings();
+    else if (errorFix) openSettingsAt(errorFix);
   };
   // Nothing until the character loads, so the default picture does not flash before a custom one.
   const avatar = personaReady ? pictureFor(look.avatar, images) : null;

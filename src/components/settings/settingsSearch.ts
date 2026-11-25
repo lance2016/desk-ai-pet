@@ -16,10 +16,10 @@ export interface SearchEntry {
  */
 export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "character", title: "全部角色", keywords: "切换角色 换角色 我的角色" },
-  { section: "character", title: "新建角色", keywords: "自己的角色 创建" },
+  { section: "character", title: "新建角色…", keywords: "自己的角色 创建 新建角色" },
   { section: "character", title: "导入角色包", keywords: "导入" },
-  { section: "character", title: "导出当前角色", keywords: "导出 分享" },
-  { section: "characterProfile", title: "当前角色", keywords: "名字 改名" },
+  { section: "characterProfile", title: "导出角色包", keywords: "导出 分享 换电脑" },
+  { section: "characterProfile", title: "名字", keywords: "改名 叫什么" },
   { section: "characterProfile", title: "性格", keywords: "人设 说话风格" },
   { section: "characterProfile", title: "形象", keywords: "头像 小人 聊天窗口" },
   { section: "characterProfile", title: "回复长度", keywords: "长短 简短 详细" },
@@ -42,9 +42,9 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "about", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 工具定义 对话规则 修改规则 debug" },
   { section: "ai", title: "小米 MiMo", keywords: "语音 语音输入 API Key 麦克风" },
   { section: "ai", title: "阿里云百炼 · CosyVoice", keywords: "克隆声音 音色复刻 TTS API Key 语音 阿里云" },
-  { section: "ai", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
-  { section: "ai", title: "声音", keywords: "音色 朗读 男声 女声 换声音 试听 克隆" },
-  { section: "ai", title: "语气", keywords: "朗读 语速 情绪 风格 音色描述" },
+  { section: "characterProfile", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
+  { section: "characterProfile", title: "声音", keywords: "音色 朗读 男声 女声 换声音 试听 克隆" },
+  { section: "characterProfile", title: "语气", keywords: "朗读 语速 情绪 风格 音色描述" },
   { section: "tools", title: "配音", keywords: "文字转语音 TTS 朗读稿子 旁白 导出音频 字幕 srt m4a wav 克隆" },
   { section: "tools", title: "右键菜单里的「配音」", keywords: "配音 开关 菜单" },
   { section: "voices", title: "添加声音", keywords: "克隆 复刻 音色 录音 自己的声音 上传 wav mp3 模型 Flash Plus 不像" },
@@ -101,13 +101,13 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
  */
 export const SEARCH_SKIPPED: readonly string[] = [
   // Ways into a page or a form that search already finds by the page or form's own name.
-  "角色设定", "新建角色…",
+  "角色设定", "新建角色",
   "右键我", "点我头旁边的小气泡", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求", "先连接阿里云百炼",
   // Titles on the developer pages, which search finds by page name only while developer mode is on.
   "系统提示词", "发给 AI 的工具",
   "联网", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "专注", "应用", "宠物",
-  "提醒", "备份", "导入与导出", "辅助功能权限", "诊断", "宠物显示", "启动", "排查问题",
+  "提醒", "备份", "导入", "辅助功能权限", "诊断", "宠物显示", "启动", "排查问题",
   // The fixed shortcuts, found through the 「快捷键」 group.
   "打开设置", "新聊天", "关闭窗口或面板", "在设置里搜索", "退出 AI Pet",
 ];

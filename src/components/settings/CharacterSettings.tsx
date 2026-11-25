@@ -1,13 +1,11 @@
-import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
-import { createCustomCharacter, DEFAULT_PACK_ID, type CatalogEntry } from "../../assets/PackCatalog";
+import { useState, type ChangeEvent, type ReactNode } from "react";
+import type { CatalogEntry } from "../../assets/PackCatalog";
 import { saveActiveCharacter } from "../../preferences/CharacterPreferences";
 import { characterName } from "../../preferences/ChatPreferences";
 import { loadChatAppearance, pictureFor } from "../../preferences/ChatAppearance";
-import { systemPlatform } from "../../platform/system";
-import { characterPackageFileName, characterPackageText, createCharacterPackage, importCharacterPackage, MAX_CHARACTER_PACKAGE_BYTES, parseCharacterPackage, renameCharacterPackage, summarizeCharacterPackage, uniqueCharacterName, type CharacterPackage, type CharacterPackageSummary } from "../../storage/CharacterPackage";
-import { PERSONA_LIMITS } from "../../types";
-import { listAppearances } from "../../appearance/AppearanceStore";
+import { importCharacterPackage, MAX_CHARACTER_PACKAGE_BYTES, parseCharacterPackage, renameCharacterPackage, summarizeCharacterPackage, uniqueCharacterName, type CharacterPackage, type CharacterPackageSummary } from "../../storage/CharacterPackage";
 import { CharacterAvatar } from "../CharacterAvatar";
+import { NewCharacterSheet } from "./NewCharacterSheet";
 import { Chevron } from "./Chevron";
 import { useChatPictures } from "./useChatPictures";
 import { Icon } from "../../ui/icons";
@@ -23,20 +21,18 @@ interface Props {
   onLookChange: () => void;
 }
 
-const EMPTY_DRAFT = { name: "", personality: "", base: DEFAULT_PACK_ID };
-const STORAGE_FULL = "没能保存：这台电脑上给 AI Pet 的存储空间满了。删掉几张自定义图片再试。";
-type Area = "list" | "create" | "transfer";
+type Area = "list" | "transfer";
 
 const kindOf = (entry: CatalogEntry) => (entry.custom ? "自建角色" : "内置角色");
 const avatarOf = (entry: CatalogEntry) => pictureFor(loadChatAppearance(entry.id).avatar, entry.actionImages);
 
 /**
  * The current character, shown like the account page in System Settings: its portrait and name on
- * top, the way into its settings, then every character to switch to, create, import or export.
+ * top, the way into its settings, then every character to switch to, create or import. Exporting one is
+ * on its own 「角色设定 › 角色管理」.
  */
 export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChange, onOpenProfile, onLookChange }: Props) {
   const [creating, setCreating] = useState(false);
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [message, setMessage] = useState<{ area: Area; text: string } | null>(null);
   const [transferBusy, setTransferBusy] = useState(false);
   const [pendingImport, setPendingImport] = useState<{ characterPackage: CharacterPackage; summary: CharacterPackageSummary; name: string } | null>(null);
@@ -52,36 +48,6 @@ export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChang
     if (id === packId) return;
     try { saveActiveCharacter(id); }
     catch (reason) { console.error("Could not switch characters", reason); say("list", "没能切换角色，请再试一次。"); }
-  };
-
-  const create = (event: FormEvent) => {
-    event.preventDefault();
-    try {
-      const character = createCustomCharacter({ base: draft.base, name: draft.name, personality: draft.personality });
-      onCatalogChange();
-      setCreating(false);
-      setDraft(EMPTY_DRAFT);
-      setMessage(null);
-      saveActiveCharacter(character.id);
-    } catch (reason) {
-      console.error("Could not create the character", reason);
-      const text = String(reason);
-      say("create", text.includes("At most") ? "角色数量已经到上限了，先删掉一个不用的角色。" : text.includes("ZodError") || text.includes("name") ? `名字要 1 到 ${PERSONA_LIMITS.name} 个字。` : STORAGE_FULL);
-    }
-  };
-
-  const exportCharacter = async () => {
-    if (!current?.custom || transferBusy) return;
-    setTransferBusy(true);
-    try {
-      const characterPackage = createCharacterPackage(packId, await listAppearances());
-      const saved = await systemPlatform.saveCharacterPackage(characterPackageText(characterPackage), characterPackageFileName(currentName));
-      if (saved) say("transfer", `已导出「${currentName}」角色包。`);
-      else setMessage(null);
-    } catch (reason) {
-      console.error("Could not export the character", reason);
-      say("transfer", String(reason).includes("too large") ? "角色包超过 80 MB，删掉不需要的动作图层后再导出。" : "角色包没能导出，请换一个保存位置再试。");
-    } finally { setTransferBusy(false); }
   };
 
   const selectCharacterPackage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -134,7 +100,7 @@ export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChang
     <div className="settings-group">
       <button type="button" className="settings-row settings-link" onClick={onOpenProfile}>
         {profileIcon}
-        <span className="settings-row__body"><strong>角色设定</strong><span>名字、性格、回复方式和聊天形象</span></span>
+        <span className="settings-row__body"><strong>角色设定</strong><span>名字、性格、回复方式、声音和聊天形象</span></span>
         <Chevron />
       </button>
     </div>
@@ -151,7 +117,7 @@ export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChang
             : <span className="character-choice__switch">切换</span>}
         </button>;
       })}
-      <button type="button" className="settings-row settings-link character-choice" aria-expanded={creating} onClick={() => { setCreating(true); setMessage(null); }}>
+      <button type="button" className="settings-row settings-link character-choice" aria-haspopup="dialog" onClick={() => { setCreating(true); setMessage(null); }}>
         <span className="character-choice__portrait character-choice__add" aria-hidden="true">+</span>
         <span className="settings-row__body"><strong>新建角色…</strong><span>起名字、定性格，先借用一个现有形象</span></span>
       </button>
@@ -159,25 +125,12 @@ export function CharacterSettings({ packId, catalog, profileIcon, onCatalogChang
     <p className="settings-footnote">切换后桌面上的宠物跟着换；每个角色的设定和聊天记录分开保存</p>
     {note("list")}
 
-    {creating && <>
-      <div className="settings-section__intro settings-section__intro--spaced"><h2>新建角色</h2><p>之后可以在动作库换成自己的图</p></div>
-      <form className="settings-card ai-settings" onSubmit={create}>
-        <label className="ai-preference">名字<input className="ui-field" value={draft.name} maxLength={PERSONA_LIMITS.name} autoFocus placeholder="例如：阿橘" onChange={(event) => setDraft({ ...draft, name: event.currentTarget.value })} /></label>
-        <label className="ai-preference">性格<textarea className="ui-textarea" value={draft.personality} maxLength={PERSONA_LIMITS.personality} placeholder="例如：慵懒、爱撒娇的橘猫，说话常带“喵”" onChange={(event) => setDraft({ ...draft, personality: event.currentTarget.value })} /><small className="ai-preference__count">已写 {draft.personality.length} / {PERSONA_LIMITS.personality}</small></label>
-        {looks.length > 1 && <label className="ai-preference">形象<select className="ui-select" value={draft.base} onChange={(event) => setDraft({ ...draft, base: event.currentTarget.value })}>{looks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>}
-        <div className="ai-settings__actions"><button type="button" onClick={() => { setCreating(false); setDraft(EMPTY_DRAFT); setMessage(null); }}>取消</button><button type="submit" className="is-primary" disabled={!draft.name.trim()}>创建并切换</button></div>
-        {note("create")}
-      </form>
-    </>}
+    {creating && <NewCharacterSheet looks={looks} onCreated={onCatalogChange} onClose={() => setCreating(false)} />}
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>导入与导出</h2><p>把自建角色带到另一台电脑</p></div>
+    <h2 className="settings-group-title">导入</h2>
     <div className="settings-group">
       <div className="settings-row">
-        <div className="settings-row__body"><strong>导出当前角色</strong><span>{current?.custom ? "包含角色设定、动作图片和快捷按钮，不含聊天记录" : "内置角色不用导出"}</span></div>
-        <button type="button" className="ui-button ui-button--small" disabled={!current?.custom || transferBusy} onClick={() => void exportCharacter()}>{transferBusy ? "处理中…" : "导出角色包"}</button>
-      </div>
-      <div className="settings-row">
-        <div className="settings-row__body"><strong>导入角色包</strong><span>会新增一个角色，不影响现有的</span></div>
+        <div className="settings-row__body"><strong>导入角色包</strong><span>从另一台电脑带来的自建角色，会新增一个，不影响现有的</span></div>
         <label className={transferBusy ? "ui-button ui-button--small icon-upload is-disabled" : "ui-button ui-button--small icon-upload"}>
           <input type="file" accept="application/json,.json" disabled={transferBusy} onChange={(event) => void selectCharacterPackage(event)} />选择文件…
         </label>

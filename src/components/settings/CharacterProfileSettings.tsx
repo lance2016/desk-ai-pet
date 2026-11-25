@@ -10,6 +10,10 @@ import { PERSONA_LIMITS } from "../../types";
 import { ConfirmButton } from "../ConfirmButton";
 import { ChatLookSettings } from "./ChatLookSettings";
 import { moveRadioChoice } from "./radioKeys";
+import { VoiceSettings } from "./VoiceSettings";
+import { systemPlatform } from "../../platform/system";
+import { listAppearances } from "../../appearance/AppearanceStore";
+import { characterPackageFileName, characterPackageText, createCharacterPackage } from "../../storage/CharacterPackage";
 
 interface Props {
   packId: string;
@@ -19,18 +23,31 @@ interface Props {
   onCatalogChange: () => void;
   /** The avatar or the chat figure changed. */
   onLookChange: () => void;
+  onOpenClones: () => void;
 }
 
 const LENGTHS: readonly [ChatPreferences["length"], string][] = [["short", "简短"], ["normal", "自然"]];
 const STORAGE_FULL = "没能保存：这台电脑上给 AI Pet 的存储空间满了。删掉几张自定义图片再试。";
 
 /** The selected character's conversational style and appearance. */
-export function CharacterProfileSettings({ packId, persona, actions, current, onCatalogChange, onLookChange }: Props) {
+export function CharacterProfileSettings({ packId, persona, actions, current, onCatalogChange, onLookChange, onOpenClones }: Props) {
   const defaults = chatDefaults(persona);
   const [preferences, setPreferences] = useState(() => loadChatPreferences(packId, persona));
   const [instructions, setInstructions] = useState(() => loadChatInstructions(packId));
   const [status, setStatus] = useState("");
   const [, setLookVersion] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const exportCharacter = async () => {
+    setExporting(true);
+    try {
+      const characterPackage = createCharacterPackage(packId, await listAppearances());
+      const saved = await systemPlatform.saveCharacterPackage(characterPackageText(characterPackage), characterPackageFileName(preferences.name));
+      setStatus(saved ? `已导出「${preferences.name}」角色包。` : "");
+    } catch (reason) {
+      console.error("Could not export the character", reason);
+      setStatus(String(reason).includes("too large") ? "角色包超过 80 MB，删掉不需要的动作图层后再导出。" : "角色包没能导出，请换一个保存位置再试。");
+    } finally { setExporting(false); }
+  };
   const update = (next: ChatPreferences) => {
     setPreferences(next);
     try { saveChatPreferences(packId, next); setStatus(""); }
@@ -58,31 +75,31 @@ export function CharacterProfileSettings({ packId, persona, actions, current, on
   };
 
   return <div className="settings-section character-profile">
-    <div className="settings-section__intro"><h2>当前角色</h2><p>以下内容只影响「{preferences.name}」，不改变其他角色</p></div>
+    {/* The page title names the character; everything here is its own and leaves the others alone. */}
     <article className="settings-card ai-settings">
-      <label className="ai-preference">名字<input className="ui-field" value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => { update({ ...preferences, name: preferences.name.trim() || defaults.name }); onCatalogChange(); }} /></label>
-      <label className="ai-preference"><strong>性格</strong><textarea className="ui-textarea" value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} /><small className="ai-preference__count">{preferences.personality.length} / {PERSONA_LIMITS.personality}</small></label>
-      <div className="ai-settings__actions">
-        <ConfirmButton confirm={{ message: "改回默认的名字和性格？", detail: "你改过的名字和性格会换回默认，回复长度不变。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认</ConfirmButton>
+      <label className="ai-preference"><strong>名字</strong><input className="ui-field" value={preferences.name} maxLength={PERSONA_LIMITS.name} onChange={(event) => setPreferences({ ...preferences, name: event.currentTarget.value })} onBlur={() => { update({ ...preferences, name: preferences.name.trim() || defaults.name }); onCatalogChange(); }} /></label>
+      <div className="ai-preference">
+        <div className="ai-instructions__foot character-profile__personality-head"><label htmlFor="character-personality"><strong>性格</strong></label><span>{preferences.personality.length} / {PERSONA_LIMITS.personality}<ConfirmButton className="ui-link" confirm={{ message: "改回默认的名字和性格？", detail: "你改过的名字和性格会换回默认，回复长度不变。", action: "恢复默认" }} onConfirm={restoreDefaults}>恢复默认</ConfirmButton></span></div>
+        <textarea className="ui-textarea" id="character-personality" value={preferences.personality} maxLength={PERSONA_LIMITS.personality} onChange={(event) => update({ ...preferences, personality: event.currentTarget.value })} />
       </div>
     </article>
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>回复方式</h2><p>调节这只角色的聊天风格</p></div>
+    <h2 className="settings-group-title">回复方式</h2>
     <div className="settings-group character-profile__replies">
       <div className="settings-row"><div className="settings-row__body"><strong>回复长度</strong><span>简短适合闲聊，自然会多解释几句</span></div><div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="回复长度">{LENGTHS.map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={preferences.length === value} className={preferences.length === value ? "is-selected" : ""} onClick={() => update({ ...preferences, length: value })}>{label}</button>)}</div></div>
       <div className="character-profile__instructions">
-        <label htmlFor="character-instructions"><strong>补充要求</strong></label>
-        <p>只对「{preferences.name}」生效，例如聊天时简短一些，讨论技术问题时详细解释。</p>
-        <textarea className="ui-textarea" id="character-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="给这只角色补充说话或回复要求" onChange={(event) => updateInstructions(event.currentTarget.value)} />
-        <div className="ai-instructions__foot"><span>自动保存</span><span>{instructions.length} / {CHAT_INSTRUCTIONS_LIMIT}</span></div>
+        <div className="ai-instructions__foot character-profile__instructions-head"><label htmlFor="character-instructions"><strong>补充要求</strong></label><span>自动保存 · {instructions.length} / {CHAT_INSTRUCTIONS_LIMIT}</span></div>
+        <textarea className="ui-textarea" id="character-instructions" value={instructions} maxLength={CHAT_INSTRUCTIONS_LIMIT} placeholder="例如：聊天时简短一些，讨论技术问题时详细解释" onChange={(event) => updateInstructions(event.currentTarget.value)} />
       </div>
     </div>
 
-    <div className="settings-section__intro settings-section__intro--spaced"><h2>形象</h2><p>聊天窗口里显示的头像和小人，只影响当前角色</p></div>
+    <VoiceSettings packId={packId} persona={persona} characterName={preferences.name} onOpenClones={onOpenClones} />
+
+    <h2 className="settings-group-title">形象</h2>
     {current && <ChatLookSettings packId={packId} actionImages={current.actionImages} onChange={() => { setLookVersion((version) => version + 1); onLookChange(); }} />}
     {isCustomCharacter(packId) && <>
-      <div className="settings-section__intro settings-section__intro--spaced"><h2>角色管理</h2></div>
-      <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>删除这个角色</strong><span>聊天记录、快捷按钮和动作图片会一起删除，不能恢复</span></div><ConfirmButton className="is-danger ui-button ui-button--small" confirm={{ message: "删除这个角色？", detail: "它的聊天记录、快捷按钮和动作图片会一起删掉，不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除…</ConfirmButton></div></div>
+      <h2 className="settings-group-title">角色管理</h2>
+      <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>导出角色包</strong><span>带到另一台电脑：设定、动作图片和快捷按钮，不含聊天记录</span></div><button type="button" className="ui-button ui-button--small" disabled={exporting} onClick={() => void exportCharacter()}>{exporting ? "正在导出…" : "导出…"}</button></div><div className="settings-row"><div className="settings-row__body"><strong>删除这个角色</strong><span>聊天记录、快捷按钮和动作图片会一起删除，不能恢复</span></div><ConfirmButton className="is-danger ui-button ui-button--small" confirm={{ message: "删除这个角色？", detail: "它的聊天记录、快捷按钮和动作图片会一起删掉，不能恢复。", action: "删除" }} onConfirm={() => void remove()}>删除…</ConfirmButton></div></div>
     </>}
     {status && <p className="ai-settings__status" role="status">{status}</p>}
   </div>;

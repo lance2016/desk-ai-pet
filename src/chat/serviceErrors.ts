@@ -38,7 +38,7 @@ export function serviceErrorMessage(service: "DeepSeek" | "MiMo" | "CosyVoice", 
     case "rejected": return "这条消息发不出去，换个说法或新开一段聊天。";
     case "moderated": return `这条内容没通过 ${service} 的审核，换个说法再试。`;
     case "running": return "上一条还在回复，稍等一下。";
-    case "voice": return "这个克隆的声音用不了，去设置里换一个声音，或者重新录一段。";
+    case "voice": return "这个克隆的声音用不了，去角色设定里换一个声音，或者重新录一段。";
     case "network": return `连不上 ${service}，检查网络后再试一次。`;
     case "other": return `${service} 出了点问题，请稍后再试。`;
   }
