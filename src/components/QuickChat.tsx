@@ -559,15 +559,17 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   // What the pet said by itself stays up, looking as it did, while the user writes an answer.
   if (!reply) return chat.answering ? <div ref={ref} className="speech-bubble">{fitSpeech(chat.answering)}</div> : null;
   const error = reply.status === "error";
+  const streaming = reply.status === "streaming";
   const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
   // One saved line fits the bubble; the rest wait in the chat window.
   const lines = reply.saved ?? [];
   const first = lines.find((line) => line.kind === "failed") ?? lines[0];
   const more = lines.length - (first ? 1 : 0);
   return (
-    <div ref={ref} className={`speech-bubble speech-bubble--reply${error ? " is-error" : ""}${reply.saved?.length || reply.fix === "settings" ? " has-extra" : ""}`} role="button" tabIndex={-1} onClick={chat.openReply}>
+    <div ref={ref} className={`speech-bubble speech-bubble--reply${error ? " is-error" : ""}${streaming ? " is-streaming" : ""}${reply.saved?.length || reply.fix === "settings" ? " has-extra" : ""}`} role="button" tabIndex={-1} onClick={chat.openReply}>
       <span className="speech-bubble__body">
-        <span ref={textRef} className="speech-bubble__text">{text}</span>
+        {/* While it comes in, the latest lines show, and a dot at the end says more is on its way. */}
+        <span ref={textRef} className="speech-bubble__text">{streaming ? <span>{text}<span className="speech-bubble__typing" aria-hidden="true" /></span> : text}</span>
         {clipped && reply.status === "done" && <small className="speech-bubble__fix">点开看完整回复</small>}
         {reply.note && <small className="speech-bubble__fix">{reply.note}</small>}
         {reply.fix === "settings" && <small className="speech-bubble__fix">点一下去设置</small>}
@@ -581,6 +583,12 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
         )}
         {more > 0 && <small className="speech-bubble__fix">还有 {more} 条，点开看全部</small>}
       </span>
+      {/* With the bar put away, its stop button went with it: the bubble has one. */}
+      {chat.pending && !chat.open && (
+        <button type="button" className="speech-bubble__stop pet-tip" aria-label="停止回复" data-tip="停止回复" onClick={(event) => { event.stopPropagation(); chat.cancel(); }}>
+          <Icon name="stop" />
+        </button>
+      )}
     </div>
   );
 }

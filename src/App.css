@@ -577,6 +577,14 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* While the reply comes in it shows its latest four lines, not its first: the words in view keep moving until it is done. */
+.speech-bubble--reply.is-streaming .speech-bubble__text { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(4 * 1.45em); }
+.speech-bubble__typing { display: inline-block; width: 6px; height: 6px; margin-left: 4px; vertical-align: middle; background: var(--ui-accent); border-radius: 50%; animation: typing-pulse 900ms ease-in-out infinite alternate; }
+@keyframes typing-pulse { from { opacity: .25; } }
+.speech-bubble__stop { flex: none; align-self: flex-end; width: 22px; height: 22px; margin: 0 -4px -2px 0; padding: 0; display: grid; place-items: center; color: var(--ui-accent-strong); background: var(--ui-accent-soft); border: 0; border-radius: 50%; cursor: pointer; transition: background-color var(--ui-duration-fast) var(--ui-ease); }
+.speech-bubble__stop svg { width: 12px; height: 12px; fill: currentColor; stroke-width: 2; }
+.speech-bubble__stop[data-hover] { background: var(--ui-fill-strong); }
+.speech-bubble__stop:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
 /* The tint is laid over the opaque surface: the dark tokens are translucent and would let the desktop through. */
 .speech-bubble--reply.is-error { color: var(--ui-danger); background: linear-gradient(var(--ui-danger-soft), var(--ui-danger-soft)), var(--ui-surface); border-color: var(--ui-border-strong); }
 .speech-bubble__body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -715,6 +723,7 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
   .speech-bubble__tile .speech-bubble__bell { animation: none; }
   /* Still shows it is waiting, just without spinning. */
   .status-chip__spinner { animation: none; border-color: var(--ui-accent); }
+  .speech-bubble__typing { animation: none; }
   .status-chip__ring-fill, button.status-chip, .coding-card { transition: none; }
   button.status-chip:active, .coding-card:active { transform: none; }
 }
