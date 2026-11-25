@@ -4,7 +4,7 @@ import { SESSION_LIMITS, type CodingSession, type PastTurn } from "./CodingSessi
 
 export const SNOOZE_MS = 30 * 60_000;
 const KEY = "ai-pet:coding-inbox-marks:v1";
-const MAX_MARKS = SESSION_LIMITS.kept * (SESSION_LIMITS.earlier + 1);
+const MAX_MARKS = SESSION_LIMITS.kept;
 const markSchema = z.object({ key: z.string().max(SESSION_LIMITS.id + 32), until: z.number().nonnegative() });
 type InboxMark = z.infer<typeof markSchema>;
 
@@ -24,7 +24,10 @@ function resultItem(session: CodingSession, { turn, endedAt, task, result }: Pas
 
 const rank = { waiting: 0, failed: 1, completed: 2 };
 
-/** Waiting follows the live turn. Read and snoozed results are tracked per round. */
+/**
+ * Waiting follows the live turn. Only the latest round of a session can wait to be read:
+ * sending the next prompt means the user has seen the ones before. Read and snoozed results are tracked per round.
+ */
 export function codingInbox(sessions: readonly CodingSession[], marks: readonly InboxMark[], now: number) {
   const byKey = new Map(marks.map(({ key, until }) => [key, until]));
   const results = new Map<string, InboxItem>();
@@ -34,10 +37,8 @@ export function codingInbox(sessions: readonly CodingSession[], marks: readonly 
     if (session.turn === "waiting" && !session.ended) {
       pending.push({ key: `waiting:${session.id}`, session, turn: "waiting", at: session.lastEventAt, task: session.task, line: session.asking });
     }
-    for (const turn of [...(session.earlier ?? []), { ...session, endedAt: session.turnEndedAt }]) {
-      const item = resultItem(session, turn);
-      if (item) results.set(item.key, item);
-    }
+    const item = resultItem(session, { ...session, endedAt: session.turnEndedAt });
+    if (item) results.set(item.key, item);
   }
   for (const item of results.values()) {
     const until = byKey.get(item.key);

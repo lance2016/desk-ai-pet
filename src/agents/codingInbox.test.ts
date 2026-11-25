@@ -35,26 +35,26 @@ describe("coding inbox", () => {
     expect(codingInbox(sessions.list(), [], NOW).pending).toMatchObject([{ turn: "completed", at: NOW, task: "跑测试", line: "测试都过了" }]);
   });
 
-  it("keeps an error whose start hook was missed when the user retries", () => {
+  it("counts earlier rounds as read once the user sends the next prompt in that session", () => {
     const sessions = new ClaudeSessions();
     const identity = { session: "pet", project: "ai-pet" };
+    sessions.report({ ...identity, event: "UserPromptSubmit", task: "写文档" }, NOW - 3);
+    sessions.report({ ...identity, event: "Stop", summary: "写好了" }, NOW - 2);
+    expect(codingInbox(sessions.list(), [], NOW).pending).toMatchObject([{ turn: "completed", line: "写好了" }]);
     sessions.report({ ...identity, event: "StopFailure", error: "rate_limit" }, NOW - 1);
     sessions.report({ ...identity, event: "UserPromptSubmit", task: "Retry" }, NOW);
-    expect(codingInbox(sessions.list(), [], NOW).pending).toMatchObject([
-      { turn: "failed", at: NOW - 1, line: "额度用完了" },
-    ]);
+    expect(codingInbox(sessions.list(), [], NOW).pending).toEqual([]);
   });
 
-  it("keeps a previous result and remembers each round separately after a reload", () => {
+  it("shows only the latest round of a session and remembers each round separately after a reload", () => {
     const storage = createMemoryStorage();
     const old = session("pet", "completed", { turnEndedAt: NOW - 1 });
     const { keys, pending: [first] } = codingInbox([old], [], NOW);
     saveInboxMark(first.key, 0, keys, storage);
+    expect(codingInbox([old], loadInboxMarks(storage), NOW).pending).toEqual([]);
 
     const current = session("pet", "completed", { turnEndedAt: NOW, earlier: [{ turn: "completed", endedAt: NOW - 1 }] });
-    const marks = loadInboxMarks(storage);
-    expect(codingInbox([current], [], NOW).pending).toHaveLength(2);
-    expect(codingInbox([current], marks, NOW).pending.map(({ at }) => at)).toEqual([NOW]);
+    expect(codingInbox([current], loadInboxMarks(storage), NOW).pending.map(({ at }) => at)).toEqual([NOW]);
   });
 
   it("restores a snoozed result at the deadline or when brought back manually", () => {
