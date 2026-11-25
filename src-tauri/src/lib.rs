@@ -580,6 +580,13 @@ const BESIDE_GAP: f64 = 84.0;
 const CASCADE_STEP: f64 = 24.0;
 /// Room between two popovers opened side by side.
 const PANEL_GAP: f64 = 12.0;
+/// Room kept between a window opened beside the pet and the edges of the usable area.
+const EDGE_GAP: f64 = 8.0;
+
+/// `area` with `by` taken off every side.
+fn inset(area: Area, by: f64) -> Area {
+    Area { x: area.x + by, y: area.y + by, width: (area.width - 2.0 * by).max(0.0), height: (area.height - 2.0 * by).max(0.0) }
+}
 
 /// Where to put a window of `size` beside the pet: on the right if there is
 /// room, else on the left, kept inside the usable area (`work`, without the
@@ -723,7 +730,7 @@ fn window_area(window: &WebviewWindow) -> Option<Area> {
 /// Moves a window beside the pet, on whichever side has room; a panel also clear of the panels shown.
 fn put_beside_pet(app: &AppHandle, window: &WebviewWindow) {
     let (Some(pet), Some(own)) = (pet_area(app), window_area(window)) else { return };
-    let Some(work) = work_area_under(app, pet) else { return };
+    let Some(work) = work_area_under(app, pet).map(|work| inset(work, EDGE_GAP)) else { return };
     let size = (own.width, own.height);
     let mut spot = beside(pet, size, work);
     if POPOVERS.contains(&window.label()) {
@@ -779,7 +786,7 @@ pub(crate) fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String
 
 #[cfg(test)]
 mod beside_tests {
-    use super::{Area, beside, cascade, place, BESIDE_GAP, CASCADE_STEP, PANEL_GAP};
+    use super::{Area, beside, cascade, inset, place, BESIDE_GAP, CASCADE_STEP, EDGE_GAP, PANEL_GAP};
 
     const WORK: Area = Area { x: 0.0, y: 25.0, width: 1440.0, height: 800.0 };
 
@@ -795,6 +802,15 @@ mod beside_tests {
         let (x, y) = beside(pet, (360.0, 520.0), WORK);
         assert_eq!(x, 1100.0 - 360.0 - BESIDE_GAP);
         assert_eq!(y, 25.0 + 800.0 - 520.0);
+    }
+
+    #[test]
+    fn keeps_off_the_edges_of_the_usable_area() {
+        let pet = Area { x: 1100.0, y: 600.0, width: 392.0, height: 384.0 };
+        let (_, y) = beside(pet, (320.0, 440.0), inset(WORK, EDGE_GAP));
+        assert_eq!(y, 25.0 + 800.0 - EDGE_GAP - 440.0);
+        let pet = Area { x: 0.0, y: 0.0, width: 100.0, height: 384.0 };
+        assert_eq!(beside(pet, (320.0, 440.0), inset(WORK, EDGE_GAP)), (100.0 + BESIDE_GAP, 25.0 + EDGE_GAP));
     }
 
     #[test]
