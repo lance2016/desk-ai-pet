@@ -44,25 +44,22 @@
   background: var(--ui-action-bg);
   border: 0;
   border-radius: var(--radius-control);
-  font-size: var(--ui-font-footnote);
+  font-size: var(--ui-font-caption);
   cursor: pointer;
 }
 .action-library__create svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-linecap: round; }
 .action-library__create:hover, .action-library__button:hover { filter: brightness(1.08); }
 .action-library__button--quiet { color: var(--accent-strong); background: var(--accent-wash); }
-/* `.settings-page button { color: inherit }` outweighs the single-class rules above; restate the text colors at its weight. */
-.settings-page .action-library__create, .settings-page .action-library__button { color: var(--ui-action-text); }
-.settings-page .action-library__button--quiet { color: var(--accent-strong); }
 
 .action-library__filters { display: flex; gap: 4px; margin: 0 0 8px; padding: 2px; overflow-x: auto; background: var(--fill); border-radius: var(--radius-row); scrollbar-width: none; }
 .action-library__filters::-webkit-scrollbar, .action-library__categories::-webkit-scrollbar { display: none; }
-.action-library__filters button { flex: none; min-height: 26px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; color: var(--label-2); background: transparent; border: 0; border-radius: var(--ui-radius-control); font-size: var(--ui-font-footnote); white-space: nowrap; cursor: pointer; }
+.action-library__filters button { flex: none; min-height: 26px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; color: var(--label-2); background: transparent; border: 0; border-radius: var(--ui-radius-control); font-size: var(--ui-font-caption); white-space: nowrap; cursor: pointer; }
 .action-library__filters button.is-selected { color: var(--label); background: var(--group); box-shadow: var(--ui-shadow-control); }
-.action-library__filters button span { color: var(--label-2); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
+.action-library__filters button span { color: var(--label-2); font-variant-numeric: tabular-nums; }
 .action-library__filters button.is-selected span { color: var(--accent-strong); }
 
 .action-library__categories { display: flex; gap: 6px; margin: 0 -2px 16px; padding: 1px 2px 4px; overflow-x: auto; scrollbar-width: none; }
-.action-library__categories button { flex: none; min-height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; color: var(--label-2); background: transparent; border: 1px solid transparent; border-radius: 12px; font-size: var(--ui-font-footnote); white-space: nowrap; cursor: pointer; }
+.action-library__categories button { flex: none; min-height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; color: var(--label-2); background: transparent; border: 1px solid transparent; border-radius: 12px; font-size: var(--ui-font-caption); white-space: nowrap; cursor: pointer; }
 .action-library__categories button:hover { color: var(--label); background: var(--fill); }
 .action-library__categories button.is-selected { color: var(--accent-strong); background: var(--accent-wash); border-color: var(--accent-ring); }
 .action-library__categories button span { color: var(--label-2); font-variant-numeric: tabular-nums; }
@@ -114,7 +111,7 @@ button.ui-link.action-library__new-link { flex: none; padding: 4px; font-size: i
 .action-tile__status.is-missing { color: var(--orange); background: var(--orange-wash); }
 .action-tile__body > p { display: -webkit-box; min-height: 30px; margin: 4px 0 6px; overflow: hidden; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .action-tile__tools { min-height: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-button.ui-link.action-tile__link { min-width: 0; padding: 2px 0; font-size: inherit; }
+button.ui-link.action-tile__link { min-width: 0; padding: 2px 0; font-size: var(--ui-font-footnote); }
 .action-tile__button { min-height: 24px; margin-left: auto; padding: 0 8px; color: var(--label); background: var(--fill); border: 0; border-radius: var(--ui-radius-control); font-size: var(--ui-font-footnote); cursor: pointer; }
 .action-tile__button:hover { background: var(--fill-strong); }
 .action-tile__button.is-primary { color: var(--ui-action-text); background: var(--ui-action-bg); }

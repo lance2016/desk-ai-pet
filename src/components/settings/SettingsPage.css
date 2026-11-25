@@ -77,7 +77,8 @@ html.settings-window, body.settings-window, body.settings-window #root { min-wid
 html.settings-window.is-native, html.is-native body.settings-window, html.is-native body.settings-window #root { background: transparent; }
 html.is-native .settings-page { --sidebar: transparent; }
 body.settings-window { user-select: none; -webkit-user-select: none; }
-.settings-page button, .settings-page input, .settings-page select, .settings-page textarea { font: inherit; color: inherit; }
+/* Buttons get the page's type and colour only where their own class gives none: `:where` keeps this reset weightless. */
+:where(.settings-page) button, .settings-page input, .settings-page select, .settings-page textarea { font: inherit; color: inherit; }
 .settings-page input, .settings-page textarea { user-select: text; -webkit-user-select: text; }
 /* Titles inside cards are medium unless a rule says otherwise; setting rows bring theirs down to regular. */
 .settings-page strong { font-weight: 500; }
@@ -226,8 +227,6 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-button-row { flex: none; display: flex; gap: 6px; }
 /* Settings rows give each part of a segmented control the same width. */
 .settings-page .ui-segmented button { min-width: 44px; }
-.settings-link { padding: 0; color: var(--accent-strong); background: none; border: 0; font-size: var(--ui-font-caption); cursor: pointer; }
-@media (prefers-color-scheme: dark) { .settings-link { color: var(--accent); } }
 /* A few words that do something right there ("恢复默认"). Not `.settings-link`, which is a whole row. */
 .settings-page .ui-link { flex: none; }
 .settings-icon-tile { flex: none; display: grid; place-items: center; width: 28px; height: 28px; color: var(--accent-strong); background: var(--accent-wash); border-radius: 7px; }
@@ -310,9 +309,7 @@ button.dock-row__body { cursor: pointer; }
 .prompt-field textarea { clear: both; height: 200px; margin-top: 8px; }
 .prompt-field__foot { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 0; }
 .prompt-field__foot span { flex: 1; min-width: 0; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.45; }
-/* Named twice over: `.settings-page button` resets colour and size with more weight than one class alone. */
-.action-editor .action-editor__prompt { flex: none; color: var(--accent-strong); font-size: var(--ui-font-caption); border-radius: var(--ui-radius-tag); }
-@media (prefers-color-scheme: dark) { .action-editor .action-editor__prompt { color: var(--accent); } }
+.action-editor .action-editor__prompt { flex: none; }
 
 /* ---------- Action editor ---------- */
 .action-editor { box-sizing: border-box; max-width: 640px; padding: 0 28px 28px; }
