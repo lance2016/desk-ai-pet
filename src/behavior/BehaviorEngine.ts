@@ -50,7 +50,7 @@ const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION]);
 /** What the pet says around a focus round. Shown in the speech bubble. */
 const FOCUS_LINES = {
   started: `好，我陪你专注 ${FOCUS_CONFIG.focusMs / 60_000} 分钟！`,
-  askStop: (minutes: number) => minutes > 0 ? `已经专注 ${minutes} 分钟了，现在停下，这轮就不算了。` : "刚开始专注，要停下吗？",
+  askStop: (minutes: number) => `已经专注 ${minutes} 分钟了，现在停下，这轮就不算了。`,
   askRest: (minutes: number) => `还能休息 ${minutes} 分钟，要提前开始下一轮吗？`,
   stopped: "好，先停一下，随时再开始。",
   finished: "专注完成！辛苦啦，起来活动一下吧～",
@@ -148,6 +148,8 @@ export const BEHAVIOR_CONFIG = {
   cheerGapMs: 10_000,
   /** Shortest time between two glances at the cursor. */
   glanceGapMs: 30_000,
+  /** A round this young stops without asking, from the countdown, the button or the menu: there is nothing yet to lose. */
+  focusFreeStopMs: 60_000,
   /** Shortest time between two looks up at a click: each click shows it landed, a burst of them does not set the pet twitching. */
   clickGlanceGapMs: 3_000,
   /** The pet sits down to write when an agent sets to work, at most this often. */
@@ -635,7 +637,7 @@ export class BehaviorEngine {
     controller.request(FOCUS_ACTION);
   }
 
-  /** From the menu: a deliberate pick, so no second press is asked for. */
+  /** The stop confirmed (or not needed, early in a round), or a rest ended from the menu. */
   private onFocusStopped(): void {
     const { state, focus } = this.deps;
     state.markInteraction(Date.now());
@@ -657,8 +659,12 @@ export class BehaviorEngine {
     if (phase === "off" || endsAt === null) return;
     const until = now + BEHAVIOR_CONFIG.focusPromptMs;
     if (phase === "focusing") {
-      const minutes = Math.floor((FOCUS_CONFIG.focusMs - (endsAt - now)) / 60_000);
-      this.focusPrompt = { text: FOCUS_LINES.askStop(minutes), choices: FOCUS_CHOICES.stop, until };
+      const focused = FOCUS_CONFIG.focusMs - (endsAt - now);
+      if (focused < BEHAVIOR_CONFIG.focusFreeStopMs) {
+        this.onFocusStopped();
+        return;
+      }
+      this.focusPrompt = { text: FOCUS_LINES.askStop(Math.floor(focused / 60_000)), choices: FOCUS_CHOICES.stop, until };
     } else {
       const minutes = Math.max(1, Math.ceil((endsAt - now) / 60_000));
       this.focusPrompt = { text: FOCUS_LINES.askRest(minutes), choices: FOCUS_CHOICES.rest, until };

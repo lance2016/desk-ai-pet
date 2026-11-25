@@ -444,7 +444,8 @@ export default function App({ packId }: AppProps) {
     sync();
     const stops = [
       runtime.focus.subscribe(sync),
-      petWindow.onFocusMenu((start) => runtime.bus.emit(start ? "pet.focus_toggled" : "pet.focus_stopped", {})),
+      // Stopping a round asks first, as the countdown and the button do (`pet.focus_toggled`); ending a rest does not.
+      petWindow.onFocusMenu((start) => runtime.bus.emit(start || runtime.focus.get().phase === "focusing" ? "pet.focus_toggled" : "pet.focus_stopped", {})),
     ];
     return () => stops.forEach((stop) => stop());
   }, [runtime]);

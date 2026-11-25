@@ -81,6 +81,7 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
       return (
         <button type="button" className="status-chip status-chip--focus pet-tip" data-tip="结束专注…" aria-label={`${chip.label}，点一下可以结束`} onClick={onFocusClick}>
           <img className="status-chip__lotus" src={LOTUS} alt="" draggable={false} />
+          <Icon name="stop" className="status-chip__stop" />
           {time}
         </button>
       );

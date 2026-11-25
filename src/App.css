@@ -428,6 +428,10 @@ button.status-chip:active { transform: scale(.97); }
 /* The focus round: the lotus and the time left, a little larger than the other pills. Clicking it asks whether to stop. */
 .status-chip--focus { gap: 6px; height: 26px; padding: 0 10px 0 8px; color: var(--ui-text); border-radius: 13px; font-size: 13px; font-weight: 500; }
 .status-chip__lotus { width: 18px; height: auto; }
+/* Pointed at, the lotus turns into a stop mark of the same size: the pill shows what a click does before its tag comes up. */
+.status-chip__stop { display: none; width: 18px; height: 18px; fill: currentColor; stroke-width: 2; }
+.status-chip--focus:is([data-hover], :focus-visible) .status-chip__lotus { display: none; }
+.status-chip--focus:is([data-hover], :focus-visible) .status-chip__stop { display: block; }
 /* While focusing the bar is gone: the row moves up to just below the pool of light. At an edge the corner rule above holds. */
 .app--focus:not(.app--docked-left, .app--docked-right) .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }

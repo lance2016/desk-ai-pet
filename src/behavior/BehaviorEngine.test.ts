@@ -867,11 +867,28 @@ describe("focus companion", () => {
     const shown: Array<string | null> = [];
     bus.on("pet.alert", ({ heading, text }) => shown.push(heading && text ? `${heading}：${text}` : text));
     bus.emit("pet.focus_toggled", {});
+    pass(2 * 60_000);
     bus.emit("pet.focus_toggled", {});
-    expect(shown).toEqual(["刚开始专注，要停下吗？"]);
+    expect(shown).toEqual(["已经专注 2 分钟了，现在停下，这轮就不算了。"]);
     pass(BEHAVIOR_CONFIG.focusPromptMs);
-    expect(shown).toEqual(["刚开始专注，要停下吗？", null]);
+    expect(shown).toEqual(["已经专注 2 分钟了，现在停下，这轮就不算了。", null]);
     expect(focus.get().phase).toBe("focusing");
+  });
+
+  it("stops at once in the first minute, with nothing yet to lose, from the countdown or the button", () => {
+    const { bus, focus, pass, said } = setup();
+    const shown: Array<string | null> = [];
+    bus.on("pet.alert", ({ text }) => shown.push(text));
+    bus.emit("pet.focus_toggled", {});
+    pass(BEHAVIOR_CONFIG.focusFreeStopMs - 1_000);
+    bus.emit("pet.focus_badge_clicked", {});
+    expect(focus.get().phase).toBe("off");
+    expect(said[said.length - 1]).toBe("好，先停一下，随时再开始。");
+    bus.emit("pet.focus_toggled", {});
+    pass(1_000);
+    bus.emit("pet.focus_toggled", {});
+    expect(focus.get().phase).toBe("off");
+    expect(shown).toEqual([]);
   });
 
   it("asks from the countdown too: stop the round, or start the next one early during the rest", () => {
@@ -894,7 +911,9 @@ describe("focus companion", () => {
   it("stops a round when the user confirms or when sent to sleep", () => {
     const first = setup();
     first.bus.emit("pet.focus_toggled", {});
+    first.pass(BEHAVIOR_CONFIG.focusFreeStopMs);
     first.bus.emit("pet.focus_toggled", {});
+    expect(first.focus.get().phase).toBe("focusing");
     first.bus.emit("pet.focus_stopped", {});
     expect(first.focus.get().phase).toBe("off");
     expect(first.controller.current?.id).toBe("idle");
@@ -907,7 +926,7 @@ describe("focus companion", () => {
     expect(second.state.get().activity).toBe("sleeping");
   });
 
-  it("stops a round or a rest at once from the menu", () => {
+  it("ends a round or a rest at once when told to stop (a confirmed stop, or the menu during a rest)", () => {
     const { bus, focus, passSteps } = setup();
     bus.emit("pet.focus_toggled", {});
     bus.emit("pet.focus_stopped", {});
@@ -1147,7 +1166,7 @@ describe("reminders", () => {
     const reminders = fakeReminders([{ id: "r1", text: "开会", remindAt: Date.now() + 1_000 }]);
     const { bus, pass } = setup({ reminders });
     bus.emit("pet.focus_toggled", {});
-    pass(1_000);
+    pass(BEHAVIOR_CONFIG.focusFreeStopMs);
     bus.emit("pet.focus_badge_clicked", {});
     bus.emit("pet.reminders_done", {});
     expect(reminders.done).toEqual([]);
