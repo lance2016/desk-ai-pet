@@ -104,6 +104,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 配音窗口 | `src-tauri/src/dubbing.rs` 的 `WINDOW`、`URL`（窗口不写进 `tauri.conf.json`，打开时现建）、`capabilities/default.json` 的 `dubbing` | `src/main.tsx` 的 `window=dubbing` 路由 |
 | 配音导出的命令名、格式请求头和长度上限 | `src/platform/dubbing.ts`（`set_dubbing_enabled`、`dubbing_export`、`dubbing_export_subtitles`、`dubbing_discard`、`FORMAT_HEADER`）、`MAX_EXPORT_SECONDS`（`src/dubbing/wav.ts`） | `src-tauri/src/dubbing.rs` 的 `FORMAT_HEADER`、`MAX_AUDIO_BYTES`，`lib.rs` 的 `invoke_handler` |
 | 常用链接图标 | `src/platform/linkIcons.ts` 的 `link_icon_page`、`link_icon_image` | `src-tauri/src/link_icons.rs`、`lib.rs` 的 `invoke_handler` |
+| 窗口伸出屏幕底部多少不用挪底栏（46px） | `--overhang`（`src/App.css`） | `FREE_OVERHANG_PX`（`src/App.tsx`，超过它底栏平时隐藏） |
 | 状态行和状态卡的位置 | `STAGE_MARGIN.bottom`（132，`stageGeometry.ts`） | `.dock-area`、`.status-row`（`src/App.css`：底栏中心在脚下 33px，状态行上沿在窗口底部往上 72px）、`.coding-card` 的高度（66px） |
 | Ghostty 定位终端 | `GHOSTTY`、`GHOSTTY_FOCUS`（`agent_hooks.rs`，用 Ghostty 脚本字典里 `terminal` 的 `tty`、`focus`，`tab` 的 `focused terminal` 和 `perform action "toggle_split_zoom"`，1.4.0 实测；没有文档承诺不变） | Ghostty 的 `Ghostty.sdef`；`src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`（没有它系统不弹授权） |
 | 钩子的 socket 位置 | `agent_hooks.rs` 的 `IDENTIFIER`（转发时应用没启动，拿不到配置） | `tauri.conf.json` 的 `identifier` |

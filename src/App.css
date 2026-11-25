@@ -43,6 +43,7 @@ body {
   /*
    * How far the bar and the status row move up when the window hangs off the bottom of the screen.
    * The first 46px cost nothing: the coding card keeps to one line there, which leaves that much room under it.
+   * Past that the bar sits on the legs, so it hides until the mouse is on the pet (FREE_OVERHANG_PX in App.tsx).
    */
   --overhang: max(0px, var(--visible-bottom, 0px) - 46px);
 }
@@ -527,6 +528,8 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
   transition: opacity var(--ui-duration) var(--ui-ease);
 }
 .pet-bar.is-awake, .pet-bar[data-hover], .pet-bar:focus-within { opacity: 1; }
+/* Pushed up onto the legs (the window hangs off the bottom): out of sight and out of the way until the mouse is on the pet. */
+.pet-bar.is-tucked:not(.is-awake, :focus-within) { opacity: 0; pointer-events: none; }
 .pet-bar__item { position: relative; flex: none; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; color: var(--ui-accent-strong); background: var(--ui-surface); border: 1px solid var(--ui-border-strong); border-radius: 50%; box-shadow: 0 2px 8px rgba(25, 23, 35, .12); font: inherit; cursor: pointer; transform: translateY(var(--rest-y, 0px)); transition: transform var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease), box-shadow var(--ui-duration-fast) var(--ui-ease); }
 /* Every other button rests a little higher; hover and press move a button from wherever it rests. */
 .pet-bar__item:nth-child(even) { --rest-y: -4px; }

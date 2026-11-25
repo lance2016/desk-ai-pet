@@ -74,6 +74,11 @@ let fallbackNotice: string | null = null;
 const HIT_GROW_CELLS = 2;
 /** Wait for layout and the renderer to settle before measuring the mask. */
 const HIT_MASK_DELAY_MS = 30;
+/**
+ * How far the window may hang off the bottom of the screen before the bar has to move up onto the pet's legs
+ * (`--overhang` in App.css). Past it the bar hides until the mouse is on the pet.
+ */
+const FREE_OVERHANG_PX = 46;
 /** Where an element takes clicks: nowhere while it is gone or fading out (`pointer-events: none`). */
 const box = (element: Element | null | undefined): MaskRect | undefined =>
   element && getComputedStyle(element).pointerEvents !== "none" ? element.getBoundingClientRect() : undefined;
@@ -187,6 +192,8 @@ export default function App({ packId }: AppProps) {
   const launcherMounted = useLingering(launcherShown, FADE_OUT_MS);
   const barMounted = useLingering(barShown, FADE_OUT_MS);
   const barAwake = useLingering(hovered, displayPreferences.controlsLingerMs);
+  /** The bar has been pushed up onto the pet: it shows only while the mouse is there. */
+  const barTucked = insets.bottom > FREE_OVERHANG_PX;
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }
     : { width: 0, height: 0 };
@@ -674,7 +681,7 @@ export default function App({ packId }: AppProps) {
       timer = null;
       const columns = Math.ceil(window.innerWidth / HIT_CELL_PX);
       const rows = Math.ceil(window.innerHeight / HIT_CELL_PX);
-      // The bar always takes clicks, faint or not; so does its menu while it is open.
+      // The bar takes clicks whenever it shows, faint or not; so does its menu while it is open.
       const controls: MaskRect[] = barShown && controlsRef.current
         ? [controlsRef.current, controlsRef.current.querySelector(".pet-bar__menu")].flatMap((element) => box(element) ?? [])
         : [];
@@ -724,7 +731,7 @@ export default function App({ packId }: AppProps) {
       controlsElement?.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [runtime, barShown, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
+  }, [runtime, barShown, barAwake, insets, alert, speechLayout, quickChat.open, quickReplyShown, dockSide, launcherShown, launcherStyle]);
 
   // Without a pet there is no mask: let the error message take the mouse instead.
   useEffect(() => { if (loadError) maskToElement(loadErrorRef.current); }, [loadError]);
@@ -764,7 +771,7 @@ export default function App({ packId }: AppProps) {
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
       {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} overPet={!dockSide && !speakingFrom} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} launcher={launcherMounted && launcherStyle !== "none" ? (aside) => <ChatLauncher ref={launcherRef} side={launcherStyle} aside={aside} leaving={!launcherShown} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
-      {runtime && barMounted && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} leaving={!barShown} />}
+      {runtime && barMounted && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} tucked={barTucked} leaving={!barShown} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}
     </main>
