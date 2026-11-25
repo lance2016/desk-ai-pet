@@ -160,10 +160,11 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
       <div className="speech-area" aria-live="polite">
         {idleShown && idle}
         {/* --stay: how long the queue keeps the line up, so the bubble can fade out just before it goes. */}
-        {passing && !answerable && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
+        {passing && !answerable && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}>{passing}</p>}
         {passing && answerable && (
           <div key={passing} ref={alertRef} className="speech-bubble speech-bubble--passing speech-bubble--answer" role="button" tabIndex={-1} style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties} onClick={() => runtime.bus.emit("pet.chat_requested", {})}>
-            <span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}
+            {/* Said on every such line: it looks like any other until you know it can be answered. */}
+            <span>{passing}<small className="speech-bubble__answer-hint">回一句</small></span>
           </div>
         )}
         {standing && (

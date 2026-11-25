@@ -486,7 +486,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 
 **接话**：宠物自己说的话可以回，回了就是一段新聊天。`src/companion/` 不管这件事，它只负责说出来。
 
-- **入口。** `PetSpeech` 记下 `pet.greeting` 的那句话，气泡显示的正是它时可以点（`speech-bubble--answer`，加进可点击区域表），点了发 `pet.chat_requested`。`useQuickChat` 也记下这句话和时间（`Spoken`）：说完 1 分钟内聊天按钮亮着（`SPOKE_HINT_MS`，提示「回它一句」），5 分钟内（`QUICK_CHAT_CONFIG.answerWindowMs`）不管怎么打开输入条，都是在接这句话。普通的 `pet.say`（专注开始、更新提示）不能接。
+- **入口。** `PetSpeech` 记下 `pet.greeting` 的那句话，气泡显示的正是它时可以点（`speech-bubble--answer`，末尾常显小字「回一句」，加进可点击区域表），点了发 `pet.chat_requested`。`useQuickChat` 也记下这句话和时间（`Spoken`）：说完 1 分钟内聊天按钮亮着（`SPOKE_HINT_MS`，提示「回它一句」），5 分钟内（`QUICK_CHAT_CONFIG.answerWindowMs`）不管怎么打开输入条，都是在接这句话。普通的 `pet.say`（专注开始、更新提示）不能接。
 - **输入条。** 打开时这句话留在头顶，样子和刚才的气泡一样，不加按钮；占位文字变成「回某某一句…」。同时带着递来的内容时，按递内容处理，不算接话。
 - **存成什么。** 第一句发出去时新建一段聊天，开头是宠物那句话，标 `unprompted: true`（`ChatMessage`、`quickHistory`）。回复成功，或者工具已经做了事，这句话就算接过了，下次打开输入条又是新聊天；回复失败且什么都没做时，整段撤掉（`withoutLastLine`），这句话还能再接。没发就点「在聊天窗口打开」，先存一段只有这句话的聊天再打开。标题取用户的第一句，`unprompted` 的那句不算标题也不算回复（`recordThread`）。
 - **模型怎么知道。** `contextMessages()` 照旧去掉开头的 assistant 消息，这句话不作为对话发出去。`openingLine()` 取出它，经 `chatContext(…, opening)` 放进 `ChatContext.opening`，`prompt.ts` 在记忆后面加一段「你先开口的话」，标明是资料、不是指令（这句话是模型拿用户的提醒写的）。聊天窗口接着聊时走同一条路。这样做是因为没核实过 DeepSeek 接不接受以 assistant 开头的对话（印象里它的推理模型会拒绝），提示词里给一定能用。

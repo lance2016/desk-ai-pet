@@ -185,6 +185,7 @@ body {
 /* What the pet said by itself: a click answers it. */
 .speech-bubble--answer { pointer-events: auto; cursor: pointer; }
 .speech-bubble--answer[data-hover] { border-color: var(--ui-accent-ring); }
+.speech-bubble--answer[data-hover] .speech-bubble__answer-hint { text-decoration: underline; }
 .speech-bubble::after {
   content: "";
   position: absolute;
@@ -197,7 +198,8 @@ body {
   border-bottom: 1px solid var(--ui-border-strong);
   transform: translateX(-50%) rotate(45deg);
 }
-.speech-bubble__spark { color: var(--ui-accent); flex: 0 0 auto; }
+/* After a line the pet said by itself: it can be answered. A link's colour, as the whole bubble is the link. */
+.speech-bubble__answer-hint { margin-left: 6px; color: var(--ui-link); font-size: var(--ui-font-footnote); font-weight: 500; white-space: nowrap; }
 
 /* Due reminders: stays up until clicked, so it has to stand out and take the mouse. */
 .speech-bubble--alert {

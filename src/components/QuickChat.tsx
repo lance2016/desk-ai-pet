@@ -548,7 +548,7 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   }, [reply]);
   if (!reply && chat.handed) return <HandedCard chat={chat} handed={chat.handed} ref={ref} />;
   // What the pet said by itself stays up, looking as it did, while the user writes an answer.
-  if (!reply) return chat.answering ? <div ref={ref} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{fitSpeech(chat.answering)}</div> : null;
+  if (!reply) return chat.answering ? <div ref={ref} className="speech-bubble">{fitSpeech(chat.answering)}</div> : null;
   const error = reply.status === "error";
   const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
   // One saved line fits the bubble; the rest wait in the chat window.
@@ -557,7 +557,6 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   const more = lines.length - (first ? 1 : 0);
   return (
     <div ref={ref} className={`speech-bubble speech-bubble--reply${error ? " is-error" : ""}${reply.saved?.length || reply.fix === "settings" ? " has-extra" : ""}`} role="button" tabIndex={-1} onClick={chat.openReply}>
-      <span className="speech-bubble__spark" aria-hidden="true">✦</span>
       <span className="speech-bubble__body">
         <span ref={textRef} className="speech-bubble__text">{text}</span>
         {clipped && reply.status === "done" && <small className="speech-bubble__fix">点开看完整回复</small>}
