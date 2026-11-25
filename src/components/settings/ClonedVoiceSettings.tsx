@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { classifyServiceError, serviceErrorMessage } from "../../chat/serviceErrors";
 import { CLONE_MODELS, cosyvoicePlatform, type ClonedVoice } from "../../platform/cosyvoice";
 import { forgetVoice } from "../../preferences/VoicePreferences";
 import { CLONED_VOICE_PREFIX } from "../../types";
 import { ConfirmButton } from "../ConfirmButton";
+import { useReadAloud } from "../chat/useReadAloud";
 import { CLONE_MODEL_INFO, VoiceCloneSheet } from "./VoiceCloneSheet";
+import { VOICE_PREVIEW_TEXT } from "./VoiceSettings";
 
 /** Must match `MAX_VOICES` in `src-tauri/src/cloned_voices.rs`. */
 const MAX_CLONES = 10;
@@ -24,20 +27,56 @@ export function ClonedVoiceSettings({ onOpenAI }: { onOpenAI: () => void }) {
   const [adding, setAdding] = useState(false);
   const [status, setStatus] = useState("");
   const [switching, setSwitching] = useState<string | null>(null);
+  const selectedPreview = useRef("");
+  const preview = useReadAloud({
+    voice: () => ({ voice: selectedPreview.current, style: "" }),
+    onProblem: (detail) => {
+      const kind = classifyServiceError(detail);
+      console.warn("Cloned voice preview failed", kind);
+      setStatus(kind === "voice" ? detail : kind === "other" ? "试听没能完成，请稍后再试。" : serviceErrorMessage("CosyVoice", kind));
+    },
+  });
   useEffect(() => {
-    cosyvoicePlatform.listVoices().then(setVoices).catch((reason: unknown) => {
+    let disposed = false;
+    cosyvoicePlatform.listVoices(true).then((local) => {
+      if (disposed) return;
+      setVoices(local);
+      if (!local.some((voice) => voice.serviceVoiceId)) return;
+      void cosyvoicePlatform.listVoices().then((verified) => {
+        if (disposed) return;
+        const verifiedById = new Map(verified.map((voice) => [voice.id, voice]));
+        // Reconcile only rows from the original read. Keep edits made while the checks ran.
+        setVoices((current) => current?.flatMap((voice) => {
+          if (!local.includes(voice)) return [voice];
+          const updated = verifiedById.get(voice.id);
+          return updated ? [updated] : [];
+        }) ?? null);
+      }).catch(() => console.warn("Could not verify cloned voices against CosyVoice"));
+    }).catch((reason: unknown) => {
+      if (disposed) return;
       console.error("Could not list cloned voices", reason);
       setVoices([]);
-      setStatus("读不到克隆的声音，请在 AI Pet 应用里打开设置。");
+      setStatus("读不到本机的克隆声音，请重新打开此页再试。");
     });
-    cosyvoicePlatform.keyStatus().then(setKeyConfigured).catch((reason: unknown) => {
+    cosyvoicePlatform.keyStatus().then((configured) => {
+      if (!disposed) setKeyConfigured(configured);
+    }).catch((reason: unknown) => {
+      if (disposed) return;
       console.error("Could not read CosyVoice key status", reason);
       setKeyConfigured(false);
       setStatus("读不到阿里云百炼 API Key 配置，请在 AI Pet 应用里打开设置。");
     });
+    return () => { disposed = true; };
   }, []);
 
+  const audition = (voice: ClonedVoice) => {
+    setStatus("");
+    selectedPreview.current = `${CLONED_VOICE_PREFIX}${voice.id}`;
+    preview.toggle(voice.id, VOICE_PREVIEW_TEXT);
+  };
+
   const remove = async (voice: ClonedVoice) => {
+    if (preview.reading?.key === voice.id) preview.stop();
     setStatus("");
     try {
       await cosyvoicePlatform.removeVoice(voice.id);
@@ -50,11 +89,14 @@ export function ClonedVoiceSettings({ onOpenAI }: { onOpenAI: () => void }) {
     }
   };
   const switchModel = async (voice: ClonedVoice) => {
+    if (preview.reading?.key === voice.id) preview.stop();
     const label = CLONE_MODEL_INFO[otherModel(voice)].label;
     setStatus(""); setSwitching(voice.id);
     try {
       const updated = await cosyvoicePlatform.switchModel(voice.id, otherModel(voice));
-      setVoices((current) => current?.map((item) => item.id === updated.id ? updated : item) ?? null);
+      setVoices((current) => current?.some((item) => item.id === updated.id)
+        ? current.map((item) => item.id === updated.id ? updated : item)
+        : [...(current ?? []), updated]);
       setStatus(updated.serviceStatus === "DEPLOYING"
         ? `已用 ${label} 重新提交「${voice.name}」，阿里云审核或处理完成后即可试听。`
         : `已换成 ${label}：${voice.name}`);
@@ -71,20 +113,25 @@ export function ClonedVoiceSettings({ onOpenAI }: { onOpenAI: () => void }) {
     setVoices((current) => [...(current ?? []), voice]);
     setStatus(voice.serviceStatus === "DEPLOYING"
       ? `已提交「${voice.name}」的云端音色创建，阿里云审核或处理完成后即可试听。`
-      : `已添加：${voice.name}。回到「AI 服务」，在「声音」里选它`);
+      : `已添加：${voice.name}。可以直接试听，也可以在「角色设定」中选用。`);
   };
   const full = (voices?.length ?? 0) >= MAX_CLONES;
 
   return <div className="settings-section">
-    <div className="settings-section__intro"><p>用阿里云百炼 CosyVoice 创建克隆音色，所有角色共用。在「AI 服务」的「声音」里选择</p></div>
+    <div className="settings-section__intro"><p>用阿里云百炼 CosyVoice 创建克隆音色，所有角色共用。在「角色设定」的「朗读声音」里选用。</p></div>
     {keyConfigured === false && <div className="settings-group"><div className="settings-row"><div className="settings-row__body"><strong>先连接阿里云百炼</strong><span>需要中国内地（北京）地域的百炼 API Key，才能创建或删除云端音色</span></div><button type="button" className="ui-button ui-button--small" onClick={onOpenAI}>去配置</button></div></div>}
     <div className="settings-group">
+      {voices === null && <div className="settings-row" role="status"><div className="settings-row__body"><span>正在读取本机声音…</span></div></div>}
       {voices?.length === 0 && <div className="settings-row"><div className="settings-row__body"><span>还没有克隆的声音</span></div></div>}
-      {voices?.map((voice) => <div key={voice.id} className="settings-row">
-        <div className="settings-row__body"><strong>{voice.name}</strong><span>{describe(voice)}</span></div>
-        <button type="button" className="ui-button ui-button--small" disabled={!keyConfigured || switching !== null} onClick={() => void switchModel(voice)}>{switching === voice.id ? "正在换…" : `换成 ${CLONE_MODEL_INFO[otherModel(voice)].label}`}</button>
-        <ConfirmButton className="ui-button ui-button--small" disabled={Boolean(voice.serviceVoiceId && !keyConfigured) || switching === voice.id} confirm={{ message: `删除「${voice.name}」？`, detail: `${voice.serviceVoiceId ? "会从阿里云百炼删除克隆音色，并从这台电脑删除录音。" : "会从这台电脑删除原始录音。"}用它朗读的角色会换回原来的声音。`, action: "删除" }} onConfirm={() => void remove(voice)}>删除</ConfirmButton>
-      </div>)}
+      {voices?.map((voice) => {
+        const phase = preview.reading?.key === voice.id ? preview.reading.phase : null;
+        return <div key={voice.id} className="settings-row">
+          <div className="settings-row__body"><strong>{voice.name}</strong><span>{describe(voice)}</span></div>
+          <button type="button" className="ui-button ui-button--small voice-preview" aria-label={phase ? `停止试听${voice.name}` : `试听${voice.name}`} disabled={!keyConfigured || switching === voice.id} onClick={() => audition(voice)}>{phase === "preparing" ? "准备中…" : phase === "playing" ? "停止" : "试听"}</button>
+          <button type="button" className="ui-button ui-button--small" disabled={!keyConfigured || switching !== null} onClick={() => void switchModel(voice)}>{switching === voice.id ? "正在换…" : `换成 ${CLONE_MODEL_INFO[otherModel(voice)].label}`}</button>
+          <ConfirmButton className="ui-button ui-button--small" disabled={Boolean(voice.serviceVoiceId && !keyConfigured) || switching === voice.id} confirm={{ message: `删除「${voice.name}」？`, detail: `${voice.serviceVoiceId ? "会从阿里云百炼删除克隆音色，并从这台电脑删除录音。" : "会从这台电脑删除原始录音。"}用它朗读的角色会换回原来的声音。`, action: "删除" }} onConfirm={() => void remove(voice)}>删除</ConfirmButton>
+        </div>;
+      })}
       <div className="settings-row">
         <div className="settings-row__body"><strong>添加声音</strong><span>{full ? `最多 ${MAX_CLONES} 个，先删掉一个再加` : keyConfigured ? "建议录 10 到 20 秒，安静的地方、平常语速效果最好" : "配置阿里云百炼 API Key 后即可添加"}</span></div>
         <button type="button" className="ui-button ui-button--small" disabled={voices === null || full || !keyConfigured} onClick={() => { setStatus(""); setAdding(true); }}>添加…</button>

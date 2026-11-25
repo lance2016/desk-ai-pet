@@ -35,9 +35,9 @@ export const cosyvoicePlatform = {
     requireNative();
     await invoke("cosyvoice_clear_key");
   },
-  async listVoices(): Promise<ClonedVoice[]> {
+  async listVoices(localOnly = false): Promise<ClonedVoice[]> {
     requireNative();
-    return z.array(clonedVoiceSchema).parse(await invoke("cloned_voice_list"));
+    return z.array(clonedVoiceSchema).parse(await invoke("cloned_voice_list", { localOnly }));
   },
   async addVoice(name: string, base64: string, format: "wav" | "mp3", seconds: number, model: CloneModel): Promise<ClonedVoice> {
     requireNative();

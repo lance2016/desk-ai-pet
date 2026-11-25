@@ -5,7 +5,7 @@ import { spokenText } from "./spokenText";
 
 /** Waiting for the first sound, then playing it. */
 export type ReadAloudPhase = "preparing" | "playing";
-export interface ReadingReply { key: number; phase: ReadAloudPhase }
+export interface ReadingReply { key: number | string; phase: ReadAloudPhase }
 
 interface Options {
   /** The character's selected voice and how it should sound, read when a reply starts. */
@@ -21,7 +21,7 @@ interface Options {
 export function useReadAloud({ voice, onProblem }: Options) {
   const [reading, setReading] = useState<ReadingReply | null>(null);
   const request = useRef<string | null>(null);
-  const readingKey = useRef<number | null>(null);
+  const readingKey = useRef<ReadingReply["key"] | null>(null);
   const player = useRef<PcmAudioPlayer | null>(null);
   const problem = useRef(onProblem);
   problem.current = onProblem;
@@ -60,7 +60,7 @@ export function useReadAloud({ voice, onProblem }: Options) {
     };
   }, [clear]);
 
-  const toggle = useCallback((key: number, text: string) => {
+  const toggle = useCallback((key: ReadingReply["key"], text: string) => {
     if (readingKey.current === key) { stop(); return; }
     stop();
     // Created on the first click, which lets it make sound; it says when the sound starts and when it has all played.

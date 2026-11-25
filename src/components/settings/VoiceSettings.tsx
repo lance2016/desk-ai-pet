@@ -12,7 +12,7 @@ export const PRESETS: readonly { label: string; voices: readonly [string, string
   { label: "English", voices: [["Mia", "Mia · 女声"], ["Chloe", "Chloe · 女声"], ["Milo", "Milo · 男声"], ["Dean", "Dean · 男声"]] },
   { label: "其他", voices: [["mimo_default", "MiMo 默认"]] },
 ];
-const PREVIEW_TEXT = "你好呀，今天过得怎么样？忙完手头的事，记得起来走一走。";
+export const VOICE_PREVIEW_TEXT = "你好呀，今天过得怎么样？忙完手头的事，记得起来走一走。";
 const PREVIEW_KEY = 0;
 const NOT_SAVED = "声音没能保存，请再试一次。";
 
@@ -79,7 +79,7 @@ export function VoiceSettings({ packId, persona, characterName, onOpenClones }: 
           {clones && clones.length > 0 && <optgroup label="克隆的声音">{clones.map((voice) => <option key={voice.id} value={`${CLONED_VOICE_PREFIX}${voice.id}`}>{voice.name}</option>)}</optgroup>}
           {missing && <option value={preferences.voice} disabled>已删除的声音</option>}
         </select>
-        <button type="button" className="ui-button ui-button--small voice-preview" aria-label={phase ? "停止试听" : "试听这个声音"} onClick={() => preview.toggle(PREVIEW_KEY, PREVIEW_TEXT)}>{previewLabel}</button>
+        <button type="button" className="ui-button ui-button--small voice-preview" aria-label={phase ? "停止试听" : "试听这个声音"} onClick={() => preview.toggle(PREVIEW_KEY, VOICE_PREVIEW_TEXT)}>{previewLabel}</button>
       </div>
       <div className="settings-row voice-style">
         <label className="settings-row__body" htmlFor="voice-style"><strong>语气</strong><span>{cloned ? "留空就保留录音里的感觉" : "一句话写清语速和情绪"}</span></label>

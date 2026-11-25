@@ -7,7 +7,7 @@ use std::{
     io::ErrorKind,
     path::PathBuf,
     sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Manager};
 
@@ -222,34 +222,44 @@ fn add_voice(
 }
 
 /// Leaves out voices the saved API Key cannot see, such as ones made under a replaced key.
-/// Any other failure (offline, no key) keeps the voice.
+/// Refreshes readiness when available; offline voices keep their saved status.
 fn visible_voices(app: &AppHandle, voices: Vec<ClonedVoice>) -> Vec<ClonedVoice> {
-    let missing: Vec<bool> = std::thread::scope(|scope| {
+    let statuses = std::thread::scope(|scope| {
         let checks: Vec<_> = voices
             .iter()
             .map(|voice| {
                 scope.spawn(move || {
-                    voice.service_voice_id.as_deref().is_some_and(|service_voice_id| {
-                        crate::cosyvoice::voice_status(app, service_voice_id)
-                            .is_err_and(|error| error == crate::cosyvoice::MISSING_VOICE)
-                    })
+                    voice.service_voice_id.as_deref()
+                        .map(|id| crate::cosyvoice::voice_status(app, id))
                 })
             })
             .collect();
-        checks.into_iter().map(|check| check.join().unwrap_or(false)).collect()
+        checks.into_iter().map(|check| check.join().unwrap_or(None)).collect::<Vec<_>>()
     });
     voices
         .into_iter()
-        .zip(missing)
-        .filter_map(|(voice, missing)| (!missing).then_some(voice))
+        .zip(statuses)
+        .filter_map(|(mut voice, status)| {
+            match status {
+                Some(Ok(status)) => voice.service_status = Some(status),
+                Some(Err(error)) if error == crate::cosyvoice::MISSING_VOICE => return None,
+                _ => {}
+            }
+            Some(voice)
+        })
         .collect()
 }
 
 #[tauri::command]
-pub async fn cloned_voice_list(app: AppHandle) -> Result<Vec<ClonedVoice>, String> {
+pub async fn cloned_voice_list(app: AppHandle, local_only: Option<bool>) -> Result<Vec<ClonedVoice>, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        let started = Instant::now();
         let voices = read_index(&folder(&app)?)?;
-        Ok(visible_voices(&app, voices))
+        let local_only = local_only.unwrap_or(false);
+        let source = if local_only { "local" } else { "cloud-checked" };
+        let voices = if local_only { voices } else { visible_voices(&app, voices) };
+        log::info!("Loaded {} cloned voices ({source}) in {} ms", voices.len(), started.elapsed().as_millis());
+        Ok(voices)
     })
     .await
     .map_err(|_| "声音列表读取任务异常".to_owned())?
