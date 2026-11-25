@@ -1,5 +1,6 @@
 import { TranslationSettings, TranslationShortcutRow } from "./TranslationSettings";
 import { QuickChatShortcutRow } from "./QuickChatSettings";
+import { PanelShortcutRow } from "./PanelShortcutRow";
 import { ai } from "../../ai";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { appendUserActions, loadUserActions } from "../../actions/UserActions";
@@ -391,9 +392,11 @@ export function SettingsPage({ packId }: { packId: string }) {
             <div className="settings-group">
               <QuickChatShortcutRow onError={setError} />
               <TranslationShortcutRow onError={setError} />
+              <PanelShortcutRow panel="today" onError={setError} />
+              <PanelShortcutRow panel="notes" onError={setError} />
               {FIXED_SHORTCUTS.map(([title, keys]) => <div key={title} className="settings-row"><div className="settings-row__body"><strong>{title}</strong></div><kbd className="settings-row__value settings-keys">{keys}</kbd></div>)}
             </div>
-            <p className="settings-footnote">上面两个可以改，点一下再按新的组合键；其余是固定的</p>
+            <p className="settings-footnote">上面四个可以改，点一下再按新的组合键；其余是固定的</p>
           </div>
         )}
 

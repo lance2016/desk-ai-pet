@@ -2,6 +2,7 @@ import { loadSelectionFloat } from "./preferences/SelectionFloat";
 import { ai } from "./ai";
 import { translationPlatform } from "./platform/translation";
 import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
+import { loadPanelShortcut, SHORTCUT_PANELS } from "./preferences/PanelShortcuts";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent } from "react";
 import "./App.css";
 import { dueReminders, leftoverReminders, loadAgenda, markReminded, moveToToday, setAgendaItemDone, snoozeReminders, subscribeAgenda, type AgendaItem } from "./agenda/AgendaStore";
@@ -531,6 +532,19 @@ export default function App({ packId }: AppProps) {
       console.warn("Could not register the quick chat shortcut", error);
       if (shortcut) runtime.say(`${quickChatShortcutLabel(shortcut)} 被别的应用占用了，可以在设置里换一个`);
     });
+  }, [runtime]);
+
+  // The shortcuts that open the reminder and note panels, if the user recorded any.
+  useEffect(() => {
+    if (!runtime) return;
+    for (const panel of SHORTCUT_PANELS) {
+      const shortcut = loadPanelShortcut(panel);
+      if (!shortcut) continue;
+      petWindow.setPanelShortcut(panel, shortcut).catch((error: unknown) => {
+        console.warn(`Could not register the ${panel} shortcut`, error);
+        runtime.say(`${quickChatShortcutLabel(shortcut)} 被别的应用占用了，可以在设置里换一个`);
+      });
+    }
   }, [runtime]);
 
   useEffect(() => {

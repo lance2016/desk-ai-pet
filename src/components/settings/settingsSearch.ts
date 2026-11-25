@@ -80,6 +80,8 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "general", title: "快捷键", keywords: "热键 组合键 按键 键盘" },
   { section: "general", title: "打开快速聊天", keywords: "Space 输入条 叫出" },
   { section: "general", title: "翻译选中的文字", keywords: "划词翻译 翻译" },
+  { section: "general", title: "打开提醒", keywords: "提醒面板 键盘" },
+  { section: "general", title: "打开备忘", keywords: "备忘面板 键盘" },
   { section: "general", title: "总在最前面", keywords: "置顶 全屏" },
   { section: "general", title: "宠物大小", keywords: "缩放 变大 变小" },
   { section: "dock", title: "快捷按钮停留", keywords: "收起 速度 显示时间 悬停 变淡" },

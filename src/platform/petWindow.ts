@@ -45,6 +45,7 @@ const SETTINGS_SECTION_EVENT = "pet://settings-section";
 /** Must match the event and commands in src-tauri/src/quick_chat.rs. */
 const QUICK_CHAT_EVENT = "pet://quick-chat";
 const SET_QUICK_CHAT_SHORTCUT_COMMAND = "set_quick_chat_shortcut";
+const SET_PANEL_SHORTCUT_COMMAND = "set_panel_shortcut";
 const TAKE_KEYBOARD_COMMAND = "take_pet_keyboard";
 const RELEASE_KEYBOARD_COMMAND = "release_pet_keyboard";
 /** "摸摸头" in the pet menu. Must match PAT_EVENT in src-tauri/src/lib.rs. */
@@ -427,6 +428,12 @@ export const petWindow = {
   async setQuickChatShortcut(shortcut: string | null): Promise<void> {
     if (!isTauri()) return;
     await invoke(SET_QUICK_CHAT_SHORTCUT_COMMAND, { shortcut });
+  },
+
+  /** Registers the global shortcut that opens the reminder (`"today"`) or note panel beside the pet, or removes it with `null`. */
+  async setPanelShortcut(panel: "today" | "notes", shortcut: string | null): Promise<void> {
+    if (!isTauri()) return;
+    await invoke(SET_PANEL_SHORTCUT_COMMAND, { panel, shortcut });
   },
 
   /** Calls `handler` when "摸摸头" is picked in the pet menu. */

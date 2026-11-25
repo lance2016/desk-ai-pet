@@ -126,6 +126,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |
 | 快速聊天快捷键规则（必须含 ⌃ 或 ⌘、按键名） | `recordShortcut`、`KEY_CODE`（`src/preferences/QuickChatPreferences.ts`） | `parse_shortcut`（`src-tauri/src/quick_chat.rs`） |
+| 打开面板的快捷键 | `ShortcutPanel`（`src/preferences/PanelShortcuts.ts`：`today`、`notes`）、`petWindow.setPanelShortcut` | `set_panel_shortcut`、`TODAY`、`NOTES`（`quick_chat.rs`）、`lib.rs` 的 `invoke_handler` |
 | 服务报错的措辞 | `failureMessage`（`src/ai/provider.ts`）、`finishRun` 的审核提示（`src/ai/chatRun.ts`）、`src-tauri/src/llm.rs`、`mimo.rs`、`api_keys.rs` 返回给前端的文字 | `RULES`（`src/chat/serviceErrors.ts`）里的关键词：`not configured\|请先.*配置.*API Key`、Key 无效、模型名、本机 API Key、余额不足、过于频繁、服务繁忙、发不出去、`未能通过.*审核`、还在回复、网络/中断 |
 | 朗读的字数上限 | `MAX_SPOKEN_CHARS`（`src/components/chat/spokenText.ts`，按字符） | `mimo_synthesize` 的 3000 字检查（`mimo.rs`） |
 | MiMo 音色列表 | `MIMO_VOICES`（`src/types.ts`）、`PRESETS`（`VoiceSettings.tsx`，界面上的分组和男女声） | `mimo_synthesize` 里的音色名单（`mimo.rs`） |

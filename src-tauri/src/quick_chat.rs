@@ -45,22 +45,34 @@ const RESERVED_SHORTCUTS: [&str; 28] = [
 /// Longest accelerator the settings page can record, e.g. "Control+Alt+Shift+Super+BracketRight".
 const MAX_SHORTCUT_LEN: usize = 64;
 
-/// The registered shortcuts: quick chat, then translation. `0` is read by
-/// `on_shortcut` on the main thread, so it is never held while the plugin
-/// registers (which may wait on the main thread). `1` keeps two changes from
-/// interleaving and is held across the whole change.
+/// What each registered shortcut does, by its place in `Shortcuts`.
+const QUICK_CHAT: usize = 0;
+const TRANSLATION: usize = 1;
+const TODAY: usize = 2;
+const NOTES: usize = 3;
+const SLOTS: usize = 4;
+
+/// The registered shortcuts: quick chat, translation, the reminder panel and the
+/// note panel. `0` is read by `on_shortcut` on the main thread, so it is never
+/// held while the plugin registers (which may wait on the main thread). `1`
+/// keeps two changes from interleaving and is held across the whole change.
 #[derive(Default)]
-pub struct Shortcuts(Mutex<[Option<Shortcut>; 2]>, Mutex<()>);
+pub struct Shortcuts(Mutex<[Option<Shortcut>; SLOTS]>, Mutex<()>);
 
 /// Called by the shortcut plugin for every press and release.
 pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state != ShortcutState::Pressed {
         return;
     }
-    let is_translation = app.state::<Shortcuts>().0.lock().map(|slots| slots[1].as_ref() == Some(shortcut)).unwrap_or(false);
-    if is_translation {
-        crate::translation::open(app, true);
-        return;
+    let slot = app.state::<Shortcuts>().0.lock().ok().and_then(|slots| slots.iter().position(|slot| slot.as_ref() == Some(shortcut)));
+    match slot {
+        Some(TRANSLATION) => { crate::translation::open(app, true); return; }
+        Some(TODAY) | Some(NOTES) => {
+            let label = if slot == Some(TODAY) { crate::TODAY_WINDOW } else { crate::NOTES_WINDOW };
+            if let Err(error) = crate::show_beside_pet(app, label) { log::warn!("failed to open the {label} panel from its shortcut: {error}"); }
+            return;
+        }
+        _ => {}
     }
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
         return;
@@ -79,12 +91,24 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
 /// the plugin can hop to the main thread without waiting on itself.
 #[tauri::command]
 pub async fn set_quick_chat_shortcut(app: AppHandle, shortcut: Option<String>) -> Result<(), String> {
-    set_shortcut(&app, 0, shortcut)
+    set_shortcut(&app, QUICK_CHAT, shortcut)
 }
 
 #[tauri::command]
 pub async fn set_translation_shortcut(app: AppHandle, shortcut: Option<String>) -> Result<(), String> {
-    set_shortcut(&app, 1, shortcut)
+    set_shortcut(&app, TRANSLATION, shortcut)
+}
+
+/// The shortcut that opens the reminder panel (`"today"`) or the note panel
+/// (`"notes"`) beside the pet. Must match `setPanelShortcut` in `src/platform/petWindow.ts`.
+#[tauri::command]
+pub async fn set_panel_shortcut(app: AppHandle, panel: String, shortcut: Option<String>) -> Result<(), String> {
+    let index = match panel.as_str() {
+        "today" => TODAY,
+        "notes" => NOTES,
+        _ => return Err("Unknown panel".into()),
+    };
+    set_shortcut(&app, index, shortcut)
 }
 
 fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Result<(), String> {
@@ -93,7 +117,7 @@ fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Resu
     let _changing = state.1.lock().map_err(|_| "Shortcut state unavailable")?;
     let slots = *state.0.lock().map_err(|_| "Shortcut state unavailable")?;
     if slots[index] == parsed { return Ok(()); }
-    if parsed.is_some() && slots[1 - index] == parsed { return Err("Shortcut already in use".into()); }
+    if parsed.is_some() && slots.iter().enumerate().any(|(other, slot)| other != index && *slot == parsed) { return Err("Shortcut already in use".into()); }
     let manager = app.global_shortcut();
     if let Some(value) = parsed {
         manager.register(value).map_err(|error| {
@@ -108,7 +132,7 @@ fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Resu
         }
     }
     state.0.lock().map_err(|_| "Shortcut state unavailable")?[index] = parsed;
-    if index == 1 {
+    if index == TRANSLATION {
         crate::sync_translation_menu(app, shortcut.as_deref());
     }
     Ok(())

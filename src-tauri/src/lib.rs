@@ -97,8 +97,8 @@ const HIDE_PET_LABEL: &str = "隐藏宠物";
 const SHOW_PET_LABEL: &str = "显示宠物";
 const SETTINGS_WINDOW: &str = "settings";
 const CHAT_WINDOW: &str = "chat";
-const TODAY_WINDOW: &str = "today";
-const NOTES_WINDOW: &str = "notes";
+pub(crate) const TODAY_WINDOW: &str = "today";
+pub(crate) const NOTES_WINDOW: &str = "notes";
 const CODING_WINDOW: &str = "coding";
 const LINKS_WINDOW: &str = "links";
 /// The panels open side by side and stay until closed.
@@ -1154,6 +1154,7 @@ pub fn run() {
             set_pet_dnd,
             quick_chat::set_quick_chat_shortcut,
             quick_chat::set_translation_shortcut,
+            quick_chat::set_panel_shortcut,
             translation::open_translation,
             handover::take_copied,
             translation::selection_status,
