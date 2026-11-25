@@ -236,6 +236,8 @@ export function TodayPanel() {
 
   const add = (event: FormEvent) => {
     event.preventDefault();
+    // Return in an empty field is no mistake: nothing to add, nothing to say.
+    if (!adding.text.trim()) return;
     const { draft, moved } = upcoming(adding, Date.now());
     const read = readDraft(draft);
     if (typeof read === "string") { setError(read); return; }
