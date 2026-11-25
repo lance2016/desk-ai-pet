@@ -209,6 +209,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-row__body span { margin-top: 1px; color: var(--label-2); font-size: var(--row-detail-size); }
 .settings-row__value { flex: none; color: var(--label-2); font-size: var(--ui-font-caption); font-variant-numeric: tabular-nums; }
 .settings-keys { font-family: inherit; }
+.settings-row__body .skill-row__changed { display: flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--orange); }
 /* Groups that follow each other keep one gap, whichever page they are on. */
 :is(.settings-group, .settings-card) + :is(.settings-group, .settings-card) { margin-top: 12px; }
 .settings-divider { height: 1px; background: var(--separator); }
