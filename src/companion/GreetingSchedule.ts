@@ -1,7 +1,7 @@
 import { minutesOf, type QuietPreferences } from "../preferences/QuietPreferences";
 import { dateKey } from "../worklog/WorkLog";
 
-/** Good night comes this long before quiet hours start. */
+/** Good night comes this long before quiet hours start, unless the user set its own time; it is said within this long after. */
 const EVENING_LEAD_MINUTES = 30;
 /** Good morning is only said this long after quiet hours end; opening the app at 9 pm is not the start of a day. */
 const MORNING_WINDOW_MINUTES = 4 * 60;
@@ -14,7 +14,7 @@ const wrap = (minutes: number) => ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY
 /** True when `minute` is in [from, to), on a clock face that wraps at midnight. */
 const within = (minute: number, from: number, to: number) => (from <= to ? minute >= from && minute < to : minute >= from || minute < to);
 
-/** When good night is said for quiet hours starting at `start` ("HH:MM"), as "HH:MM". */
+/** When good night is said for quiet hours starting at `start` ("HH:MM"), as "HH:MM", if the user never set its own time. */
 export function eveningGreetingTime(start: string): string {
   const minute = wrap(minutesOf(start) - EVENING_LEAD_MINUTES);
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
@@ -37,18 +37,17 @@ export function greetingDay(now: number, morningTime: string): string {
  * Which greeting `now` is the time for, if any; whether it was already given is
  * not looked at. Good morning: in the few hours after its configured time, or
  * after quiet hours end if they cover that time. Good night: in the half hour
- * before quiet hours. Configured times still apply when the quiet-hours switch
- * is off.
+ * from its own time, by default the half hour before quiet hours. Configured
+ * times still apply when the quiet-hours switch is off.
  */
-export function greetingDue(now: number, hours: QuietHours, morningTime = hours.end): GreetingKind | null {
+export function greetingDue(now: number, hours: QuietHours, morningTime = hours.end, eveningTime = eveningGreetingTime(hours.start)): GreetingKind | null {
   const minute = minuteOfDay(now);
   const scheduledMorning = minutesOf(morningTime);
   const morning = hours.enabled && within(scheduledMorning, minutesOf(hours.start), minutesOf(hours.end))
     ? minutesOf(hours.end)
     : scheduledMorning;
-  const night = minutesOf(hours.start);
-  const evening = wrap(night - EVENING_LEAD_MINUTES);
-  if (within(minute, evening, night)) return "evening";
+  const evening = minutesOf(eveningTime);
+  if (within(minute, evening, wrap(evening + EVENING_LEAD_MINUTES))) return "evening";
   const morningEnds = within(wrap(morning + MORNING_WINDOW_MINUTES), morning, evening) ? wrap(morning + MORNING_WINDOW_MINUTES) : evening;
   return within(minute, morning, morningEnds) ? "morning" : null;
 }

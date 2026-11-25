@@ -31,6 +31,13 @@ describe("greeting schedule", () => {
     expect(greetingDue(at(16, 8), NIGHT, "07:00")).toBe("morning");
   });
 
+  it("says good night in the half hour from its own time, whatever the quiet hours", () => {
+    expect(greetingDue(at(16, 21, 59), NIGHT, "08:00", "22:00")).toBeNull();
+    expect(greetingDue(at(16, 22), NIGHT, "08:00", "22:00")).toBe("evening");
+    expect(greetingDue(at(16, 22, 30), NIGHT, "08:00", "22:00")).toBeNull();
+    expect(greetingDue(at(17, 0, 10), NIGHT, "08:00", "23:50")).toBe("evening");
+  });
+
   it("uses the configured times even when quiet hours are off", () => {
     expect(greetingDue(at(16, 22, 45), { ...NIGHT, enabled: false })).toBe("evening");
   });

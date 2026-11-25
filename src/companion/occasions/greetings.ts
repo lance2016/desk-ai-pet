@@ -10,8 +10,9 @@ function greeting(kind: GreetingKind, title: string, intent: string): Occasion {
     wording: "model",
     intent,
     due: ({ now, activeMs, settings, quietHours }) => {
-      if (greetingDue(now, quietHours, settings.morningTime) !== kind) return null;
+      if (greetingDue(now, quietHours, settings.morningTime, settings.eveningTime) !== kind) return null;
       if (kind === "morning" && (!settings.morningGreeting || activeMs === null)) return null;
+      if (kind === "evening" && !settings.eveningGreeting) return null;
       return { subject: greetingDay(now, settings.morningTime) };
     },
     brief: ({ now }, day) => ({

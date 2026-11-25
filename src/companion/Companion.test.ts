@@ -67,6 +67,18 @@ describe("greetings", () => {
     expect(evening.write).toHaveBeenCalledWith("跟用户道晚安，收个尾", expect.any(Array), expect.any(Number));
   });
 
+  it("keeps good night to its own switch and time", async () => {
+    const late = new Date(2026, 10, 16, 22, 40).getTime();
+    const off = setup({}, { ...PLAIN, eveningGreeting: false });
+    await off.companion.check(late, null);
+    expect(off.said).toEqual([]);
+    const moved = setup({}, { ...PLAIN, eveningTime: "21:00" });
+    await moved.companion.check(late, null);
+    expect(moved.said).toEqual([]);
+    await moved.companion.check(new Date(2026, 10, 16, 21, 10).getTime(), null);
+    expect(moved.said).toHaveLength(1);
+  });
+
   it("falls back to the template when the model fails", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { companion, texts } = setup({ write: async () => { throw new Error("offline"); } });

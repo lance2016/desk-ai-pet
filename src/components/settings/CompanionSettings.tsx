@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { TimeField } from "../TimeField";
 import { QuietSettings } from "./QuietSettings";
 import { loadCompanionPreferences, saveCompanionPreferences, type CompanionPreferences } from "../../preferences/CompanionPreferences";
@@ -9,8 +9,10 @@ import { formatReminderTime } from "../../agenda/AgendaStore";
 import { loadFocusPreferences, saveFocusPreferences } from "../../preferences/FocusPreferences";
 import { FOCUS_MINUTES, FOCUS_PLANS, type FocusMinutes } from "../../behavior/FocusTimer";
 import { moveRadioChoice } from "./radioKeys";
+import { loadQuietPreferences, subscribeQuietPreferences } from "../../preferences/QuietPreferences";
+import { eveningGreetingTime } from "../../companion/GreetingSchedule";
 
-type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp" | "careByModel";
+type Switch = "morningGreeting" | "eveningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp" | "careByModel";
 
 /** 「陪伴」: when the pet speaks up by itself (the morning greeting, the check-ins) and when it keeps quiet. */
 export function CompanionSettings({ name, onError }: { name: string; onError: (message: string | null) => void }) {
@@ -20,6 +22,9 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
   const [testStatus, setTestStatus] = useState("");
   /** Until when the user told the pet in a chat to keep to itself; null when it may speak up. */
   const [hushed, setHushed] = useState(() => hushedUntil(Date.now()));
+  /** Good night keeps to half an hour before quiet hours until the user sets its own time. */
+  const [quietStart, setQuietStart] = useState(() => loadQuietPreferences().quietHours.start);
+  useEffect(() => subscribeQuietPreferences(() => setQuietStart(loadQuietPreferences().quietHours.start)), []);
   const [focusMinutes, setFocusMinutes] = useState(() => loadFocusPreferences().minutes);
   const chooseFocus = (minutes: FocusMinutes) => {
     try { saveFocusPreferences({ minutes }); setFocusMinutes(minutes); onError(null); }
@@ -51,13 +56,14 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
     } finally { setTestBusy(false); }
   };
   return <div className="settings-section">
-    <div className="settings-section__intro"><h2>早安问候</h2><p>单独设置每天的早安时间</p></div>
+    <div className="settings-section__intro"><h2>问候</h2><p>每天各说一次，由 DeepSeek 按角色的语气来写，会产生少量费用；连不上时说一句固定的</p></div>
     <div className="settings-group">
       {toggle("morningGreeting", "每天说早安", "到这个时间后的 4 小时内，你开始用电脑时问候一次；定时勿扰时会延后",
         <TimeField label="早安时间" value={value.morningTime} disabled={!value.morningGreeting} onChange={(morningTime) => update({ ...value, morningTime })} />)}
+      {toggle("eveningGreeting", "每天说晚安", "到这个时间后的半小时内道一声晚安；定时勿扰开始后就不说了",
+        <TimeField label="晚安时间" value={value.eveningTime ?? eveningGreetingTime(quietStart)} disabled={!value.eveningGreeting} onChange={(eveningTime) => update({ ...value, eveningTime })} />)}
     </div>
-    <p className="settings-footnote">生成问候会请求一次 DeepSeek，可能产生少量费用；不可用时会显示本地问候</p>
-    <div className="settings-section__intro"><h2>关心</h2><p>{name}会在合适的时候关心你，勿扰时不出声</p></div>
+    <div className="settings-section__intro"><h2>关心</h2><p>{name}等你手停下来才开口，勿扰和专注时不出声。连着几句没人理会少说些，聊天里说「今晚别催我」就安静到明早</p></div>
     <div className="settings-group">
       {hushed !== null && <div className="settings-row">
         <div className="settings-row__body"><strong>正在安静</strong><span>你让它别催，{formatReminderTime(hushed, Date.now())} 前不主动说话；提醒照常到点</span></div>
@@ -70,7 +76,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       {toggle("headsUp", "提醒前说一声", "一次性的提醒，到点前 10 分钟先说一声；刚设不到 1 小时的不说")}
       {toggle("followUp", "回来问一句", "提醒响过后你离开了一阵，回来时顺着那件事问一句")}
       {toggle("welcomeBack", "回来打招呼", "离开 30 分钟以上再回来时，说声欢迎回来")}
-      {toggle("careByModel", "关心的话由 AI 来写", "带上今天做了什么，按角色的语气说；关掉后每次都是固定的一句")}
+      {toggle("careByModel", "关心的话由 AI 来写", "每句话请求一次 DeepSeek，带上今天专注了几轮、完成了几个提醒、下一个提醒是什么，按角色的语气说；关掉后是固定的一句，不调用 AI")}
       <div className="settings-row">
         <div className="settings-row__body"><strong>预览一句</strong><span>现在就说一次选中的这句，不占用当天的次数</span></div>
         <select className="ui-select" aria-label="要预览的话" value={tried} disabled={testBusy} onChange={(event) => setTried(event.currentTarget.value)}>{OCCASIONS.map((occasion) => <option key={occasion.id} value={occasion.id}>{occasion.title}</option>)}</select>
@@ -78,7 +84,6 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       </div>
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
     </div>
-    <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容，等你手停下来才说。连着几句没人理，它会说得少一些，摸摸它或回一句就恢复；聊天时说「今晚别催我」，它到明早都不主动说话。由 AI 来写时，每句话说之前请求一次 DeepSeek，带上今天专注了几轮、完成了几个提醒、下一个提醒是什么，「回来问一句」还带上那条提醒；关掉后不调用 AI。专注时不打扰。</p>
     <h2 className="settings-group-title">专注</h2>
     <div className="settings-group">
       <div className="settings-row">

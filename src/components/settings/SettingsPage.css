@@ -767,7 +767,6 @@ button.dock-row__body { cursor: pointer; }
 }
 
 .quiet-hours.is-off { opacity: .45; }
-.quiet-hours__note { margin: 0; padding: 0 0 12px; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.5; }
 
 .layer-editor__text { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
 .layer-editor__text label { display: flex; align-items: center; gap: 8px; }
