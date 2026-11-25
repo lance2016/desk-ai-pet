@@ -84,6 +84,8 @@ else
 fi
 
 step "Installing into /Applications"
+# Check the new bundle before the old one goes: a wrong path must not leave the user with no app at all.
+[[ -x "${BUNDLE}/Contents/MacOS/${EXECUTABLE##*/}" ]] || fail "no built app at ${BUNDLE}; the installed one is left in place"
 if pgrep -f "$EXECUTABLE" >/dev/null; then
   osascript -e "quit app \"${APP_NAME}\"" >/dev/null 2>&1 || true
   for _ in 1 2 3 4 5; do pgrep -f "$EXECUTABLE" >/dev/null || break; sleep 1; done
