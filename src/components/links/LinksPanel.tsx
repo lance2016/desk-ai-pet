@@ -237,7 +237,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
         />
       ) : (
         <>
-          <label className="ui-search links-search"><Glyph name="search" /><input ref={search} type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label>
+          <div className="links-top"><label className="ui-search links-search"><Glyph name="search" /><input ref={search} type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label></div>
           <div className="links-list" ref={scroll}>
             {results.length === 0 && <div className="today-empty"><Glyph name="globe" /><strong>{links.length ? "没有匹配的链接" : "还没有常用链接"}</strong>{links.length === 0 && <button type="button" className="ui-button ui-button--primary" onClick={() => startEdit("new")}>添加链接</button>}</div>}
             {groups.map(([name, entries], groupIndex) => (

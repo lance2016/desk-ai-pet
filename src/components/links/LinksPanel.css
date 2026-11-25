@@ -1,16 +1,13 @@
 .links-view { position: relative; min-height: 0; display: flex; flex: 1; flex-direction: column; }
-.links-header { align-items: center; }
-.links-header h1 { font-size: var(--ui-font-headline); }
-.links-panel:not(.links-panel--manager) .links-header { display: grid; grid-template-columns: 24px 1fr 24px; gap: 0; padding-inline: 16px; }
-.links-panel:not(.links-panel--manager) .links-header h1 { grid-column: 2; text-align: center; }
 .links-icon-button {
   width: 24px; height: 24px; padding: 0; flex: none; display: grid; place-items: center;
   border: 0; border-radius: var(--radius-control); background: none; color: var(--label-2); font: inherit; cursor: pointer;
 }
 .links-icon-button:hover:not(:disabled) { background: var(--fill-strong); color: var(--label); }
 .links-icon-button:disabled { opacity: .35; cursor: default; }
-.links-search { margin: 2px 16px 8px; }
-.links-list { overflow-y: auto; flex: 1; min-height: 0; padding: 0 12px 14px; }
+/* The main field, as in the other panels: its own row, a hairline under it, the list scrolling below. */
+.links-top { padding: 0 12px 12px; border-bottom: 1px solid var(--separator); }
+.links-list { overflow-y: auto; flex: 1; min-height: 0; padding: 8px 12px 16px; }
 .links-view:has(.today-hud) .links-list { padding-bottom: 50px; }
 .links-group + .links-group { margin-top: 10px; }
 .links-group__header, .links-actions { display: flex; align-items: center; justify-content: space-between; }

@@ -558,7 +558,7 @@ export function CodingPanel() {
   if (!group) {
     return (
       <main className="today-panel coding-panel ui-on-material">
-        <header className="today-header" data-tauri-drag-region><div className="today-header__titles" data-tauri-drag-region><h1 data-tauri-drag-region>Claude Code</h1></div></header>
+        <header className="today-header" data-tauri-drag-region><h1 data-tauri-drag-region>Claude Code</h1></header>
         <section className="today-list" aria-label="Claude Code 会话"><Empty hooks={hooks} /></section>
         {toast}
       </main>

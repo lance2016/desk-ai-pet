@@ -232,14 +232,12 @@ export function NotesPanel() {
   return (
     <main className="today-panel notes-panel ui-on-material">
       <header className="today-header" data-tauri-drag-region>
-        <div className="today-header__titles" data-tauri-drag-region>
-          <h1 data-tauri-drag-region>备忘</h1>
-          <p data-tauri-drag-region>点一条就能复制</p>
-        </div>
-        <span className="today-count" title={notes.length >= NEAR_FULL ? `备忘最多 ${NOTE_LIMITS.items} 条，满了会挤掉最久没改的一条` : undefined}>
-          <span aria-hidden="true">{notes.length >= NEAR_FULL ? `${notes.length}/${NOTE_LIMITS.items}` : notes.length}<small>条</small></span>
-          <span className="visually-hidden">共 {notes.length} 条{notes.length >= NEAR_FULL ? `，最多 ${NOTE_LIMITS.items} 条` : ""}</span>
-        </span>
+        <h1 data-tauri-drag-region>备忘</h1>
+        {notes.length > 0 && (
+          <span className="today-header__count" data-tauri-drag-region title={notes.length >= NEAR_FULL ? `备忘最多 ${NOTE_LIMITS.items} 条，满了会挤掉最久没改的一条` : undefined}>
+            {notes.length >= NEAR_FULL ? `${notes.length}/${NOTE_LIMITS.items}` : notes.length} 条
+          </span>
+        )}
       </header>
 
       <form className="today-add" onSubmit={add}>

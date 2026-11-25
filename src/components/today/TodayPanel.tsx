@@ -15,11 +15,6 @@ const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const UNDO_MS = 6_000;
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-function todayTitle(now: number): string {
-  const date = new Date(now);
-  return `${date.getMonth() + 1}月${date.getDate()}日 周${WEEKDAYS[date.getDay()]}`;
-}
-
 /** The next whole hour: the time a new reminder starts with. */
 function nextHour(now: number): number {
   const next = new Date(now);
@@ -334,14 +329,9 @@ export function TodayPanel() {
   return (
     <main className="today-panel ui-on-material">
       <header className="today-header" data-tauri-drag-region>
-        <div className="today-header__titles" data-tauri-drag-region>
-          <h1 data-tauri-drag-region>提醒</h1>
-          <p data-tauri-drag-region>
-            <span>{todayTitle(now)}</span>
-            {quiet && <span className="today-quiet" title="勿扰开着：到点的提醒先显示在宠物旁边的徽标上，关掉勿扰后再弹出"><Glyph name="moon" />勿扰中</span>}
-          </p>
-        </div>
-        <span className="today-count"><span aria-hidden="true">{open.length}<small>未完成</small></span><span className="visually-hidden">{open.length} 个提醒未完成</span></span>
+        <h1 data-tauri-drag-region>提醒</h1>
+        {open.length > 0 && <span className="today-header__count" data-tauri-drag-region>{open.length} 个未完成</span>}
+        {quiet && <span className="today-quiet" title="勿扰开着：到点的提醒先显示在宠物旁边的徽标上，关掉勿扰后再弹出"><Glyph name="moon" />勿扰中</span>}
       </header>
 
       <form className="today-add" onSubmit={add}>
