@@ -549,6 +549,8 @@ const STAGE_SIDE: f64 = 120.0;
 const BESIDE_GAP: f64 = 84.0;
 /// How far a popover opened over another is moved down and to the right.
 const CASCADE_STEP: f64 = 24.0;
+/// Room between two popovers opened side by side.
+const PANEL_GAP: f64 = 12.0;
 
 /// Where to put a window of `size` beside the pet: on the right if there is
 /// room, else on the left, kept inside the usable area (`work`, without the
@@ -577,16 +579,44 @@ fn cascade(start: (f64, f64), size: (f64, f64), work: Area, taken: &[(f64, f64)]
     (0..=taken.len()).map(spot).find(|spot| free(*spot)).unwrap_or_else(|| spot(0))
 }
 
+fn overlaps(a: Area, b: Area) -> bool {
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/// Where a popover of `size` opens while others are shown (`taken`). Panels differ in width, so one
+/// opened from the same side of the pet can cover another whose corner is elsewhere, close button and
+/// all: it goes at `start` only if it covers none, else in a row beside the nearest free one, never
+/// over the pet or off the usable area. With no room in the row it is cascaded off them.
+fn place(start: (f64, f64), size: (f64, f64), work: Area, pet: Area, taken: &[Area]) -> (f64, f64) {
+    let at = |(x, y): (f64, f64)| Area { x, y, width: size.0, height: size.1 };
+    let clear = |spot: (f64, f64)| !overlaps(at(spot), pet) && !taken.iter().any(|panel| overlaps(at(spot), *panel));
+    if !taken.iter().any(|panel| overlaps(at(start), *panel)) {
+        return start;
+    }
+    let inside = |(x, _): (f64, f64)| x >= work.x && x + size.0 <= work.x + work.width;
+    taken
+        .iter()
+        .flat_map(|panel| [(panel.x - size.0 - PANEL_GAP, start.1), (panel.x + panel.width + PANEL_GAP, start.1)])
+        .filter(|spot| inside(*spot) && clear(*spot))
+        .min_by(|a, b| (a.0 - start.0).abs().total_cmp(&(b.0 - start.0).abs()))
+        .unwrap_or_else(|| {
+            let corners: Vec<(f64, f64)> = taken.iter().map(|panel| (panel.x, panel.y)).collect();
+            cascade(start, size, work, &corners)
+        })
+}
+
 /// Where each shown popover other than `label` is, in logical pixels.
-fn shown_popovers(app: &AppHandle, label: &str) -> Vec<(f64, f64)> {
+fn shown_popovers(app: &AppHandle, label: &str) -> Vec<Area> {
     POPOVERS
         .iter()
         .filter(|other| **other != label)
         .filter_map(|other| app.get_webview_window(other))
         .filter(|other| other.is_visible().unwrap_or(false))
         .filter_map(|other| {
-            let position = other.outer_position().ok()?.to_logical::<f64>(other.scale_factor().ok()?);
-            Some((position.x, position.y))
+            let scale = other.scale_factor().ok()?;
+            let position = other.outer_position().ok()?.to_logical::<f64>(scale);
+            let size = other.outer_size().ok()?.to_logical::<f64>(scale);
+            Some(Area { x: position.x, y: position.y, width: size.width, height: size.height })
         })
         .collect()
 }
@@ -647,7 +677,7 @@ pub(crate) fn hand_keyboard_back(app: &AppHandle) {
 }
 
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
-/// A popover opened over others is cascaded off them; one already shown is only
+/// A popover that would cover others opens beside them (see `place`); one already shown is only
 /// brought to the front, where the user left it.
 fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     let window = app
@@ -671,7 +701,7 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
                 let size = (own.width, own.height);
                 let mut spot = beside(pet_area, size, work);
                 if popover {
-                    spot = cascade(spot, size, work, &shown_popovers(app, label));
+                    spot = place(spot, size, work, pet_area, &shown_popovers(app, label));
                 }
                 let (x, y) = spot;
                 report("place window beside the pet", window.set_position(tauri::LogicalPosition::new(x, y)));
@@ -695,7 +725,7 @@ fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod beside_tests {
-    use super::{Area, beside, cascade, BESIDE_GAP, CASCADE_STEP};
+    use super::{Area, beside, cascade, place, BESIDE_GAP, CASCADE_STEP, PANEL_GAP};
 
     const WORK: Area = Area { x: 0.0, y: 25.0, width: 1440.0, height: 800.0 };
 
@@ -722,6 +752,54 @@ mod beside_tests {
         assert_eq!(cascade(start, (360.0, 440.0), WORK, &[start, one]), (500.0 + 2.0 * CASCADE_STEP, 300.0 + 2.0 * CASCADE_STEP));
         // The spot of one closed in between is taken again.
         assert_eq!(cascade(start, (360.0, 440.0), WORK, &[one]), start);
+    }
+
+    const PET: Area = Area { x: 1100.0, y: 400.0, width: 248.0, height: 464.0 };
+
+    fn panel(spot: (f64, f64), size: (f64, f64)) -> Area {
+        Area { x: spot.0, y: spot.1, width: size.0, height: size.1 }
+    }
+
+    #[test]
+    fn opens_where_it_would_anyway_when_nothing_is_in_the_way() {
+        let start = beside(PET, (320.0, 440.0), WORK);
+        assert_eq!(place(start, (320.0, 440.0), WORK, PET, &[]), start);
+    }
+
+    #[test]
+    fn opens_beside_a_panel_of_another_width_instead_of_over_it() {
+        // The pet near the right edge: panels open on its left, where widths differ, so do their corners.
+        let reminders = panel(beside(PET, (320.0, 440.0), WORK), (320.0, 440.0));
+        let start = beside(PET, (440.0, 440.0), WORK);
+        let (x, y) = place(start, (440.0, 440.0), WORK, PET, &[reminders]);
+        assert_eq!((x, y), (reminders.x - 440.0 - PANEL_GAP, start.1));
+    }
+
+    #[test]
+    fn lines_up_a_third_panel_after_the_other_two() {
+        let first = panel(beside(PET, (320.0, 440.0), WORK), (320.0, 440.0));
+        let second = panel((first.x - 320.0 - PANEL_GAP, first.y), (320.0, 440.0));
+        let start = beside(PET, (320.0, 440.0), WORK);
+        assert_eq!(place(start, (320.0, 440.0), WORK, PET, &[first, second]).0, second.x - 320.0 - PANEL_GAP);
+    }
+
+    #[test]
+    fn never_opens_over_the_pet() {
+        // On the pet's right, the spot before the panel would be over the pet; the one after it is free.
+        let pet = Area { x: 100.0, y: 300.0, width: 248.0, height: 464.0 };
+        let first = panel(beside(pet, (320.0, 440.0), WORK), (320.0, 440.0));
+        let (x, _) = place(beside(pet, (320.0, 440.0), WORK), (320.0, 440.0), WORK, pet, &[first]);
+        assert_eq!(x, first.x + 320.0 + PANEL_GAP);
+        assert!(x >= pet.x + pet.width);
+    }
+
+    #[test]
+    fn cascades_when_there_is_no_room_in_a_row() {
+        let narrow = Area { x: 0.0, y: 25.0, width: 900.0, height: 800.0 };
+        let pet = Area { x: 600.0, y: 300.0, width: 248.0, height: 464.0 };
+        let start = beside(pet, (440.0, 440.0), narrow);
+        let first = panel(start, (440.0, 440.0));
+        assert_eq!(place(start, (440.0, 440.0), narrow, pet, &[first]), (start.0 + CASCADE_STEP, start.1 + CASCADE_STEP));
     }
 
     #[test]
