@@ -60,6 +60,10 @@ const ON_TOP_ID: &str = "on_top";
 const DND_ID: &str = "dnd";
 const QUIT_ID: &str = "quit";
 const SETTINGS_ID: &str = "settings";
+/// "关于 AI Pet" in the app menu: the settings window's 关于 page, with the version and updates.
+const ABOUT_ID: &str = "about";
+/// The settings page `ABOUT_ID` opens; one of `SECTIONS` in `src/components/settings/sections.ts`.
+const ABOUT_SECTION: &str = "about";
 const NOTES_ID: &str = "notes";
 const CODING_ID: &str = "coding";
 const LINKS_ID: &str = "links";
@@ -287,7 +291,13 @@ fn build_app_menu(app: &App) -> tauri::Result<(Menu<Wry>, MenuItem<Wry>)> {
     let settings = MenuItem::with_id(app, SETTINGS_ID, "设置…", true, Some("CmdOrCtrl+,"))?;
     let quit = MenuItem::with_id(app, QUIT_ID, "退出 AI Pet", true, Some("CmdOrCtrl+Q"))?;
     let new_chat = MenuItem::with_id(app, NEW_CHAT_ID, "新聊天", false, Some("CmdOrCtrl+N"))?;
-    let app_menu = Submenu::with_items(app, "AI Pet", true, &[&settings, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let about = MenuItem::with_id(app, ABOUT_ID, "关于 AI Pet", true, None::<&str>)?;
+    let app_menu = Submenu::with_items(
+        app,
+        "AI Pet",
+        true,
+        &[&about, &PredefinedMenuItem::separator(app)?, &settings, &PredefinedMenuItem::separator(app)?, &quit],
+    )?;
     let file = Submenu::with_items(app, "文件", true, &[&new_chat, &PredefinedMenuItem::close_window(app, Some("关闭窗口"))?])?;
     let edit = Submenu::with_items(
         app,
@@ -422,6 +432,12 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         MAIL_CODE_ID => mail_code::toggle(app),
         SETTINGS_ID => {
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
+                report("show settings", show_settings_window(app, &settings));
+            }
+        }
+        ABOUT_ID => {
+            if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
+                report("go to the about page", app.emit_to(SETTINGS_WINDOW, SETTINGS_SECTION_EVENT, ABOUT_SECTION));
                 report("show settings", show_settings_window(app, &settings));
             }
         }
