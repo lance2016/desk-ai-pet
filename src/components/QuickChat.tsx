@@ -326,11 +326,17 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
           setDraft((draft) => draft || current.typed);
           if (openRef.current) setHanded((now) => now ?? current.handed);
         } else answered(current);
+        // Stopped after it did something: kept as far as it got, with what it did, so the chat window shows the
+        // same as the bubble and a follow-up does not come after a line left unanswered.
+        const stopped = replyText.current.trim() || STOPPED_TEXT;
+        if (event.kind === "cancelled" && current.lines.length > 0) {
+          try { saveReply(packId, current, stopped); } catch (error) { console.error("Failed to save the stopped quick chat reply", error); }
+        }
         clearReplying(current.threadId);
         // What the tools did stays on show with its undo, however the reply ended.
         const saved = current.lines.length > 0 ? { saved: current.lines } : {};
         if (event.kind === "error") setReply({ ...errorReply(event.text || "回复中断"), ...saved });
-        else setReply(current.lines.length > 0 ? { text: replyText.current.trim() || STOPPED_TEXT, status: "done", ...saved } : null);
+        else setReply(current.lines.length > 0 ? { text: stopped, status: "done", ...saved } : null);
         if (event.kind === "error") runtimeRef.current?.bus.emit("pet.chat_phase", { phase: "failed" });
         return;
       }
