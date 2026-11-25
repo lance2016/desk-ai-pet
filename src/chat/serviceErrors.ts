@@ -46,3 +46,5 @@ export function serviceErrorMessage(service: "DeepSeek" | "MiMo" | "CosyVoice", 
 
 /** True when the fix is in settings rather than in waiting or the network. */
 export const isKeyProblem = (kind: ServiceError) => kind === "missing-key" || kind === "bad-key" || kind === "key-storage";
+/** True when a chat reply's failure is fixed on the AI page of settings: a key problem, or a model name the service does not know. */
+export const fixedInSettings = (kind: ServiceError) => isKeyProblem(kind) || kind === "model";

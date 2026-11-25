@@ -20,10 +20,10 @@ export interface ChatPreview { prompt: string; tools: unknown[]; sections: Promp
 
 /**
  * What a reply in progress tells the window that asked for it.
- * `effect` is something a tool did, shown as a line under the reply.
+ * `effect` is something a tool did, shown as a line under the reply; `tool` names one that starts now, by its `label`.
  */
 export type ChatEvent =
-  | { id: string; kind: "delta" | "web-progress" | "web-result" | "web-error" | "done" | "error" | "cancelled"; text: string }
+  | { id: string; kind: "delta" | "tool" | "web-progress" | "web-result" | "web-error" | "done" | "error" | "cancelled"; text: string }
   | { id: string; kind: "effect"; line: EffectLine };
 
 /** A one-off job on a piece of text: translate into Chinese ("zh") or English ("en"), or explain, summarize, polish. */

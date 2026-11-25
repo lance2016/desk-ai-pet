@@ -121,6 +121,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `COPY_HINT_MS`（`src/components/QuickChat.tsx`），`QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`、`README.md` 里写的「1 分钟」 |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
 | 弹出层关闭按钮的位置 | `tauri.conf.json` 里 `today`、`notes`、`coding`、`links`、`translation` 窗口的 `trafficLightPosition`（x 16、y 26，和标题同一行） | `--title-after-close`（`TodayPanel.css`，标题从红点后面开始）；`.coding-sidebar__title` 按它减去侧栏内边距 |
+| 聊天窗口红绿灯的位置 | `tauri.conf.json` 里 `chat` 窗口的 `trafficLightPosition`（同提醒窗口，x 16、y 26） | `html.is-native .chat-header` 的内边距（`ChatPage.css`：左边 80 让出三个按钮，上下 11 让头像和红绿灯在同一行） |
 | 提醒窗口圆角 | `tauri.conf.json` 里 `today`、`notes`、`coding`、`links`、`translation` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type
 import { ai, type EffectLine, type Skill } from "../ai";
 import { chatContext } from "../agenda/chatTools";
 import { currentChatFacts } from "../facts/FactStore";
-import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../chat/serviceErrors";
+import { classifyServiceError, fixedInSettings, serviceErrorMessage } from "../chat/serviceErrors";
 import { contextMessages, keptEffects, loadThreads, openingLine, recordThread, saveThreads } from "../chat/ChatThreads";
 import { QUICK_CHAT_CONFIG, answerable, clearReplying, markReplying, pickQuickThread, plainReply, quickHistory, replyLingerMs, withoutLastLine, type Spoken } from "../chat/QuickChat";
 import type { PetRuntime } from "../core/PetRuntime";
@@ -54,11 +54,11 @@ export interface QuickReply {
   note?: string;
 }
 
-/** A key problem sends the user to settings; a network or account problem only says what happened. */
+/** A key or model name problem sends the user to settings; a network or account problem only says what happened. */
 function errorReply(detail: string): QuickReply {
   const kind = classifyServiceError(detail);
   if (kind !== "other") console.warn("DeepSeek request failed", detail);
-  return { text: serviceErrorMessage("DeepSeek", kind), status: "error", fix: isKeyProblem(kind) ? "settings" : undefined };
+  return { text: serviceErrorMessage("DeepSeek", kind), status: "error", fix: fixedInSettings(kind) ? "settings" : undefined };
 }
 
 const MISSING_KEY_REPLY = errorReply("API key is not configured");
@@ -316,6 +316,8 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
       if (!current || event.id !== current.id) return;
       if (event.kind === "delta") { replyText.current += event.text; setReply({ text: replyText.current, status: "streaming" }); return; }
       if (event.kind === "effect") { current.lines = [...current.lines, event.line]; return; }
+      // Until the first words, the bubble says which tool is at work instead of "正在想…".
+      if (event.kind === "tool") { if (!replyText.current) setReply({ text: `${event.text}…`, status: "thinking" }); return; }
       if (disposed || request.current !== current) return;
       request.current = null;
       setPending(false);
@@ -566,7 +568,7 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   if (!reply) return chat.answering ? <div ref={ref} className="speech-bubble">{fitSpeech(chat.answering)}</div> : null;
   const error = reply.status === "error";
   const streaming = reply.status === "streaming";
-  const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
+  const text = reply.status === "thinking" ? reply.text || "正在想…" : error ? reply.text : plainReply(reply.text);
   // One saved line fits the bubble; the rest wait in the chat window.
   const lines = reply.saved ?? [];
   const first = lines.find((line) => line.kind === "failed") ?? lines[0];

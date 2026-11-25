@@ -86,7 +86,8 @@ const multi = (...replies: ReadonlyArray<readonly object[]>) => async (id: strin
 
 const chat = (text: string, toolsOff?: readonly string[]) => (id: string) => ai.start(id, [{ role: "user", content: text }], chatPreferences(), { context: chatRequestContext({ actions: ACTIONS, toolsOff }), skills: CHAT_SKILLS });
 const reply = (text: string, packets: readonly object[], end: End = OK) => run(chat(text), (id) => feed(id, packets, end));
-const pairs = (events: readonly ChatEvent[]) => events.map((event) => (event.kind === "effect" ? ["effect", event.line.text] : [event.kind, event.text]));
+/** What the reply said and did; which tools were running is checked on its own. */
+const pairs = (events: readonly ChatEvent[]) => events.filter((event) => event.kind !== "tool").map((event) => (event.kind === "effect" ? ["effect", event.line.text] : [event.kind, event.text]));
 
 describe("chat replies", () => {
   it("plays an action as soon as its arguments are complete, only once", async () => {
@@ -133,6 +134,12 @@ describe("chat replies", () => {
       ["done", ""],
     ]);
     expect(rounds()).toBe(1);
+  });
+
+  it("names each tool as it starts, but not an action played along the words", async () => {
+    const events = await reply("明天九点提醒我开会，挥挥手", [chunk(null, [call(0, "add_reminder", `{"text":"开会","remind_at":"2026-11-19 09:00"}`), call(1, "play_action", `{"action":"wave"}`)], "tool_calls")]);
+    expect(events.filter((event) => event.kind === "tool").map((event) => event.kind === "tool" && event.text)).toEqual(["新建提醒"]);
+    expect(events.findIndex((event) => event.kind === "tool")).toBeLessThan(events.findIndex((event) => event.kind === "effect"));
   });
 
   it("shows a looked-up list as it is, without another request", async () => {

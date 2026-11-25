@@ -48,7 +48,7 @@ export function ChatHistory({ threads, currentId, removed, onOpen, onDelete, onU
     {threads.length === 0 ? <p className="chat-history__empty">还没有聊天记录</p> : <ul>{threads.map((thread) => <li key={thread.id} className={thread.id === currentId ? "is-current" : undefined}>
       {renaming === thread.id
         ? <input ref={field} className="ui-field chat-history__rename" aria-label="聊天标题" value={title} maxLength={CHAT_LIMITS.titleChars} onChange={(event) => setTitle(event.currentTarget.value)} onBlur={finishRename} onKeyDown={(event) => { if (event.key === "Enter" && !isComposing(event)) { event.preventDefault(); finishRename(); } }} />
-        : <button type="button" className="chat-history__open" onClick={() => onOpen(thread)} onDoubleClick={() => startRename(thread)} title="点一下打开，双击改名"><strong>{thread.title}</strong><small>{threadTime(thread.updatedAt, Date.now())}</small></button>}
+        : <button type="button" className="chat-history__open" onClick={() => onOpen(thread)}><strong>{thread.title}</strong><small>{threadTime(thread.updatedAt, Date.now())}</small></button>}
       <button type="button" className="chat-history__action" onClick={() => startRename(thread)} aria-label={`给“${thread.title}”改名`} title="改名"><Icon name="edit" /></button>
       <button type="button" className="chat-history__action chat-history__delete" onClick={() => onDelete(thread.id)} aria-label={`删除“${thread.title}”`} title="删除"><Icon name="trash" /></button>
     </li>)}</ul>}

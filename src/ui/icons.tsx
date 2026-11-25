@@ -24,6 +24,7 @@ const PATHS = {
   repeat: <><path d="m17 3 3 3-3 3" /><path d="M4 11v-1a4 4 0 0 1 4-4h12" /><path d="m7 21-3-3 3-3" /><path d="M20 13v1a4 4 0 0 1-4 4H4" /></>,
   chevron_right: <path d="m9 6 6 6-6 6" />,
   chevron_left: <path d="m15 6-6 6 6 6" />,
+  chevron_down: <path d="m6 9 6 6 6-6" />,
   send: <path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z" />,
   stop: <rect x="7" y="7" width="10" height="10" rx="2" />,
   play: <path d="M7.5 5.25v13.5l11.25-6.75Z" />,

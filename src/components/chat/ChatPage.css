@@ -50,6 +50,11 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 
 /* Header: who you are talking to, and nothing else competing for space. */
 .chat-header { position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--separator); background: var(--bg); }
+/*
+ * In the app the window has no title bar of its own (tauri.conf.json: an overlay title bar): the close,
+ * minimise and zoom buttons sit at the left of this header, centred on its row, and the header drags the window.
+ */
+html.is-native .chat-header { padding: 11px 14px 11px 80px; }
 .chat-header__title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .chat-header__title strong { font-size: var(--ui-font-emphasis); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-status { display: inline-flex; align-items: center; gap: 6px; color: var(--label-2); font-size: var(--ui-font-caption); white-space: nowrap; }
@@ -95,6 +100,8 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 /* Messages. Extra bottom room keeps the last bubble clear of the peeking character. */
 .chat-messages { flex: 1; min-height: 0; padding: 16px 14px 64px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .chat-row { display: flex; align-items: flex-end; gap: 8px; min-width: 0; max-width: 86%; }
+/* A reply and its actions under it. */
+.chat-reply { align-self: stretch; display: grid; gap: 2px; justify-items: start; }
 .chat-row--user { align-self: flex-end; }
 .chat-row--assistant { align-self: flex-start; }
 /* min-width lets a long code line scroll inside its block instead of widening the bubble. */
@@ -104,6 +111,7 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-bubble--assistant { white-space: normal; background: var(--group); border-bottom-left-radius: 4px; }
 .chat-web-progress { color: var(--label-2); font-size: var(--ui-font-caption); }
 .chat-web-progress + * { margin-top: 4px; }
+.chat-tool-progress:not(:first-child) { margin-top: 4px; }
 .chat-web-sources { margin-top: 8px; font-size: var(--ui-font-caption); }
 .chat-web-sources summary { color: var(--accent-strong); cursor: pointer; }
 .chat-web-sources button { display: grid; width: 100%; gap: 1px; margin-top: 4px; padding: 4px 6px; border: 0; border-radius: var(--radius-control); background: var(--fill); color: var(--label); font: inherit; text-align: start; cursor: pointer; }
@@ -140,12 +148,15 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-empty__suggestions button { min-height: 30px; padding: 0 10px; border: 1px solid var(--group-border); border-radius: var(--radius-control); color: var(--label-2); background: var(--group); font-size: var(--ui-font-caption); cursor: pointer; }
 .chat-empty__suggestions button:hover { color: var(--label); background: var(--fill); }
 
-/* Status lines under the messages: errors in red, neutral notes in grey. */
-.chat-error, .chat-notice { align-self: center; max-width: 90%; padding: 6px 12px; border-radius: var(--radius-row); font-size: var(--ui-font-caption); text-align: center; }
-.chat-error { color: var(--red-text); background: var(--red-wash); }
-.chat-notice { color: var(--label-2); background: var(--fill); }
-.chat-error .ui-link, .chat-notice .ui-link { margin-left: 8px; }
-.chat-notice .ui-link:only-child { margin-left: 0; }
+/* Asking again for the last reply, under the messages. */
+.chat-notice { align-self: center; max-width: 90%; padding: 6px 12px; border-radius: var(--radius-row); color: var(--label-2); background: var(--fill); font-size: var(--ui-font-caption); text-align: center; }
+/* A failure (red) or a neutral note (grey) over the composer, until the next attempt or until closed. */
+.chat-alert { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; padding: 6px 4px 6px 12px; border-radius: var(--radius-row); color: var(--red-text); background: var(--red-wash); font-size: var(--ui-font-caption); line-height: 1.45; }
+.chat-alert--notice { color: var(--label-2); background: var(--fill); }
+.chat-alert > span { flex: 1 1 160px; min-width: 0; }
+.chat-alert__close { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-control); color: inherit; background: none; opacity: .7; cursor: pointer; }
+.chat-alert__close:hover { opacity: 1; background: var(--fill-strong); }
+.chat-alert__close svg { width: 12px; height: 12px; }
 
 /* What the last reply saved, each with a way to correct it. */
 .chat-saved { align-self: stretch; display: grid; gap: 4px; margin: -2px 0 2px 36px; }
@@ -155,11 +166,11 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-saved__item.is-failed { color: var(--orange); background: var(--orange-wash); border-color: transparent; }
 .chat-saved__item button { flex: none; height: 22px; padding: 0 8px; border: 0; border-radius: var(--radius-control); color: var(--accent-strong); background: var(--fill-strong); cursor: pointer; }
 
-/* Low emphasis keeps reply actions discoverable without competing with the message. */
-.chat-row__actions { flex: none; display: flex; gap: 2px; margin-bottom: 2px; }
+/* Low emphasis keeps reply actions discoverable without competing with the message; they line up with the bubble. */
+.chat-row__actions { display: flex; gap: 2px; margin-left: 32px; }
 .chat-row__action { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-control); color: var(--label-2); background: none; cursor: pointer; opacity: .72; transition: opacity var(--ui-duration-fast) var(--ui-ease), background-color var(--ui-duration-fast) var(--ui-ease); }
 .chat-row__action svg { width: 14px; height: 14px; }
-.chat-row:hover .chat-row__action, .chat-row__action:focus-visible, .chat-row__action.is-saved { opacity: 1; }
+.chat-reply:hover .chat-row__action, .chat-row__action:focus-visible, .chat-row__action.is-saved { opacity: 1; }
 .chat-row__action:hover:not(:disabled) { color: var(--accent-strong); background: var(--accent-wash); }
 .chat-row__action.is-saved { color: var(--accent-strong); }
 .chat-row__action:disabled { opacity: .35; cursor: default; }
@@ -169,6 +180,10 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 /* Composer: one rounded field with the mic inside, the send button beside it. */
 .chat-composer { position: relative; display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px 14px; }
 .chat-compose-field { position: relative; z-index: 1; flex: 1; min-width: 0; }
+/* Back to the latest message, once the user scrolled up from it; over the end of the list, clear of the peeking character. */
+.chat-to-latest { position: absolute; z-index: 2; left: 50%; bottom: calc(100% + 8px); translate: -50% 0; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--group-border); border-radius: 50%; color: var(--label-2); background: var(--group); box-shadow: var(--popover-shadow); cursor: pointer; }
+.chat-to-latest:hover { color: var(--label); }
+.chat-to-latest svg { width: 15px; height: 15px; }
 .chat-web-mode { margin-bottom: 4px; }
 .chat-web-mode button[aria-pressed="false"] { color: var(--label-2); background: var(--fill); }
 /* Show only the top of the picture; the crop ends at the input's top edge. */
@@ -195,6 +210,9 @@ html.chat-window, body.chat-window, body.chat-window #root { margin: 0; height: 
 .chat-draft-file { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--radius-control); background: var(--fill); color: var(--label-2); }
 .chat-draft-file svg { width: 18px; height: 18px; }
 .chat-input textarea::placeholder { color: var(--label-3); }
+/* Takes the field's place while recording: how long so far, beside cancel and done. */
+.chat-recording { flex: 1; display: flex; align-items: center; gap: 8px; min-height: 30px; color: var(--red-text); font-size: 14px; }
+.chat-recording span { color: var(--label-2); font-variant-numeric: tabular-nums; }
 .chat-count { flex: none; align-self: center; padding: 0 4px; color: var(--label-2); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
 .chat-mic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-control); color: var(--label-2); background: none; cursor: pointer; }
 .chat-mic:hover:not(:disabled) { color: var(--label); background: var(--fill-strong); }

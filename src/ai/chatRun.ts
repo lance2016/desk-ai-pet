@@ -238,6 +238,9 @@ class Reply {
     let needsModel = false;
     for (const [index, call] of reader.tools.calls.entries()) {
       if (!call.name && !call.overflow) continue;
+      // Tools that may start early (playing an action) take no time to speak of; the rest say what they are doing.
+      const tool = this.toolsByName.get(call.name);
+      if (tool && !tool.early) this.event("tool", tool.label);
       const outcome = await (this.started.get(index) ?? this.runAtEnd(call));
       this.report(outcome);
       answered.push({ call, result: outcome.result });

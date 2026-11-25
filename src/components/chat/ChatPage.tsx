@@ -3,7 +3,7 @@ import { ai, type EffectLine } from "../../ai";
 import { chatContext } from "../../agenda/chatTools";
 import { currentChatFacts } from "../../facts/FactStore";
 import { chatStatus, type ChatFailure } from "../../chat/chatStatus";
-import { classifyServiceError, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
+import { classifyServiceError, fixedInSettings, isKeyProblem, serviceErrorMessage } from "../../chat/serviceErrors";
 import type { PetPersona } from "../../assets/Manifest";
 import { markdownToPlain } from "../../chat/markdown";
 import { prepareChatImage, type AttachedChatImage } from "../../chat/ChatImage";
@@ -26,6 +26,7 @@ import { characterName, requestPreferences } from "../../preferences/ChatPrefere
 import { loadReadLinks, READ_LINKS_KEY } from "../../preferences/ReadLinkPreferences";
 import { CharacterAvatar } from "../CharacterAvatar";
 import { ConfirmButton } from "../ConfirmButton";
+import type { SettingsSection } from "../settings/sections";
 import { isComposing } from "../keyboard";
 import { PeekPicture } from "../PeekPicture";
 import { ChatHistory } from "./ChatHistory";
@@ -62,6 +63,8 @@ const STOP_GUARD_MS = 400;
 /** Added to a reply the token limit cut off, and to one the user stopped. */
 const CUT_OFF_MARK = "（太长了，没说完）";
 const STOPPED_MARK = "（已停止）";
+/** Added to a reply that broke off with an error; such a reply can be asked for again. */
+const INTERRUPTED_MARK = "（中断了，没说完）";
 const STORAGE_FULL = "聊天记录存满了，删掉几段旧聊天再试。";
 const READ_ALOUD_FAILED = "朗读没能完成，可以再点一次，或者稍后再试。";
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -116,6 +119,8 @@ export function ChatPage({ packId }: { packId: string }) {
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState("");
   const [webProgress, setWebProgress] = useState("");
+  /** The tool the reply is running, until its next words come. */
+  const [toolProgress, setToolProgress] = useState("");
   const [readLinks, setReadLinks] = useState(loadReadLinks);
   const [search, setSearch] = useState(false);
   const [draftImage, setDraftImage] = useState<AttachedChatImage | null>(null);
@@ -125,12 +130,18 @@ export function ChatPage({ packId }: { packId: string }) {
   const [draftFile, setDraftFile] = useState<DraftFile | null>(null);
   const imageAttempt = useRef(0);
   const imageInput = useRef<HTMLInputElement>(null);
-  const [skipWeb, setSkipWeb] = useState(false);
+  /** The user flipped the webpage mode for this message: off for a new link, on for a follow-up. */
+  const [webFlipped, setWebFlipped] = useState(false);
   const webReplyRef = useRef<WebReply | undefined>(undefined);
   const webSourcesRef = useRef<WebReply["sources"]>([]);
   const webCandidate: WebMode | undefined = !readLinks || search || draftImage ? undefined
     : containsWebAddress(draft) ? "open"
       : webConversationStart(messages.slice(1 - CHAT_LIMITS.context)) >= 0 ? "follow" : undefined;
+  // A new link is read unless the user says no; a follow-up on a page read earlier only when asked for,
+  // since such a turn has no tools ("存进备忘" after reading would do nothing).
+  const webOn = webCandidate === "open" ? !webFlipped : webCandidate === "follow" && webFlipped;
+  // A flip was meant for the mode on show: a link typed or deleted shows the other one.
+  useEffect(() => setWebFlipped(false), [webCandidate]);
   const [pending, setPending] = useState(false);
   /** The thread the quick chat bar in the pet window is answering, if any. */
   const [replyingId, setReplyingId] = useState(() => replyingThread());
@@ -162,6 +173,8 @@ export function ChatPage({ packId }: { packId: string }) {
   const cancelRequested = useRef(false);
   /** Whether the user is reading the latest message; only then do new pieces pull the list down. */
   const stickToBottom = useRef(true);
+  /** The user scrolled up from the latest message: offer a way back down. */
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const list = useRef<HTMLElement>(null);
   const header = useRef<HTMLElement>(null);
@@ -174,7 +187,7 @@ export function ChatPage({ packId }: { packId: string }) {
     console.warn(`${service} request failed`, detail);
     if (kind === "missing-key") { if (voice) setVoiceMissing(true); else { setKeyMissing(true); return; } }
     else setFailure(voice ? "voice" : kind);
-    setErrorFix(isKeyProblem(kind) ? (voice ? "voice" : "ai") : null);
+    setErrorFix(fixedInSettings(kind) ? (voice ? "voice" : "ai") : null);
     setError(kind === "other" && voice ? "语音识别失败，可以再识别一次，或者稍后再试。" : serviceErrorMessage(service, kind));
   };
   const startAttempt = () => { setError(""); setNotice(""); setFailure(null); setErrorFix(null); };
@@ -227,6 +240,8 @@ export function ChatPage({ packId }: { packId: string }) {
   useEffect(() => stopReading(), [threadId, stopReading]);
 
   useEffect(() => { document.documentElement.classList.add("chat-window"); document.body.classList.add("chat-window"); return () => { document.documentElement.classList.remove("chat-window"); document.body.classList.remove("chat-window"); }; }, []);
+  // In the app the header sits under the window's own buttons (an overlay title bar) and leaves room for them.
+  useEffect(() => { document.documentElement.classList.toggle("is-native", petWindow.isNative); }, []);
   useEffect(() => {
     let active = true;
     loadCharacterPack(packId)
@@ -274,7 +289,8 @@ export function ChatPage({ packId }: { packId: string }) {
     let disposed = false;
     ai.subscribe(async (event) => {
       if (event.id !== active.current) return;
-      if (event.kind === "delta") { replyRef.current += event.text; setReply(replyRef.current); return; }
+      if (event.kind === "delta") { replyRef.current += event.text; setReply(replyRef.current); setToolProgress(""); return; }
+      if (event.kind === "tool") { setToolProgress(`${event.text}…`); return; }
       if (event.kind === "effect") { linesRef.current = [...linesRef.current, event.line]; return; }
       if (event.kind === "web-progress") { setWebProgress(WEB_PROGRESS[event.text] ?? ""); return; }
       if (event.kind === "web-result") {
@@ -291,8 +307,9 @@ export function ChatPage({ packId }: { packId: string }) {
       const lines = linesRef.current;
       setSavedLines(lines);
       linesRef.current = [];
-      // A reply the user stopped is kept as far as it got; one that failed is dropped.
-      const partial = event.kind === "cancelled" && replyRef.current.trim() ? `${replyRef.current.trimEnd()}\n\n${STOPPED_MARK}` : "";
+      // A reply that was stopped or broke off is kept as far as it got, marked as such.
+      const mark = event.kind === "cancelled" ? STOPPED_MARK : event.kind === "error" ? INTERRUPTED_MARK : "";
+      const partial = mark && replyRef.current.trim() ? `${replyRef.current.trimEnd()}\n\n${mark}` : "";
       const web = event.kind === "done" ? webReplyRef.current : undefined;
       const completed = event.kind === "done" && replyRef.current.trim()
         ? `${replyRef.current}${event.text === "length" && !web ? `\n\n${CUT_OFF_MARK}` : ""}` : partial;
@@ -300,12 +317,15 @@ export function ChatPage({ packId }: { packId: string }) {
         const effects = keptEffects(lines);
         setMessages((current) => [...current, { role: "assistant" as const, content: completed, web, effects }].slice(-CHAT_LIMITS.messages));
         setAnnouncement(markdownToPlain(completed));
-      } else if (event.kind === "done") setError("没有收到回复，请重试。");
-      else if (event.kind === "web-error") { setFailure("other"); setError(event.text); }
-      else if (event.kind === "error") reportServiceError("DeepSeek", event.text || "回复中断");
-      else if (event.kind === "cancelled") setNotice("已停止回复。");
+      }
+      // A reply that broke off still says why, with the half it got to kept above.
+      if (event.kind === "error") reportServiceError("DeepSeek", event.text || "回复中断");
+      else if (!completed && event.kind === "done") setError("没有收到回复，请重试。");
+      else if (!completed && event.kind === "web-error") { setFailure("other"); setError(event.text); }
+      else if (!completed && event.kind === "cancelled") setNotice("已停止回复。");
       setReply("");
       setWebProgress("");
+      setToolProgress("");
       replyRef.current = "";
     }).then((unsubscribe) => { if (disposed) unsubscribe(); else { stop = unsubscribe; setReady(true); } }).catch((reason: unknown) => { console.error("Chat is unavailable", reason); setError("聊天功能需要在 AI Pet 应用里使用。"); });
     return () => { disposed = true; stop?.(); if (active.current) void ai.cancel(active.current).catch(() => {}); };
@@ -346,7 +366,7 @@ export function ChatPage({ packId }: { packId: string }) {
     const refresh = (event: StorageEvent) => {
       if (event.key === READ_LINKS_KEY || event.key === null) {
         setReadLinks(loadReadLinks());
-        setSkipWeb(false);
+        setWebFlipped(false);
       }
       if (ownName.current) setName(characterName(packId, ownName.current));
       setLook(loadChatAppearance(packId));
@@ -431,7 +451,7 @@ export function ChatPage({ packId }: { packId: string }) {
     setSearch(false);
     if (mode === "image") { setSentImage(attachment); setDraftImage(null); }
     if (file) setDraftFile(null);
-    setSkipWeb(false);
+    setWebFlipped(false);
     active.current = id; cancelRequested.current = false; replyRef.current = ""; linesRef.current = []; setReply(""); setMessages(next); setDraft(""); startAttempt(); setSavedLines([]); setPending(true);
     try {
       const turn = mode ? { mode } : { context: chatContext(Date.now(), actionIdsRef.current, currentChatFacts(), openingLine(next), loadSwitchedOff()), skills: CHAT_SKILLS };
@@ -457,7 +477,7 @@ export function ChatPage({ packId }: { packId: string }) {
     event.preventDefault();
     const text = draft.trim();
     if ((!text && !draftImage && !draftFile) || preparingImage || pending || answeredElsewhere || recording || !ready || !historyValid || keyMissing) return;
-    const readLink = draftImage ? "image" : draftFile ? undefined : search ? "search" : skipWeb ? undefined : webCandidate;
+    const readLink = draftImage ? "image" : draftFile ? undefined : search ? "search" : webOn ? webCandidate : undefined;
     const image = draftImage ? { id: draftImage.id, name: draftImage.name } : undefined;
     const file = draftFile ? { name: draftFile.name, label: draftFile.handed.label } : undefined;
     const content = draftFile ? handedMessage(text || "帮我看看这个文件。", draftFile.handed) : text || "帮我看看这张图片。";
@@ -471,7 +491,7 @@ export function ChatPage({ packId }: { packId: string }) {
     if (active.current) return;
     savedMessages.current = shown;
     stickToBottom.current = true;
-    setSkipWeb(false);
+    setWebFlipped(false);
     imageAttempt.current++;
     setPreparingImage(false);
     setDraftImage(null);
@@ -513,13 +533,26 @@ export function ChatPage({ packId }: { packId: string }) {
     catch (reason) { console.error("Could not rename the chat", reason); setError(STORAGE_FULL); }
   };
   const closeHistory = () => { setHistoryOpen(false); historyButton.current?.focus(); };
+  const toLatest = () => { const scroller = list.current; if (scroller) scroller.scrollTop = scroller.scrollHeight; };
+  // Esc closes the history list wherever the focus is, and otherwise stops a reply on its way.
+  const escape = useRef(() => {});
+  escape.current = () => { if (historyOpen) closeHistory(); else if (pending) cancel(); };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      escape.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const resetHistory = () => {
     try { clearThreads(packId); setThreads([]); setHistoryValid(true); showThread(newId(), []); }
     catch (reason) { console.error("Could not clear the chats", reason); setError("没能清除聊天记录，请再试一次。"); }
   };
   const status = chatStatus({ keyMissing, pending: pending || answeredElsewhere, recording, transcribing, failure });
   // DeepSeek, MiMo, and CosyVoice keys all live on the "AI 服务" page.
-  const openSettings = () => void petWindow.openSettings("ai").catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
+  const openSettingsAt = (section: SettingsSection) => void petWindow.openSettings(section).catch((reason: unknown) => { console.error("Could not open settings", reason); setError("没能打开设置，请从宠物的右键菜单打开。"); });
+  const openSettings = () => openSettingsAt("ai");
   const toggleRecording = () => {
     // Without a MiMo key, recording would only fail afterwards: go to the setup instead.
     if (voiceMissing && voice.phase === "idle") { openSettings(); return; }
@@ -572,11 +605,14 @@ export function ChatPage({ packId }: { packId: string }) {
       </button>
     </div>;
   };
-  const assistantRow = (content: string, key?: number, web?: WebReply) => <div key={key} className="chat-row chat-row--assistant">
+  // The actions go on a line of their own under the bubble: beside it they took the bubble's width, and the text
+  // wrapped again when they came at the end of the reply.
+  const assistantRow = (content: string, key?: number, web?: WebReply) => <div key={key} className="chat-reply"><div className="chat-row chat-row--assistant">
     <CharacterAvatar picture={avatar} className="chat-portrait" />
     <div className="chat-bubble chat-bubble--assistant">
       {key === undefined && webProgress && <div className="chat-web-progress" role="status">{webProgress}</div>}
       {content && <ChatMarkdown text={content} />}
+      {key === undefined && toolProgress && <div className="chat-web-progress chat-tool-progress" role="status">{toolProgress}</div>}
       {web?.truncated && <div className="chat-web-progress">{CUT_OFF_MARK}</div>}
       {web?.incomplete && <div className="chat-web-progress">部分网页来源暂不可用。</div>}
       {web && key !== undefined && messages[key - 1]?.readLink === "open" && !web.calls
@@ -594,6 +630,7 @@ export function ChatPage({ packId }: { packId: string }) {
         })}
       </details>}
     </div>
+  </div>
     {key !== undefined && replyActions(content, key)}
   </div>;
   const showImage = (image: AttachedChatImage) => {
@@ -656,24 +693,28 @@ export function ChatPage({ packId }: { packId: string }) {
     const pasted = event.clipboardData.getData("text").length;
     if (draft.length - (field.selectionEnd - field.selectionStart) + pasted > MAX_INPUT) setNotice(`内容太长，只保留了前 ${MAX_INPUT} 字。`);
   };
-  const lastIsUser = messages[messages.length - 1]?.role === "user";
-  const canRetry = historyValid && lastIsUser && !pending && !answeredElsewhere && keyMissing === false;
-  const micLabel = recording ? "停止录音并识别" : transcribing ? "取消识别" : voiceMissing ? "语音输入未配置，去设置" : `语音输入（最长 ${MAX_RECORD_SECONDS / 60} 分钟）`;
+  const last = messages[messages.length - 1];
+  // Asking again for a reply that broke off replaces the half that came.
+  const retryFrom = last?.role === "user" ? messages
+    : last?.role === "assistant" && last.content.endsWith(INTERRUPTED_MARK) ? messages.slice(0, -1) : null;
+  const canRetry = historyValid && retryFrom !== null && !pending && !answeredElsewhere && keyMissing === false;
+  const retry = () => { if (retryFrom) void startReply(retryFrom); };
+  const micLabel = recording ? "完成，识别成文字" : transcribing ? "取消识别" : voiceMissing ? "语音输入未配置，去设置" : `语音输入（最长 ${MAX_RECORD_SECONDS / 60} 分钟）`;
 
   return <main className="chat-page" onDragOver={(event) => {
     if (event.dataTransfer.types.includes("Files")) event.preventDefault();
   }} onDrop={(event) => {
     if (event.dataTransfer.files.length > 0) event.preventDefault();
   }}>
-    <header ref={header} className="chat-header">
+    <header ref={header} className="chat-header" data-tauri-drag-region="deep">
       <CharacterAvatar picture={avatar} className="chat-portrait chat-portrait--header" />
       <div className="chat-header__title"><strong>{name}</strong><span className={`chat-status is-${status.tone}`}>{status.label}</span></div>
       <button type="button" className="chat-icon-button" disabled={pending || messages.length === 0} onClick={newChat} aria-label="新聊天" title="新聊天"><Icon name="plus" /></button>
       <button ref={historyButton} type="button" className={historyOpen ? "chat-icon-button is-active" : "chat-icon-button"} disabled={pending} onClick={() => setHistoryOpen((open) => !open)} aria-label="聊天记录" aria-expanded={historyOpen} title="聊天记录"><Icon name="history" /></button>
-      <button type="button" className="chat-icon-button" onClick={() => void petWindow.openSettings().catch((reason: unknown) => console.error("Could not open settings", reason))} aria-label="设置" title="设置"><Icon name="gear" /></button>
+      <button type="button" className="chat-icon-button" onClick={() => openSettingsAt("chat")} aria-label="聊天设置" title="聊天设置"><Icon name="gear" /></button>
       {historyOpen && <ChatHistory threads={threads} currentId={threadId} removed={removedThread} onOpen={(thread) => showThread(thread.id, thread.messages)} onDelete={deleteThread} onUndo={undoDelete} onRename={renameThread} onClose={closeHistory} />}
     </header>
-    <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; }}>
+    <section ref={list} className="chat-messages" onScroll={(event) => { const scroller = event.currentTarget; stickToBottom.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < STICK_TO_BOTTOM_PX; setAwayFromBottom(!stickToBottom.current); }}>
       {keyMissing && messages.length === 0 && <div className="chat-setup" role="status"><strong>还差一步</strong><p>在设置里填上 DeepSeek API Key，{name}就能陪你聊天了。</p><button className="ui-button ui-button--large ui-button--primary" type="button" onClick={openSettings}>去设置</button></div>}
       {messages.length === 0 && !keyMissing && <div className="chat-empty">
         <strong>把手边的事交给{name}</strong>
@@ -698,22 +739,16 @@ export function ChatPage({ packId }: { packId: string }) {
           <ChatPlainText text={message.file ? handedQuestion(message.content, message.file.label) : message.content} />
         </div>
       </div>)}
-      {(pending || reply) && assistantRow(reply || (webProgress ? "" : "正在想…"))}
+      {(pending || reply) && assistantRow(reply || (webProgress || toolProgress ? "" : "正在想…"))}
       {answeredElsewhere && assistantRow("正在回复…")}
       {savedLines.length > 0 && !pending && <div className="chat-saved">{savedLines.map((line, index) => <div key={`${index}-${line.id ?? line.kind}`} className={line.kind === "failed" ? "chat-saved__item is-failed" : "chat-saved__item"}>
         <span className={line.kind === "note" ? "chat-saved__note" : undefined}>{line.text}</span>
         {line.kind === "agenda" && line.id && <button type="button" onClick={() => openReminder(line.id as string)}>修改</button>}
         {line.kind === "note" && line.id && <button type="button" onClick={() => openNote(line.id as string)}>查看</button>}
+        {line.kind === "fact" && line.text !== "已撤销" && <button type="button" onClick={() => openSettingsAt("memory")}>查看</button>}
         {line.undo && <button type="button" onClick={() => undoLine(index)}>撤销</button>}
       </div>)}</div>}
-      {notice && !error && <div className="chat-notice" role="status">{notice}</div>}
-      {error && <div className="chat-error" role="alert">{error}
-        {errorFix && <button type="button" className="ui-link" onClick={fixError}>{errorFix === "microphone" ? "打开系统设置" : "去设置"}</button>}
-        {voice.retryAudio && <button type="button" className="ui-link" onClick={voice.retry}>再识别一次</button>}
-        {!historyValid && <ConfirmButton className="ui-link" confirm={{ message: "清空聊天记录？", detail: "这个角色的聊天记录读不出来了，清空后才能接着聊。原来的记录不能恢复。", action: "清空" }} onConfirm={resetHistory}>清空聊天记录</ConfirmButton>}
-        {canRetry && <button type="button" className="ui-link" onClick={() => void startReply(messages)}>重新回复</button>}
-      </div>}
-      {!error && canRetry && <div className="chat-notice"><button type="button" className="ui-link" onClick={() => void startReply(messages)}>重新回复</button></div>}
+      {!error && canRetry && <div className="chat-notice"><button type="button" className="ui-link" onClick={retry}>重新回复</button></div>}
     </section>
     <div className="visually-hidden" aria-live="polite">{announcement}</div>
     <form className="chat-composer" onSubmit={(event) => void send(event)}
@@ -732,11 +767,23 @@ export function ChatPage({ packId }: { packId: string }) {
         void attach(Array.from(event.dataTransfer.files));
       }}>
       {peek && <PeekPicture picture={peek} className="chat-peek" />}
+      {awayFromBottom && messages.length > 0 && <button type="button" className="chat-to-latest" onClick={toLatest} aria-label="回到最新" title="回到最新"><Icon name="chevron_down" /></button>}
       <div className="chat-compose-field">
+        {/* Over the composer, not at the end of the list: a failure anywhere in the chat is seen where the user is. */}
+        {notice && !error && <div className="chat-alert chat-alert--notice" role="status"><span>{notice}</span>
+          <button type="button" className="chat-alert__close" onClick={() => setNotice("")} aria-label="关闭"><Icon name="close" /></button>
+        </div>}
+        {error && <div className="chat-alert" role="alert"><span>{error}</span>
+          {errorFix && <button type="button" className="ui-link" onClick={fixError}>{errorFix === "microphone" ? "打开系统设置" : "去设置"}</button>}
+          {voice.retryAudio && <button type="button" className="ui-link" onClick={voice.retry}>再识别一次</button>}
+          {!historyValid && <ConfirmButton className="ui-link" confirm={{ message: "清空聊天记录？", detail: "这个角色的聊天记录读不出来了，清空后才能接着聊。原来的记录不能恢复。", action: "清空" }} onConfirm={resetHistory}>清空聊天记录</ConfirmButton>}
+          {canRetry && <button type="button" className="ui-link" onClick={retry}>重新回复</button>}
+          {historyValid && <button type="button" className="chat-alert__close" onClick={() => { setError(""); setErrorFix(null); }} aria-label="关闭"><Icon name="close" /></button>}
+        </div>}
         {webCandidate && !pending && !draftFile && <div className="chat-web-mode">
-          <button type="button" aria-pressed={!skipWeb} aria-label={webCandidate === "open" ? "阅读链接" : "追问网页"}
-            title={skipWeb ? "切换到网页阅读" : "使用 DeepSeek Flash 阅读网页，可切回普通聊天"} onClick={() => setSkipWeb((skip) => !skip)}>
-            {skipWeb ? "普通聊天" : webCandidate === "open" ? "阅读链接" : "追问网页"}
+          <button type="button" aria-pressed={webOn} title={webOn ? "这条按网页回答，不能记提醒、存备忘；点一下改回普通聊天"
+            : webCandidate === "open" ? "点一下读这个链接" : "点一下接着问刚读的网页"} onClick={() => setWebFlipped((flipped) => !flipped)}>
+            {webCandidate === "open" ? "阅读链接" : "追问网页"}
           </button>
         </div>}
         {(draftImage || preparingImage) && <div className="chat-draft-image" aria-live="polite">
@@ -760,14 +807,16 @@ export function ChatPage({ packId }: { packId: string }) {
             event.currentTarget.value = "";
             if (files.length) void attach(files);
           }} />
-          <button type="button" className="chat-mic chat-mic--attach" disabled={pending || recording || transcribing} aria-label="添加图片或文件"
-            title="添加图片或文本文件，也可以粘贴截图或拖进来" onClick={() => imageInput.current?.click()}><Icon name="attach" /></button>
-          <button type="button" className="chat-search" disabled={pending || recording || transcribing || preparingImage || Boolean(draftImage) || Boolean(draftFile)}
+          {/* While recording, the field gives way to one line of status; a draft typed before waits under it. */}
+          {!recording && <button type="button" className="chat-mic chat-mic--attach" disabled={pending || transcribing} aria-label="添加图片或文件"
+            title="添加图片或文本文件，也可以粘贴截图或拖进来" onClick={() => imageInput.current?.click()}><Icon name="attach" /></button>}
+          {!recording && <button type="button" className="chat-search" disabled={pending || transcribing || preparingImage || Boolean(draftImage) || Boolean(draftFile)}
             aria-pressed={search} aria-label="联网搜索" title={draftImage ? "移除图片后可以联网搜索" : draftFile ? "移除文件后可以联网搜索" : "仅为这条消息联网搜索"}
-            onClick={() => { setSearch((enabled) => !enabled); input.current?.focus(); }}><Icon name="globe" />联网</button>
-          <textarea ref={input} rows={1} aria-label="聊天内容" placeholder={recording ? `正在听你说… ${clock(voice.seconds)}，再点麦克风结束` : transcribing ? "正在识别语音…" : keyMissing ? "先在设置里填上 DeepSeek API Key 才能聊天" : `和${name}说点什么…`} value={draft} maxLength={MAX_INPUT} onPaste={onPaste} onChange={(event) => setDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !isComposing(event)) { event.preventDefault(); if (!recording) event.currentTarget.form?.requestSubmit(); } }} />
-          {draft.length >= SHOW_COUNT_FROM && <span className="chat-count">{draft.length}/{MAX_INPUT}</span>}
-          {recording && <button type="button" className="chat-mic chat-mic--cancel" onClick={voice.cancel} aria-label="取消录音" title="取消录音，不识别"><Icon name="close" /></button>}
+            onClick={() => { setSearch((enabled) => !enabled); input.current?.focus(); }}><Icon name="globe" />联网</button>}
+          {recording && <span className="chat-recording" role="timer" aria-label={`正在录音 ${clock(voice.seconds)}`}>正在听你说<span>{clock(voice.seconds)}</span></span>}
+          <textarea ref={input} rows={1} hidden={recording} aria-label="聊天内容" placeholder={transcribing ? "正在识别语音…" : keyMissing ? "先在设置里填上 DeepSeek API Key 才能聊天" : `和${name}说点什么…`} value={draft} maxLength={MAX_INPUT} onPaste={onPaste} onChange={(event) => setDraft(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !isComposing(event)) { event.preventDefault(); if (!recording) event.currentTarget.form?.requestSubmit(); } }} />
+          {!recording && draft.length >= SHOW_COUNT_FROM && <span className="chat-count">{draft.length}/{MAX_INPUT}</span>}
+          {recording && <button type="button" className="chat-mic chat-mic--cancel" onClick={voice.cancel} aria-label="取消录音" title="取消，不识别"><Icon name="close" /></button>}
           <button type="button" className={voiceMissing ? "chat-mic is-unconfigured" : "chat-mic"} disabled={voice.phase === "starting" || (pending && !recording)} onClick={transcribing ? voice.cancelTranscription : toggleRecording} aria-label={micLabel} title={micLabel}>
             {transcribing ? <span className="chat-spinner" /> : <Icon name={recording ? "stop" : "mic"} />}
           </button>

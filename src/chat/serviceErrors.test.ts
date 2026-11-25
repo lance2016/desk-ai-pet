@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyServiceError, serviceErrorMessage } from "./serviceErrors";
+import { classifyServiceError, fixedInSettings, serviceErrorMessage } from "./serviceErrors";
 
 describe("classifyServiceError", () => {
   it("tells a missing key from a rejected one", () => {
@@ -49,5 +49,14 @@ describe("serviceErrorMessage", () => {
   it("names the service and what to do", () => {
     expect(serviceErrorMessage("DeepSeek", "missing-key")).toContain("还没配置 DeepSeek API Key");
     expect(serviceErrorMessage("MiMo", "network")).toContain("连不上 MiMo");
+  });
+});
+
+describe("fixedInSettings", () => {
+  it("sends key and model name problems to settings, and leaves waiting problems alone", () => {
+    expect(fixedInSettings("bad-key")).toBe(true);
+    expect(fixedInSettings("model")).toBe(true);
+    expect(fixedInSettings("network")).toBe(false);
+    expect(fixedInSettings("busy")).toBe(false);
   });
 });
