@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-pet"
-version = "2.0.0-preview-7"
+version = "2.0.0-preview-8"
 dependencies = [
  "base64 0.22.1",
  "block2",
