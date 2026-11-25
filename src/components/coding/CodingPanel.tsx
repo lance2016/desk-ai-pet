@@ -283,19 +283,21 @@ interface InboxRowProps {
 function InboxRow({ item, now, deferred = false, onBack, onMark }: InboxRowProps) {
   const { session, turn, key, at, task, line } = item;
   const status = turn === "waiting" ? "等你处理" : turn === "failed" ? "出错了" : "结果待看";
-  const project = session.project || FOLDER_FALLBACK;
-  const title = task ?? session.name ?? project;
-  const context = [title !== project && project, session.branch].filter(Boolean).join(" · ");
+  // Named as in its folder, so the same session reads the same in both places; the round's question goes under it.
+  const title = sessionTitle(session);
+  const asked = task && task !== title ? task : null;
+  const context = [session.project || FOLDER_FALLBACK, session.branch].filter(Boolean).join(" · ");
   const description = line && line !== status ? `${status}：${line}` : status;
   const openLabel = session.revealable ? "回到终端" : "复制恢复命令";
   return (
     <li className={`today-row coding-row coding-inbox-row coding-row--${turn}`}>
-      <button type="button" className="coding-row__main" title={[title, context, description, openLabel].filter(Boolean).join("\n")} onClick={() => onBack(session)}>
+      <button type="button" className="coding-row__main" title={[title, asked && `你：${asked}`, description, context, openLabel].filter(Boolean).join("\n")} onClick={() => onBack(session)}>
         <span className="coding-row__mark"><TurnMark turn={turn} /></span>
         <span className="coding-row__body">
           <span className="coding-row__top"><strong>{title}</strong><span className="coding-row__time">{ago(at, now)}</span></span>
-          {context && <span className="coding-row__where">{context}</span>}
+          {asked && <span className="coding-row__asked"><span className="coding-row__you">你：</span>{asked}</span>}
           <span className="coding-row__line">{description}</span>
+          <span className="coding-row__where">{context}</span>
           <span className="visually-hidden">{openLabel}</span>
         </span>
       </button>
