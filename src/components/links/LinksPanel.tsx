@@ -187,14 +187,33 @@ function LinksView({ managing = false }: { managing?: boolean }) {
     }
   };
 
+  /** Esc backs out one step at a time: the form, the row's actions, the search, then the panel. */
+  const escape = () => {
+    if (editing) setEditing(null);
+    else if (actionsId) setActionsId(null);
+    else if (query) { setQuery(""); setSelectedId(null); search.current?.focus(); }
+    else if (!managing) hidePanel();
+  };
+  const escapeRef = useRef(escape);
+  escapeRef.current = escape;
+
+  // In the panel Esc must work wherever the focus is, a click on the blank list included.
+  useEffect(() => {
+    if (managing) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      escapeRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [managing]);
+
   return (
     <div className="links-view" onKeyDown={(event) => {
-      if (event.key !== "Escape" || isComposing(event)) return;
+      if (!managing || event.key !== "Escape" || isComposing(event)) return;
       event.preventDefault();
-      if (editing) setEditing(null);
-      else if (actionsId) setActionsId(null);
-      else if (query) { setQuery(""); setSelectedId(null); search.current?.focus(); }
-      else if (!managing) hidePanel();
+      escape();
     }}>
       <header className="today-header links-header" data-tauri-drag-region={!managing ? "" : undefined}>
         <h1 data-tauri-drag-region={!managing ? "" : undefined}>{editing === "new" ? "添加链接" : editing ? "编辑链接" : managing ? "链接列表" : "常用链接"}</h1>
