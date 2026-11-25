@@ -41,6 +41,8 @@ import { saveActiveCharacter } from "./preferences/CharacterPreferences";
 import { DEFAULT_PACK_ID } from "./assets/PackCatalog";
 import { petWindow } from "./platform/petWindow";
 import { dubbingPlatform } from "./platform/dubbing";
+import { capturePlatform } from "./platform/capture";
+import { agentCaptureEnabled, subscribeAgentCapture } from "./preferences/CapturePreferences";
 import { mailCodePlatform } from "./platform/mailCode";
 import { MAIL_CODE_ACTIVITY, mailCodeActivity } from "./activity/mailCodeActivity";
 import { followClaude, revealClaude } from "./agents/followClaude";
@@ -131,7 +133,8 @@ const REMINDERS: ReminderSource = {
 const isQuiet = (now: number) => isQuietAt(loadQuietPreferences(), now);
 /** Reminders the user timed come even in quiet hours; only "勿扰" holds them back. */
 const holdsReminders = () => loadQuietPreferences().doNotDisturb;
-const FOCUS_STORE = { load: () => loadFocus(), save: (snapshot: FocusSnapshot) => saveFocus(snapshot) };
+const CAPTURE_ACTIVITY = { id: "capture", label: "截图", icon: "image" } as const;
+const FOCUS_STORE ={ load: () => loadFocus(), save: (snapshot: FocusSnapshot) => saveFocus(snapshot) };
 const focusMinutes = () => loadFocusPreferences().minutes;
 
 interface AppProps {
@@ -148,6 +151,10 @@ export default function App({ packId }: AppProps) {
   useEffect(() => {
     void dubbingPlatform.setEnabled(showDubbing).catch((error: unknown) => console.error("Failed to update the dubbing menu", error));
   }, [showDubbing]);
+  const agentCapture = useSyncExternalStore(subscribeAgentCapture, agentCaptureEnabled);
+  useEffect(() => {
+    void capturePlatform.setEnabled(agentCapture).catch((error: unknown) => console.error("Failed to update screenshots for coding agents", error));
+  }, [agentCapture]);
   const storage = useMemo(() => createLocalPetStorage(window.localStorage, packId), [packId]);
   const hostRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -477,6 +484,15 @@ export default function App({ packId }: AppProps) {
   useEffect(() => {
     if (!runtime) return;
     return petWindow.onPatRequested(() => runtime.bus.emit("pet.petted", {}));
+  }, [runtime]);
+
+  // "3 秒后截图" in the pet menu: the native side waits, copies the pet window, then says how it went.
+  // Nothing shows while it waits, so the picture has no chip or bubble about itself.
+  useEffect(() => {
+    if (!runtime) return;
+    return capturePlatform.onCaptured((copied) => runtime.bus.emit("pet.activity", copied
+      ? { ...CAPTURE_ACTIVITY, state: "done", text: "截好了，已复制到剪贴板" }
+      : { ...CAPTURE_ACTIVITY, state: "failed", text: "这次没截到，再试一次吧" }));
   }, [runtime]);
 
   // "查收验证码" in the pet menu: the native side waits for the mail and reports it as an activity; a click on its chip stops the wait.

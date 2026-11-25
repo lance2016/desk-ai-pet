@@ -52,7 +52,7 @@ pub(crate) const HOOK_FLAG: &str = "--agent-hook";
 const EVENT: &str = "pet://agent";
 const MAIN_WINDOW: &str = "main";
 /// Must match `identifier` in tauri.conf.json: the socket lives in the app's data folder.
-const IDENTIFIER: &str = "com.aipet.desktop";
+pub(crate) const IDENTIFIER: &str = "com.aipet.desktop";
 /// Only the user can enter it, so whoever reaches the socket is the user.
 const SOCKET_FOLDER: &str = "agent";
 const SOCKET_NAME: &str = "hooks.sock";
@@ -502,7 +502,7 @@ fn forget_oldest(sessions: &mut HashMap<String, Followed>) {
     }
 }
 
-fn bind(path: &Path) -> std::io::Result<UnixListener> {
+pub(crate) fn bind(path: &Path) -> std::io::Result<UnixListener> {
     if let Some(folder) = path.parent() {
         fs::DirBuilder::new().recursive(true).mode(0o700).create(folder)?;
         fs::set_permissions(folder, fs::Permissions::from_mode(0o700))?;

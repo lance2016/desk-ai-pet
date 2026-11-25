@@ -35,7 +35,7 @@ const openReminders = () => void petWindow.openToday().catch((error: unknown) =>
 
 const LOTUS = "/focus/lotus.png";
 
-const ALERT_ICONS = { bell: "bell", mail: "mail", timer: "timer", agent: "terminal" } as const;
+const ALERT_ICONS = { bell: "bell", mail: "mail", timer: "timer", agent: "terminal", image: "image" } as const;
 
 /**
  * Keeps the bubbles in the room above the pet centred on it, moved only as far as the screen edge needs,

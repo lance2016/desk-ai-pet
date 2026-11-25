@@ -70,6 +70,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "tools", title: "编码助手", keywords: "Agent 编程 代码 状态 钩子 hooks" },
   { section: "tools", title: "Claude Code", keywords: "Agent 编程 代码 状态 等你确认 做完了 钩子 hooks 连接 断开 会话" },
   { section: "tools", title: "宠物跟着反应", keywords: "Claude Code 编码助手 动作 气泡 通知 关闭 安静 会话" },
+  { section: "tools", title: "让编码助手截图", keywords: "截图 截屏 screenshot capture Claude Code Codex 编码助手 命令 文档 README 界面" },
   { section: "links", title: "常用链接", keywords: "网址 地址 书签 工作环境 分组 排序" },
   { section: "tools", title: "查收验证码", keywords: "邮箱 邮件 验证码" },
   { section: "tools", title: "163 邮箱", keywords: "授权码 IMAP 邮箱 添加 多个" },

@@ -107,7 +107,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 窗口伸出屏幕底部多少不用挪底栏（46px） | `--overhang`（`src/App.css`） | `FREE_OVERHANG_PX`（`src/App.tsx`，超过它底栏平时隐藏） |
 | 状态行和状态卡的位置 | `STAGE_MARGIN.bottom`（132，`stageGeometry.ts`） | `.dock-area`、`.status-row`（`src/App.css`：底栏中心在脚下 33px，状态行上沿在窗口底部往上 72px）、`.coding-card` 的高度（66px） |
 | Ghostty 定位终端 | `GHOSTTY`、`GHOSTTY_FOCUS`（`agent_hooks.rs`，用 Ghostty 脚本字典里 `terminal` 的 `tty`、`focus`，`tab` 的 `focused terminal` 和 `perform action "toggle_split_zoom"`，1.4.0 实测；没有文档承诺不变） | Ghostty 的 `Ghostty.sdef`；`src-tauri/Info.plist` 的 `NSAppleEventsUsageDescription`（没有它系统不弹授权） |
-| 钩子的 socket 位置 | `agent_hooks.rs` 的 `IDENTIFIER`（转发时应用没启动，拿不到配置） | `tauri.conf.json` 的 `identifier` |
+| 钩子和截图的 socket 位置 | `agent_hooks.rs` 的 `IDENTIFIER`（转发、`--capture` 时应用的配置还没读，拿不到；`capture.rs` 也用它） | `tauri.conf.json` 的 `identifier` |
+| 截图的命令名、事件名和窗口名 | `src/platform/capture.ts`（`set_capture_enabled`、`pet://captured`） | `src-tauri/src/capture.rs` 的 `CAPTURED_EVENT`、`TARGETS`（窗口标签和 `tauri.conf.json`、`dubbing.rs` 的 `WINDOW` 一致；新加窗口要加进去）、`USAGE`，`lib.rs` 的 `invoke_handler`；`docs/USER_GUIDE.md` 里列的窗口名 |
 | 打断、一轮结束、会话标题和后台叫醒的标记 | `INTERRUPT_MARK`、`TURN_END_MARK`、`TITLE_MARK`、`TITLE_FIELD` 和 `TASK_NOTIFICATION`（`agent_hooks.rs`，Claude Code 写进会话记录的原文、`subtype`、`ai-title` 行，和叫醒会话的提问开头，没有文档） | Claude Code 自己的输出；它改了这里就失效，`ARCHITECTURE.md`「Claude Code 的状态」写了失效后的表现 |
 | 「短回合」的时长 | `CLAUDE_CONFIG.shortTurnMs`（`src/agents/ClaudeSessions.ts`） | `featureGuide.json`、`README.md`、`docs/USER_GUIDE.md` 里写的「半分钟」 |
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
@@ -199,7 +200,7 @@ pnpm exec tsc --noEmit && pnpm test
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - Rust 里不要按字节下标切用户给的字符串（`s[..7]`）：落在汉字中间就 panic，release 配置是 `panic = "abort"`，整个应用直接闪退。2.0.0-preview 粘贴「授权码abc…」就这样退出。用 `s.get(..n)`、`char_indices` 或先确认是 ASCII。
-- Claude Code 的钩子执行的是宠物主程序本身（`--agent-hook claude`）。`run()` 的第一件事必须是 `agent_hooks::forward_if_hook()`，在它前面加任何东西（日志、插件、Tauri 初始化），每个钩子都会多花时间，还可能弹出 Dock 图标。转发模式永远退出码 0、不写 stdout：Claude Code 在 `Stop`、`UserPromptSubmit` 上会把 stdout 的 JSON 和退出码 2 当成指令。
+- Claude Code 的钩子执行的是宠物主程序本身（`--agent-hook claude`）。`run()` 的第一件事必须是 `agent_hooks::forward_if_hook()`（紧接着是 `capture::run_if_asked()`，同样不能往前挪别的东西），在它前面加任何东西（日志、插件、Tauri 初始化），每个钩子都会多花时间，还可能弹出 Dock 图标。转发模式永远退出码 0、不写 stdout：Claude Code 在 `Stop`、`UserPromptSubmit` 上会把 stdout 的 JSON 和退出码 2 当成指令。
 - 钩子程序往 socket 写完一行就退出，应用接到连接时对端多半已经关了。macOS 对这种 socket 调 `set_read_timeout` 会报 `EINVAL`，内容其实还能读。1.16.0 把这个错误当失败丢掉了整条事件，表现为小牌出得晚、结束了还在转、多数时候根本不出。`read_line` 现在放过这个错误（`agent_hooks.rs` 有测试）；测这条通路要用真的钩子程序发，自己连上 socket 不关再写是测不出来的。
 - 钩子在后台运行（`async`），事件可能晚到、乱序或到两次。`ClaudeSessions` 按钩子程序自己记的时间 `at` 排，早于这一轮开始或结束的直接丢掉。测试会话逻辑时要带上 `at` 写乱序的用例，只按到达顺序测是测不出来的。新接一个事件要想清楚它晚到时会怎样。
 - 钩子现在会转发用户输入的第一行、文件名和回复的第一行。这些只能显示在界面上、存在 `ai-pet:coding-sessions:v1`，不能传给 `console.warn`/`console.error`（会进日志文件），也不能发给模型。原生端不转发命令、代码、工具输出和完整路径，改 `forwarded_line` 时保持这一点，测试 `names_a_tools_file_or_step_and_never_its_command` 守着。
@@ -251,7 +252,7 @@ pnpm exec tsc --noEmit && pnpm test
 
 - **不要发送模拟键盘事件。** 按键会落到前台应用里，可能误发消息。
 - **模拟鼠标只能点宠物自己的窗口**，并且先确认窗口在当前屏幕上。不要为了测试穿透去点用户的其他窗口。
-- **截图只截宠物窗口**（按窗口 ID），不要截整个屏幕。
+- **截图只截宠物窗口**（按窗口 ID），不要截整个屏幕。看安装版的界面优先用 `"/Applications/AI Pet.app/Contents/MacOS/ai-pet" --capture <pet|all|coding|…> 文件.png`（要用户先打开「设置 › 小工具 › 编码助手 › 让编码助手截图」）：宠物自己截，不用屏幕录制权限，鼠标在哪都不影响。截出来的是用户真实的会话和提醒，不要放进提交的文件里。
 - **用浏览器自动化工具后关掉测试标签页。** 把 Chrome 带到前台会切走用户的桌面空间。
 
 ## 素材和动作

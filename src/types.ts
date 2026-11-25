@@ -140,7 +140,7 @@ export type MailCodeUpdate =
   | { kind: "failed"; message: string };
 
 /** What a standing line is about; a bell when it names none. */
-export const ALERT_ICONS = ["mail", "timer", "agent"] as const;
+export const ALERT_ICONS = ["mail", "timer", "agent", "image"] as const;
 export type AlertIcon = (typeof ALERT_ICONS)[number];
 
 /** The Claude Code hook events the pet listens to. Must match `EVENTS` in src-tauri/src/agent_hooks.rs. */

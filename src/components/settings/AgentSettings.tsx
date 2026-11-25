@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { agentPlatform, type ClaudeHooksState } from "../../platform/agents";
+import { agentCaptureEnabled, setAgentCaptureEnabled, subscribeAgentCapture } from "../../preferences/CapturePreferences";
 import { loadCodingReactions, saveCodingReactions } from "../../preferences/CodingPreferences";
 import { ConfirmButton } from "../ConfirmButton";
 
@@ -33,6 +34,7 @@ export function AgentSettings() {
   const [status, setStatus] = useState("");
   const [reacts, setReacts] = useState(loadCodingReactions);
   const toggleReacts = () => { saveCodingReactions(!reacts); setReacts(!reacts); };
+  const capture = useSyncExternalStore(subscribeAgentCapture, () => agentCaptureEnabled());
   const refresh = useCallback(() => agentPlatform.state().then(setState).catch((reason: unknown) => setStatus(failure(reason, "读取 Claude Code 设置"))), []);
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -65,6 +67,10 @@ export function AgentSettings() {
       <div className="settings-row">
         <div className="settings-row__body"><strong>宠物跟着反应</strong><span>有会话等你、做完或出错时，宠物会做动作、说一句。关掉后只在脚下的卡片上显示</span></div>
         <button type="button" role="switch" aria-label="宠物跟着反应" aria-checked={reacts} className={reacts ? "ui-switch is-on" : "ui-switch"} onClick={toggleReacts}><span /></button>
+      </div>
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>让编码助手截图</strong><span>打开后，Claude Code、Codex 能用命令截下宠物和它开着的面板，用来写文档、看界面。只截 AI Pet 自己的窗口</span></div>
+        <button type="button" role="switch" aria-label="让编码助手截图" aria-checked={capture} className={capture ? "ui-switch is-on" : "ui-switch"} onClick={() => setAgentCaptureEnabled(!capture)}><span /></button>
       </div>
     </div>
     {status && <p className="settings-footnote" role="status">{status}</p>}

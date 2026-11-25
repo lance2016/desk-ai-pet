@@ -391,6 +391,15 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 
 「待处理」由 `src/agents/codingInbox.ts` 从 `CodingSession` 生成，跨项目按等待、失败、结果排序。等待只看当前回合；失败和结果也只取每个会话的最新一轮，用户在同一个会话里发了下一句，就说明前面的看过了。在面板里点会话回到终端（「待处理」和项目文件夹都算），这一轮记为已看；宠物气泡上的「去那里」不记。标记按会话 ID 和回合结束时间单独保存；已看用 `0` 表示，稍后看存恢复时间，30 分钟后回到待处理。标记由 Coding 面板写入 `ai-pet:coding-inbox-marks:v1`，会话由宠物窗口写入，避免两边覆盖同一份数据。条目的保留时间随会话。
 
+## 截图
+
+`src-tauri/src/capture.rs` 截 AI Pet 自己的窗口，有两个入口：右键菜单的「3 秒后截图」（`CAPTURE_ID`）给用户，`ai-pet --capture <窗口> <文件>` 给 Claude Code、Codex 这类编码助手。
+
+- **怎么截。** 用 `CGWindowListCreateImageFromArray` 按窗口号截，选项是不带阴影（`IGNORE_FRAMING`）、按屏幕原始分辨率（`BEST_RESOLUTION`，Retina 上是 2 倍）。应用读自己的窗口不需要「屏幕录制」权限：在 macOS 15.7 上用一个没有这个权限的临时签名应用实测过，截出来的系统材质也是对的。这个函数在 macOS 15 SDK 里标成了不可用（让改用 ScreenCaptureKit），但 CoreGraphics 里还有，这里手写声明调用；哪天系统真去掉了，截图会失败并说「macOS gave no picture of the window」。截的是窗口自己的内容，所以光标在哪、悬停状态、气泡、快捷按钮都按屏幕上的样子截下来，不像系统截图一动鼠标就变。`all` 把开着的窗口按屏幕位置拼成一张。截完画进 sRGB 的位图，裁掉四周全透明的部分（宠物窗口四周的留白），把预乘的透明度还原，编成 PNG。窗口号要在主线程读（`window_number`），截图和编码在后台线程。
+- **命令行。** `run()` 在 `agent_hooks::forward_if_hook()` 之后、Tauri 启动之前看有没有 `--capture`，有就当客户端：连本机 socket（`~/Library/Application Support/com.aipet.desktop/capture/capture.sock`，文件夹 0700，和钩子的 socket 同一个上级目录），发一行 `{"window":"pet"}`，读回 `ok <字节数> <宽> <高>` 加 PNG，或者 `error <原因>`，自己写文件后退出（成功 0，失败 1，用法错 2）。应用只回图片，不按别人给的路径写文件。窗口名是 `TARGETS` 里的：`pet`（宠物窗口 `main`）、各个面板的窗口标签，和 `all`。
+- **开关。** 编码助手能不能截，看「设置 › 小工具 › 编码助手 › 让编码助手截图」（`ai-pet:agent-capture:v1`，默认关）。宠物窗口启动和开关变化时用 `set_capture_enabled` 告诉原生端；关着时 socket 照常监听，但只回一句怎么打开。本机同一用户的任何程序都能连这个 socket，所以默认关着；截图里可能有会话、提醒的真实内容。菜单截图是用户自己点的，不看这个开关。
+- **菜单截图。** 点了之后等 3 秒（`MENU_DELAY`，让用户把光标移到宠物上，快捷按钮露出来），截宠物窗口，PNG 放进剪贴板（`NSPasteboardTypePNG`），再发 `pet://captured`（是否成功）。`App` 把它转成 `pet.activity`（`id` 为 `capture`）：成功是 `done`，宠物顺口说一句；失败是 `failed`，常驻一句。等的 3 秒不报 `running`，否则状态行的小块和气泡会被截进去。
+
 ## 配音
 
 「配音」是右键菜单里的独立小工具，开关在「设置 → 小工具」（`ai-pet:dubbing-enabled:v1`，宠物窗口通过 `set_dubbing_enabled` 同步给原生菜单，关掉时一并关窗）。

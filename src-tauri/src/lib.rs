@@ -1,6 +1,7 @@
 mod agent_hooks;
 mod alert;
 mod api_keys;
+mod capture;
 mod claude_settings;
 mod click_through;
 mod cloned_voices;
@@ -56,6 +57,7 @@ const SHOWN_EVENT: &str = "pet://shown";
 const SCALE_ID_PREFIX: &str = "scale:";
 const TOGGLE_ID: &str = "toggle";
 const PAT_ID: &str = "pat";
+const CAPTURE_ID: &str = "capture";
 const ON_TOP_ID: &str = "on_top";
 const DND_ID: &str = "dnd";
 const QUIT_ID: &str = "quit";
@@ -229,6 +231,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let dubbing = item(DUBBING_ID, "配音")?;
     let pat = item(PAT_ID, "摸摸头")?;
     let focus = item(FOCUS_ID, FOCUS_LABELS[0].1)?;
+    let capture = item(CAPTURE_ID, "3 秒后截图")?;
     let sizes = SIZES
         .iter()
         .map(|(value, label)| {
@@ -264,6 +267,7 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &pat,
             &dock,
             &focus,
+            &capture,
             &PredefinedMenuItem::separator(app)?,
             &size,
             &on_top,
@@ -388,6 +392,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             }
         }
         PAT_ID => report("emit pat event", app.emit_to(MAIN_WINDOW, PAT_EVENT, ())),
+        CAPTURE_ID => capture::capture_later(app),
         // The pet window starts the review in the chat window; see `petWindow.onReviewRequested`.
         REVIEW_ID => report("emit review event", app.emit_to(MAIN_WINDOW, REVIEW_EVENT, ())),
         // true: start a round; false: stop the round or the rest.
@@ -1000,6 +1005,10 @@ pub fn run() {
     if agent_hooks::forward_if_hook() {
         return;
     }
+    // A coding agent asks the running pet for a picture of its windows: answer and stop, as above.
+    if let Some(code) = capture::run_if_asked() {
+        std::process::exit(code);
+    }
     diagnostics::log_panics();
     tauri::Builder::default()
         // First, so everything after it can log.
@@ -1019,6 +1028,7 @@ pub fn run() {
         .manage(translation::SelectionFloat::default())
         .manage(mail_code::MailCodeState::default())
         .manage(agent_hooks::AgentHooks::default())
+        .manage(capture::CaptureState::default())
         .manage(OnTopState(AtomicBool::new(true)))
         .manage(std::sync::Arc::new(llm::LlmState::default()))
         .manage(std::sync::Arc::new(mimo::MimoSpeechState::default()))
@@ -1039,6 +1049,7 @@ pub fn run() {
             }));
 
             agent_hooks::listen(app.handle());
+            capture::listen(app.handle());
 
             let pet_menu = build_menu(app)?;
             let (app_menu, new_chat) = build_app_menu(app)?;
@@ -1132,6 +1143,7 @@ pub fn run() {
             link_icons::link_icon_image,
             set_links_enabled,
             set_dubbing_enabled,
+            capture::set_capture_enabled,
             dubbing::dubbing_export,
             dubbing::dubbing_export_subtitles,
             dubbing::dubbing_discard,
