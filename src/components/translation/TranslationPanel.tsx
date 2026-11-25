@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ai } from "../../ai";
 import { translationPlatform } from "../../platform/translation";
 import { loadChatModel } from "../../preferences/ChatModel";
 import { classifyServiceError, isKeyProblem } from "../../chat/serviceErrors";
 import { petWindow } from "../../platform/petWindow";
-import { isComposing } from "../keyboard";
+import { isComposing, useCloseShortcut } from "../keyboard";
+import "../today/TodayPanel.css";
 import "./TranslationPanel.css";
 
 const MAX_BYTES = 16_000;
@@ -72,15 +73,44 @@ export function TranslationPanel() {
     if (pending || !source.trim()) return;
     await startTranslation(source, target);
   };
-  const close = () => { const id = request.current; request.current = null; if (id) void ai.cancel(id).catch(() => {}); setPending(false); void translationPlatform.hide(); };
+  /** Puts the panel away the way the other panels go, so typing returns to the app the user was in. */
+  const close = useCallback(() => {
+    const id = request.current; request.current = null; if (id) void ai.cancel(id).catch(() => {}); setPending(false);
+    void petWindow.hideSelf().catch((error: unknown) => console.warn("Could not put the translation away", error));
+  }, []);
+  useCloseShortcut(close);
+  // Esc closes wherever the focus is, as in the other panels; the text read from the selection is no draft to keep.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
+  // The popover material shows through the page.
+  useEffect(() => {
+    document.documentElement.classList.add("today-window");
+    document.body.classList.add("today-window");
+  }, []);
+
+  const stop = () => { const id = request.current; request.current = null; if (id) void ai.cancel(id).catch(() => {}); setPending(false); setKeyFix(false); setMessage("已停止翻译。"); };
   const copy = async () => { try { await navigator.clipboard.writeText(result); setMessage("已复制译文。"); } catch (error) { console.error("Could not copy translation", error); setMessage("没能复制，请再试一次。"); } };
-  return <main className="translation" onKeyDown={(event) => { if (isComposing(event)) return; if (event.key === "Escape") { event.preventDefault(); close(); } else if (event.key === "Enter" && event.metaKey && !event.nativeEvent.isComposing) { event.preventDefault(); void translate(); } }}>
-    <p className="translation-hint">选中文字后按快捷键，或在这里粘贴。按 Esc 关闭。</p>
-    <div className="translation-language"><span>自动识别</span><span aria-hidden="true">→</span><select value={target} aria-label="目标语言" onChange={(event) => setTarget(event.target.value as Target)}><option value="zh">中文</option><option value="en">英文</option></select></div>
-    <textarea className="ui-textarea ui-textarea--large" ref={sourceRef} value={source} onChange={(event) => setSource(event.target.value)} placeholder="输入或粘贴要翻译的文字" aria-label="原文" />
-    <div className="translation-actions"><span>提交后原文会发送给 DeepSeek</span>{pending ? <button className="ui-button ui-button--large ui-button--primary" type="button" onClick={() => { const id = request.current; request.current = null; if (id) void ai.cancel(id).catch(() => {}); setPending(false); setKeyFix(false); setMessage("已停止翻译。"); }}>停止</button> : <button className="ui-button ui-button--large ui-button--primary" type="button" disabled={!source.trim()} onClick={() => void translate()}>翻译</button>}</div>
-    {message && <div className="translation-message" role="status"><span>{message}</span>{keyFix && <button type="button" className="ui-link" onClick={() => void petWindow.openSettings("ai").catch((error: unknown) => { console.error("Could not open settings", error); setMessage("没能打开设置，请从宠物的右键菜单打开。"); })}>去设置</button>}</div>}
-    {permission && <button type="button" className="ui-link translation-permission" onClick={() => void translationPlatform.openAccessibilitySettings().catch((error: unknown) => { console.error("Could not open accessibility settings", error); setMessage("请在系统设置的隐私与安全性中打开辅助功能。"); })}>打开辅助功能设置</button>}
-    {(result || pending) && <section className="translation-result"><div><strong>译文</strong>{result && <button type="button" className="ui-link" onClick={() => void copy()}>复制</button>}</div><p>{result || "正在翻译…"}</p></section>}
+  return <main className="today-panel translation ui-on-material" onKeyDown={(event) => { if (event.key === "Enter" && event.metaKey && !isComposing(event)) { event.preventDefault(); void translate(); } }}>
+    <header className="today-header" data-tauri-drag-region><h1 data-tauri-drag-region>翻译</h1></header>
+    <div className="translation-body">
+      <textarea className="ui-textarea translation-source" ref={sourceRef} value={source} onChange={(event) => setSource(event.target.value)} placeholder="粘贴或输入要翻译的文字" aria-label="原文" />
+      <div className="translation-actions">
+        <div className="translation-language"><span>自动识别</span><span aria-hidden="true">→</span><select value={target} aria-label="目标语言" onChange={(event) => setTarget(event.target.value as Target)}><option value="zh">中文</option><option value="en">英文</option></select></div>
+        {pending
+          ? <button className="ui-button ui-button--primary" type="button" onClick={stop}>停止</button>
+          : <button className="ui-button ui-button--primary" type="button" disabled={!source.trim()} title="翻译（⌘回车）" onClick={() => void translate()}>翻译</button>}
+      </div>
+      {message && <div className="translation-message" role="status"><span>{message}</span>{keyFix && <button type="button" className="ui-link" onClick={() => void petWindow.openSettings("ai").catch((error: unknown) => { console.error("Could not open settings", error); setMessage("没能打开设置，请从宠物的右键菜单打开。"); })}>去设置</button>}</div>}
+      {permission && <button type="button" className="ui-link translation-permission" onClick={() => void translationPlatform.openAccessibilitySettings().catch((error: unknown) => { console.error("Could not open accessibility settings", error); setMessage("请在系统设置的隐私与安全性中打开辅助功能。"); })}>打开辅助功能设置</button>}
+      {(result || pending) && <section className="translation-result" aria-label="译文"><div><strong>译文</strong>{result && <button type="button" className="ui-link" onClick={() => void copy()}>复制</button>}</div><p>{result || "正在翻译…"}</p></section>}
+      <p className="translation-note">翻译时原文会发给 DeepSeek</p>
+    </div>
   </main>;
 }

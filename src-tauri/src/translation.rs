@@ -101,16 +101,23 @@ mod accessibility {
     }
 }
 
+/// The translation panel: one of the pet's panels (`POPOVERS` in lib.rs), opened beside it.
+pub const WINDOW: &str = "translation";
+
+/// Must be called on the main thread.
 fn show_selection(app: &AppHandle, text: Option<String>, auto: bool, result: Option<String>) {
     let status = if !selection_status() { "permission" } else if text.is_none() { "empty" } else { "ok" };
     if let Ok(mut state) = app.state::<Selection>().0.lock() { *state = json!({"text": text.unwrap_or_default(), "status": status, "auto": auto, "result": result.unwrap_or_default()}); }
-    if let Some(window) = app.get_webview_window("translation") {
+    if let Some(window) = app.get_webview_window(WINDOW) {
         let _ = window.emit("pet://translation-open", ());
-        #[cfg(target_os = "macos")]
-        if let Err(error) = crate::floating_panel::take_keyboard(&window) { log::warn!("failed to show translation: {error}"); }
-        #[cfg(not(target_os = "macos"))]
-        { let _ = window.show(); let _ = window.set_focus(); }
     }
+    if let Err(error) = crate::show_beside_pet(app, WINDOW) { log::warn!("failed to show translation: {error}"); }
+}
+
+/// The panel was put away (its close button, Esc, ⌘W): a translation still coming in is stopped.
+pub fn put_away(app: &AppHandle) {
+    if let Some(state) = app.try_state::<std::sync::Arc<crate::llm::LlmState>>() { state.cancel_window(WINDOW); }
+    let _ = app.emit_to(WINDOW, "pet://translation-hide", ());
 }
 
 #[tauri::command]

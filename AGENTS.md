@@ -119,8 +119,8 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 复制通知的事件名、读复制内容的命令名 | `src/platform/handover.ts`（`pet://copied`、`take_copied`） | `src-tauri/src/handover.rs`（`COPIED_EVENT`）、`lib.rs` 的 `invoke_handler` |
 | 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `COPY_HINT_MS`（`src/components/QuickChat.tsx`），`QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`、`README.md` 里写的「1 分钟」 |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
-| 弹出层关闭按钮的位置 | `tauri.conf.json` 里 `today`、`notes`、`coding` 窗口的 `trafficLightPosition`（x 16、y 26，和标题同一行） | `--title-after-close`（`TodayPanel.css`，标题从红点后面开始）；`.coding-sidebar__title` 按它减去侧栏内边距 |
-| 提醒窗口圆角 | `tauri.conf.json` 里 `today` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
+| 弹出层关闭按钮的位置 | `tauri.conf.json` 里 `today`、`notes`、`coding`、`links`、`translation` 窗口的 `trafficLightPosition`（x 16、y 26，和标题同一行） | `--title-after-close`（`TodayPanel.css`，标题从红点后面开始）；`.coding-sidebar__title` 按它减去侧栏内边距 |
+| 提醒窗口圆角 | `tauri.conf.json` 里 `today`、`notes`、`coding`、`links`、`translation` 窗口的 `windowEffects.radius` | `--radius-window`（`src/components/today/TodayPanel.css`） |
 | 提醒窗口 | `tauri.conf.json` 的 `today` 窗口、`capabilities/default.json` | `src/main.tsx` 的 `window=today` 路由、`lib.rs` 的 `TODAY_WINDOW` |
 | 备忘窗口 | `tauri.conf.json` 的 `notes` 窗口（圆角同提醒窗口）、`capabilities/default.json` | `src/main.tsx` 的 `window=notes` 路由、`lib.rs` 的 `NOTES_WINDOW` 和 `open_notes` |
 | 快速聊天快捷键规则（必须含 ⌃ 或 ⌘、按键名） | `recordShortcut`、`KEY_CODE`（`src/preferences/QuickChatPreferences.ts`） | `parse_shortcut`（`src-tauri/src/quick_chat.rs`） |
@@ -174,8 +174,8 @@ pnpm exec tsc --noEmit && pnpm test
 - 全局快捷键不能只用 ⌥ 或 ⌥⇧ 做修饰键。macOS 15 起这种组合能注册成功，但系统不再转发按键，表现为“按了没反应、也不报错”。
 - 快速聊天要在宠物窗口里打字，但不能用 Tauri 的 `set_focus()`：它会激活整个应用，把用户正在用的应用切走。用 `floating_panel::take_keyboard`；收起时必须 `release_keyboard`，否则用户接着打的字会落到宠物窗口里。
 - 界面上叫「提醒」和「备忘」，代码里沿用 `today`/`agenda` 和 `notes`。分法只看时间：有时间是提醒（`remindAt` 必填），没有时间是备忘，聊天工具和提示词都按这条规则写，不要再加没有时间的提醒。
-- 「备忘」面板沿用 `TodayPanel.css` 的变量和控件，只在 `NotesPanel.css` 写不同的部分；改提醒面板的公共样式时两个面板都要看一眼。四个面板的页头是同一种（`.today-header`）：17px 标题和红点同一行、左对齐，数量用次要文字写在标题后面（`.today-header__count`），右边最多一个图标按钮或状态；第二行是主输入（新增或搜索），下面一条发丝线，列表在线下滚动。尺寸只有两档：单列的 320×440（提醒、备忘），带侧栏或宽行的 440×440（常用链接、Claude Code）。设置窗口的变量在 `SettingsPage.css` 顶部，名字和提醒面板一致。
-- 「提醒」窗口用 macOS 原生 popover 材质（`tauri.conf.json` 的 `windowEffects`，窗口必须 `transparent: true`），圆角由系统画。页面的 `html`、`body`、`#root` 背景必须透明，面板只叠一层半透明底色，否则毛玻璃被盖住。这层底色必须用和 `windowEffects.radius` 相同的圆角并 `overflow: hidden`，否则四角露出直角色块，系统还会按它画出直角阴影。四个面板的根元素带 `ui-on-material`，文字和线条换成 `tokens.css` 里那组半透明的「材质上」取值；`TodayPanel.css` 顶部只给这些变量起本地名字，深色模式也在 `tokens.css` 里覆盖。
+- 「备忘」面板沿用 `TodayPanel.css` 的变量和控件，只在 `NotesPanel.css` 写不同的部分；改提醒面板的公共样式时两个面板都要看一眼。五个面板（提醒、备忘、常用链接、Claude Code、翻译）的页头是同一种（`.today-header`）：17px 标题和红点同一行、左对齐，数量用次要文字写在标题后面（`.today-header__count`），右边最多一个图标按钮或状态；第二行是主输入（新增或搜索），下面一条发丝线，列表在线下滚动。尺寸只有两档：单列的 320×440（提醒、备忘），带侧栏或宽行的 440×440（常用链接、Claude Code、翻译）。设置窗口的变量在 `SettingsPage.css` 顶部，名字和提醒面板一致。
+- 「提醒」窗口用 macOS 原生 popover 材质（`tauri.conf.json` 的 `windowEffects`，窗口必须 `transparent: true`），圆角由系统画。页面的 `html`、`body`、`#root` 背景必须透明，面板只叠一层半透明底色，否则毛玻璃被盖住。这层底色必须用和 `windowEffects.radius` 相同的圆角并 `overflow: hidden`，否则四角露出直角色块，系统还会按它画出直角阴影。这几个面板的根元素都带 `ui-on-material`，文字和线条换成 `tokens.css` 里那组半透明的「材质上」取值；`TodayPanel.css` 顶部只给这些变量起本地名字，深色模式也在 `tokens.css` 里覆盖。
 - 登录项用 `SMAppService.mainAppService`，只对 app 包里的程序有效。开发模式下注册会报错，所以默认打开只在安装版第一次运行时执行（`import.meta.env.DEV` 跳过），否则会把调试程序注册成登录项。
 - 新的本机数据要用 `ai-pet:` 开头的 key，图片放 `AppearanceStore`，会增长的按天记录进工作日志（SQLite）。备份只收这三处，放在别处的数据导出时会漏掉。
 - 判断宠物在哪块屏幕上不能用 `currentMonitor()`。拖到另一块屏幕松手时，它还会返回原来那块，宠物被限制回旧屏幕的边上。`readFrame` 用 `availableMonitors()` 加上宠物中心点自己算（`monitorUnderPet`）。

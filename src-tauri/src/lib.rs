@@ -96,7 +96,7 @@ const NOTES_WINDOW: &str = "notes";
 const CODING_WINDOW: &str = "coding";
 const LINKS_WINDOW: &str = "links";
 /// The panels open side by side and stay until closed.
-const POPOVERS: [&str; 4] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW, LINKS_WINDOW];
+const POPOVERS: [&str; 5] = [TODAY_WINDOW, NOTES_WINDOW, CODING_WINDOW, LINKS_WINDOW, translation::WINDOW];
 
 /// The one menu shared by the tray icon and the pet's right-click menu.
 struct PetMenu {
@@ -679,7 +679,7 @@ pub(crate) fn hand_keyboard_back(app: &AppHandle) {
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
 /// A popover that would cover others opens beside them (see `place`); one already shown is only
 /// brought to the front, where the user left it.
-fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
+pub(crate) fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String> {
     let window = app
         .get_webview_window(label)
         .ok_or_else(|| format!("{label} window is unavailable"))?;
@@ -873,6 +873,9 @@ fn hide_panel(window: WebviewWindow) -> Result<(), String> {
 /// Must be called on the main thread.
 fn put_panel_away(panel: &WebviewWindow) -> tauri::Result<()> {
     panel.hide()?;
+    if panel.label() == translation::WINDOW {
+        translation::put_away(panel.app_handle());
+    }
     #[cfg(target_os = "macos")]
     {
         let app = panel.app_handle();
@@ -1031,20 +1034,6 @@ pub fn run() {
                         }
                         let _ = handle.emit("pet://chat-hide", ());
                         report("hide chat", handle.hide());
-                    }
-                });
-            }
-            if let Some(window) = app.get_webview_window("translation") {
-                #[cfg(target_os = "macos")]
-                floating_panel::apply_popover(&window)?;
-                let handle = window.clone();
-                let app_handle = app.handle().clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        app_handle.state::<std::sync::Arc<llm::LlmState>>().cancel_window("translation");
-                        let _ = handle.emit("pet://translation-hide", ());
-                        report("hide translation", handle.hide());
                     }
                 });
             }

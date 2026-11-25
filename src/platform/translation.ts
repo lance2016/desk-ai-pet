@@ -1,6 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export interface Selection { text: string; status: "ok" | "empty" | "permission"; auto?: boolean; result?: string }
 export const translationPlatform = {
@@ -16,5 +15,4 @@ export const translationPlatform = {
   async takeSelection(): Promise<Selection | null> { return isTauri() ? invoke("take_translation_selection") : null; },
   async onOpen(handler: () => void): Promise<() => void> { return isTauri() ? listen("pet://translation-open", handler) : () => {}; },
   async onHide(handler: () => void): Promise<() => void> { return isTauri() ? listen("pet://translation-hide", handler) : () => {}; },
-  async hide(): Promise<void> { if (isTauri()) await getCurrentWindow().hide(); },
 };
