@@ -25,7 +25,7 @@ pub async fn confirm_action(app: AppHandle, message: String, detail: String, act
 #[cfg(target_os = "macos")]
 fn run_alert(message: &str, detail: &str, action: &str) -> bool {
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSAlert, NSAlertFirstButtonReturn, NSAlertStyle};
+    use objc2_app_kit::{NSAlert, NSAlertFirstButtonReturn, NSAlertStyle, NSStatusWindowLevel};
     use objc2_foundation::NSString;
 
     let Some(main_thread) = MainThreadMarker::new() else {
@@ -39,6 +39,11 @@ fn run_alert(message: &str, detail: &str, action: &str) -> bool {
     confirm.setHasDestructiveAction(true);
     let cancel = alert.addButtonWithTitle(&NSString::from_str("取消"));
     cancel.setKeyEquivalent(&NSString::from_str("\u{1b}"));
+    // The pet and its panels sit at the status level (`floating_panel::set_on_top`), above the modal
+    // panel level an alert gets. One under them could not be seen, and the app would look frozen.
+    // Laid out first, so the level is set on the window as it will be shown.
+    alert.layout();
+    alert.window().setLevel(NSStatusWindowLevel + 1);
     alert.runModal() == NSAlertFirstButtonReturn
 }
 

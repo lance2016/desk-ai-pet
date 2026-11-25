@@ -149,7 +149,7 @@ src/
 
 src-tauri/src/
 ├── lib.rs                   托盘、右键菜单、应用菜单；平时隐藏 Dock 图标，设置窗口打开时显示
-├── alert.rs                 不可撤销操作前的原生确认框（NSAlert）
+├── alert.rs                 不可撤销操作前的原生确认框（NSAlert），层级比宠物和面板（状态条层）高一层，不会被它们盖住
 ├── llm.rs                   模型通道：本机加密的 Key、供应商地址白名单、curl、按行转发流、取消
 ├── database.rs              应用的 SQLite（rusqlite）：打开 `worklog.sqlite`、按版本顺序跑 `MIGRATIONS`
 ├── request_log.rs           请求记录：每次请求一行概要（耗时、token，不含内容，留 90 天），开发者模式另存完整内容（留 100 条）
