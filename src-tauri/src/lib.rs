@@ -106,6 +106,7 @@ struct PetMenu {
     mail_code: MenuItem<Wry>,
     links: MenuItem<Wry>,
     dubbing: MenuItem<Wry>,
+    translate: MenuItem<Wry>,
     /** Whether a focus round or rest is running, so the item knows what a click means. */
     focus_running: AtomicBool,
     /// Whether the right-click menu is open. Opening it runs AppKit's menu loop, which still
@@ -206,19 +207,22 @@ fn sync_focus_menu(menu: State<'_, PetMenu>, phase: String) -> Result<(), String
     menu.focus.set_text(label).map_err(|error| error.to_string())
 }
 
-/// Things to do with the pet first, then how it behaves, then the app. Same order in the tray.
+/// Six groups, nearest to the user first: chat, what it keeps for you, tools, the pet, how it shows,
+/// the app. Same order in the tray. An item is named as the window or the feature is everywhere else;
+/// only the ones that ask for more after opening end in an ellipsis.
 fn build_menu(app: &App) -> tauri::Result<PetMenu> {
     let item = |id: &str, label: &str| MenuItem::with_id(app, id, label, true, None::<&str>);
-    // The pet's own "聊聊天" button opens the bar under it; this opens the full window, so it says so.
+    // The pet's own chat button opens the bar under it; this opens the full window, so it says so.
     let chat = item(CHAT_ID, "打开聊天窗口")?;
+    // Shows the translation shortcut once the pet window registers it (`sync_translation_menu`).
+    let translate = item(TRANSLATE_ID, "翻译…")?;
     let today = item(TODAY_ID, "提醒")?;
     let notes = item(NOTES_ID, "备忘")?;
-    let coding = item(CODING_ID, "Claude Code 会话")?;
     let links = item(LINKS_ID, "常用链接")?;
-    let dubbing = item(DUBBING_ID, "配音…")?;
     let review = item(REVIEW_ID, "今日回顾")?;
-    let translate = item(TRANSLATE_ID, "翻译…")?;
+    let coding = item(CODING_ID, "Claude Code")?;
     let mail_code = item(MAIL_CODE_ID, MAIL_CODE_LABEL)?;
+    let dubbing = item(DUBBING_ID, "配音")?;
     let pat = item(PAT_ID, "摸摸头")?;
     let focus = item(FOCUS_ID, FOCUS_LABELS[0].1)?;
     let sizes = SIZES
@@ -242,14 +246,16 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
         app,
         &[
             &chat,
+            &translate,
+            &PredefinedMenuItem::separator(app)?,
             &today,
             &notes,
-            &coding,
             &links,
             &review,
-            &translate,
-            &dubbing,
+            &PredefinedMenuItem::separator(app)?,
+            &coding,
             &mail_code,
+            &dubbing,
             &PredefinedMenuItem::separator(app)?,
             &pat,
             &dock,
@@ -264,7 +270,14 @@ fn build_menu(app: &App) -> tauri::Result<PetMenu> {
             &quit,
         ],
     )?;
-    Ok(PetMenu { menu, visibility, focus, mail_code, links, dubbing, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
+    Ok(PetMenu { menu, visibility, focus, mail_code, links, dubbing, translate, focus_running: AtomicBool::new(false), popped_up: AtomicBool::new(false), on_top, dnd, sizes, dock })
+}
+
+/// Shows the translation shortcut the user set next to the item, or none.
+pub(crate) fn sync_translation_menu(app: &AppHandle, shortcut: Option<&str>) {
+    if let Some(menu) = app.try_state::<PetMenu>() {
+        report("show the translation shortcut", menu.translate.set_accelerator(shortcut));
+    }
 }
 
 /// The app's menu bar. It shows only while the settings window keeps the app in the Dock,
@@ -845,7 +858,7 @@ fn set_links_enabled(app: AppHandle, menu: State<'_, PetMenu>, enabled: bool) ->
     Ok(())
 }
 
-/// Turns the "配音…" menu item on or off; turning it off also closes the window.
+/// Turns the "配音" menu item on or off; turning it off also closes the window.
 #[tauri::command]
 fn set_dubbing_enabled(app: AppHandle, menu: State<'_, PetMenu>, enabled: bool) -> Result<(), String> {
     menu.dubbing.set_enabled(enabled).map_err(|error| error.to_string())?;

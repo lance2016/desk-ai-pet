@@ -35,7 +35,7 @@ export function saveDraft(draft: DubbingDraft, storage: Storage = window.localSt
   storage.setItem(DRAFT_KEY, JSON.stringify(draftSchema.parse(draft)));
 }
 
-/** Whether "配音…" is in the pet's menu; on until turned off in 设置 › 小工具. */
+/** Whether "配音" is in the pet's menu; on until turned off in 设置 › 小工具. */
 export function dubbingEnabled(storage: Storage = window.localStorage): boolean {
   return storage.getItem(ENABLED_KEY) !== "false";
 }

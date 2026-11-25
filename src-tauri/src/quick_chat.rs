@@ -108,6 +108,9 @@ fn set_shortcut(app: &AppHandle, index: usize, shortcut: Option<String>) -> Resu
         }
     }
     state.0.lock().map_err(|_| "Shortcut state unavailable")?[index] = parsed;
+    if index == 1 {
+        crate::sync_translation_menu(app, shortcut.as_deref());
+    }
     Ok(())
 }
 

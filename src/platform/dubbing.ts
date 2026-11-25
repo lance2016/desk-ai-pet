@@ -11,7 +11,7 @@ function requireNative() {
 }
 
 export const dubbingPlatform = {
-  /** Turns the "配音…" menu item on or off; off also closes the window. */
+  /** Turns the "配音" menu item on or off; off also closes the window. */
   async setEnabled(enabled: boolean): Promise<void> {
     if (isTauri()) await invoke("set_dubbing_enabled", { enabled });
   },
