@@ -63,7 +63,7 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       {toggle("eveningGreeting", "每天说晚安", "到这个时间后的半小时内道一声晚安；定时勿扰开始后就不说了",
         <TimeField label="晚安时间" value={value.eveningTime ?? eveningGreetingTime(quietStart)} disabled={!value.eveningGreeting} onChange={(eveningTime) => update({ ...value, eveningTime })} />)}
     </div>
-    <div className="settings-section__intro"><h2>关心</h2><p>{name}等你手停下来才开口，勿扰和专注时不出声。连着几句没人理会少说些，聊天里说「今晚别催我」就安静到明早</p></div>
+    <div className="settings-section__intro"><h2>关心</h2><p>{name}等你手停下来才开口，勿扰和专注时不出声；连着几句没人理会少说些</p></div>
     <div className="settings-group">
       {hushed !== null && <div className="settings-row">
         <div className="settings-row__body"><strong>正在安静</strong><span>你让它别催，{formatReminderTime(hushed, Date.now())} 前不主动说话；提醒照常到点</span></div>
