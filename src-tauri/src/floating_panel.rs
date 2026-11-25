@@ -4,10 +4,15 @@
 //! app's full-screen space. Tauri creates an ordinary window, so it is turned
 //! into a panel after creation.
 
-use objc2::{ClassType, MainThreadOnly, define_class, ffi, runtime::AnyObject};
+use objc2::{
+    ClassType, MainThreadOnly, define_class, ffi, msg_send,
+    runtime::{AnyObject, Sel},
+    sel,
+};
 use objc2_app_kit::{
-    NSNormalWindowLevel, NSPanel, NSResponder, NSStatusWindowLevel, NSWindow,
-    NSWindowButton, NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSEvent, NSEventModifierFlags, NSNormalWindowLevel, NSPanel, NSResponder,
+    NSStatusWindowLevel, NSWindow, NSWindowButton, NSWindowCollectionBehavior,
+    NSWindowStyleMask,
 };
 use tauri::WebviewWindow;
 
@@ -25,8 +30,46 @@ define_class!(
         fn can_become_key_window(&self) -> bool {
             true
         }
+
+        /// The panel does not activate the app, so the app menu never sees the
+        /// keys pressed in it, and WebKit leaves ⌘V and the like to that menu:
+        /// without this a paste only beeps. The edit shortcuts go straight to
+        /// the focused field instead.
+        #[unsafe(method(performKeyEquivalent:))]
+        fn perform_key_equivalent(&self, event: &NSEvent) -> bool {
+            let edited = edit_action(event).zip(self.firstResponder()).is_some_and(|(action, responder)| {
+                // SAFETY: the edit actions take the sender as their only argument.
+                unsafe { responder.tryToPerform_with(action, Some(self)) }
+            });
+            // SAFETY: NSPanel implements performKeyEquivalent: with this signature.
+            edited || unsafe { msg_send![super(self), performKeyEquivalent: event] }
+        }
     }
 );
+
+/// The standard edit action for an edit shortcut (⌘X, ⌘C, ⌘V, ⌘A, ⌘Z, ⇧⌘Z).
+fn edit_action(event: &NSEvent) -> Option<Sel> {
+    let held = event.modifierFlags()
+        & (NSEventModifierFlags::Command
+            | NSEventModifierFlags::Shift
+            | NSEventModifierFlags::Option
+            | NSEventModifierFlags::Control);
+    let key = event.charactersIgnoringModifiers()?.to_string().to_lowercase();
+    if held == NSEventModifierFlags::Command {
+        match key.as_str() {
+            "x" => Some(sel!(cut:)),
+            "c" => Some(sel!(copy:)),
+            "v" => Some(sel!(paste:)),
+            "a" => Some(sel!(selectAll:)),
+            "z" => Some(sel!(undo:)),
+            _ => None,
+        }
+    } else if held == NSEventModifierFlags::Command | NSEventModifierFlags::Shift && key == "z" {
+        Some(sel!(redo:))
+    } else {
+        None
+    }
+}
 
 /// Must be called on the main thread, before the window is first shown.
 pub fn apply(window: &WebviewWindow) -> tauri::Result<()> {
