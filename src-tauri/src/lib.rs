@@ -625,12 +625,7 @@ fn shown_popovers(app: &AppHandle, label: &str) -> Vec<Area> {
         .filter(|other| **other != label)
         .filter_map(|other| app.get_webview_window(other))
         .filter(|other| other.is_visible().unwrap_or(false))
-        .filter_map(|other| {
-            let scale = other.scale_factor().ok()?;
-            let position = other.outer_position().ok()?.to_logical::<f64>(scale);
-            let size = other.outer_size().ok()?.to_logical::<f64>(scale);
-            Some(Area { x: position.x, y: position.y, width: size.width, height: size.height })
-        })
+        .filter_map(|other| window_area(&other))
         .collect()
 }
 
@@ -692,6 +687,53 @@ pub(crate) fn hand_keyboard_back(app: &AppHandle, from: &str) {
     }
 }
 
+/// The pet itself, without the transparent room on its sides, in logical pixels.
+fn pet_area(app: &AppHandle) -> Option<Area> {
+    let pet = app.get_webview_window(MAIN_WINDOW)?;
+    let scale = pet.scale_factor().ok()?;
+    let origin = pet.outer_position().ok()?.to_logical::<f64>(scale);
+    let extent = pet.outer_size().ok()?.to_logical::<f64>(scale);
+    Some(Area { x: origin.x + STAGE_SIDE, y: origin.y, width: extent.width - 2.0 * STAGE_SIDE, height: extent.height })
+}
+
+/// Where a window is, in logical pixels.
+fn window_area(window: &WebviewWindow) -> Option<Area> {
+    let scale = window.scale_factor().ok()?;
+    let origin = window.outer_position().ok()?.to_logical::<f64>(scale);
+    let size = window.outer_size().ok()?.to_logical::<f64>(scale);
+    Some(Area { x: origin.x, y: origin.y, width: size.width, height: size.height })
+}
+
+/// Moves a window beside the pet, on whichever side has room; a panel also clear of the panels shown.
+fn put_beside_pet(app: &AppHandle, window: &WebviewWindow) {
+    let (Some(pet), Some(own)) = (pet_area(app), window_area(window)) else { return };
+    let Some(work) = work_area_under(app, pet) else { return };
+    let size = (own.width, own.height);
+    let mut spot = beside(pet, size, work);
+    if POPOVERS.contains(&window.label()) {
+        spot = place(spot, size, work, pet, &shown_popovers(app, window.label()));
+    }
+    report("place window beside the pet", window.set_position(tauri::LogicalPosition::new(spot.0, spot.1)));
+}
+
+/// After the pet was dragged to another screen, the panels left open on the old one come along and open
+/// beside it again: they were opened from the pet, and the user is now looking at the other screen.
+/// Panels on the pet's screen stay where the user left them. Sync, so it runs on the main thread.
+#[tauri::command]
+fn bring_panels_along(app: AppHandle) {
+    let Some(work) = pet_area(&app).and_then(|pet| work_area_under(&app, pet)) else { return };
+    for label in POPOVERS {
+        let Some(panel) = app.get_webview_window(label) else { continue };
+        if !panel.is_visible().unwrap_or(false) {
+            continue;
+        }
+        let elsewhere = window_area(&panel).and_then(|area| work_area_under(&app, area)).is_some_and(|screen| screen != work);
+        if elsewhere {
+            put_beside_pet(&app, &panel);
+        }
+    }
+}
+
 /// Shows a window next to the pet, on whichever side has room, and focuses it.
 /// A popover that would cover others opens beside them (see `place`); one already shown is only
 /// brought to the front, where the user left it.
@@ -701,28 +743,8 @@ pub(crate) fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String
         .ok_or_else(|| format!("{label} window is unavailable"))?;
     let popover = POPOVERS.contains(&label);
     let already_shown = popover && window.is_visible().unwrap_or(false);
-    if let (false, Some(pet)) = (already_shown, app.get_webview_window(MAIN_WINDOW)) {
-        if let (Ok(position), Ok(pet_size), Ok(pet_scale), Ok(size), Ok(scale)) = (
-            pet.outer_position(),
-            pet.outer_size(),
-            pet.scale_factor(),
-            window.outer_size(),
-            window.scale_factor(),
-        ) {
-            let origin = position.to_logical::<f64>(pet_scale);
-            let extent = pet_size.to_logical::<f64>(pet_scale);
-            let pet_area = Area { x: origin.x + STAGE_SIDE, y: origin.y, width: extent.width - 2.0 * STAGE_SIDE, height: extent.height };
-            let own = size.to_logical::<f64>(scale);
-            if let Some(work) = work_area_under(app, pet_area) {
-                let size = (own.width, own.height);
-                let mut spot = beside(pet_area, size, work);
-                if popover {
-                    spot = place(spot, size, work, pet_area, &shown_popovers(app, label));
-                }
-                let (x, y) = spot;
-                report("place window beside the pet", window.set_position(tauri::LogicalPosition::new(x, y)));
-            }
-        }
+    if !already_shown {
+        put_beside_pet(app, &window);
     }
     // The popovers are panels (see `setup`): focusing them must not activate the
     // app, or a user in a full-screen app is pulled out of it.
@@ -1076,6 +1098,7 @@ pub fn run() {
             dubbing::dubbing_discard,
             open_coding,
             hide_panel,
+            bring_panels_along,
             open_settings,
             set_pet_dnd,
             quick_chat::set_quick_chat_shortcut,

@@ -38,6 +38,8 @@ const OPEN_LINKS_COMMAND = "open_links";
 const SET_LINKS_ENABLED_COMMAND = "set_links_enabled";
 const OPEN_CODING_COMMAND = "open_coding";
 const HIDE_PANEL_COMMAND = "hide_panel";
+/** After a drag to another screen, panels left open on the old one move beside the pet. Must match `lib.rs`. */
+const BRING_PANELS_COMMAND = "bring_panels_along";
 const OPEN_SETTINGS_COMMAND = "open_settings";
 const SETTINGS_SECTION_EVENT = "pet://settings-section";
 /** Must match the event and commands in src-tauri/src/quick_chat.rs. */
@@ -309,6 +311,11 @@ export const petWindow = {
     const x = clampWindowX(frame.x, frame.width, frame.monitor);
     const y = clampWindowY(frame.y, frame.height, frame.monitor);
     if (x !== frame.x || y !== frame.y) await this.setPosition({ x, y });
+  },
+
+  /** Panels open on another screen than the pet's come along beside it; ones on its screen stay put. */
+  async bringPanelsAlong(): Promise<void> {
+    if (isTauri()) await invoke(BRING_PANELS_COMMAND);
   },
 
   /** The screen edge the pet has been pushed against or past, if any. A seam to another monitor does not count. */

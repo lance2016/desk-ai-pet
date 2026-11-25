@@ -114,6 +114,7 @@ export function PetStage({ runtime, hostRef }: PetStageProps) {
       if (finished.anchor) await followCursor(finished.anchor);
       await petWindow.constrainToMonitor();
       runtime.bus.emit("pet.drag_ended", { dockSide: await petWindow.dockSide() });
+      void petWindow.bringPanelsAlong().catch((error: unknown) => console.warn("Could not bring the panels along", error));
     } catch (error) {
       reportMoveError(error);
       runtime.bus.emit("pet.drag_ended", { dockSide: null });
