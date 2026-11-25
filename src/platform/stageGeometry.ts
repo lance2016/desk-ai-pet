@@ -134,10 +134,12 @@ export interface HeadInsets {
 /**
  * Where the speech bubble goes: above the head (null) while there is room for it there, otherwise
  * beside the head, on the side with more of the window on screen, the right one when even.
- * A pet peeking from a screen edge keeps the bubble it has.
+ * A pet peeking from a screen edge speaks from the side away from that edge: moved down onto
+ * its head, the bubble would cover the face that peeks out.
  */
-export function speechSide(insets: OffscreenInsets, head: HeadInsets, docked: boolean): DockSide | null {
-  if (docked || insets.top <= SPEECH_SIDE_OVERHANG) return null;
+export function speechSide(insets: OffscreenInsets, head: HeadInsets, docked: DockSide | null): DockSide | null {
+  if (insets.top <= SPEECH_SIDE_OVERHANG) return null;
+  if (docked) return docked === "left" ? "right" : "left";
   const left = STAGE_MARGIN.side + head.left - insets.left;
   const right = STAGE_MARGIN.side + head.right - insets.right;
   return right >= left ? "right" : "left";

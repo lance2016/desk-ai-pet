@@ -89,18 +89,23 @@ describe("speechSide", () => {
   const onScreen = { left: 0, right: 0, top: 0, bottom: 0 };
 
   it("keeps the bubble above the head while there is room up there", () => {
-    expect(speechSide(onScreen, head, false)).toBeNull();
-    expect(speechSide({ ...onScreen, top: SPEECH_SIDE_OVERHANG }, head, false)).toBeNull();
+    expect(speechSide(onScreen, head, null)).toBeNull();
+    expect(speechSide({ ...onScreen, top: SPEECH_SIDE_OVERHANG }, head, null)).toBeNull();
   });
 
   it("moves it beside the head under the menu bar, to the side with more room", () => {
     const underMenuBar = { ...onScreen, top: STAGE_MARGIN.top };
-    expect(speechSide(underMenuBar, head, false)).toBe("right");
-    expect(speechSide({ ...underMenuBar, right: 40 }, head, false)).toBe("left");
-    expect(speechSide({ ...underMenuBar, left: 40 }, { left: 56, right: 44 }, false)).toBe("right");
+    expect(speechSide(underMenuBar, head, null)).toBe("right");
+    expect(speechSide({ ...underMenuBar, right: 40 }, head, null)).toBe("left");
+    expect(speechSide({ ...underMenuBar, left: 40 }, { left: 56, right: 44 }, null)).toBe("right");
   });
 
-  it("leaves a pet peeking from an edge alone", () => {
-    expect(speechSide({ ...onScreen, top: STAGE_MARGIN.top }, head, true)).toBeNull();
+  it("keeps the bubble above a pet peeking from an edge while there is room", () => {
+    expect(speechSide(onScreen, head, "left")).toBeNull();
+  });
+
+  it("speaks from the side away from the edge when a peeking pet is under the menu bar", () => {
+    expect(speechSide({ ...onScreen, top: STAGE_MARGIN.top }, head, "left")).toBe("right");
+    expect(speechSide({ ...onScreen, top: STAGE_MARGIN.top }, head, "right")).toBe("left");
   });
 });
