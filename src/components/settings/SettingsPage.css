@@ -808,8 +808,9 @@ button.dock-row__body { cursor: pointer; }
 /* The log toolbar sticks just beneath the measured settings header. */
 .diagnostics-page .log-viewer__bar { position: sticky; top: var(--header-height); z-index: 4; padding: 6px 0; background: var(--bg); }
 
-/* Keep the sidebar and readable content width usable at the window's minimum size. */
-@media (max-width: 1000px) {
+/* Keep the sidebar and readable content width usable near the window's minimum size (820). The default
+   width (960, tauri.conf.json) stays above this, so a new window shows the standard sidebar and margins. */
+@media (max-width: 900px) {
   .settings-sidebar { flex-basis: 210px; padding: 0 10px 14px; }
   .settings-header { padding-inline: 26px; }
   .settings-section { max-width: calc(var(--content-width) + 52px); padding: 0 26px 28px; }
@@ -818,8 +819,7 @@ button.dock-row__body { cursor: pointer; }
 
 /* ---------- Read-aloud voice (VoiceSettings) and the sheet that adds a cloned voice (VoiceCloneSheet) ---------- */
 .settings-row > .ui-select + .voice-preview { min-width: 52px; }
-/* The sentence 试听 reads, so the user knows what they will hear. */
-/* The style line spans the row: its label above, the field under it, the count and reset below. */
+/* The style line: its label and field side by side, the reset link below when the voice was changed. */
 .voice-style { flex-wrap: wrap; row-gap: 8px; }
 .voice-style .ui-field { flex: 0 1 300px; min-width: 0; }
 .voice-clones-link { margin-left: 4px; }
