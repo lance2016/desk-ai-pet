@@ -276,11 +276,11 @@ interface InboxRowProps {
   item: InboxItem;
   now: number;
   deferred?: boolean;
-  onOpen: (item: InboxItem) => void;
+  onBack: (session: CodingSession) => void;
   onMark: (key: string, until: number | null) => void;
 }
 
-function InboxRow({ item, now, deferred = false, onOpen, onMark }: InboxRowProps) {
+function InboxRow({ item, now, deferred = false, onBack, onMark }: InboxRowProps) {
   const { session, turn, key, at, task, line } = item;
   const status = turn === "waiting" ? "等你处理" : turn === "failed" ? "出错了" : "结果待看";
   const project = session.project || FOLDER_FALLBACK;
@@ -290,7 +290,7 @@ function InboxRow({ item, now, deferred = false, onOpen, onMark }: InboxRowProps
   const openLabel = session.revealable ? "回到终端" : "复制恢复命令";
   return (
     <li className={`today-row coding-row coding-inbox-row coding-row--${turn}`}>
-      <button type="button" className="coding-row__main" title={[title, context, description, openLabel].filter(Boolean).join("\n")} onClick={() => onOpen(item)}>
+      <button type="button" className="coding-row__main" title={[title, context, description, openLabel].filter(Boolean).join("\n")} onClick={() => onBack(session)}>
         <span className="coding-row__mark"><TurnMark turn={turn} /></span>
         <span className="coding-row__body">
           <span className="coding-row__top"><strong>{title}</strong><span className="coding-row__time">{ago(at, now)}</span></span>
@@ -503,7 +503,21 @@ export function CodingPanel() {
       setHud({ text: HAS_CHINESE.test(text) ? text : "没能切到它所在的终端" });
     });
   };
-  const goBack = (session: CodingSession) => (session.revealable ? reveal(session) : void copy(session));
+  // Going back to a session, from the inbox or its folder, is reading its finished round; a question keeps waiting.
+  const markRead = (session: CodingSession) => {
+    const item = [...inbox.pending, ...inbox.later].find((each) => each.session.id === session.id && each.turn !== "waiting");
+    if (!item) return;
+    try {
+      setMarks(saveInboxMark(item.key, 0, inbox.keys));
+    } catch (reason) {
+      console.error("Failed to save the coding inbox mark", reason);
+    }
+  };
+  const goBack = (session: CodingSession) => {
+    markRead(session);
+    if (session.revealable) reveal(session);
+    else void copy(session);
+  };
   const leaveDetail = () => {
     left.current = picked;
     setPicked(null);
@@ -534,17 +548,6 @@ export function CodingPanel() {
       console.error("Failed to save the coding inbox mark", reason);
       setHud({ text: "没能保存，请再试一次。" });
     }
-  };
-  // Going back to a finished round is reading it; a question keeps waiting until it is answered.
-  const openItem = (item: InboxItem) => {
-    if (item.turn !== "waiting") {
-      try {
-        setMarks(saveInboxMark(item.key, 0, inbox.keys));
-      } catch (reason) {
-        console.error("Failed to save the coding inbox mark", reason);
-      }
-    }
-    goBack(item.session);
   };
   const openInbox = () => {
     setInboxOpen(true);
@@ -593,14 +596,14 @@ export function CodingPanel() {
               {notice}
               {inbox.pending.length > 0 ? (
                 <ul className="coding-rows">
-                  {inbox.pending.map((item) => <InboxRow key={item.key} item={item} now={now} onOpen={openItem} onMark={updateMark} />)}
+                  {inbox.pending.map((item) => <InboxRow key={item.key} item={item} now={now} onBack={goBack} onMark={updateMark} />)}
                 </ul>
               ) : <p className="coding-inbox-empty">暂时没有待处理的会话</p>}
               {inbox.later.length > 0 && (
                 <details className="coding-inbox-later">
                   <summary>稍后看 · {inbox.later.length}</summary>
                   <ul className="coding-rows">
-                    {inbox.later.map((item) => <InboxRow key={item.key} item={item} now={now} deferred onOpen={openItem} onMark={updateMark} />)}
+                    {inbox.later.map((item) => <InboxRow key={item.key} item={item} now={now} deferred onBack={goBack} onMark={updateMark} />)}
                   </ul>
                 </details>
               )}
