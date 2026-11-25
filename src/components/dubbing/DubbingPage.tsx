@@ -149,7 +149,7 @@ export function DubbingPage() {
                     <span className="dub-line__text">{line.text}</span>
                     <span className="dub-line__state">
                       {clip?.status === "making" && <span className="dub-spinner" aria-label="生成中" />}
-                      {clip?.status === "failed" && <span className="dub-line__failed" title={clip.error}>失败</span>}
+                      {clip?.status === "failed" && <span className="dub-line__failed">失败</span>}
                       {clip?.status === "ready" && <>
                         <span className="dub-line__seconds">{pcmSeconds(clip.pcm).toFixed(1)} 秒</span>
                         <button type="button" className="dub-icon-button" aria-label={sounding && !playing?.all ? "停止试听" : "试听这一句"} onClick={() => play(false, index)}>
@@ -157,6 +157,7 @@ export function DubbingPage() {
                         </button>
                       </>}
                     </span>
+                    {clip?.status === "failed" && <span className="dub-line__error">{clip.error}</span>}
                   </li>
                 );
               })}

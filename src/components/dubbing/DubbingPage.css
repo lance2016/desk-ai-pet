@@ -41,7 +41,9 @@ html.dubbing-window, body.dubbing-window, body.dubbing-window #root { margin: 0;
 .dub-line__number { color: var(--ui-text-muted); font-size: var(--ui-font-footnote); line-height: 20px; text-align: right; font-variant-numeric: tabular-nums; }
 .dub-line__text { line-height: 20px; overflow-wrap: anywhere; }
 .dub-line__state { display: flex; align-items: center; gap: 6px; min-height: 20px; color: var(--ui-text-muted); font-size: var(--ui-font-caption); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.dub-line__failed { color: var(--ui-danger); cursor: help; }
+.dub-line__failed { color: var(--ui-danger); }
+/* Why a line failed, under its text: it was only in a tooltip, where nobody looked. */
+.dub-line__error { grid-column: 2 / -1; color: var(--ui-danger); font-size: var(--ui-font-footnote); }
 /* The line being heard, so the ear can follow the words. */
 .dub-line.is-playing { background: var(--ui-accent-soft); }
 .dub-line.is-playing .dub-line__number { color: var(--ui-accent); font-weight: 600; }

@@ -7,8 +7,8 @@ import { isComposing, useCloseShortcut } from "../keyboard";
 import "../today/TodayPanel.css";
 import "./LinksPanel.css";
 import { Icon } from "../../ui/icons";
+import { UNDO_MS } from "../../ui/feedback";
 
-const UNDO_MS = 5_000;
 const BLANK_LINK = { name: "", url: "", group: "", tag: "", description: "" };
 const hidePanel = () => void petWindow.hideSelf().catch((error: unknown) => console.error("Failed to hide links", error));
 
@@ -85,6 +85,8 @@ function LinksView({ managing = false }: { managing?: boolean }) {
   const [actionsId, setActionsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<WorkLink | "new" | null>(null);
   const [hud, setHud] = useState<{ text: string; undo?: () => void } | null>(null);
+  /** What went wrong last; it stays until the next thing works. */
+  const [failure, setFailure] = useState("");
   const search = useRef<HTMLInputElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const dragged = useRef<string | null>(null);
@@ -98,6 +100,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
   useEffect(() => {
     if (managing) return;
     return petWindow.onShown(() => {
+      setFailure("");
       setIconsEnabled(true);
       setEditing(null);
       setActionsId(null);
@@ -118,10 +121,11 @@ function LinksView({ managing = false }: { managing?: boolean }) {
   const save = (change: Parameters<typeof updateLinks>[0]) => {
     try {
       updateLinks(change);
+      setFailure("");
       return true;
     } catch {
       console.error("Failed to save the links list");
-      setHud({ text: "没能保存常用链接，请重试。" });
+      setFailure("没能保存常用链接，请重试。");
       return false;
     }
   };
@@ -131,10 +135,11 @@ function LinksView({ managing = false }: { managing?: boolean }) {
     opening.current = true;
     try {
       await systemPlatform.openLink(link.url);
+      setFailure("");
       if (!managing) hidePanel();
     } catch {
       console.error("Failed to open a saved link");
-      setHud({ text: "没能打开链接，请检查地址。" });
+      setFailure("没能打开链接，请检查地址。");
     } finally {
       opening.current = false;
     }
@@ -144,10 +149,11 @@ function LinksView({ managing = false }: { managing?: boolean }) {
     try {
       await navigator.clipboard.writeText(link.url);
       setActionsId(null);
+      setFailure("");
       setHud({ text: "已复制链接" });
     } catch (error) {
       console.error("Failed to copy a saved link", error);
-      setHud({ text: "没能复制链接，请重试。" });
+      setFailure("没能复制链接，请重试。");
     }
   };
 
@@ -209,6 +215,8 @@ function LinksView({ managing = false }: { managing?: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [managing]);
 
+  const alert = failure && <p className="today-error" role="alert">{failure}</p>;
+
   return (
     <div className="links-view" onKeyDown={(event) => {
       if (!managing || event.key !== "Escape" || isComposing(event)) return;
@@ -219,7 +227,8 @@ function LinksView({ managing = false }: { managing?: boolean }) {
         <h1 data-tauri-drag-region={!managing ? "" : undefined}>{editing === "new" ? "添加链接" : editing ? "编辑链接" : managing ? "链接列表" : "常用链接"}</h1>
         {!editing && <button type="button" className="links-icon-button" title="添加链接" aria-label="添加链接" onClick={() => startEdit("new")}><Glyph name="plus" /></button>}
       </header>
-      {editing ? (
+      {editing ? (<>
+        {alert}
         <LinkForm
           initial={editing}
           groups={[...linksByGroup(links).keys()].filter(Boolean)}
@@ -235,9 +244,10 @@ function LinksView({ managing = false }: { managing?: boolean }) {
             if (succeeded) { setQuery(""); setSelectedId(link.id); setEditing(null); }
           }}
         />
-      ) : (
+      </>) : (
         <>
           <div className="links-top"><label className="ui-search links-search"><Glyph name="search" /><input ref={search} type="search" aria-label="搜索名称、地址或备注" placeholder="搜索名称、地址或备注" value={query} onKeyDown={keySearch} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); setActionsId(null); }} /></label></div>
+          {alert}
           <div className="links-list" ref={scroll}>
             {results.length === 0 && <div className="today-empty"><Glyph name="globe" /><strong>{links.length ? "没有匹配的链接" : "还没有常用链接"}</strong>{links.length === 0 && <button type="button" className="ui-button ui-button--primary" onClick={() => startEdit("new")}>添加链接</button>}</div>}
             {groups.map(([name, entries], groupIndex) => (

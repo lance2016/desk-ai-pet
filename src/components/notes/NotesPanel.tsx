@@ -6,9 +6,11 @@ import { escapeHidesPanel, isComposing, useCloseShortcut } from "../keyboard";
 import "../today/TodayPanel.css";
 import "./NotesPanel.css";
 import { Icon } from "../../ui/icons";
+import { UNDO_MS } from "../../ui/feedback";
 
 /** How long "已复制" or "撤销" stays up. */
-const HUD_MS = { copied: 1_600, removed: 6_000, pushed: 8_000 } as const;
+/** A copy is only confirmed; a removed or pushed-out note can be taken back. */
+const HUD_MS = { copied: 1_600, removed: UNDO_MS, pushed: UNDO_MS } as const;
 /** From this many notes on, the count says how close the list is to full. */
 const NEAR_FULL = NOTE_LIMITS.items - 10;
 
@@ -262,10 +264,10 @@ export function NotesPanel() {
           <div className="today-empty">
             <Glyph name="note" />
             <strong>还没有备忘</strong>
-            <p>没有时间的事、常用的地址和账号都可以存在这里，点一下就能复制。也可以跟宠物说“帮我记一下……”。</p>
+            <p>没有时间的事、常用的地址和账号都可以存在这里，点一下就能复制。也可以跟宠物说「帮我记一下……」。</p>
           </div>
         ) : shown.length === 0 ? (
-          <p className="today-all-done">没有包含“{query.trim()}”的备忘。</p>
+          <p className="today-all-done">没有包含「{query.trim()}」的备忘。</p>
         ) : (
           <>
             {pinned.length > 0 && <><h2 className="today-section">置顶</h2><ul>{pinned.map(row)}</ul></>}
@@ -277,18 +279,18 @@ export function NotesPanel() {
       {hud?.kind === "copied" && (
         <div className="today-hud" role="status">
           <Glyph name="copy" />
-          <span>已复制“{hud.text.replace(/\s+/g, " ")}”</span>
+          <span>已复制「{hud.text.replace(/\s+/g, " ")}」</span>
         </div>
       )}
       {hud?.kind === "removed" && (
         <div className="today-hud" role="status">
-          <span>已删除“{hud.note.text.replace(/\s+/g, " ")}”</span>
+          <span>已删除「{hud.note.text.replace(/\s+/g, " ")}」</span>
           <button type="button" onClick={undo}>撤销</button>
         </div>
       )}
       {hud?.kind === "pushed" && (
         <div className="today-hud" role="status">
-          <span>备忘满了，移除了最旧的一条“{hud.note.text.replace(/\s+/g, " ")}”</span>
+          <span>备忘满了，移除了最旧的一条「{hud.note.text.replace(/\s+/g, " ")}」</span>
           <button type="button" onClick={undo}>撤销</button>
         </div>
       )}

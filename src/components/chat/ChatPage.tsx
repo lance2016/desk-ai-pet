@@ -39,6 +39,7 @@ import { CLONED_VOICE_PREFIX, type ChatPhase } from "../../types";
 import "./ChatPage.css";
 import { loadSwitchedOff } from "../../preferences/SkillPreferences";
 import { Icon } from "../../ui/icons";
+import { UNDO_MS } from "../../ui/feedback";
 
 const MAX_INPUT = 4000;
 /** While typing, the pet is told at most this often; it listens on for longer than that after each report. */
@@ -54,8 +55,7 @@ const SHOW_COUNT_FROM = MAX_INPUT - 500;
 const MAX_COMPOSER_HEIGHT = 120;
 /** How close to the bottom still counts as reading the latest message. */
 const STICK_TO_BOTTOM_PX = 24;
-/** How long a deleted chat can be brought back, and how long "已复制" shows. */
-const UNDO_MS = 6_000;
+/** How long "已复制" shows. */
 const COPIED_MS = 1_500;
 /** The stop button takes the send button's place; clicks this soon after are the second half of a double-click on send. */
 const STOP_GUARD_MS = 400;

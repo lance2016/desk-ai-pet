@@ -12,10 +12,10 @@ import { useNow } from "../useNow";
 import "../today/TodayPanel.css";
 import "./CodingPanel.css";
 import { Icon } from "../../ui/icons";
+import { UNDO_MS } from "../../ui/feedback";
 
 const TICK_MS = 15_000;
 const HUD_MS = 2_400;
-const UNDO_MS = 5_000;
 const DAY_MS = 24 * 60 * 60_000;
 /** Where "编码助手" is in the settings window. */
 const SETTINGS_SECTION = "tools";
@@ -374,8 +374,20 @@ function folderSummary(group: ProjectGroup): string {
 }
 
 /** What to say where the sessions would be, by whether Claude Code is connected. */
-function Empty({ hooks }: { hooks: ClaudeHooksState | undefined }) {
+function Empty({ hooks, unread }: { hooks: ClaudeHooksState | undefined; unread: boolean }) {
   const connected = hooks?.connected && hooks.current;
+  if (unread && !hooks) {
+    return (
+      <div className="today-empty">
+        <TerminalGlyph />
+        <strong>读不到 Claude Code 的连接状态</strong>
+        <p>过一会儿再打开这个面板；一直这样，可以到设置里重新连接</p>
+        <button type="button" className="ui-button coding-connect" onClick={openSettings}>去设置里看看</button>
+      </div>
+    );
+  }
+  // Still reading: say nothing yet rather than "not connected" for a moment.
+  if (!hooks) return <div className="today-empty"><TerminalGlyph /></div>;
   return (
     <div className="today-empty">
       <TerminalGlyph />
@@ -402,6 +414,10 @@ export function CodingPanel() {
   const sessions = useSyncExternalStore(subscribeCodingSessions, codingSessionsSnapshot);
   const now = useNow(true, TICK_MS);
   const [hooks, setHooks] = useState<ClaudeHooksState | undefined>(undefined);
+  /** Whether connected could not be read: not the same as not connected. */
+  const [hooksUnread, setHooksUnread] = useState(false);
+  /** What went wrong last; it stays until the next thing works or the panel shows again. */
+  const [failure, setFailure] = useState("");
   const [hud, setHud] = useState<{ text: string; undo?: { key: string; until: number | null } } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [marks, setMarks] = useState(() => loadInboxMarks());
@@ -422,13 +438,17 @@ export function CodingPanel() {
     document.documentElement.classList.add("today-window");
     document.body.classList.add("today-window");
     const readHooks = () => {
-      void agentPlatform.state().then(setHooks).catch((reason: unknown) => console.warn("Could not read whether Claude Code is connected", reason));
+      void agentPlatform.state().then((state) => { setHooks(state); setHooksUnread(false); }).catch((reason: unknown) => {
+        console.warn("Could not read whether Claude Code is connected", reason);
+        setHooksUnread(true);
+      });
     };
     // The window is hidden, not closed: each time it shows, it starts from the folder that needs the user most.
     const startOver = () => {
       setInboxOpen(false);
       setChosen(null);
       setPicked(null);
+      setFailure("");
       readHooks();
     };
     readHooks();
@@ -490,17 +510,18 @@ export function CodingPanel() {
   const copy = async (session: CodingSession) => {
     try {
       await navigator.clipboard.writeText(resumeCommand(session));
+      setFailure("");
       setHud({ text: `已复制 ${resumeCommand(session)}` });
     } catch (reason) {
       console.error("Failed to copy a resume command", reason);
-      setHud({ text: "没能复制，请再试一次。" });
+      setFailure("没能复制，请再试一次。");
     }
   };
   const reveal = (session: CodingSession) => {
     agentPlatform.reveal(session.id).then(hidePanel).catch((reason: unknown) => {
       console.error("Could not bring a Claude Code terminal forward", reason);
       const text = String(reason).replace(/^Error:\s*/, "");
-      setHud({ text: HAS_CHINESE.test(text) ? text : "没能切到它所在的终端" });
+      setFailure(HAS_CHINESE.test(text) ? text : "没能切到它所在的终端");
     });
   };
   // Going back to a session, from the inbox or its folder, is reading its finished round; a question keeps waiting.
@@ -527,9 +548,10 @@ export function CodingPanel() {
     try {
       savePinnedFolder(next);
       setPinned(next);
+      setFailure("");
     } catch (reason) {
       console.error("Failed to save the pinned folder", reason);
-      setHud({ text: "没能置顶，请再试一次。" });
+      setFailure("没能置顶，请再试一次。");
     }
   };
   const fold = (project: string) => setUnfolded((before) => {
@@ -543,10 +565,11 @@ export function CodingPanel() {
       const previous = marks.find((mark) => mark.key === key)?.until ?? null;
       setMarks(saveInboxMark(key, until, inbox.keys));
       const text = undoing ? "已撤销" : until === 0 ? "已标为已看" : until === null ? "已移回待处理" : "30 分钟后回到待处理";
+      setFailure("");
       setHud({ text, undo: undoing ? undefined : { key, until: previous } });
     } catch (reason) {
       console.error("Failed to save the coding inbox mark", reason);
-      setHud({ text: "没能保存，请再试一次。" });
+      setFailure("没能保存，请再试一次。");
     }
   };
   const openInbox = () => {
@@ -562,6 +585,7 @@ export function CodingPanel() {
     </p>
   );
   const undo = hud?.undo;
+  const alert = failure && <p className="today-error" role="alert">{failure}</p>;
   const toast = hud && (
     <div className="today-hud" role="status">
       <span>{hud.text}</span>
@@ -573,7 +597,8 @@ export function CodingPanel() {
     return (
       <main className="today-panel coding-panel ui-on-material">
         <header className="today-header" data-tauri-drag-region><h1 data-tauri-drag-region>Claude Code</h1></header>
-        <section className="today-list" aria-label="Claude Code 会话"><Empty hooks={hooks} /></section>
+        <section className="today-list" aria-label="Claude Code 会话"><Empty hooks={hooks} unread={hooksUnread} /></section>
+        {alert}
         {toast}
       </main>
     );
@@ -640,6 +665,7 @@ export function CodingPanel() {
             </section>
           </>
         )}
+        {alert}
         {toast}
       </div>
     </main>

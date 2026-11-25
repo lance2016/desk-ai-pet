@@ -5,9 +5,8 @@ import { changeFacts } from "../../worklog/store";
 import { loadUserProfile, saveUserProfile, USER_PROFILE_LIMITS } from "../../preferences/UserProfile";
 import { ConfirmButton } from "../ConfirmButton";
 import { isComposing } from "../keyboard";
+import { UNDO_MS } from "../../ui/feedback";
 
-/** How long "撤销" stays up after a fact is deleted. */
-const UNDO_MS = 6_000;
 const SOURCE_LABELS: Record<Fact["source"], string> = { user: "你写的", chat: "聊天里记的" };
 const UNSAVED = "记忆没能保存，请再试一次。";
 /** Facts shown before "显示全部": the list may hold 50, which would run on for pages. */

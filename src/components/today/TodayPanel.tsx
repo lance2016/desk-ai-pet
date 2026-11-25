@@ -9,10 +9,9 @@ import { TimeField } from "../TimeField";
 import { loadQuietPreferences, subscribeQuietPreferences } from "../../preferences/QuietPreferences";
 import "./TodayPanel.css";
 import { Icon } from "../../ui/icons";
+import { UNDO_MS } from "../../ui/feedback";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-/** How long "撤销" stays up after an item is deleted. */
-const UNDO_MS = 6_000;
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 /** The next whole hour: the time a new reminder starts with. */
@@ -352,7 +351,7 @@ export function TodayPanel() {
           <div className="today-empty">
             <Glyph name="list" />
             <strong>还没有提醒</strong>
-            <p>在上面写一句、选个时间，或者跟宠物说“下午三点提醒我开会”。没有时间的事放进备忘。</p>
+            <p>在上面写一句、选个时间，或者跟宠物说「下午三点提醒我开会」。没有时间的事放进备忘。</p>
           </div>
         ) : (
           <>
@@ -370,7 +369,7 @@ export function TodayPanel() {
 
       {removed && (
         <div className="today-hud" role="status">
-          <span>已删除“{removed.text}”</span>
+          <span>已删除「{removed.text}」</span>
           <button type="button" onClick={undo}>撤销</button>
         </div>
       )}
