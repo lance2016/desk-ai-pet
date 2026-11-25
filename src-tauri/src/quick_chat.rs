@@ -59,7 +59,7 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     }
     let is_translation = app.state::<Shortcuts>().0.lock().map(|slots| slots[1].as_ref() == Some(shortcut)).unwrap_or(false);
     if is_translation {
-        crate::translation::open(app);
+        crate::translation::open(app, true);
         return;
     }
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {

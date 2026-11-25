@@ -121,17 +121,21 @@ pub fn selection_status() -> bool {
     false
 }
 
-pub fn open(app: &AppHandle) {
+/// Opens the translation panel with the selected text. `auto`: the translation shortcut was pressed,
+/// so a selection it found is translated straight away, as the float's 翻译 does. From the menu it
+/// only opens the panel: the user may want to type something else.
+pub fn open(app: &AppHandle, auto: bool) {
     #[cfg(target_os = "macos")]
     let text = accessibility::selected();
     #[cfg(not(target_os = "macos"))]
     let text: Option<String> = None;
     hide_selection_float(app);
-    show_selection(app, text, false, None);
+    let auto = auto && text.is_some();
+    show_selection(app, text, auto, None);
 }
 
 #[tauri::command]
-pub fn open_translation(app: AppHandle) { open(&app); }
+pub fn open_translation(app: AppHandle) { open(&app, false); }
 
 #[tauri::command]
 pub fn take_translation_selection(state: State<'_, Selection>) -> Value {
