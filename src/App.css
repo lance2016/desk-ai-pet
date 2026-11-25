@@ -332,6 +332,43 @@ body {
 @keyframes speech-in { from { opacity: 0; translate: 0 4px; scale: .96; } }
 @keyframes speech-out { to { opacity: 0; scale: .97; } }
 
+/*
+ * The help tag of a control by the pet, from its `data-tip`: the pet's panel never shows the system's
+ * own tooltips. Above the control while it is pointed at or has keyboard focus. One look for all of them.
+ */
+:where(.pet-tip) { position: relative; }
+.pet-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  z-index: 4;
+  width: max-content;
+  max-width: 236px;
+  padding: 4px 8px;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  box-shadow: var(--pet-shadow-float);
+  font-size: var(--ui-font-footnote);
+  font-weight: 400;
+  line-height: 1.3;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(var(--tip-x, -50%), 3px);
+  transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
+}
+.pet-tip:is([data-hover], :focus-visible)::after { opacity: 1; transform: translate(var(--tip-x, -50%), 0); }
+/* Under the bar a tag covers the quick buttons: like a system help tag it waits for the cursor to rest, and goes at once. */
+.status-row .pet-tip:is([data-hover], :focus-visible)::after { transition-delay: 500ms; }
+/* At a screen edge the row sits in the corner: its tags open along the screen, not off it. */
+.app--docked-left .status-row .pet-tip::after { left: 0; --tip-x: 0px; }
+.app--docked-right .status-row .pet-tip::after { left: auto; right: 0; --tip-x: 0px; }
+
 /* The status row under the quick buttons: one small pill per thing going on, each doing its own thing when clicked. */
 .status-row {
   position: absolute;
@@ -387,10 +424,6 @@ button.status-chip:active { transform: scale(.97); }
 /* The focus round: the lotus and the time left, a little larger than the other pills. Clicking it asks whether to stop. */
 .status-chip--focus { gap: 6px; height: 26px; padding: 0 10px 0 8px; color: var(--ui-text); border-radius: 13px; font-size: 13px; font-weight: 500; }
 .status-chip__lotus { width: 18px; height: auto; }
-/* What a click does, above the pill, like the labels over the quick buttons. */
-.status-chip--focus { position: relative; }
-.status-chip--focus::after { content: attr(data-hint); position: absolute; left: 50%; bottom: calc(100% + 6px); padding: 4px 8px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; font-weight: 400; line-height: 1.2; white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-.status-chip--focus:is([data-hover], :focus-visible)::after { opacity: 1; transform: translate(-50%, 0); }
 /* While focusing the bar is gone: the row moves up to just below the pool of light. At an edge the corner rule above holds. */
 .app--focus:not(.app--docked-left, .app--docked-right) .status-row { top: calc(100% - max(var(--stage-bottom) - 50px, var(--visible-bottom, 0px) + 34px)); }
 .status-chip__ring { width: 14px; height: 14px; transform: rotate(-90deg); }
@@ -440,34 +473,6 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
 .coding-card[data-hover] { border-color: var(--ui-accent-ring); }
 .coding-card:active { transform: scale(.985); }
 .coding-card:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
-.coding-card, .coding-pill { position: relative; }
-/* The whole of the pill's cut title, in a small label like the focus pill's hint: not a second card. */
-.coding-full {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  z-index: 4;
-  width: max-content;
-  max-width: 236px;
-  padding: 4px 8px;
-  color: var(--ui-text);
-  background: var(--ui-surface);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-control);
-  box-shadow: 0 3px 10px rgba(25, 23, 35, .12);
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.3;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, 3px);
-  transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease);
-}
-/* It covers the quick buttons, so like a help tag it waits for the cursor to rest, and goes at once. */
-.coding-pill:is([data-hover], :focus-visible) .coding-full { opacity: 1; transform: translate(-50%, 0); transition-delay: 500ms; }
 .coding-card__head { display: flex; align-items: center; gap: 6px; height: 16px; color: var(--ui-text-secondary); font-size: 11px; }
 .coding-card__who { font-weight: 500; }
 .coding-card__state { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -526,14 +531,11 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
 .control-icon { stroke-width: 1.8; }
 .pet-bar__item .control-icon { display: block; width: 18px; height: 18px; object-fit: contain; }
 .pet-bar__item > span:not(.pet-bar__face) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.pet-bar__item::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 7px); z-index: 4; width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
 .pet-bar__item[data-hover], .pet-bar__item:focus-visible { z-index: 3; box-shadow: 0 4px 10px rgba(25, 23, 35, .16); transform: translateY(calc(var(--rest-y, 0px) - 2px)); }
 .pet-bar__item:active { transform: translateY(var(--rest-y, 0px)) scale(.96); }
-.pet-bar__item[data-hover]::after, .pet-bar__item:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 /* A running focus round stays recognizable without turning into a wide banner. */
 .pet-bar__item--stop { color: var(--ui-action-text); background: var(--ui-action-bg); border-color: transparent; box-shadow: 0 2px 9px rgba(95, 77, 163, .3); }
 .pet-bar__item--stop[data-hover], .pet-bar__item--stop:focus-visible { color: var(--ui-action-text); background: var(--ui-action-bg); }
-.pet-bar__item--stop::after { color: var(--ui-text); }
 .pet-bar__item.pet-bar__item--stop:focus-visible { outline-offset: 2px; }
 /* "互动" while its menu is open: pressed in, and its own label gives way to the menu. Tinted over the surface, which dark mode needs. */
 .pet-bar__item.is-active { background: linear-gradient(var(--ui-accent-soft), var(--ui-accent-soft)), var(--ui-surface); border-color: var(--ui-accent-ring); box-shadow: inset 0 1px 2px rgba(25, 23, 35, .12); }
@@ -601,9 +603,6 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
 .chat-launcher[data-hover] { transform: scale(1.06); }
 .chat-launcher:active { transform: scale(.96); }
 .chat-launcher:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
-/* The pet's panel never shows native tooltips, so the button names itself on hover, as the quick buttons do. Above it, in the room above the pet, which it only has while nothing is said there. */
-.chat-launcher::after { content: attr(data-label); position: absolute; left: 50%; bottom: calc(100% + 4px); width: max-content; max-width: 128px; padding: 4px 7px; color: var(--ui-text); background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: 0 3px 10px rgba(25, 23, 35, .12); font-size: 11px; line-height: 1.2; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity var(--ui-duration-fast) var(--ui-ease), transform var(--ui-duration-fast) var(--ui-ease); }
-.chat-launcher[data-hover]::after, .chat-launcher:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
 /* Just beside the head of the resting pose (--head-*: room between the head and the pet's area), its top level
    with the ears, reaching down from the room above the pet; it gives way to anything said there.
    On the left it turns to face the pet. */
@@ -680,7 +679,7 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
   .chat-launcher.is-hinting { animation: none; }
   .focus-aura, .focus-aura__ripple { animation: none; }
   .focus-aura--exiting, .focus-aura__arc { transition: none; }
-  .pet-bar, .pet-bar__item, .pet-bar__item::after, .chat-launcher, .chat-launcher::after { transition: none; }
+  .pet-bar, .pet-bar__item, .pet-tip::after, .chat-launcher { transition: none; }
   /* What appears still fades in and out, but holds still: nothing rises, grows, wiggles or rings. */
   @keyframes speech-in { from { opacity: 0; } }
   @keyframes speech-out { to { opacity: 0; } }
@@ -688,6 +687,6 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
   .speech-bubble__tile .speech-bubble__bell { animation: none; }
   /* Still shows it is waiting, just without spinning. */
   .status-chip__spinner { animation: none; border-color: var(--ui-accent); }
-  .status-chip__ring-fill, button.status-chip, .status-chip--focus::after, .coding-card, .coding-full { transition: none; }
+  .status-chip__ring-fill, button.status-chip, .coding-card { transition: none; }
   button.status-chip:active, .coding-card:active { transform: none; }
 }

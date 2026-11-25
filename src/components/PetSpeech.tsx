@@ -49,7 +49,7 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
       // The arc under the pet shows how far the round has come, so the pill shows only a lotus and the time.
       const time = chip.label.split(" ")[1];
       return (
-        <button type="button" className="status-chip status-chip--focus" data-hint="结束专注…" aria-label={`${chip.label}，点一下可以结束`} onClick={onFocusClick}>
+        <button type="button" className="status-chip status-chip--focus pet-tip" data-tip="结束专注…" aria-label={`${chip.label}，点一下可以结束`} onClick={onFocusClick}>
           <img className="status-chip__lotus" src={LOTUS} alt="" draggable={false} />
           {time}
         </button>
@@ -57,12 +57,12 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
     }
     case "rest":
       return (
-        <button type="button" className="status-chip status-chip--rest" title="休息中，点一下可以提前开始" onClick={onFocusClick}>
+        <button type="button" className="status-chip status-chip--rest pet-tip" data-tip="提前开始专注…" onClick={onFocusClick}>
           <ProgressRing progress={chip.progress ?? 0} />{chip.label}
         </button>
       );
     case "reminders":
-      return <button type="button" className="status-chip" title="打开提醒" onClick={openReminders}>{chip.label}</button>;
+      return <button type="button" className="status-chip pet-tip" data-tip="打开提醒" onClick={openReminders}>{chip.label}</button>;
     case "activity": {
       // Running spins; waiting for the user holds still and stands out.
       const mark = <span className={chip.activity?.waiting ? "status-chip__dot" : "status-chip__spinner"} aria-hidden="true" />;
@@ -70,7 +70,7 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
       if (!chip.activity?.cancellable) return <span className={look}>{mark}{chip.label}</span>;
       const { id } = chip.activity;
       return (
-        <button type="button" className={`${look} status-chip--stoppable`} title={`停止${chip.label}`} aria-label={`${chip.label}，点一下停止`} onClick={() => onActivityClick(id)}>
+        <button type="button" className={`${look} status-chip--stoppable pet-tip`} data-tip={`停止${chip.label}`} aria-label={`${chip.label}，点一下停止`} onClick={() => onActivityClick(id)}>
           {mark}{chip.label}
           <Icon name="close" className="status-chip__close" />
         </button>
@@ -162,7 +162,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
         {/* --stay: how long the queue keeps the line up, so the bubble can fade out just before it goes. */}
         {passing && !answerable && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}><span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}</p>}
         {passing && answerable && (
-          <div key={passing} ref={alertRef} className="speech-bubble speech-bubble--passing speech-bubble--answer" role="button" tabIndex={-1} title="点一下回它" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties} onClick={() => runtime.bus.emit("pet.chat_requested", {})}>
+          <div key={passing} ref={alertRef} className="speech-bubble speech-bubble--passing speech-bubble--answer" role="button" tabIndex={-1} style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties} onClick={() => runtime.bus.emit("pet.chat_requested", {})}>
             <span className="speech-bubble__spark" aria-hidden="true">✦</span>{passing}
           </div>
         )}
@@ -184,7 +184,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
                 </span>
               </>
             ) : (
-              <button type="button" className="speech-bubble__press" title={standing.more ? "点一下看全部提醒" : "点一下收起"} onClick={dismiss}>
+              <button type="button" className="speech-bubble__press" onClick={dismiss}>
                 {icon}
                 <span className="speech-bubble__body">{heading}<span className="speech-bubble__alert-text">{standing.text}</span><small>{standing.more ? "点一下看全部" : "点一下收起"}{queued && `，${queued}`}</small></span>
               </button>

@@ -526,11 +526,11 @@ export function QuickChatBar({ chat, ref }: { chat: QuickChat; ref?: Ref<HTMLFor
           onKeyDown={onKeyDown}
         />
         {chat.pending
-          ? <button type="button" onClick={chat.cancel} aria-label="停止回复" title="停止回复"><Icon name="stop" /></button>
+          ? <button type="button" className="pet-tip" onClick={chat.cancel} aria-label="停止回复" data-tip="停止回复"><Icon name="stop" /></button>
           : chat.keyMissing
-            ? <button type="submit" className="quick-chat__fix" title="打开设置，填写 DeepSeek API Key">去设置</button>
-            : <button type="submit" disabled={!chat.draft.trim()} aria-label="发送" title="发送（Enter）"><Icon name="send" /></button>}
-        <button type="button" onClick={chat.expand} aria-label="在聊天窗口打开" title="在聊天窗口打开"><Icon name="open" /></button>
+            ? <button type="submit" className="quick-chat__fix pet-tip" data-tip="打开设置，填写 DeepSeek API Key">去设置</button>
+            : <button type="submit" className="pet-tip" disabled={!chat.draft.trim()} aria-label="发送" data-tip="发送"><Icon name="send" /></button>}
+        <button type="button" className="pet-tip" onClick={chat.expand} aria-label="在聊天窗口打开" data-tip="在聊天窗口打开"><Icon name="open" /></button>
       </form>
     </div>
   );
@@ -551,13 +551,12 @@ export function QuickReplyBubble({ chat, ref }: { chat: QuickChat; ref?: Ref<HTM
   if (!reply) return chat.answering ? <div ref={ref} className="speech-bubble"><span className="speech-bubble__spark" aria-hidden="true">✦</span>{fitSpeech(chat.answering)}</div> : null;
   const error = reply.status === "error";
   const text = reply.status === "thinking" ? "正在想…" : error ? reply.text : plainReply(reply.text);
-  const hint = reply.fix === "settings" ? "去设置" : "在聊天窗口打开";
   // One saved line fits the bubble; the rest wait in the chat window.
   const lines = reply.saved ?? [];
   const first = lines.find((line) => line.kind === "failed") ?? lines[0];
   const more = lines.length - (first ? 1 : 0);
   return (
-    <div ref={ref} className={`speech-bubble speech-bubble--reply${error ? " is-error" : ""}${reply.saved?.length || reply.fix === "settings" ? " has-extra" : ""}`} role="button" tabIndex={-1} title={hint} onClick={chat.openReply}>
+    <div ref={ref} className={`speech-bubble speech-bubble--reply${error ? " is-error" : ""}${reply.saved?.length || reply.fix === "settings" ? " has-extra" : ""}`} role="button" tabIndex={-1} onClick={chat.openReply}>
       <span className="speech-bubble__spark" aria-hidden="true">✦</span>
       <span className="speech-bubble__body">
         <span ref={textRef} className="speech-bubble__text">{text}</span>
@@ -592,9 +591,9 @@ function HandedCard({ chat, handed, ref }: { chat: QuickChat; handed: Handover; 
       <span className="speech-bubble__body">
         <span className="handed__head">
           <HandedGlyph file={handed.name !== undefined} />
-          <strong className="handed__title" title={title}>{title}</strong>
+          <strong className="handed__title">{title}</strong>
           <span className="handed__size">{size}</span>
-          <button type="button" className="handed__close" aria-label="不用了" title="不用了" onClick={chat.dismissHanded}>
+          <button type="button" className="handed__close" aria-label="不用了" onClick={chat.dismissHanded}>
             <Icon name="close" />
           </button>
         </span>

@@ -46,15 +46,6 @@ function useCut(lines: RefObject<HTMLElement | null>[]): boolean {
 }
 
 /**
- * The whole of the pill's cut title, in a small label above it while it is pointed at, like the
- * quick buttons' names. The pet window does not take the app's focus, so the system's own tooltip
- * does not show there. The card has none: its cut lines are a summary, and a click shows them in full.
- */
-function FullTitle({ title }: { title: string }) {
-  return <span className="coding-full" aria-hidden="true">{title}</span>;
-}
-
-/**
  * Claude Code's sessions under the quick buttons, as one card about the session
  * that most needs the user: who it is and how things stand, what it is about,
  * and where. Beside other pills it keeps to one line. With nothing going on it
@@ -71,14 +62,14 @@ export function CodingCard({ sessions, compact, now }: { sessions: readonly Codi
   const state = standing(view, head, now);
   const others = view.waiting.length + view.working.length - 1;
   if (compact) {
+    // A cut title shows whole in the pill's help tag. The card has none: its cut lines are a summary, and a click shows them in full.
     return (
-      <button type="button" className={`status-chip coding-pill coding-pill--${head.turn}`} aria-label={`Claude Code，${state}：${title}`} title="看看 Claude Code 的会话" onClick={() => openCoding(head.project)}>
+      <button type="button" className={`status-chip coding-pill coding-pill--${head.turn}${cut ? " pet-tip" : ""}`} data-tip={cut ? title : undefined} aria-label={`Claude Code，${state}：${title}`} onClick={() => openCoding(head.project)}>
         <TurnMark turn={head.turn} />
         {/* The mark alone would read a finished turn as a finished task. */}
         <span className="coding-pill__state">{stateWord(head)}</span>
         <span ref={titleRef} className="coding-pill__title">{title}</span>
         {others > 0 && <span className="coding-pill__more">+{others}</span>}
-        {cut && <FullTitle title={title} />}
       </button>
     );
   }

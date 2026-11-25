@@ -70,6 +70,7 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 - 颜色、圆角、阴影、字号只在 `src/ui/tokens.css` 定义一次，由 `src/main.tsx` 统一引入。各窗口样式表可以给它们起本地名字（`--label: var(--ui-text)`），不能写第二份取值；压在系统材质上的面板在根元素加 `ui-on-material`，换成那组半透明取值。角色素材的颜色（`--spark` 等）只属于宠物层。设置页中的预览要与桌面实际控件同步。
 - 线条图标只画在 `src/ui/icons.tsx`，组件用 `<Icon name=…>`，不在组件里写 `<path>`。24 格，一个概念只画一次；线宽由 `.ui-icon` 统一给 1.7，窗口样式表只定尺寸。宠物层（快捷按钮、气泡、状态卡、快速聊天）的线宽由 `App.css` 各自保留。进度弧、进度环不算图标。
 - 按钮只用 `src/ui/controls.css` 的 `.ui-button`，变体有 `--small`、`--large`、`--primary`（一个视图最多一个）、`--danger`（红字）、`--destructive`（确认时的红底）。窗口样式表只摆放它，不改它的样子。就地执行的文字链接（「恢复默认」「撤销」「去设置」）用 `.ui-link`：链接色 `--ui-link`、字重 500、默认 12 号、悬停加下划线。`controls.css` 在各窗口样式表之后引入，窗口要给链接改内边距或字号时写成 `button.ui-link.自己的类名`，否则权重不够。多行文本框用 `.ui-textarea`（`--small` 放提示词这类要细读的长文，`--large` 是工具窗口的主输入框），窗口样式表只定高度和外边距。
+- 宠物窗口不显示系统的 `title` 提示框。宠物层的控件要说明，就用 `.pet-tip` 加 `data-tip`（`App.css`），不写 `title`。
 - 界面动效用 `tokens.css` 里的一条曲线 `--ui-ease` 和三档时长：悬停、按下用 `--ui-duration-fast`，气泡、菜单、开关这类出现和切换用 `--ui-duration`，弹层用 `--ui-duration-slow`。不要再写零散的毫秒数和 `ease`。界面控件不用回弹曲线，活泼的动作留给角色（`motions.ts`）。一直转的（转圈、呼吸、进度弧）不在此列。
 - 不用 `console.log`。可恢复的问题用 `console.warn`，真正的错误用 `console.error`；这两种会写进日志文件，所以不要把聊天原文、API Key、授权码传给它们。Rust 用 `log::warn!`、`log::error!`，不用 `eprintln!`（不进日志文件）。
 - 测试文件和源码放在一起，命名 `*.test.ts`。公共夹具在 `src/testing/fixtures.ts`。

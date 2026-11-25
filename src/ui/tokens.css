@@ -85,6 +85,8 @@
   /* A sheet over a window: welcome, what's new, the cropper. */
   --ui-shadow-sheet: 0 0 0 .5px rgba(0, 0, 0, .2), 0 22px 60px rgba(0, 0, 0, .3);
   --ui-focus-ring: 0 0 0 3px var(--ui-accent-ring);
+  /* Things floating by the pet over any wallpaper: a near shadow for the edge, a far one for the lift. */
+  --pet-shadow-float: 0 1px 2px rgba(0, 0, 0, .08), 0 3px 10px rgba(0, 0, 0, .12);
 
   /* Type sizes, largest first: page title, panel title, emphasised body, body, caption, footnote, badge. */
   --ui-font-title: 22px;
@@ -161,6 +163,7 @@
 
     --ui-shadow-control: 0 .5px 1px rgba(0, 0, 0, .3), 0 0 0 .5px rgba(255, 255, 255, .08);
     --ui-shadow-popover: 0 10px 28px rgba(0, 0, 0, .28);
+    --pet-shadow-float: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px rgba(0, 0, 0, .32);
   }
 }
 

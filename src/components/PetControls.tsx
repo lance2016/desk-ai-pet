@@ -99,7 +99,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     // Nothing is greyed out while the pet sleeps: the character's own buttons wake it up first.
     const active = item.command === "focus_toggle" && focusPhase === "focusing";
     return (
-      <button key={item.id} type="button" className={`pet-bar__item${active ? " pet-bar__item--stop" : ""}`} aria-label={label} data-label={label} title={label} onClick={() => pick(() => emitControl(item))}>
+      <button key={item.id} type="button" className={`pet-bar__item pet-tip${active ? " pet-bar__item--stop" : ""}`} aria-label={label} data-tip={label} onClick={() => pick(() => emitControl(item))}>
         <ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} />
         <span>{label}</span>
       </button>
@@ -110,7 +110,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
     <div className="dock-area">
       <div ref={ref} className={`pet-bar${awake ? " is-awake" : ""}`} role="toolbar" aria-label="宠物快捷按钮">
         {menu.length > 0 && (
-          <button type="button" className={`pet-bar__item${menuOpen ? " is-active" : ""}`} aria-label="互动" data-label="互动" aria-haspopup="menu" aria-expanded={menuOpen} title="互动" onClick={() => setMenuOpen((open) => !open)}>
+          <button type="button" className={`pet-bar__item pet-tip${menuOpen ? " is-active" : ""}`} aria-label="互动" data-tip="互动" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
             <InteractIcon />
             <span>互动</span>
           </button>
