@@ -95,6 +95,13 @@ export function PetControls({ runtime, awake, tucked, leaving, ref }: PetControl
   const [menuOpen, setMenuOpen] = useState(false);
   // The menu is a quick pick: it closes once the mouse leaves the pet or the bar goes away.
   useEffect(() => { if (!awake || !shown.length) setMenuOpen(false); }, [awake, shown.length]);
+  // A press anywhere but the bar closes it too, like any menu: on the pet, on a bubble.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPress = (event: PointerEvent) => { if (!(event.target instanceof Element && event.target.closest(".pet-bar"))) setMenuOpen(false); };
+    document.addEventListener("pointerdown", onPress, true);
+    return () => document.removeEventListener("pointerdown", onPress, true);
+  }, [menuOpen]);
   const pick = (run: () => void) => { setMenuOpen(false); run(); };
   const actionLabel = (id: string) => runtime.manifest.animations.find((entry) => entry.id === id)?.label ?? id;
 
@@ -114,19 +121,22 @@ export function PetControls({ runtime, awake, tucked, leaving, ref }: PetControl
     <div className="dock-area">
       <div ref={ref} className={`pet-bar${awake ? " is-awake" : ""}${tucked ? " is-tucked" : ""}${leaving ? " is-leaving" : ""}`} role="toolbar" aria-label="宠物快捷按钮">
         {menu.length > 0 && (
-          <button type="button" className={`pet-bar__item pet-tip${menuOpen ? " is-active" : ""}`} aria-label="互动" data-tip="互动" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
-            <InteractIcon />
-            <span>互动</span>
-          </button>
+          // The menu grows from its own button, not from the middle of the bar.
+          <span className="pet-bar__anchor">
+            <button type="button" className={`pet-bar__item pet-tip${menuOpen ? " is-active" : ""}`} aria-label="互动" data-tip="互动" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
+              <InteractIcon />
+              <span>互动</span>
+            </button>
+            {menuOpen && (
+              <div className="pet-bar__menu" role="menu" aria-label="互动">
+                {menu.map((item) => item.kind === "control"
+                  ? <button key={`control:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => emitControl(item))}><ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} /><span>{labelOf(item)}</span></button>
+                  : <button key={`action:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => runtime.bus.emit("pet.action_requested", { id: item.id }))}><span className="pet-bar__face"><DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} /></span><span>{actionLabel(item.id)}</span></button>)}
+              </div>
+            )}
+          </span>
         )}
         {bar.map(controlButton)}
-        {menuOpen && (
-          <div className="pet-bar__menu" role="menu" aria-label="互动">
-            {menu.map((item) => item.kind === "control"
-              ? <button key={`control:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => emitControl(item))}><ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} /><span>{labelOf(item)}</span></button>
-              : <button key={`action:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => runtime.bus.emit("pet.action_requested", { id: item.id }))}><span className="pet-bar__face"><DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} /></span><span>{actionLabel(item.id)}</span></button>)}
-          </div>
-        )}
       </div>
     </div>
   );
