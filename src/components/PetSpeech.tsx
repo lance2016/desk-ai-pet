@@ -6,6 +6,7 @@ import { petWindow } from "../platform/petWindow";
 import type { PetEvents, StatusChip } from "../types";
 import { CodingCard, codingHasNews, useCodingNow } from "./CodingCard";
 import { speechShown } from "./speechShown";
+import { FADE_OUT_MS, useHeld, useLingering } from "./presence";
 import { Icon } from "../ui/icons";
 
 interface PetSpeechProps {
@@ -18,8 +19,8 @@ interface PetSpeechProps {
   onLayoutChange?: () => void;
   /** A quick chat answer. While there is one it has the bubble to itself. */
   reply?: ReactNode;
-  /** Shown above the pet only while nothing is said there, such as the chat button. */
-  idle?: ReactNode;
+  /** The chat button beside the head. `aside`: something is said above the pet, and the button keeps clear of it. */
+  launcher?: (aside: boolean) => ReactNode;
   hideBadge?: boolean;
   /** There is little room under the pet (at a screen edge, or with the window hanging off the bottom): the coding card keeps to one line. */
   tight?: boolean;
@@ -88,7 +89,7 @@ function Chip({ chip, onFocusClick, onActivityClick }: { chip: StatusChip; onFoc
  * until one of its buttons is. A line the pet said by itself can be clicked to
  * answer it. Each part of the status row does its own thing.
  */
-export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, idle, hideBadge, tight }: PetSpeechProps) {
+export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, launcher, hideBadge, tight }: PetSpeechProps) {
   const [line, setLine] = useState<string | null>(null);
   const [alert, setAlert] = useState<StandingAlert | null>(null);
   const [chips, setChips] = useState<StatusChip[]>([]);
@@ -115,26 +116,29 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   // The coding card joins the row only while a session has something to say.
   const codingShown = codingHasNews(coding, codingNow);
   const badgeShown = (chips.length > 0 || codingShown) && !hideBadge;
-  const idleShown = Boolean(idle) && passing === null && standing === null;
+  // The row fades out with what it last showed, taking no clicks meanwhile.
+  const badgeMounted = useLingering(badgeShown, FADE_OUT_MS);
+  const shownChips = useHeld(chips, badgeShown);
+  const said = passing !== null || standing !== null || Boolean(reply);
   const answerable = passing !== null && passing === ownLine;
-  useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, idleShown, answerable, onLayoutChange]);
+  useEffect(() => { onLayoutChange?.(); }, [standing?.text, badgeShown, said, answerable, onLayoutChange]);
 
   const dismiss = () => {
     runtime.bus.emit("pet.alert_dismissed", {});
     // The line named only some reminders: show the user all of them.
     if (standing?.more) openReminders();
   };
-  const statusRow = badgeShown && (
-    <div ref={badgeRef} className="status-row">
-      {chips.map((chip) => <Chip key={chip.activity?.id ?? chip.id} chip={chip} onFocusClick={() => runtime.bus.emit("pet.focus_badge_clicked", {})} onActivityClick={(id) => runtime.bus.emit("pet.activity_chip_clicked", { id })} />)}
+  const statusRow = badgeMounted && (
+    <div ref={badgeRef} className={`status-row${badgeShown ? "" : " is-leaving"}`}>
+      {shownChips.map((chip) => <Chip key={chip.activity?.id ?? chip.id} chip={chip} onFocusClick={() => runtime.bus.emit("pet.focus_badge_clicked", {})} onActivityClick={(id) => runtime.bus.emit("pet.activity_chip_clicked", { id })} />)}
       {/* Beside other pills, or with little room under the pet, it keeps to one line. */}
-      {codingShown && <CodingCard sessions={coding} now={codingNow} compact={chips.length > 0 || Boolean(tight)} />}
+      {codingShown && <CodingCard sessions={coding} now={codingNow} compact={shownChips.length > 0 || Boolean(tight)} />}
     </div>
   );
   if (reply) {
     return (
       <>
-        <div className="speech-area" aria-live="polite">{reply}</div>
+        <div className="speech-area" aria-live="polite">{launcher?.(said)}{reply}</div>
         {statusRow}
       </>
     );
@@ -158,7 +162,7 @@ export function PetSpeech({ runtime, alertRef, badgeRef, onLayoutChange, reply, 
   return (
     <>
       <div className="speech-area" aria-live="polite">
-        {idleShown && idle}
+        {launcher?.(said)}
         {/* --stay: how long the queue keeps the line up, so the bubble can fade out just before it goes. */}
         {passing && !answerable && <p key={passing} className="speech-bubble speech-bubble--passing" style={{ "--stay": `${speechDuration(passing)}ms` } as CSSProperties}>{passing}</p>}
         {passing && answerable && (

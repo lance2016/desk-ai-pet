@@ -27,6 +27,7 @@ import { QuickChatBar, QuickReplyBubble, useQuickChat } from "./components/Quick
 import { usePetDrop } from "./components/usePetDrop";
 import { ChatLauncher } from "./components/ChatLauncher";
 import { createHoverMark } from "./components/hoverMark";
+import { FADE_OUT_MS, useLingering } from "./components/presence";
 import { FocusAura, FOCUS_EXIT_MS } from "./components/FocusAura";
 import { PetSpeech } from "./components/PetSpeech";
 import { PetStage } from "./components/PetStage";
@@ -73,6 +74,9 @@ let fallbackNotice: string | null = null;
 const HIT_GROW_CELLS = 2;
 /** Wait for layout and the renderer to settle before measuring the mask. */
 const HIT_MASK_DELAY_MS = 30;
+/** Where an element takes clicks: nowhere while it is gone or fading out (`pointer-events: none`). */
+const box = (element: Element | null | undefined): MaskRect | undefined =>
+  element && getComputedStyle(element).pointerEvents !== "none" ? element.getBoundingClientRect() : undefined;
 /** Moves come in bursts while macOS rearranges windows; act once they stop. */
 const DISPLAY_SETTLE_MS = 500;
 /** How often to read how long the keyboard and mouse have been idle: for the pet's naps, and to see whether the pet has something to say. */
@@ -122,20 +126,6 @@ const isQuiet = (now: number) => isQuietAt(loadQuietPreferences(), now);
 /** Reminders the user timed come even in quiet hours; only "勿扰" holds them back. */
 const holdsReminders = () => loadQuietPreferences().doNotDisturb;
 const FOCUS_STORE = { load: () => loadFocus(), save: (snapshot: FocusSnapshot) => saveFocus(snapshot) };
-
-/** True while `active` is true, and for `delayMs` after it turns false. */
-function useLingering(active: boolean, delayMs: number): boolean {
-  const [lingering, setLingering] = useState(active);
-  useEffect(() => {
-    if (active) {
-      setLingering(true);
-      return;
-    }
-    const timer = setTimeout(() => setLingering(false), delayMs);
-    return () => clearTimeout(timer);
-  }, [active, delayMs]);
-  return active || lingering;
-}
 
 interface AppProps {
   /** Character to show. The window remounts this component when it changes. */
@@ -193,6 +183,9 @@ export default function App({ packId }: AppProps) {
   const launcherShown = launcherStyle !== "none" && !dragging && !dockSide && !quickChat.open && !focusMode;
   /** The bar under the pet stays hidden while focused, dragged, docked, or giving way to chat. */
   const barShown = !dragging && !dockSide && !quickChat.open && !focusMode;
+  // Both fade out before they go, rather than vanish: they stay mounted that long, taking no clicks.
+  const launcherMounted = useLingering(launcherShown, FADE_OUT_MS);
+  const barMounted = useLingering(barShown, FADE_OUT_MS);
   const barAwake = useLingering(hovered, displayPreferences.controlsLingerMs);
   const petBox = runtime
     ? { width: Math.round(runtime.manifest.canvas.width * runtime.manifest.scale * scale), height: Math.round(runtime.manifest.canvas.height * runtime.manifest.scale * scale) }
@@ -683,13 +676,13 @@ export default function App({ packId }: AppProps) {
       const rows = Math.ceil(window.innerHeight / HIT_CELL_PX);
       // The bar always takes clicks, faint or not; so does its menu while it is open.
       const controls: MaskRect[] = barShown && controlsRef.current
-        ? [controlsRef.current, controlsRef.current.querySelector(".pet-bar__menu")].flatMap((element) => (element ? [element.getBoundingClientRect()] : []))
+        ? [controlsRef.current, controlsRef.current.querySelector(".pet-bar__menu")].flatMap((element) => box(element) ?? [])
         : [];
-      const standing = alertRef.current?.getBoundingClientRect();
-      const badge = badgeRef.current?.getBoundingClientRect();
-      const bar = quickChat.open ? quickBarRef.current?.getBoundingClientRect() : undefined;
-      const answer = quickReplyShown ? quickReplyRef.current?.getBoundingClientRect() : undefined;
-      const launcher = launcherShown ? launcherRef.current?.getBoundingClientRect() : undefined;
+      const standing = box(alertRef.current);
+      const badge = box(badgeRef.current);
+      const bar = quickChat.open ? box(quickBarRef.current) : undefined;
+      const answer = quickReplyShown ? box(quickReplyRef.current) : undefined;
+      const launcher = launcherShown ? box(launcherRef.current) : undefined;
       const cells = composeHitMask({
         cell: HIT_CELL_PX,
         columns,
@@ -770,8 +763,8 @@ export default function App({ packId }: AppProps) {
         {runtime && !dragging && !dockSide && <FocusAura runtime={runtime} visible={focusMode} />}
         <PetStage runtime={runtime} hostRef={hostRef} />
       </div>
-      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} idle={launcherShown ? <ChatLauncher ref={launcherRef} side={launcherStyle} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
-      {runtime && barShown && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} />}
+      {runtime && <PetSpeech runtime={runtime} alertRef={alertRef} badgeRef={badgeRef} onLayoutChange={onSpeechLayout} hideBadge={quickChat.open} tight={Boolean(dockSide) || insets.bottom > 0} reply={quickReplyShown ? <QuickReplyBubble ref={quickReplyRef} chat={quickChat} /> : undefined} launcher={launcherMounted && launcherStyle !== "none" ? (aside) => <ChatLauncher ref={launcherRef} side={launcherStyle} aside={aside} leaving={!launcherShown} hinting={quickChat.copied ? "copied" : quickChat.spoke ? "spoke" : null} onClick={quickChat.launch} /> : undefined} />}
+      {runtime && barMounted && <PetControls ref={controlsRef} runtime={runtime} awake={barAwake} leaving={!barShown} />}
       {runtime && quickChat.open && <QuickChatBar ref={quickBarRef} chat={quickChat} />}
       {loadError && <p ref={loadErrorRef} className="load-error" role="alert">{loadError}</p>}
     </main>

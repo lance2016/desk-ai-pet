@@ -16,6 +16,8 @@ interface PetControlsProps {
   runtime: PetRuntime;
   /** The mouse is on the pet: the bar shows fully; otherwise it stays faint. */
   awake: boolean;
+  /** On its way out: it fades and takes no clicks. */
+  leaving?: boolean;
   /** The bar and its menu, measured for the clickable area. */
   ref?: Ref<HTMLDivElement>;
 }
@@ -24,7 +26,7 @@ interface PetControlsProps {
  * The floating controls under the pet: the buttons that fit, and "互动" for the actions and the rest.
  * Only reports what was pressed; the pet decides what to do.
  */
-export function PetControls({ runtime, awake, ref }: PetControlsProps) {
+export function PetControls({ runtime, awake, leaving, ref }: PetControlsProps) {
   const snapshot = useSyncExternalStore(runtime.state.subscribe, runtime.state.get);
   const showLinks = useSyncExternalStore(subscribeLinks, linksEnabled);
   const packId = runtime.manifest.id;
@@ -108,7 +110,7 @@ export function PetControls({ runtime, awake, ref }: PetControlsProps) {
 
   return (
     <div className="dock-area">
-      <div ref={ref} className={`pet-bar${awake ? " is-awake" : ""}`} role="toolbar" aria-label="宠物快捷按钮">
+      <div ref={ref} className={`pet-bar${awake ? " is-awake" : ""}${leaving ? " is-leaving" : ""}`} role="toolbar" aria-label="宠物快捷按钮">
         {menu.length > 0 && (
           <button type="button" className={`pet-bar__item pet-tip${menuOpen ? " is-active" : ""}`} aria-label="互动" data-tip="互动" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
             <InteractIcon />

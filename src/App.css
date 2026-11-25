@@ -606,15 +606,27 @@ button.status-chip--stoppable[data-hover] .status-chip__close { stroke: var(--ui
 .chat-launcher:active { transform: scale(.96); }
 .chat-launcher:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 /* Just beside the head of the resting pose (--head-*: room between the head and the pet's area), its top level
-   with the ears, reaching down from the room above the pet; it gives way to anything said there.
-   On the left it turns to face the pet. */
+   with the ears, reaching down from the room above the pet. On the left it turns to face the pet. */
 .chat-launcher--right { right: calc(var(--stage-side) + var(--head-right) - 44px - var(--visible-right, 0px)); bottom: calc(var(--visible-top, 0px) - var(--head-top) - 28px); }
 .chat-launcher--left { left: calc(var(--stage-side) + var(--head-left) - 44px - var(--visible-left, 0px)); bottom: calc(var(--visible-top, 0px) - var(--head-top) - 28px); }
 .chat-launcher--left img { transform: scaleX(-1); }
+/*
+ * Something said above the head: the bubble ends 24px under the top of the room above the pet (its tail
+ * included) and the button's top is 6px under the head's. A head that high moves the button down to clear it.
+ * Beside the head (under the menu bar) the bubble takes the button's place, so it fades out until the line is gone.
+ */
+.chat-launcher.is-aside { translate: 0 max(0px, var(--visible-top, 0px) + 22px - var(--head-top)); }
+:is(.app--speech-left, .app--speech-right) .chat-launcher.is-aside { opacity: 0; pointer-events: none; }
 /* A copy, or a line the pet said by itself: a few bounces, then it stays lit until the hint is over. */
 .chat-launcher.is-hinting { animation: launcher-hint 1.6s ease-in-out 3; }
 .chat-launcher.is-hinting img { filter: drop-shadow(0 0 5px var(--ui-accent-ring)) drop-shadow(0 2px 4px rgba(53, 43, 102, .22)); }
 @keyframes launcher-hint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* The bar, the chat button and the status row come and go the same way: a fade, never a jump.
+   After their own rules, so a hovered or bouncing button still fades. */
+.pet-bar, .chat-launcher, .status-row, .status-row > * { animation: pet-fade-in var(--ui-duration) var(--ui-ease); }
+.pet-bar.is-leaving, .chat-launcher.is-leaving, .status-row.is-leaving { opacity: 0; pointer-events: none; transition: opacity var(--ui-duration) var(--ui-ease); }
+@keyframes pet-fade-in { from { opacity: 0; } }
 
 /* Quick chat stays in the bottom stage margin, separate from the floating controls. */
 .quick-chat {
