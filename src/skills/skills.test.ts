@@ -49,7 +49,7 @@ describe("looking things up", () => {
   });
 
   it("writes the daily report, asking for more on a thin day", async () => {
-    expect((await use("review_today", {})).shown).toBe("- 专注了 0 轮，每轮 25 分钟\n\n今天还做了什么？告诉我，我可以补进日报。");
+    expect((await use("review_today", {})).shown).toBe("- 专注了 0 轮\n\n今天还做了什么？告诉我，我可以补进日报。");
   });
 });
 

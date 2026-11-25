@@ -6,6 +6,9 @@ import { petWindow } from "../../platform/petWindow";
 import { OCCASIONS } from "../../companion";
 import { hushedUntil, setHush } from "../../companion/hush";
 import { formatReminderTime } from "../../agenda/AgendaStore";
+import { loadFocusPreferences, saveFocusPreferences } from "../../preferences/FocusPreferences";
+import { FOCUS_MINUTES, FOCUS_PLANS, type FocusMinutes } from "../../behavior/FocusTimer";
+import { moveRadioChoice } from "./radioKeys";
 
 type Switch = "morningGreeting" | "night" | "rest" | "welcomeBack" | "nightDuringQuiet" | "headsUp" | "followUp" | "careByModel";
 
@@ -17,6 +20,11 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
   const [testStatus, setTestStatus] = useState("");
   /** Until when the user told the pet in a chat to keep to itself; null when it may speak up. */
   const [hushed, setHushed] = useState(() => hushedUntil(Date.now()));
+  const [focusMinutes, setFocusMinutes] = useState(() => loadFocusPreferences().minutes);
+  const chooseFocus = (minutes: FocusMinutes) => {
+    try { saveFocusPreferences({ minutes }); setFocusMinutes(minutes); onError(null); }
+    catch (error) { console.error("Could not save the focus length", error); onError("设置没能保存，请再试一次。"); }
+  };
   const speakAgain = () => {
     try { setHush(null); setHushed(null); onError(null); }
     catch (error) { console.error("Could not let the pet speak up again", error); onError("设置没能保存，请再试一次。"); }
@@ -71,6 +79,13 @@ export function CompanionSettings({ name, onError }: { name: string; onError: (m
       {testStatus && <p className="ai-settings__status" role="status">{testStatus}</p>}
     </div>
     <p className="settings-footnote">关心只看键盘和鼠标有没有在用，不读输入的内容，等你手停下来才说。连着几句没人理，它会说得少一些，摸摸它或回一句就恢复；聊天时说「今晚别催我」，它到明早都不主动说话。由 AI 来写时，每句话说之前请求一次 DeepSeek，带上今天专注了几轮、完成了几个提醒、下一个提醒是什么，「回来问一句」还带上那条提醒；关掉后不调用 AI。专注时不打扰。</p>
+    <h2 className="settings-group-title">专注</h2>
+    <div className="settings-group">
+      <div className="settings-row">
+        <div className="settings-row__body"><strong>专注时长</strong><span>每轮之后休息 {FOCUS_PLANS[focusMinutes].restMs / 60_000} 分钟；下一轮开始时生效</span></div>
+        <div className="ui-segmented" role="radiogroup" onKeyDown={moveRadioChoice} aria-label="专注时长">{FOCUS_MINUTES.map((minutes) => <button key={minutes} type="button" role="radio" aria-checked={focusMinutes === minutes} className={focusMinutes === minutes ? "is-selected" : ""} onClick={() => chooseFocus(minutes)}>{minutes} 分钟</button>)}</div>
+      </div>
+    </div>
     <h2 className="settings-group-title">勿扰</h2>
     {/* Only matters while quiet hours are on and night care is: greyed out otherwise, so it is still found. */}
     <QuietSettings onError={onError} during={(enabled) => <><div className="settings-divider" />{toggle("nightDuringQuiet", "定时勿扰时照样深夜关心", enabled && value.night ? "手动勿扰时仍然不打扰" : "要先打开「定时勿扰」和「深夜关心」", undefined, !enabled || !value.night)}</>} />

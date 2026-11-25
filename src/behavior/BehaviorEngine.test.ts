@@ -7,7 +7,9 @@ import { animationIds, FakeRenderer, makeManifest } from "../testing/fixtures";
 import { mailCodeActivity } from "../activity/mailCodeActivity";
 import type { ActivityUpdate, MailCodeUpdate, PetEvents, PetStats } from "../types";
 import { BEHAVIOR_CONFIG, BehaviorEngine, type DueReminder, type ReminderSource } from "./BehaviorEngine";
-import { FOCUS_CONFIG, FocusTimer } from "./FocusTimer";
+import { FOCUS_PLANS, FocusTimer, type FocusMinutes } from "./FocusTimer";
+
+const FOCUS_CONFIG = FOCUS_PLANS[25];
 
 const START_STATS: PetStats = { satiety: 50, energy: 50, mood: 50, affinity: 50 };
 
@@ -19,9 +21,10 @@ interface SetupOptions {
   isIdleActionEnabled?: (id: string) => boolean;
   reminders?: ReminderSource;
   holdsReminders?: (now: number) => boolean;
+  focusMinutes?: () => FocusMinutes;
 }
 
-function setup({ stats = {}, extraAnimations = [], missing = [], random = () => 0, isIdleActionEnabled, reminders, holdsReminders }: SetupOptions = {}) {
+function setup({ stats = {}, extraAnimations = [], missing = [], random = () => 0, isIdleActionEnabled, reminders, holdsReminders, focusMinutes }: SetupOptions = {}) {
   const manifest = makeManifest(extraAnimations);
   const registry = new ActionRegistry();
   registry.registerManifest(manifest, animationIds(manifest, missing));
@@ -37,7 +40,7 @@ function setup({ stats = {}, extraAnimations = [], missing = [], random = () => 
   const state = new PetState({ ...createSnapshot(Date.now()), stats: { ...START_STATS, ...stats } });
   const controller = new ActionController({ registry, renderer, bus });
   controller.stop();
-  const engine = new BehaviorEngine({ bus, state, controller, registry, focus, random, isIdleActionEnabled, reminders, holdsReminders });
+  const engine = new BehaviorEngine({ bus, state, controller, registry, focus, random, isIdleActionEnabled, reminders, holdsReminders, focusMinutes });
   engine.start();
   /** Moves time forward and runs the autonomous checks, as the runtime would. */
   const pass = (ms: number) => {
@@ -813,7 +816,8 @@ describe("focus companion", () => {
     expect(focus.get().phase).toBe("off");
     expect(badges[badges.length - 1]).toBeNull();
     expect(state.get().activity).toBe("awake");
-    expect(said).toHaveLength(2);
+    expect(said).toHaveLength(1);
+    expect(shown[shown.length - 1]).toBe("休息好啦，要不要再来一轮？");
   });
 
   it("does not count a round the computer slept through, and says so on a line that stays up", () => {
@@ -860,6 +864,33 @@ describe("focus companion", () => {
     bus.emit("pet.alert_dismissed", {});
     expect(shown[shown.length - 1].text).toBeNull();
     expect(focus.get().phase).toBe("focusing");
+  });
+
+  it("asks whether to go again once the rest is over, and waits for the answer", () => {
+    const { bus, focus, passSteps } = setup();
+    const shown: Array<PetEvents["pet.alert"]> = [];
+    bus.on("pet.alert", (alert) => shown.push(alert));
+    bus.emit("pet.focus_toggled", {});
+    passSteps(FOCUS_CONFIG.focusMs);
+    bus.emit("pet.alert_dismissed", {});
+    passSteps(FOCUS_CONFIG.restMs + 30 * 60_000);
+    expect(shown[shown.length - 1]).toMatchObject({ text: "休息好啦，要不要再来一轮？", icon: "timer" });
+    expect(shown[shown.length - 1].choices?.map((choice) => [choice.label, choice.event])).toEqual([["不了", "pet.alert_dismissed"], ["再来一轮", "pet.focus_toggled"]]);
+    bus.emit("pet.focus_toggled", {});
+    expect(focus.get().phase).toBe("focusing");
+    expect(shown[shown.length - 1].text).toBeNull();
+  });
+
+  it("runs the length chosen in settings, read when the round starts", () => {
+    let minutes: FocusMinutes = 50;
+    const { bus, focus, said, passSteps } = setup({ focusMinutes: () => minutes });
+    bus.emit("pet.focus_toggled", {});
+    minutes = 25;
+    expect(said[said.length - 1]).toBe("好，我陪你专注 50 分钟！");
+    passSteps(FOCUS_CONFIG.focusMs);
+    expect(focus.get().phase).toBe("focusing");
+    passSteps(25 * 60_000);
+    expect(focus.get()).toMatchObject({ phase: "resting", minutes: 50 });
   });
 
   it("drops an unanswered question about stopping after a while", () => {

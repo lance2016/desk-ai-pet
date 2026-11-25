@@ -6,7 +6,7 @@ import { withUserActions, type UserAction } from "../actions/UserActions";
 import type { AssetPack } from "../assets/AssetLoader";
 import type { PetManifest } from "../assets/Manifest";
 import { BehaviorEngine, type ReminderSource } from "../behavior/BehaviorEngine";
-import { FocusTimer, restoreFocus, type FocusSnapshot } from "../behavior/FocusTimer";
+import { FocusTimer, restoreFocus, type FocusMinutes, type FocusSnapshot } from "../behavior/FocusTimer";
 import { canShortcut, loadDisabledIdleActions } from "../preferences/ActionPreferences";
 import type { OpaqueMask, PetRenderer } from "../renderer/PetRenderer";
 import type { PetStorage } from "../storage/PetStorage";
@@ -77,6 +77,8 @@ interface RuntimeOptions {
   holdsReminders?: (now: number) => boolean;
   /** Where the running focus round is kept, so a restart or a character switch keeps it. */
   focusStore?: { load(): FocusSnapshot | null; save(snapshot: FocusSnapshot): void };
+  /** How long a focus round runs, as set in settings. */
+  focusMinutes?: () => FocusMinutes;
   /** The actions the user made for this character, read again whenever one changes. */
   userActions?: () => UserAction[];
   /** Observes actions that actually started; wired by the app to local statistics. */
@@ -114,7 +116,7 @@ export class PetRuntime {
     /** What each action shows, as `showLooks` left it. */
     private readonly shown: Map<string, string>,
     storage: PetStorage,
-    { reminders, isQuiet, holdsReminders, focusStore, userActions, onActionStarted }: Pick<RuntimeOptions, "reminders" | "isQuiet" | "holdsReminders" | "focusStore" | "userActions" | "onActionStarted">,
+    { reminders, isQuiet, holdsReminders, focusStore, focusMinutes, userActions, onActionStarted }: Pick<RuntimeOptions, "reminders" | "isQuiet" | "holdsReminders" | "focusStore" | "focusMinutes" | "userActions" | "onActionStarted">,
   ) {
     this.currentManifest = manifest;
     this.focus = new FocusTimer(restoreFocus(focusStore?.load() ?? null, Date.now()), focusStore?.save);
@@ -138,6 +140,7 @@ export class PetRuntime {
       isIdleActionEnabled: (id) => !loadDisabledIdleActions(packManifest.id).includes(id),
       reminders,
       holdsReminders,
+      focusMinutes,
     });
 
     let savedStats = this.state.get().stats;

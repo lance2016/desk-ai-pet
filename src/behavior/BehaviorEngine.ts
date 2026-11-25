@@ -4,7 +4,7 @@ import type { EventBus } from "../core/EventBus";
 import type { PetState } from "../core/PetState";
 import { ActivityBoard } from "../activity/ActivityBoard";
 import type { ActivityState, ActivityUpdate, AlertChoice, ChatPhase, DockSide, Mood, PetEvents, PetStats, StatusChip } from "../types";
-import { FOCUS_CONFIG, focusBadge, focusProgress, type FocusTimer } from "./FocusTimer";
+import { DEFAULT_FOCUS_MINUTES, focusBadge, focusPlan, focusProgress, type FocusMinutes, type FocusTimer } from "./FocusTimer";
 
 /** Played while the user carries the pet around. */
 const DRAG_ACTION = "drag";
@@ -49,7 +49,7 @@ const ENGINE_POSES: ReadonlySet<string> = new Set([FOCUS_ACTION]);
 
 /** What the pet says around a focus round. Shown in the speech bubble. */
 const FOCUS_LINES = {
-  started: `好，我陪你专注 ${FOCUS_CONFIG.focusMs / 60_000} 分钟！`,
+  started: (minutes: number) => `好，我陪你专注 ${minutes} 分钟！`,
   askStop: (minutes: number) => `已经专注 ${minutes} 分钟了，现在停下，这轮就不算了。`,
   askRest: (minutes: number) => `还能休息 ${minutes} 分钟，要提前开始下一轮吗？`,
   stopped: "好，先停一下，随时再开始。",
@@ -71,6 +71,11 @@ const FOCUS_CHOICES = {
   rest: [
     { label: "继续休息", event: "pet.alert_dismissed" },
     { label: "开始专注", event: "pet.focus_toggled" },
+  ],
+  /** When the rest is over. It stands until answered: the user may be away from the desk. */
+  again: [
+    { label: "不了", event: "pet.alert_dismissed" },
+    { label: "再来一轮", event: "pet.focus_toggled" },
   ],
 } satisfies Record<string, AlertChoice[]>;
 
@@ -190,6 +195,8 @@ interface BehaviorDeps {
    * Quiet hours do not hold reminders back: the user chose their time.
    */
   holdsReminders?: (now: number) => boolean;
+  /** How long a focus round runs, as set in settings; read each time one starts. */
+  focusMinutes?: () => FocusMinutes;
 }
 
 /**
@@ -214,7 +221,7 @@ export class BehaviorEngine {
   /** When the pet last sat down to write because an agent set to work. */
   private agentWorkAt = Number.NEGATIVE_INFINITY;
   /** "Focus done" waits on the standing line too, after any reminders. */
-  private focusNotice: string | null = null;
+  private focusNotice: { text: string; choices?: AlertChoice[] } | null = null;
   /** Earlier reminders the morning greeting offered to move to today, until the user answers. */
   private moveOffer: DueReminder[] = [];
   /** A question about the focus round, ahead of everything else on the standing line: the user just asked. */
@@ -631,8 +638,9 @@ export class BehaviorEngine {
       this.setDock(null);
       controller.stop();
     }
-    focus.startFocus(now);
-    this.say(FOCUS_LINES.started);
+    const minutes = this.deps.focusMinutes?.() ?? DEFAULT_FOCUS_MINUTES;
+    focus.startFocus(now, minutes);
+    this.say(FOCUS_LINES.started(minutes));
     this.showBadge(now);
     controller.request(FOCUS_ACTION);
   }
@@ -655,11 +663,12 @@ export class BehaviorEngine {
   }
 
   private askAboutFocus(now: number): void {
-    const { phase, endsAt } = this.deps.focus.get();
+    const snapshot = this.deps.focus.get();
+    const { phase, endsAt } = snapshot;
     if (phase === "off" || endsAt === null) return;
     const until = now + BEHAVIOR_CONFIG.focusPromptMs;
     if (phase === "focusing") {
-      const focused = FOCUS_CONFIG.focusMs - (endsAt - now);
+      const focused = focusPlan(snapshot).focusMs - (endsAt - now);
       if (focused < BEHAVIOR_CONFIG.focusFreeStopMs) {
         this.onFocusStopped();
         return;
@@ -714,17 +723,19 @@ export class BehaviorEngine {
       if (controller.current?.id === FOCUS_ACTION) controller.stop();
       if (controller.request(FOCUS_DONE_ACTION).accepted) state.changeStats(BEHAVIOR_CONFIG.effects.focusDone);
       // It stays up until the user clicks it, like a reminder: they may have looked away.
-      this.focusNotice = FOCUS_LINES.finished;
+      this.focusNotice = { text: FOCUS_LINES.finished };
       this.showAlert(now);
       this.deps.bus.emit("pet.focus_completed", {});
     } else if (transition === "focus_interrupted") {
       if (controller.current?.id === FOCUS_ACTION) controller.stop();
       // The user was away: a passing line would be gone before they are back.
-      this.focusNotice = FOCUS_LINES.interrupted;
+      this.focusNotice = { text: FOCUS_LINES.interrupted };
       this.showAlert(now);
     } else if (transition === "rest_finished") {
       state.markInteraction(now);
-      this.say(FOCUS_LINES.restOver);
+      // A passing line was gone before a user away from the desk was back, and had no way to answer it.
+      this.focusNotice = { text: FOCUS_LINES.restOver, choices: FOCUS_CHOICES.again };
+      this.showAlert(now);
     }
   }
 
@@ -787,7 +798,7 @@ export class BehaviorEngine {
         emit({ heading: MOVE_LINES.heading, text: MOVE_LINES.named(this.moveOffer.map((reminder) => reminder.text)), choices: MOVE_CHOICES });
         return;
       case "focusNotice":
-        emit({ text: this.focusNotice!, icon: "timer" });
+        emit({ text: this.focusNotice!.text, icon: "timer", ...(this.focusNotice!.choices ? { choices: this.focusNotice!.choices } : {}) });
         return;
       case null:
         this.deps.bus.emit("pet.alert", { text: null });

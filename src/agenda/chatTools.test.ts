@@ -44,7 +44,7 @@ describe("chat context", () => {
       ],
       counts: [],
     }, NOW);
-    expect(lines).toEqual(["完成了提醒：交周报", "还没处理的提醒：今天 15:03 开会", "专注了 3 轮，每轮 25 分钟，中途停了 1 次", "今天记的备忘：买牛奶 和鸡蛋"]);
+    expect(lines).toEqual(["完成了提醒：交周报", "还没处理的提醒：今天 15:03 开会", "专注了 3 轮，中途停了 1 次", "今天记的备忘：买牛奶 和鸡蛋"]);
   });
 
   it("keeps what the log saw today even after the lists dropped it", () => {
@@ -58,7 +58,7 @@ describe("chat context", () => {
       ],
       counts: [],
     }, NOW);
-    expect(lines).toEqual(["完成了提醒：交周报", "专注了 0 轮，每轮 25 分钟", "今天记的备忘：定稿"]);
+    expect(lines).toEqual(["完成了提醒：交周报", "专注了 0 轮", "今天记的备忘：定稿"]);
   });
 
   it("tells what Claude Code finished today", () => {

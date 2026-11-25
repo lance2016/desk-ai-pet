@@ -1,5 +1,4 @@
 import { formatReminderTime, isDone, leftoverReminders, occurrenceAt, shownAt, type AgendaItem } from "../agenda/AgendaStore";
-import { FOCUS_CONFIG } from "../behavior/FocusTimer";
 import { agentWork, dayRecap, lastActiveDay } from "../worklog/recap";
 import { addDays, dateKey, type WorkLogData } from "../worklog/WorkLog";
 import type { GreetingKind } from "./GreetingSchedule";
@@ -73,7 +72,6 @@ const named = (texts: readonly string[]) => texts.slice(0, MAX_NAMED).join("、"
 
 /** The facts as short lines for the model to weave into its greeting. */
 export function factLines(kind: GreetingKind, facts: GreetingFacts, now: number): string[] {
-  const round = `每轮 ${FOCUS_CONFIG.focusMs / 60_000} 分钟`;
   const reminder = (label: string, value: Reminder | null) => (value ? [`${label}：${formatReminderTime(value.at, now)} ${value.text}`] : []);
   if (kind === "morning") {
     const { lastDay, leftovers } = facts;
@@ -81,12 +79,12 @@ export function factLines(kind: GreetingKind, facts: GreetingFacts, now: number)
       `今天要处理的提醒 ${facts.openCount} 个`,
       ...reminder("下一个提醒", facts.nextReminder),
       ...(lastDay && lastDay.doneCount > 0 ? [`${lastDay.label}完成了 ${lastDay.doneCount} 个提醒${lastDay.done.length > 0 ? `：${named(lastDay.done)}` : ""}`] : []),
-      ...(lastDay && lastDay.focusRounds > 0 ? [`${lastDay.label}专注了 ${lastDay.focusRounds} 轮，${round}`] : []),
+      ...(lastDay && lastDay.focusRounds > 0 ? [`${lastDay.label}专注了 ${lastDay.focusRounds} 轮`] : []),
       ...(lastDay?.agentWork ? [`${lastDay.label}${lastDay.agentWork}`] : []),
       ...(leftovers.length > 0 ? [`之前没做完的提醒 ${leftovers.length} 个：${named(leftovers.map((item) => `${formatReminderTime(item.at, now)} ${item.text}`))}`] : []),
     ];
   }
-  return [`今天完成了 ${facts.doneToday} 个提醒，还有 ${facts.openCount} 个没处理`, `今天专注了 ${facts.focusToday} 轮，${round}`, ...reminder("最近一次提醒", facts.latestReminder)];
+  return [`今天完成了 ${facts.doneToday} 个提醒，还有 ${facts.openCount} 个没处理`, `今天专注了 ${facts.focusToday} 轮`, ...reminder("最近一次提醒", facts.latestReminder)];
 }
 
 /** What today held so far, for a line of care to mention: only what there is something to say about. */

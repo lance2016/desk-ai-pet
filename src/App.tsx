@@ -52,6 +52,7 @@ import { loadQuickChatShortcut, quickChatShortcutLabel } from "./preferences/Qui
 import { recordActionTrigger } from "./preferences/ActionTriggerStats";
 import { createLocalPetStorage } from "./storage/PetStorage";
 import { loadFocus, saveFocus } from "./storage/FocusStorage";
+import { loadFocusPreferences } from "./preferences/FocusPreferences";
 import type { FocusSnapshot } from "./behavior/FocusTimer";
 import { updaterPlatform } from "./platform/updater";
 import { startUpdateChecks } from "./update/UpdateNotice";
@@ -131,6 +132,7 @@ const isQuiet = (now: number) => isQuietAt(loadQuietPreferences(), now);
 /** Reminders the user timed come even in quiet hours; only "勿扰" holds them back. */
 const holdsReminders = () => loadQuietPreferences().doNotDisturb;
 const FOCUS_STORE = { load: () => loadFocus(), save: (snapshot: FocusSnapshot) => saveFocus(snapshot) };
+const focusMinutes = () => loadFocusPreferences().minutes;
 
 interface AppProps {
   /** Character to show. The window remounts this component when it changes. */
@@ -211,7 +213,7 @@ export default function App({ packId }: AppProps) {
     restoredPosition.current = petWindow.restorePosition().catch((error: unknown) => { console.warn("Could not restore the pet position", error); return false; });
 
     loadCharacterPack(packId)
-      .then((pack) => PetRuntime.create({ renderer, storage, pack, reminders: REMINDERS, isQuiet, holdsReminders, focusStore: FOCUS_STORE, userActions: () => loadUserActions(packId), onActionStarted: (actionId) => recordActionTrigger(packId, actionId) }))
+      .then((pack) => PetRuntime.create({ renderer, storage, pack, reminders: REMINDERS, isQuiet, holdsReminders, focusStore: FOCUS_STORE, focusMinutes, userActions: () => loadUserActions(packId), onActionStarted: (actionId) => recordActionTrigger(packId, actionId) }))
       .then((instance) => {
         if (cancelled) {
           instance.destroy();

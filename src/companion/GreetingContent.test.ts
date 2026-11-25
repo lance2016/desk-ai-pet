@@ -58,8 +58,8 @@ describe("fact lines for the model", () => {
       lastDay: { label: "昨天", done: ["写方案"], doneCount: 1, focusRounds: 3, agentWork: null },
       leftovers: [{ text: "回邮件", at: at(15, 15) }],
     };
-    expect(factLines("morning", facts, NOW)).toEqual(["今天要处理的提醒 2 个", "下一个提醒：10:00 开会", "昨天完成了 1 个提醒：写方案", "昨天专注了 3 轮，每轮 25 分钟", "之前没做完的提醒 1 个：11月15日 周日 15:00 回邮件"]);
-    expect(factLines("evening", facts, NOW)).toEqual(["今天完成了 1 个提醒，还有 2 个没处理", "今天专注了 2 轮，每轮 25 分钟", "最近一次提醒：08:00 喝水"]);
+    expect(factLines("morning", facts, NOW)).toEqual(["今天要处理的提醒 2 个", "下一个提醒：10:00 开会", "昨天完成了 1 个提醒：写方案", "昨天专注了 3 轮", "之前没做完的提醒 1 个：11月15日 周日 15:00 回邮件"]);
+    expect(factLines("evening", facts, NOW)).toEqual(["今天完成了 1 个提醒，还有 2 个没处理", "今天专注了 2 轮", "最近一次提醒：08:00 喝水"]);
   });
 });
 

@@ -1,7 +1,14 @@
-export const FOCUS_CONFIG = {
-  focusMs: 25 * 60_000,
-  restMs: 5 * 60_000,
-};
+/**
+ * How long a round runs, by its minutes, and the rest after it: the usual 25, or 50 for deep work with a longer rest.
+ * A new length goes into the schemas in FocusStorage.ts and FocusPreferences.ts too.
+ */
+export const FOCUS_PLANS = {
+  25: { focusMs: 25 * 60_000, restMs: 5 * 60_000 },
+  50: { focusMs: 50 * 60_000, restMs: 10 * 60_000 },
+} as const;
+export type FocusMinutes = keyof typeof FOCUS_PLANS;
+export const FOCUS_MINUTES: readonly FocusMinutes[] = [25, 50];
+export const DEFAULT_FOCUS_MINUTES: FocusMinutes = 25;
 
 export type FocusPhase = "off" | "focusing" | "resting";
 
@@ -9,7 +16,12 @@ export interface FocusSnapshot {
   phase: FocusPhase;
   /** Epoch milliseconds the current phase ends at; null when off. */
   endsAt: number | null;
+  /** How long this round runs, and so its rest. Left out by rounds saved before it could be chosen: 25. */
+  minutes?: FocusMinutes;
 }
+
+/** The lengths of a round and of its rest. */
+export const focusPlan = (snapshot: FocusSnapshot) => FOCUS_PLANS[snapshot.minutes ?? DEFAULT_FOCUS_MINUTES];
 
 /** What `advance` just finished. "focus_interrupted": the computer slept through the end of the round, which does not count. */
 export type FocusTransition = "focus_finished" | "focus_interrupted" | "rest_finished";
@@ -47,8 +59,8 @@ export class FocusTimer {
     };
   };
 
-  startFocus(now: number): void {
-    this.set({ phase: "focusing", endsAt: now + FOCUS_CONFIG.focusMs });
+  startFocus(now: number, minutes: FocusMinutes = DEFAULT_FOCUS_MINUTES): void {
+    this.set({ phase: "focusing", endsAt: now + FOCUS_PLANS[minutes].focusMs, minutes });
   }
 
   stop(): void {
@@ -59,7 +71,7 @@ export class FocusTimer {
   advance(now: number): FocusTransition | null {
     const gap = this.lastAdvanceAt === null ? 0 : now - this.lastAdvanceAt;
     this.lastAdvanceAt = now;
-    const { phase, endsAt } = this.snapshot;
+    const { phase, endsAt, minutes } = this.snapshot;
     if (endsAt === null || now < endsAt) return null;
     // Woken before the end, the round simply goes on; one that ended while the computer slept was not sat through.
     if (phase === "focusing" && gap > MAX_TICK_GAP_MS) {
@@ -67,7 +79,7 @@ export class FocusTimer {
       return "focus_interrupted";
     }
     if (phase === "focusing") {
-      this.set({ phase: "resting", endsAt: now + FOCUS_CONFIG.restMs });
+      this.set({ phase: "resting", endsAt: now + focusPlan(this.snapshot).restMs, minutes });
       return "focus_finished";
     }
     this.set(OFF);
@@ -75,7 +87,7 @@ export class FocusTimer {
   }
 
   private set(next: FocusSnapshot): void {
-    if (next.phase === this.snapshot.phase && next.endsAt === this.snapshot.endsAt) return;
+    if (next.phase === this.snapshot.phase && next.endsAt === this.snapshot.endsAt && next.minutes === this.snapshot.minutes) return;
     this.snapshot = next;
     this.onChange?.(next);
     for (const listener of [...this.listeners]) listener();
@@ -93,6 +105,7 @@ export function focusBadge(snapshot: FocusSnapshot, now: number): string | null 
 /** How much of the running round or rest has passed, from 0 to 1, or null when off. */
 export function focusProgress(snapshot: FocusSnapshot, now: number): number | null {
   if (snapshot.phase === "off" || snapshot.endsAt === null) return null;
-  const length = snapshot.phase === "focusing" ? FOCUS_CONFIG.focusMs : FOCUS_CONFIG.restMs;
+  const plan = focusPlan(snapshot);
+  const length = snapshot.phase === "focusing" ? plan.focusMs : plan.restMs;
   return Math.min(1, Math.max(0, 1 - (snapshot.endsAt - now) / length));
 }

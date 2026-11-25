@@ -3,7 +3,6 @@ import type { ChatContext, ChatFacts } from "../ai/types";
 import { ACTION_ID } from "../ai/skill";
 import { NOTHING_OFF, type SwitchedOff } from "../preferences/SkillPreferences";
 import { loadNotes, NOTE_LIMITS, sortNotes, type Note } from "../notes/NoteStore";
-import { FOCUS_CONFIG } from "../behavior/FocusTimer";
 import { agentWork, dayRecap } from "../worklog/recap";
 import { dateKey, type WorkLogData } from "../worklog/WorkLog";
 import { AGENDA_LIMITS, clockLabel, formatReminderTime, isDone, loadAgenda, reminderLabel, shownAt, sortAgenda, type AgendaItem, type NewAgendaItem } from "./AgendaStore";
@@ -85,7 +84,7 @@ export function todayLines({ agenda, notes }: SavedItems, log: WorkLogData, now:
   const lines = [
     ...[...done.values()].map((text) => `完成了提醒：${text}`),
     ...open.map((item) => `还没处理的提醒：${reminderLabel(shownAt(item, now), now)} ${item.text}`),
-    `专注了 ${recap.focusRounds} 轮，每轮 ${FOCUS_CONFIG.focusMs / 60_000} 分钟${stopped}`,
+    `专注了 ${recap.focusRounds} 轮${stopped}`,
     ...(agents ? [`今天${agents}`] : []),
     ...[...written.values()].map((text) => `今天记的备忘：${clip(text.replace(/\s+/g, " "), TODAY_NOTE_CHARS)}`),
   ];

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { FOCUS_CONFIG, FocusTimer, focusBadge, focusProgress, restoreFocus } from "./FocusTimer";
+import { FOCUS_PLANS, FocusTimer, focusBadge, focusProgress, restoreFocus } from "./FocusTimer";
+
+const FOCUS_CONFIG = FOCUS_PLANS[25];
 
 describe("FocusTimer", () => {
   it("runs a focus round, then a rest, then stops", () => {
@@ -7,10 +9,19 @@ describe("FocusTimer", () => {
     timer.startFocus(0);
     expect(timer.advance(FOCUS_CONFIG.focusMs - 1)).toBeNull();
     expect(timer.advance(FOCUS_CONFIG.focusMs)).toBe("focus_finished");
-    expect(timer.get()).toEqual({ phase: "resting", endsAt: FOCUS_CONFIG.focusMs + FOCUS_CONFIG.restMs });
+    expect(timer.get()).toEqual({ phase: "resting", endsAt: FOCUS_CONFIG.focusMs + FOCUS_CONFIG.restMs, minutes: 25 });
     expect(timer.advance(FOCUS_CONFIG.focusMs + FOCUS_CONFIG.restMs)).toBe("rest_finished");
     expect(timer.get().phase).toBe("off");
     expect(timer.advance(Number.MAX_SAFE_INTEGER)).toBeNull();
+  });
+
+  it("runs a 50-minute round with a 10-minute rest", () => {
+    const timer = new FocusTimer();
+    timer.startFocus(0, 50);
+    expect(timer.advance(50 * 60_000 - 1)).toBeNull();
+    expect(timer.advance(50 * 60_000)).toBe("focus_finished");
+    expect(timer.get()).toEqual({ phase: "resting", endsAt: 60 * 60_000, minutes: 50 });
+    expect(timer.advance(60 * 60_000)).toBe("rest_finished");
   });
 
   it("notifies listeners only when the phase changes", () => {
@@ -31,7 +42,7 @@ describe("FocusTimer", () => {
     timer.startFocus(0);
     expect(timer.advance(1_000)).toBeNull();
     expect(timer.advance(1_000 + 5 * 60_000)).toBeNull();
-    expect(timer.get()).toEqual({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs });
+    expect(timer.get()).toEqual({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs, minutes: 25 });
     // Awake again, the ticks come every second up to the end.
     expect(timer.advance(FOCUS_CONFIG.focusMs - 1_000)).toBeNull();
     expect(timer.advance(FOCUS_CONFIG.focusMs)).toBe("focus_finished");
@@ -58,6 +69,9 @@ describe("FocusTimer", () => {
     expect(focusProgress({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs }, 0)).toBe(0);
     expect(focusProgress({ phase: "focusing", endsAt: FOCUS_CONFIG.focusMs }, FOCUS_CONFIG.focusMs / 2)).toBe(0.5);
     expect(focusProgress({ phase: "resting", endsAt: FOCUS_CONFIG.restMs }, FOCUS_CONFIG.restMs * 2)).toBe(1);
+    // A long round goes by at its own pace; one saved before lengths could be chosen is 25 minutes.
+    expect(focusProgress({ phase: "focusing", endsAt: 50 * 60_000, minutes: 50 }, 25 * 60_000)).toBe(0.5);
+    expect(focusProgress({ phase: "resting", endsAt: 10 * 60_000, minutes: 50 }, 5 * 60_000)).toBe(0.5);
   });
 });
 

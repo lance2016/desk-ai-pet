@@ -60,6 +60,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "companion", title: "早安问候", keywords: "早上好 每天问候 早安时间" },
   { section: "companion", title: "每天说早安", keywords: "早安 开启 关闭 问候 早安时间 时钟 定时" },
   { section: "companion", title: "预览一句", keywords: "预览 立即验证 试一下 测试 早安 晚安 问候预览" },
+  { section: "companion", title: "专注时长", keywords: "番茄钟 25 分钟 50 分钟 休息 专注多久" },
   { section: "companion", title: "手动勿扰", keywords: "免打扰 安静" },
   { section: "companion", title: "定时勿扰", keywords: "免打扰 睡觉 夜间 早安 晚安" },
   { section: "general", title: "工作日", keywords: "提醒 节假日 调休 法定假日" },
@@ -100,7 +101,7 @@ export const SEARCH_SKIPPED: readonly string[] = [
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求", "先连接阿里云百炼",
   // Titles on the developer pages, which search finds by page name only while developer mode is on.
   "系统提示词", "发给 AI 的工具",
-  "联网", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "应用", "宠物",
+  "联网", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "专注", "应用", "宠物",
   "提醒", "备份", "导入与导出", "快捷键", "辅助功能权限", "诊断",
 ];
 

@@ -7,6 +7,7 @@ const KEY = "ai-pet:focus:v1";
 const schema = z.object({
   phase: z.enum(["off", "focusing", "resting"]),
   endsAt: z.number().finite().nullable(),
+  minutes: z.union([z.literal(25), z.literal(50)]).optional(),
 });
 
 export function loadFocus(storage: Storage = window.localStorage): FocusSnapshot | null {
