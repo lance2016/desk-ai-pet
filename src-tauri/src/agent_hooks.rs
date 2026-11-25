@@ -652,17 +652,18 @@ fn title_in(tail: &str) -> Option<String> {
 /// Brings the session's terminal to the front: in Ghostty its own window and tab, elsewhere the app.
 /// Rejects with a message for the user. Async, and the waiting on `osascript` or `open` is on a blocking thread.
 #[tauri::command]
-pub async fn agent_reveal(app: AppHandle, session: String) -> Result<(), String> {
+pub async fn agent_reveal(app: AppHandle, window: tauri::WebviewWindow, session: String) -> Result<(), String> {
     const NOT_FOUND: &str = "找不到这个会话所在的终端。";
     let followed = app.state::<AgentHooks>().sessions.lock().unwrap_or_else(PoisonError::into_inner).get(&session).cloned();
     let Followed { app: host, tty, .. } = followed.unwrap_or_default();
     let host = host.ok_or(NOT_FOUND)?;
+    let from = window.label().to_owned();
     // An async command still runs on the async runtime: the blocking waits go to their own thread.
     tauri::async_runtime::spawn_blocking(move || {
         // The panel the click came from holds the keyboard. With the terminal's app already in front,
         // bringing it forward would leave it with us: typing would not reach the terminal, nor would the ring wait end.
         #[cfg(target_os = "macos")]
-        crate::hand_keyboard_back(&app);
+        crate::hand_keyboard_back(&app, &from);
         if let (GHOSTTY, Some(tty)) = (host.as_str(), tty.as_deref()) {
             match focus_ghostty(tty) {
                 Ok(true) => {

@@ -660,23 +660,26 @@ fn work_area_under(app: &AppHandle, pet: Area) -> Option<Area> {
 
 /// Hands typing back to the app in front, and waits until that is done. Called before another app's window
 /// is brought forward: when that app is already the active one, its `activate` changes nothing, and the
-/// keyboard would stay with us until the user clicks. All our panels can become key, so letting go of one
-/// hands the keyboard to the next of ours (the pet): the popovers are put away first, then the pet lets go.
+/// keyboard would stay with us until the user clicks. `from` is the window the user clicked in: a panel is
+/// put away, as its job is done. The other panels stay where the user left them, but none of our windows
+/// may keep the keyboard: all our panels can become key, and letting go of one hands the keyboard to the
+/// next of ours, so each that has it lets go in turn.
 /// Not on the main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn hand_keyboard_back(app: &AppHandle) {
+pub(crate) fn hand_keyboard_back(app: &AppHandle, from: &str) {
     let (sender, receiver) = std::sync::mpsc::channel();
     let handle = app.clone();
+    let from = from.to_owned();
     let sent = app.run_on_main_thread(move || {
-        for label in POPOVERS {
-            if let Some(popover) = handle.get_webview_window(label) {
-                if popover.is_visible().unwrap_or(false) {
-                    report("put a popover away", popover.hide());
-                }
+        if POPOVERS.contains(&from.as_str()) {
+            if let Some(panel) = handle.get_webview_window(&from) {
+                report("put the panel away", panel.hide());
             }
         }
-        if let Some(pet) = handle.get_webview_window(MAIN_WINDOW) {
-            report("hand the keyboard back from the pet", floating_panel::release_keyboard(&pet));
+        let ours: Vec<WebviewWindow> = POPOVERS.iter().chain([&MAIN_WINDOW]).filter_map(|label| handle.get_webview_window(label)).collect();
+        for _ in 0..ours.len() {
+            let Some(key) = ours.iter().find(|window| window.is_focused().unwrap_or(false)) else { break };
+            report("hand the keyboard back", floating_panel::release_keyboard(key));
         }
         if let Some((label, _)) = handle.webview_windows().into_iter().find(|(_, window)| window.is_focused().unwrap_or(false)) {
             log::warn!("The {label} window still has the keyboard after handing it back");
