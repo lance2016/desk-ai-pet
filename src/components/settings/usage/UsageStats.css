@@ -1,0 +1,99 @@
+/*
+ * 「使用统计」 (developer mode). One series, so one colour: the window's accent, light to dark for more.
+ * Numbers and labels stay in text colours; grid lines and axes stay faint.
+ */
+.usage { --usage-scale: 28px; --usage-gap: 8px; }
+
+.usage-toolbar { display: flex; align-items: center; gap: var(--usage-gap); margin: 0 0 12px; }
+.usage-toolbar__refresh { margin-left: auto; }
+.usage-toolbar__focus { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 10px; color: var(--accent-strong); background: var(--accent-wash); border-radius: 12px; font-size: var(--ui-font-caption); font-weight: 500; }
+.usage-toolbar__focus button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; color: inherit; background: none; border: 0; border-radius: 9px; cursor: default; transition: background var(--ui-duration-fast) var(--ui-ease); }
+.usage-toolbar__focus button:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.usage-toolbar__focus button:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.usage-toolbar__focus svg { width: 10px; height: 10px; }
+
+.usage-empty { display: flex; align-items: center; gap: 12px; padding: 16px 14px; }
+.usage-empty svg { flex: none; width: 24px; height: 24px; color: var(--label-3); }
+.usage-empty p { margin: 0; color: var(--label-2); line-height: 1.5; }
+
+/* The figures and the days share one card, split by hairlines like the summary in Screen Time. */
+.settings-card.usage-overview { padding: 0; }
+.usage-figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--separator); }
+.usage-figure { display: grid; gap: 2px; min-width: 0; padding: 12px; }
+.usage-figure + .usage-figure { border-left: 1px solid var(--separator); }
+.usage-figure__name, .usage-figure__note { overflow: hidden; color: var(--label-2); text-overflow: ellipsis; white-space: nowrap; }
+.usage-figure__name { font-size: var(--ui-font-caption); }
+.usage-figure__note { font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
+.usage-figure__value { overflow: hidden; font-size: var(--ui-font-title); font-weight: 600; line-height: 30px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.usage-figure__value.is-text { font-size: 15px; }
+.usage-figure__value small { margin-left: 3px; color: var(--label-2); font-size: var(--ui-font-caption); font-weight: 400; }
+
+/* Each day: the scale on the left, bars on a baseline, the average dashed across, the axis under. */
+.usage-day-chart { display: grid; grid-template-columns: var(--usage-scale) 1fr; column-gap: var(--usage-gap); padding: 12px 12px 10px; }
+.usage-day-chart__title { grid-column: 1 / -1; margin-bottom: 14px; color: var(--label-2); font-size: var(--ui-font-caption); }
+.usage-day-chart__scale { position: relative; height: 120px; color: var(--label-3); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
+.usage-day-chart__scale span { position: absolute; right: 0; line-height: 1; translate: 0 -50%; }
+.usage-day-chart__scale span:nth-child(1) { top: 0; }
+.usage-day-chart__scale span:nth-child(2) { top: 50%; }
+.usage-day-chart__scale span:nth-child(3) { top: 100%; }
+.usage-day-chart__plot { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--separator); border-radius: 2px; outline: none; }
+.usage-day-chart__plot:focus-visible { box-shadow: var(--ui-focus-ring); }
+.usage-day-chart__grid, .usage-day-chart__average { position: absolute; left: 0; right: 0; bottom: calc(var(--y) * 100%); pointer-events: none; }
+.usage-day-chart__grid { border-top: 1px solid color-mix(in srgb, var(--separator) 55%, transparent); }
+.usage-day-chart__average { z-index: 1; border-top: 1px dashed var(--label-3); }
+.usage-day-chart__average span { position: absolute; right: 0; bottom: 2px; padding: 0 4px; color: var(--label-2); background: var(--group); border-radius: 3px; font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
+.usage-day-chart__slot { flex: 1; display: flex; align-items: flex-end; justify-content: center; height: 100%; border-radius: 3px 3px 0 0; }
+.usage-day-chart__slot.is-weekend { background: color-mix(in srgb, var(--fill) 70%, transparent); }
+.usage-day-chart__bar { width: 100%; max-width: 36px; height: calc(var(--share) * 100%); min-height: 2px; background: var(--accent); border-radius: 4px 4px 0 0; transition: opacity var(--ui-duration-fast) var(--ui-ease); }
+.usage-day-chart__plot.is-pointing .usage-day-chart__slot:not(.is-hovered) .usage-day-chart__bar { opacity: .4; }
+.usage-day-chart__empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--label-3); font-size: var(--ui-font-caption); }
+.usage-day-chart__ticks, .usage-heat__ticks { position: relative; grid-column: 2; height: 14px; margin-top: 6px; color: var(--label-3); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
+.usage-day-chart__ticks span, .usage-heat__ticks span { position: absolute; top: 0; translate: -50% 0; white-space: nowrap; }
+.usage-day-chart__ticks .is-today { color: var(--label); font-weight: 600; }
+
+/* The numbers behind a mark, floating just above it. */
+.usage-tip { position: absolute; z-index: 2; display: grid; gap: 1px; padding: 5px 8px; white-space: nowrap; pointer-events: none; background: var(--group); border: 1px solid var(--group-border); border-radius: 6px; box-shadow: var(--control-shadow); translate: -50% calc(-100% - 6px); }
+.usage-tip.is-start { translate: -10px calc(-100% - 6px); }
+.usage-tip.is-end { translate: calc(-100% + 10px) calc(-100% - 6px); }
+.usage-tip span { color: var(--label-2); font-size: var(--ui-font-footnote); }
+.usage-tip strong { font-size: var(--ui-font-body); font-variant-numeric: tabular-nums; }
+
+/* Weekdays down, hours across. */
+.usage-heat { padding: 12px 12px 10px; }
+.usage-heat__legend { display: flex; align-items: center; justify-content: flex-end; gap: 3px; margin-bottom: 8px; color: var(--label-3); font-size: var(--ui-font-footnote); }
+.usage-heat__legend span, .usage-heat__cell { background: color-mix(in srgb, var(--accent) calc(var(--share) * 100%), var(--fill)); }
+.usage-heat__legend span { width: 10px; height: 10px; border-radius: 2px; }
+.usage-heat__legend span:first-of-type { margin-left: 3px; }
+.usage-heat__legend span:last-of-type { margin-right: 3px; }
+.usage-heat__body { display: grid; grid-template-columns: var(--usage-scale) 1fr; column-gap: var(--usage-gap); }
+.usage-heat__days { display: grid; grid-template-rows: repeat(7, 16px); gap: 2px; color: var(--label-3); font-size: var(--ui-font-footnote); line-height: 16px; text-align: right; }
+.usage-heat__plot { position: relative; display: grid; grid-template-columns: repeat(24, 1fr); grid-template-rows: repeat(7, 16px); gap: 2px; border-radius: 3px; outline: none; }
+.usage-heat__plot:focus-visible { box-shadow: var(--ui-focus-ring); }
+.usage-heat__cell { border-radius: 3px; }
+.usage-heat__cell.is-hovered { outline: 1.5px solid var(--accent-strong); outline-offset: 1px; }
+
+/* Features by group; a click charts one alone. Columns: icon, name, trend, count, change. */
+.usage-features-head { gap: 10px; padding-right: 9px; }
+.usage-features-head .settings-group-title { flex: 1; }
+.usage-features-head span { color: var(--label-2); font-size: var(--ui-font-footnote); text-align: right; }
+.usage-features-head span:nth-of-type(1) { width: 72px; text-align: left; }
+.usage-features-head span:nth-of-type(2) { width: 44px; }
+.usage-features-head span:nth-of-type(3) { width: 64px; }
+.settings-card.usage-features { padding: 0; }
+.usage-features section + section { border-top: 1px solid var(--separator); }
+.usage-features__group { margin: 0; padding: 10px 12px 4px; color: var(--label-2); font-size: var(--ui-font-footnote); font-weight: 500; }
+.usage-features ul { margin: 0; padding: 0 4px 6px; list-style: none; }
+.usage-feature { display: grid; grid-template-columns: 22px minmax(0, 1fr) 72px 44px 64px; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 0 8px; color: var(--label); text-align: left; background: none; border: 0; border-radius: var(--radius-row); font: inherit; cursor: default; transition: background var(--ui-duration-fast) var(--ui-ease); }
+.usage-feature:hover { background: var(--fill); }
+.usage-feature:focus-visible { outline: none; box-shadow: var(--ui-focus-ring); }
+.usage-feature.is-picked { background: var(--accent-wash); }
+.usage-feature__icon { display: grid; place-items: center; width: 22px; height: 22px; color: var(--label-2); background: var(--fill); border-radius: 6px; }
+.usage-feature.is-picked .usage-feature__icon { color: var(--ui-action-text); background: var(--ui-action-bg); }
+.usage-feature__icon svg { width: 14px; height: 14px; }
+.usage-feature__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-spark { width: 72px; height: 18px; overflow: visible; }
+.usage-spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.usage-feature__count, .usage-feature__change { text-align: right; font-variant-numeric: tabular-nums; }
+.usage-feature__count { font-weight: 500; }
+.usage-feature__change { color: var(--label-2); font-size: var(--ui-font-caption); }
+.usage-features__unused { margin: 0; padding: 10px 12px 12px; color: var(--label-2); border-top: 1px solid var(--separator); font-size: var(--ui-font-caption); line-height: 1.5; }

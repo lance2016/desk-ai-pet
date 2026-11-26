@@ -20,7 +20,7 @@ import { ClonedVoiceSettings } from "./ClonedVoiceSettings";
 import { ChatSettings } from "./ChatSettings";
 import { FactSettings } from "./FactSettings";
 import { ChatRequestLog } from "./ChatRequestLog";
-import { UsageStats } from "./UsageStats";
+import { UsageStats } from "./usage/UsageStats";
 import { PromptPreview } from "./PromptPreview";
 import { SkillList } from "./SkillSettings";
 import { ToolDefinitions } from "./ToolDefinitions";
