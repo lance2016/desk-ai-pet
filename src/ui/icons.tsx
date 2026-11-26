@@ -44,6 +44,8 @@ const PATHS = {
   note: <><path d="M5 4h14v11l-5 5H5z" /><path d="M14 20v-5h5M8.5 8.5h7M8.5 12h4" /></>,
   list: <><path d="M9.5 7h9M9.5 12h9M9.5 17h6" /><path d="M5.5 7h.01M5.5 12h.01M5.5 17h.01" /></>,
   lines: <path d="M4 5h16M4 10h16M4 15h10M4 20h7" />,
+  // Three bars on a baseline: counts.
+  chart: <path d="M4 20h16M7 16v-4M12 16V6M17 16v-7" />,
   checklist: <><path d="m4 6.5 1.5 1.5L8.5 5M4 12.5 5.5 14l3-3M4 18.5 5.5 20l3-3" /><path d="M11.5 6.5H20M11.5 12.5H20M11.5 18.5H20" /></>,
   clipboard: <><path d="M9 4h6v3H9z" /><path d="M9 5.5H6.5A1.5 1.5 0 0 0 5 7v12.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V7a1.5 1.5 0 0 0-1.5-1.5H15M8.5 12h7M8.5 16h5" /></>,
   calendar_check: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M8 3v4M16 3v4M8.5 15l2 2 4-4" /></>,

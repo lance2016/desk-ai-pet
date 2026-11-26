@@ -11,6 +11,7 @@ import { dubbingPlatform } from "../../platform/dubbing";
 import { petWindow } from "../../platform/petWindow";
 import { CLONED_VOICE_PREFIX, PERSONA_LIMITS } from "../../types";
 import { PRESETS } from "../settings/VoiceSettings";
+import { recordUse } from "../../usage/usage";
 import { useDubbing } from "./useDubbing";
 import "./DubbingPage.css";
 import { Icon } from "../../ui/icons";
@@ -35,6 +36,8 @@ export function DubbingPage() {
   const [playing, setPlaying] = useState<Playing | null>(null);
   const [exporting, setExporting] = useState(false);
   const player = useRef<DubPlayer | null>(null);
+  // The window is made when it opens and destroyed when it closes, so this runs once per opening.
+  useEffect(() => { recordUse("dubbing"); }, []);
 
   useEffect(() => {
     document.documentElement.classList.add("dubbing-window");

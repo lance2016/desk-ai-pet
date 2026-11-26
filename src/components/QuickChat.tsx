@@ -24,6 +24,7 @@ import type { ChatPhase } from "../types";
 import { isComposing } from "./keyboard";
 import { loadSwitchedOff } from "../preferences/SkillPreferences";
 import { Icon } from "../ui/icons";
+import { recordUse } from "../usage/usage";
 
 /** Same limit as the chat window's composer. */
 const MAX_INPUT = 4000;
@@ -420,6 +421,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
     const text = draft.trim();
     if (!text || pending) return;
     wakePet();
+    recordUse(handed ? "handed" : answeringRef.current ? "greeting_reply" : "quick_chat");
     void start(handed ? handedMessage(text, handed) : text, draft, CHAT_SKILLS, handed);
   };
   /** Saves the handed text as a note, without the model. Undo takes back only a note it added. */
@@ -444,6 +446,7 @@ export function useQuickChat(runtime: PetRuntime | null, packId: string, launche
   const runAction = (action: HandoverAction) => {
     if (!handed || pending) return;
     inputRef.current?.focus();
+    recordUse("handed");
     if (action === "keep") { keepHanded(handed); return; }
     if (keyMissing) { openKeySettings(); return; }
     wakePet();

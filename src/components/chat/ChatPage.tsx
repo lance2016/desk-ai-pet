@@ -41,6 +41,7 @@ import "./ChatPage.css";
 import { loadSwitchedOff } from "../../preferences/SkillPreferences";
 import { Icon } from "../../ui/icons";
 import { UNDO_MS } from "../../ui/feedback";
+import { recordUse } from "../../usage/usage";
 
 const MAX_INPUT = 4000;
 /** While typing, the pet is told at most this often; it listens on for longer than that after each report. */
@@ -483,6 +484,7 @@ export function ChatPage({ packId }: { packId: string }) {
     const file = draftFile ? { name: draftFile.name, label: draftFile.handed.label } : undefined;
     const content = draftFile ? handedMessage(text || "帮我看看这个文件。", draftFile.handed) : text || "帮我看看这张图片。";
     const message: ChatMessage = { role: "user", content, readLink, image, file };
+    recordUse("chat_send");
     void startReply([...messages, message].slice(-CHAT_LIMITS.messages), draft, draftImage, draftFile);
     // A click on the button would leave the focus there, where Space would stop the reply.
     input.current?.focus();
@@ -557,6 +559,7 @@ export function ChatPage({ packId }: { packId: string }) {
   const toggleRecording = () => {
     // Without a MiMo key, recording would only fail afterwards: go to the setup instead.
     if (voiceMissing && voice.phase === "idle") { openSettings(); return; }
+    if (voice.phase === "idle") recordUse("voice_input");
     voice.toggle();
   };
   const fixError = () => {
@@ -601,7 +604,7 @@ export function ChatPage({ packId }: { packId: string }) {
     return <div className="chat-row__actions">
       <button type="button" className={copied === index ? "chat-row__action is-saved" : "chat-row__action"} onClick={() => copyMessage(content, index)} aria-label={copyLabel} title={copyLabel}><Icon name="copy" /></button>
       <button type="button" className={saved ? "chat-row__action is-saved" : "chat-row__action"} disabled={tooLong} onClick={() => noteMessage(content)} aria-label={label} title={label}><ControlIcon name={saved ? "checklist" : "note"} /></button>
-      <button type="button" className={reading ? "chat-row__action is-saved" : "chat-row__action"} onClick={() => readAloud.toggle(index, markdownToPlain(content))} aria-label={readLabel} title={readLabel}>
+      <button type="button" className={reading ? "chat-row__action is-saved" : "chat-row__action"} onClick={() => { if (!reading) recordUse("read_aloud"); readAloud.toggle(index, markdownToPlain(content)); }} aria-label={readLabel} title={readLabel}>
         {reading === "preparing" ? <span className="chat-row__spinner" aria-hidden="true" /> : <Icon name={reading === "playing" ? "stop" : "speaker"} />}
       </button>
     </div>;

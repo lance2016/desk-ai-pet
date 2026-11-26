@@ -19,7 +19,7 @@ describe("settings navigation", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     expect([...ids].sort()).toEqual([...expected].sort());
-    expect(developer).toEqual(["prompt", "toolDefs", "developer"]);
+    expect(developer).toEqual(["prompt", "toolDefs", "developer", "usage"]);
   });
 
   it("places character details under Characters, diagnostics under About, cloned voices under AI, and links and mail under Tools", () => {

@@ -17,6 +17,8 @@ import { markAnswered } from "./companion/history";
 import { collectFacts, LOOK_BACK_DAYS } from "./companion/GreetingContent";
 import { changeReminders, readWorkLog, recordWork, tidyWorkLog } from "./worklog/store";
 import { addDays, EMPTY_WORK_LOG } from "./worklog/WorkLog";
+import { recordUse } from "./usage/usage";
+import { watchUsage } from "./usage/watchUsage";
 import { loadCompanionPreferences } from "./preferences/CompanionPreferences";
 import { loadThreads, recordThread, saveThreads } from "./chat/ChatThreads";
 import { holidayPlatform } from "./platform/holidays";
@@ -486,6 +488,9 @@ export default function App({ packId }: AppProps) {
     return petWindow.onPatRequested(() => runtime.bus.emit("pet.petted", {}));
   }, [runtime]);
 
+  // Counted for the usage page in developer mode: which features get used, and when.
+  useEffect(() => (runtime ? watchUsage(runtime.bus) : undefined), [runtime]);
+
   // "3 秒后截图" in the pet menu: the native side waits, copies the pet window, then says how it went.
   // Nothing shows while it waits, so the picture has no chip or bubble about itself.
   useEffect(() => {
@@ -500,6 +505,7 @@ export default function App({ packId }: AppProps) {
     if (!runtime) return;
     const stops = [
       mailCodePlatform.onUpdate((update) => {
+        if (update.kind === "waiting") recordUse("mail_code");
         const { activity, say } = mailCodeActivity(update);
         runtime.bus.emit("pet.activity", activity);
         if (say) runtime.say(say);

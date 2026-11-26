@@ -20,6 +20,7 @@ import { ClonedVoiceSettings } from "./ClonedVoiceSettings";
 import { ChatSettings } from "./ChatSettings";
 import { FactSettings } from "./FactSettings";
 import { ChatRequestLog } from "./ChatRequestLog";
+import { UsageStats } from "./UsageStats";
 import { PromptPreview } from "./PromptPreview";
 import { SkillList } from "./SkillSettings";
 import { ToolDefinitions } from "./ToolDefinitions";
@@ -85,6 +86,7 @@ const PAGE_KEYWORDS: Partial<Record<SettingsSection, string>> = {
   skills: "开关 关闭 提醒 备忘 日报 记忆 动作 安静 网页 链接",
   prompt: "系统提示词 system prompt 对话规则 修改规则 改写",
   toolDefs: "工具 tool function 函数 参数 schema 开关",
+  usage: "使用 习惯 次数 图表 数据 统计 功能",
 };
 /** Pages whose settings belong to the current character; their title names it. */
 const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "actions"];
@@ -93,7 +95,7 @@ const PER_CHARACTER: readonly SettingsSection[] = ["characterProfile", "dock", "
 const PAGE_ICONS: Record<SettingsSection, IconName> = {
   character: "user", characterProfile: "user_plus", general: "gear", companion: "heart", dock: "dock", actions: "paw",
   chat: "chat", ai: "layers", skills: "skills", voices: "waveform", memory: "bookmark", tools: "wrench", links: "link", mail: "mail",
-  privacy: "shield", guide: "bulb", about: "info", diagnostics: "lines", prompt: "document", toolDefs: "braces", developer: "code",
+  privacy: "shield", guide: "bulb", about: "info", diagnostics: "lines", prompt: "document", toolDefs: "braces", developer: "code", usage: "chart",
 };
 
 function SettingsGlyph({ name }: { name: SettingsSection }) {
@@ -107,6 +109,7 @@ const STORED: readonly [string, string][] = [
   ["所有角色共用", "提醒、备忘、宠物大小、勿扰和其他设置"],
   ["聊天记录", `每个角色最多留 ${CHAT_LIMITS.threads} 段，更早的自动删掉`],
   ["请求记录", "每次请求 AI 的用时和用量留 90 天，不含内容；开发者模式另存最近 100 次的完整内容。都不进备份"],
+  ["使用统计", "每个功能什么时候用了，不含内容；30 天后只留每天的次数，随工作日志进备份"],
   ["API Key 和邮箱授权码", "API Key 在本机加密保存，邮箱授权码存在钥匙串里"],
   ["克隆的声音", "原始录音和百炼音色 ID 保存在本机、不进备份；创建后的克隆音色也保存在阿里云百炼"],
   ["键盘和鼠标", "只看有没有在用，好知道你在不在电脑前、手停了没有；不读输入的内容，也不记下来"],
@@ -441,6 +444,7 @@ export function SettingsPage({ packId }: { packId: string }) {
         {section === "prompt" && <PromptPreview packId={packId} persona={persona} actions={chatActions} onError={setError} />}
         {section === "toolDefs" && <ToolDefinitions packId={packId} persona={persona} actions={chatActions} onError={setError} />}
         {section === "developer" && <div className="settings-section"><div className="settings-card"><ChatRequestLog /></div></div>}
+        {section === "usage" && <UsageStats />}
         {section === "diagnostics" && <DiagnosticsSettings onError={setError} />}
         {section === "privacy" && (
           <div className="settings-section">

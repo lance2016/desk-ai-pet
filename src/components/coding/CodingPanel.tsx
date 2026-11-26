@@ -13,6 +13,7 @@ import "../today/TodayPanel.css";
 import "./CodingPanel.css";
 import { Icon } from "../../ui/icons";
 import { UNDO_MS } from "../../ui/feedback";
+import { recordUse } from "../../usage/usage";
 
 const TICK_MS = 15_000;
 const HUD_MS = 2_400;
@@ -520,6 +521,7 @@ export function CodingPanel() {
     }
   };
   const reveal = (session: CodingSession) => {
+    recordUse("coding_reveal");
     agentPlatform.reveal(session.id).then(hidePanel).catch((reason: unknown) => {
       console.error("Could not bring a Claude Code terminal forward", reason);
       const text = String(reason).replace(/^Error:\s*/, "");

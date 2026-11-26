@@ -8,6 +8,7 @@ import "../today/TodayPanel.css";
 import "./LinksPanel.css";
 import { Icon } from "../../ui/icons";
 import { UNDO_MS } from "../../ui/feedback";
+import { recordUse } from "../../usage/usage";
 
 const BLANK_LINK = { name: "", url: "", group: "", tag: "", description: "" };
 const hidePanel = () => void petWindow.hideSelf().catch((error: unknown) => console.error("Failed to hide links", error));
@@ -135,6 +136,7 @@ function LinksView({ managing = false }: { managing?: boolean }) {
     opening.current = true;
     try {
       await systemPlatform.openLink(link.url);
+      recordUse("link_open");
       setFailure("");
       if (!managing) hidePanel();
     } catch {

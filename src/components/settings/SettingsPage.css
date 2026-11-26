@@ -129,6 +129,7 @@ html.is-inactive .settings-page .settings-account.is-active .settings-account__t
 .settings-nav__icon--skills { --tile: var(--ui-tile-indigo); }
 .settings-nav__icon--prompt { --tile: var(--ui-tile-green); }
 .settings-nav__icon--toolDefs { --tile: var(--ui-tile-orange); }
+.settings-nav__icon--usage { --tile: var(--ui-tile-teal); }
 .settings-nav__icon--guide { --tile: var(--ui-tile-yellow); }
 /* Search at the top of the sidebar, as in System Settings; typing swaps the pages for results. */
 .settings-search { margin: 0 0 16px; }
@@ -852,3 +853,24 @@ button.dock-row__body { cursor: pointer; }
 .voice-clone__card .voice-clone__problem { padding: 8px 10px; color: var(--red); background: var(--red-wash); border-radius: var(--radius-row); }
 .voice-clone__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .voice-clone__actions .ui-button { min-width: 72px; height: 28px; }
+
+/* 「使用统计」 (developer mode): one series, so one colour, the window's accent; the numbers stay in text colours. */
+.usage-head { padding: 10px 0; }
+.usage-days, .usage-hours { padding: 12px 0 8px; }
+.usage-days__plot { display: flex; align-items: flex-end; gap: 2px; height: 96px; border-bottom: 1px solid var(--separator); }
+.usage-days__slot { flex: 1; display: flex; align-items: flex-end; height: 100%; }
+.usage-days__bar { width: 100%; height: calc(var(--share) * 100%); background: var(--accent); border-radius: 4px 4px 0 0; }
+.usage-axis { display: flex; justify-content: space-between; margin-top: 6px; color: var(--label-3); font-size: var(--ui-font-footnote); font-variant-numeric: tabular-nums; }
+.usage-hours__cells { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; }
+.usage-hours__cell { height: 28px; background: color-mix(in srgb, var(--accent) calc(var(--share) * 100%), var(--fill)); border-radius: 4px; }
+/* 0, 6, 12, 18 and 24 sit under the edges of their hours. */
+.usage-hours__ticks span { width: 0; display: flex; justify-content: center; }
+.usage-features { margin: 0; padding: 4px 0; list-style: none; }
+.usage-features li { display: grid; grid-template-columns: 10em 1fr 40px 40px; align-items: center; gap: 8px; min-height: 28px; }
+.usage-unused { margin: 0; padding: 8px 0 10px; color: var(--label-2); font-size: var(--ui-font-footnote); line-height: 1.5; border-top: 1px solid var(--separator); }
+.usage-features__track { height: 8px; }
+.usage-features__bar { display: block; width: calc(var(--share) * 100%); height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.usage-features__count { text-align: right; font-variant-numeric: tabular-nums; }
+.usage-features-head span { width: 40px; color: var(--label-2); font-size: var(--ui-font-footnote); text-align: right; }
+.usage-features-head .settings-group-title { flex: 1; }
+.usage-features-head { padding-right: 9px; }

@@ -531,6 +531,7 @@ followClaude ──► ClaudeSessions（会话管理，纯逻辑）
 - **从哪来。** 在写入的地方记，这样才知道是谁做的。提醒和备忘的改动都经过 `changeReminders`、`changeNotes`、`keepNote`（`worklog/store.ts`），它们写入前后各读一次，`agendaEvents`、`noteEvents` 比较出做了什么，带上来源写进日志。调用方：提醒面板、备忘面板、聊天里「存为备忘」和宠物气泡按钮（`user`），聊天工具（`chat`），撤销（`user`）。不记标记已提醒、稍后提醒、过期作废（`isStale`）、满了被挤掉这些整理动作，这类写入可以直接用 `updateAgenda`。聊天工具的 `effect` 目前只有提醒和备忘，已经在写入处记了，不单独记。专注：宠物窗口订阅 `FocusTimer`，专注转休息记完成，专注转关闭记中途停止（包括睡着时到点、不算的那一轮），来源算 `user`。
 - **读。** `dayRecap` 算一天：完成了又取消的不算，记了又删的备忘不算，再加上 `day_counts` 的次数。今日回顾（`review_today`）合并日志和当前清单（日志之前的、或日志漏掉的也在），早安读最近 7 天。
 - **保留。** 宠物窗口启动时和之后每 6 小时调 `tidyWorkLog`：30 天前的事件折叠成 `day_counts` 再删掉。旧版的 `ai-pet:focus-log:v1`（每天几轮）第一次启动时导入 `day_counts`，导入成功才删 key。
+- **使用统计。** 功能被用了一次，记一条 `use_` 开头的事件（`usage/usage.ts` 的 `recordUse`，来源 `user`，文字永远是空的），只记哪个功能、什么时候，不记内容。开发构建不记：`pnpm tauri dev` 和安装版共用同一个数据库，试功能会被当成在用。宠物窗口的 `watchUsage` 记总线上的摸摸头、宠物主动搭话（`pet.greeting`），以及五个面板每次从隐藏到显示（`pet://shown`，经 `petWindow.onPanelShown`）；其余的在入口处直接调：快速聊天发消息时分成普通、回宠物的话、处理递来的内容三种，聊天窗口发消息、语音输入、朗读，快捷按钮做动作（不经总线记：动作库的「播放」预览也发 `pet.action_requested`），从常用链接打开网址、回到终端、查收验证码、打开配音。开发者模式的「使用统计」页（`UsageStats.tsx`）读最近 30 天的日志，由 `summarizeUsage`（`usage/usageSummary.ts`）按 `USAGE_ROWS` 合计，已有的提醒、备忘、专注、记忆、Claude Code 种类也算进去：每天的次数、一天里各小时（只有还没折叠的事件有时间）、各功能 7 天和 30 天的次数，30 天里没用过的合成一行。宠物主动搭话和 Claude Code 做完的一轮不是用户发起的，只写在脚注里，不算进图表。新加一个功能入口：在 `USAGE_FEATURES` 加名字（`use_` 加名字不超过 32 个字符），在入口调 `recordUse`，在 `USAGE_ROWS` 加一行中文名，测试会检查每个名字都有一行。
 
 ## 懂分寸
 

@@ -39,7 +39,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "chat", title: "复制后提示", keywords: "剪贴板 复制 粘贴 翻译 递给它" },
   { section: "chat", title: "聊天时", keywords: "聊天记录 标题 语音" },
   { section: "chat", title: "自动生成聊天标题", keywords: "标题" },
-  { section: "about", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 工具定义 对话规则 修改规则 debug" },
+  { section: "about", title: "开发者模式", keywords: "调试 请求记录 原始回复 实际发送 提示词 工具定义 对话规则 修改规则 使用统计 debug" },
   { section: "ai", title: "小米 MiMo", keywords: "语音 语音输入 API Key 麦克风" },
   { section: "ai", title: "阿里云百炼 · CosyVoice", keywords: "克隆声音 音色复刻 TTS API Key 语音 阿里云" },
   { section: "characterProfile", title: "朗读声音", keywords: "朗读 读出来 喇叭 音色 配音 TTS" },
@@ -106,7 +106,7 @@ export const SEARCH_SKIPPED: readonly string[] = [
   "右键我", "点我头旁边的小气泡", "帧顺序", "先画待机图", "再补其他动作", "没有找到动作", "添加动作图片",
   "创建提醒", "保存备忘", "查提醒和备忘、写日报", "记住你的习惯", "做动作", "回复方式", "连接与模型", "发给 AI 的设定", "最近发出的请求", "先连接阿里云百炼",
   // Titles on the developer pages, which search finds by page name only while developer mode is on.
-  "系统提示词", "发给 AI 的工具",
+  "系统提示词", "发给 AI 的工具", "每天", "一天里的时段", "各功能",
   "联网", "邮箱", "链接列表", "常用链接", "不像验证码邮件", "是验证码邮件，但没认出码", "语音", "添加克隆声音", "克隆的声音", "关心", "勿扰", "专注", "应用", "宠物",
   "提醒", "备份", "导入", "辅助功能权限", "诊断", "宠物显示", "启动", "排查问题",
   // The fixed shortcuts, found through the 「快捷键」 group.

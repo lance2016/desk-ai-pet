@@ -14,7 +14,9 @@ export type WorkKind =
   | "focus_completed" | "focus_stopped"
   | "fact_added" | "fact_edited" | "fact_deleted"
   /** A Claude Code turn long enough to tell the user about; the text is the project folder. */
-  | "agent_turn_done";
+  | "agent_turn_done"
+  /** One use of a feature, for the usage page (`src/usage/`); the text is always empty. */
+  | `use_${string}`;
 
 /** Who did it: the user by hand (panels, the pet's buttons, undo), a tool in a chat reply, or a coding agent. */
 export type WorkSource = "user" | "chat" | "agent";

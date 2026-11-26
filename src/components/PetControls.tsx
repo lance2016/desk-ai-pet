@@ -6,6 +6,7 @@ import { petWindow } from "../platform/petWindow";
 import { InteractIcon } from "./ControlIcon";
 import { ControlIconView } from "./ControlIconView";
 import { DockButtonFace } from "./DockButtonFace";
+import { recordUse } from "../usage/usage";
 
 type DockControlItem = Extract<DockItem, { kind: "control" }>;
 const CONTROL_CLICK_GUARD_MS = 500;
@@ -69,10 +70,15 @@ export function PetControls({ runtime, awake, tucked, focusing, leaving, ref }: 
       case "links_open": void petWindow.openLinks().catch((error) => console.error("Failed to open links", error)); break;
       case "settings_open": void petWindow.openSettings().catch((error) => console.error("Failed to open settings", error)); break;
       case "focus_toggle": runtime.bus.emit("pet.focus_toggled", {}); break;
-      case "feed": runtime.bus.emit("pet.fed", {}); break;
-      case "wooden_fish": runtime.bus.emit("pet.wooden_fish", {}); break;
-      case "sleep_toggle": runtime.bus.emit(sleeping ? "pet.wake_up" : "pet.sleep", {}); break;
+      case "feed": recordUse("quick_action"); runtime.bus.emit("pet.fed", {}); break;
+      case "wooden_fish": recordUse("quick_action"); runtime.bus.emit("pet.wooden_fish", {}); break;
+      case "sleep_toggle": recordUse("quick_action"); runtime.bus.emit(sleeping ? "pet.wake_up" : "pet.sleep", {}); break;
     }
+  };
+  /** An action button, in the bar's menu or the pet menu. Not the action library's preview, which asks the bus directly. */
+  const playAction = (id: string) => {
+    recordUse("quick_action");
+    runtime.bus.emit("pet.action_requested", { id });
   };
 
   const enabledItems = items.filter((item) => item.enabled && (showLinks || item.kind !== "control" || item.command !== "links_open"));
@@ -90,7 +96,7 @@ export function PetControls({ runtime, awake, tucked, focusing, leaving, ref }: 
   }, [menuKey]); // The key stands for the items: a new array every render must not resend them.
   const pressFromMenu = (key: string) => {
     const item = enabledItems.find((entry) => `${entry.kind}:${entry.id}` === key);
-    if (item?.kind === "action") runtime.bus.emit("pet.action_requested", { id: item.id });
+    if (item?.kind === "action") playAction(item.id);
     else if (item) emitControl(item);
   };
   const pressFromMenuRef = useRef(pressFromMenu);
@@ -145,7 +151,7 @@ export function PetControls({ runtime, awake, tucked, focusing, leaving, ref }: 
               <div className="pet-bar__menu" role="menu" aria-label="互动">
                 {menu.map((item) => item.kind === "control"
                   ? <button key={`control:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => emitControl(item))}><ControlIconView icon={item.icon} resolveAsset={runtime.resolveAsset} /><span>{labelOf(item)}</span></button>
-                  : <button key={`action:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => runtime.bus.emit("pet.action_requested", { id: item.id }))}><span className="pet-bar__face"><DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} /></span><span>{actionLabel(item.id)}</span></button>)}
+                  : <button key={`action:${item.id}`} type="button" role="menuitem" onClick={() => pick(() => playAction(item.id))}><span className="pet-bar__face"><DockButtonFace item={item} packId={packId} actions={runtime.manifest.animations} resolveAsset={runtime.resolveAsset} /></span><span>{actionLabel(item.id)}</span></button>)}
               </div>
             )}
           </span>

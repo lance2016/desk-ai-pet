@@ -527,6 +527,11 @@ export const petWindow = {
     return subscribe<string>(SHOWN_EVENT, (shown) => { if (shown === label) handler(); });
   },
 
+  /** Calls `handler` with the label of any popover shown after being put away, as `onShown` tells each one. */
+  onPanelShown(handler: (label: string) => void): () => void {
+    return subscribe<string>(SHOWN_EVENT, handler);
+  },
+
   /** Calls `handler` with the note another window asked the notes panel to point out. */
   onNoteRequested(handler: (noteId: string) => void): () => void {
     return subscribe<string>(NOTE_EVENT, handler);
