@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { translationPlatform } from "../../platform/translation";
 import { quickChatShortcutLabel, recordShortcut } from "../../preferences/QuickChatPreferences";
 import { DEFAULT_TRANSLATION_SHORTCUT, loadTranslationShortcut, saveTranslationShortcut } from "../../preferences/TranslationShortcut";
-import { loadSelectionFloat, saveSelectionFloat } from "../../preferences/SelectionFloat";
 import { ShortcutField } from "./ShortcutField";
 import { Chevron } from "./Chevron";
 
@@ -45,29 +44,19 @@ export function TranslationShortcutRow({ onError }: { onError: (message: string 
   );
 }
 
-/** The selection button, the shortcut (set on 「通用」) and the translation window on 「小工具」. */
+/** The shortcut (set on 「通用」), the permission it needs and the translation window on 「小工具」. */
 export function TranslationSettings({ onError, onOpenShortcuts }: { onError: (message: string | null) => void; onOpenShortcuts: () => void }) {
   const shortcut = loadTranslationShortcut();
-  const [selectionFloat, setSelectionFloat] = useState(loadSelectionFloat);
   const [trusted, setTrusted] = useState<boolean | null>(null);
   useEffect(() => {
     const check = () => void translationPlatform.selectionAvailable().then(setTrusted).catch(() => setTrusted(false));
     check(); window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);
   }, []);
-  const toggleSelectionFloat = async () => {
-    const enabled = !selectionFloat;
-    try { await translationPlatform.setSelectionFloat(enabled); saveSelectionFloat(enabled); setSelectionFloat(enabled); onError(null); }
-    catch (error) { await translationPlatform.setSelectionFloat(selectionFloat).catch(() => {}); console.error("Could not change selection translation", error); onError("划词浮钮设置没能保存，请再试一次。"); }
-  };
   const openTranslation = () => void translationPlatform.open().catch((error: unknown) => { console.error("Could not open translation", error); onError("没能打开翻译，请再试一次。"); });
   const openAccessibility = () => void translationPlatform.openAccessibilitySettings().catch((error: unknown) => { console.error("Could not open accessibility settings", error); onError("请在系统设置中打开辅助功能。"); });
   return (
     <div className="settings-group">
-      <div className="settings-row">
-        <div className="settings-row__body"><strong>划词浮钮</strong><span>选中文字后，鼠标旁出现翻译、解释、总结、润色按钮</span></div>
-        <button type="button" role="switch" aria-checked={selectionFloat} aria-label="划词浮钮" className={selectionFloat ? "ui-switch is-on" : "ui-switch"} onClick={() => void toggleSelectionFloat()}><span /></button>
-      </div>
       {trusted === false && (
         <div className="settings-row">
           <div className="settings-row__body"><strong>辅助功能权限</strong><span>不授权就读不到选中的文字</span></div>
@@ -75,7 +64,7 @@ export function TranslationSettings({ onError, onOpenShortcuts }: { onError: (me
         </div>
       )}
       <button type="button" className="settings-row settings-link" onClick={onOpenShortcuts}>
-        <span className="settings-row__body"><strong>翻译快捷键</strong><span>选中文字后按下，打开翻译窗口；在「通用 › 快捷键」里改</span></span>
+        <span className="settings-row__body"><strong>翻译快捷键</strong><span>选中文字后按下，打开翻译窗口并开始翻译；在「通用 › 快捷键」里改</span></span>
         <span className="settings-row__value">{shortcut ? quickChatShortcutLabel(shortcut) : "未设置"}</span>
         <Chevron />
       </button>

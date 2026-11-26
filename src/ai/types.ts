@@ -26,5 +26,5 @@ export type ChatEvent =
   | { id: string; kind: "delta" | "tool" | "web-progress" | "web-result" | "web-error" | "done" | "error" | "cancelled"; text: string }
   | { id: string; kind: "effect"; line: EffectLine };
 
-/** A one-off job on a piece of text: translate into Chinese ("zh") or English ("en"), or explain, summarize, polish. */
-export type TextTask = "zh" | "en" | "explain" | "summarize" | "polish";
+/** A one-off job on a piece of text: translate into Chinese ("zh") or English ("en"). */
+export type TextTask = "zh" | "en";

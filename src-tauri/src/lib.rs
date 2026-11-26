@@ -1025,7 +1025,6 @@ pub fn run() {
         .manage(quick_chat::Shortcuts::default())
         .manage(translation::Selection::default())
         .manage(handover::Clipboard::default())
-        .manage(translation::SelectionFloat::default())
         .manage(mail_code::MailCodeState::default())
         .manage(agent_hooks::AgentHooks::default())
         .manage(capture::CaptureState::default())
@@ -1128,11 +1127,6 @@ pub fn run() {
                     }
                 });
             }
-            if let Some(window) = app.get_webview_window("selection-float") {
-                #[cfg(target_os = "macos")]
-                floating_panel::apply_popover(&window)?;
-            }
-            translation::start_selection_monitor(app.handle().clone());
             handover::start_watch(app.handle().clone());
             click_through::start(app.handle().clone(), MAIN_WINDOW);
             Ok(())
@@ -1162,10 +1156,6 @@ pub fn run() {
             handover::take_copied,
             translation::selection_status,
             translation::take_translation_selection,
-            translation::set_selection_float,
-            translation::translate_floating_selection,
-            translation::expand_selection_float,
-            translation::close_selection_float,
             quick_chat::take_pet_keyboard,
             quick_chat::release_pet_keyboard,
             llm::llm_key_status,

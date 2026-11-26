@@ -26,7 +26,6 @@ const WINDOW_NAMES: Record<string, string> = {
   today: "提醒",
   notes: "备忘",
   translation: "翻译",
-  "selection-float": "划词浮钮",
 };
 const NATIVE_CRATE = "ai_pet_lib";
 

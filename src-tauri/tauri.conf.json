@@ -90,20 +90,6 @@
         "acceptFirstMouse": true
       },
       {
-        "label": "selection-float",
-        "title": "划词翻译",
-        "url": "index.html?window=selection-float",
-        "width": 216,
-        "height": 38,
-        "visible": false,
-        "resizable": false,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "skipTaskbar": true,
-        "acceptFirstMouse": true
-      },
-      {
         "label": "translation",
         "title": "翻译",
         "url": "index.html?window=translation",

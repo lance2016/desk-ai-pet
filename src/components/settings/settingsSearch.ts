@@ -66,7 +66,6 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
   { section: "companion", title: "定时勿扰", keywords: "免打扰 睡觉 夜间" },
   { section: "privacy", title: "节假日数据", keywords: "工作日 提醒 节假日 调休 法定假日" },
   { section: "tools", title: "划词翻译", keywords: "翻译 选中文字" },
-  { section: "tools", title: "划词浮钮", keywords: "解释 总结 润色 选中文字" },
   { section: "tools", title: "翻译窗口", keywords: "粘贴 翻译" },
   { section: "tools", title: "编码助手", keywords: "Agent 编程 代码 状态 钩子 hooks" },
   { section: "tools", title: "Claude Code", keywords: "Agent 编程 代码 状态 等你确认 做完了 钩子 hooks 连接 断开 会话" },

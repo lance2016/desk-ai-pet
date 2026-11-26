@@ -39,12 +39,12 @@ export function TranslationPanel() {
       if (disposed || !selection) return;
       await cancel();
       if (disposed) return;
-      setSource(selection.text); setResult(selection.result ?? "");
+      setSource(selection.text); setResult("");
       setPermission(selection.status === "permission");
       setKeyFix(false);
       const language: Target = /[\u3400-\u9fff]/.test(selection.text) ? "en" : "zh";
       if (selection.text) setTarget(language);
-      setMessage(selection.status === "permission" ? "允许辅助功能后可读取选中文字；也可以直接粘贴。" : selection.status === "empty" ? "没有读取到选中文字，请粘贴或输入。" : "");
+      setMessage(selection.status === "permission" ? "允许辅助功能后可读取选中文字；也可以直接粘贴。" : selection.status === "empty" ? "没有读取到选中文字，请粘贴或输入。" : selection.status === "copied" ? "没有读取到选中文字，用的是刚复制的内容。" : "");
       sourceRef.current?.focus();
       if (selection.auto && selection.text) void startTranslation(selection.text, language);
     };

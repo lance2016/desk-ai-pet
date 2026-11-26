@@ -1,4 +1,3 @@
-import { loadSelectionFloat } from "./preferences/SelectionFloat";
 import { ai } from "./ai";
 import { translationPlatform } from "./platform/translation";
 import { loadTranslationShortcut } from "./preferences/TranslationShortcut";
@@ -549,7 +548,6 @@ export default function App({ packId }: AppProps) {
 
   useEffect(() => {
     if (!runtime) return;
-    translationPlatform.setSelectionFloat(loadSelectionFloat()).catch((error: unknown) => console.warn("Could not enable selection translation", error));
     const shortcut = loadTranslationShortcut();
     translationPlatform.setShortcut(shortcut).catch((error: unknown) => {
       console.warn("Could not register translation shortcut", error);

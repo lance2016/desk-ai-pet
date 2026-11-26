@@ -9,7 +9,6 @@ import { CodingPanel } from "./components/coding/CodingPanel";
 import { TodayPanel } from "./components/today/TodayPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TranslationPanel } from "./components/translation/TranslationPanel";
-import { SelectionFloat } from "./components/translation/SelectionFloat";
 import { dropTimelessAgenda, timelessAgendaTexts } from "./agenda/AgendaStore";
 import { addNote, updateNotes } from "./notes/NoteStore";
 import { forwardToLog } from "./platform/diagnostics";
@@ -33,7 +32,6 @@ function Root() {
   if (view === "notes") return <NotesPanel />;
   if (view === "coding") return <CodingPanel />;
   if (view === "translation") return <TranslationPanel />;
-  if (view === "selection-float") return <SelectionFloat />;
   if (view === "dubbing") return <Suspense fallback={null}><DubbingPage /></Suspense>;
   if (view === "chat") return <ChatPage key={packId} packId={packId} />;
   return <App key={packId} packId={packId} />;

@@ -114,11 +114,10 @@ Rust 通过 rustup 安装。新开的 shell 找不到 `cargo` 时先执行 `sour
 | 查收验证码的命令名、事件名和结果种类 | `src/platform/mailCode.ts`（`updateSchema`）、`MailCodeUpdate`（`src/types.ts`） | `src-tauri/src/mail_code.rs` 的 `EVENT` 和各处 `json!({ "kind": … })`、`lib.rs` 的 `invoke_handler` |
 | 「认不出验证码？」的长度上限 | `TRY_TEXT_LIMIT`（`src/components/settings/MailCodeTester.tsx`，按 UTF-16） | `MAX_TRY_CHARS`（`src-tauri/src/mail_code.rs`，按字符；前端的上限能保证不超） |
 | 查收验证码最多等多久 | `src-tauri/src/mail_code.rs` 的 `WAIT_FOR` | `MailSettings.tsx` 脚注、`README.md` 里写的「2 分钟」 |
-| 划词浮钮宽度 | `tauri.conf.json` 里 `selection-float` 窗口的 `width` | `FLOAT_WIDTH`（`src-tauri/src/translation.rs`） |
 | 日志和诊断的命令名、日志行格式 | `src/platform/diagnostics.ts`、`parseLog`（`src/diagnostics/logEntries.ts`，`[日期][时间][来源][级别] 内容`、窗口名表） | `src-tauri/src/diagnostics.rs`（`log_plugin` 的 `format`、`WEBVIEW_TARGET`）、`lib.rs` 的 `invoke_handler` |
 | 工作日志的命令名、字段 | `src/platform/worklog.ts`、`workLogSchema`（`src/worklog/WorkLog.ts`，文字上限 500 字，种类和来源 `[a-z_]`） | `src-tauri/src/worklog.rs`（文字上限 1000 字）、`lib.rs` 的 `invoke_handler` |
 | 复制通知的事件名、读复制内容的命令名 | `src/platform/handover.ts`（`pet://copied`、`take_copied`） | `src-tauri/src/handover.rs`（`COPIED_EVENT`）、`lib.rs` 的 `invoke_handler` |
-| 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `COPY_HINT_MS`（`src/components/QuickChat.tsx`），`QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`、`README.md` 里写的「1 分钟」 |
+| 「刚复制」算多久 | `RECENT_COPY`（`src-tauri/src/handover.rs`） | `COPY_HINT_MS`（`src/components/QuickChat.tsx`），`QuickChatSettings.tsx` 开关说明、`docs/USER_GUIDE.md`（快速聊天和划词处理两处）、`README.md` 里写的「1 分钟」 |
 | 节假日下载命令 | `src/platform/holidays.ts` 的 `fetch_holiday_year` | `src-tauri/src/holidays.rs`、`lib.rs` 的 `invoke_handler` |
 | 弹出层关闭按钮的位置 | `tauri.conf.json` 里 `today`、`notes`、`coding`、`links`、`translation` 窗口的 `trafficLightPosition`（x 16、y 26，和标题同一行） | `--title-after-close`（`TodayPanel.css`，标题从红点后面开始）；`.coding-sidebar__title` 按它减去侧栏内边距 |
 | 聊天窗口红绿灯的位置 | `tauri.conf.json` 里 `chat` 窗口的 `trafficLightPosition`（同提醒窗口，x 16、y 26） | `html.is-native .chat-header` 的内边距（`ChatPage.css`：左边 80 让出三个按钮，上下 11 让头像和红绿灯在同一行） |
@@ -201,6 +200,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 五个面板和设置窗口都开了 `acceptFirstMouse`（`tauri.conf.json`），新加的面板也要开。不开的话，窗口不是 key window 时第一下点击只把它变成 key，网页收不到这次按下：几个面板并排开着，换一个面板点搜索框要点两下，第一下没反应，接着打的字还落在上次的焦点里，或者哪也不去（2.0.0-preview-9 就这样）。面板的材质一直是活动的样子，用户看不出它不是 key。开了之后上一条说的「第一下点击不进网页」应该不再出现，还没在真实窗口里确认。聊天窗口没开。
 - 聊天流分开处理文字与动作。只有 `play_action` 的 JSON 参数完整并匹配当前请求的枚举才提前执行，宠物窗口回报动作是否接受调度。模型漏掉文字时用本机话术，动作不补请求。动作只用真实可播的素材，专注、睡觉、贴边和控制器优先级仍然生效。
 - DeepSeek 有时会把 `<budget:token_budget>…</budget:token_budget>` 或 `play_action\naction=dance` 泄露进正文。在流式回复和历史中清掉（`ReplyText`、`stripLeaked`、`takeLeakedActions`，在 `src/ai/deepseek/leaks.ts`）。正文里的调用样式只当文本处理，工具事件负责播放。
+- 读别的应用里选中的文字（翻译快捷键）要直接问最前面的应用：`NSWorkspace.frontmostApplication` 再 `AXUIElementCreateApplication`。不要用 `AXUIElementCreateSystemWide` 的 `AXFocusedUIElement`：macOS 15 上它一直报 -25204，2.0.0-rc-1 以前在哪个应用里都读不到。Chrome、Electron 应用、微信本来就不报告选区，读不到时替用户按 ⌘C（`handover::copy_from_front`）：必须在主线程上做完「存剪贴板、按键、等文字、放回」，并把放回后的计数记成已见过，否则剪贴板监听会把这次复制当成用户复制、宠物跟着提示；⌘C 用私有事件源发给那个应用（`CGEventPostToPid`），不要发给会话（会落到拿着键盘的宠物面板上）。读到「没有值」（-25212）也可能是真的没有：Claude Code 这类接管鼠标的终端程序里，拖出来的高亮是程序自己画的，终端（Ghostty）并没有选区，⌘C 也复制不到；开了「选中即复制」时靠刚复制的内容兜底（`handover::recent_copy`）。测读选区用 Ghostty 脚本开临时窗口再 `perform action "select_all"`，不用动用户的窗口。划词浮钮 2026-11-26 下架，不要再按拖选去读选区：那条路不能替用户复制，做不到统一。
 - 网络请求都走系统 curl，新加 curl 调用要带上 `crate::proxy::curl_args()`，否则从访达启动时不走系统代理。
 - Rust 里不要按字节下标切用户给的字符串（`s[..7]`）：落在汉字中间就 panic，release 配置是 `panic = "abort"`，整个应用直接闪退。2.0.0-preview 粘贴「授权码abc…」就这样退出。用 `s.get(..n)`、`char_indices` 或先确认是 ASCII。
 - Claude Code 的钩子执行的是宠物主程序本身（`--agent-hook claude`）。`run()` 的第一件事必须是 `agent_hooks::forward_if_hook()`（紧接着是 `capture::run_if_asked()`，同样不能往前挪别的东西），在它前面加任何东西（日志、插件、Tauri 初始化），每个钩子都会多花时间，还可能弹出 Dock 图标。转发模式永远退出码 0、不写 stdout：Claude Code 在 `Stop`、`UserPromptSubmit` 上会把 stdout 的 JSON 和退出码 2 当成指令。
@@ -263,7 +263,7 @@ pnpm exec tsc --noEmit && pnpm test
 - 默认资源包在 `public/pets/girl-default/`。新增角色的步骤见 `ACTIONS.md` 的“新增一个角色”。
 - 法定节假日数据来自 `chinese-days` 包，打包的部分只到发版时已公布的年份。宠物会自动下载缺的年份，但每年 11 月前后国务院公布新安排后，仍要升级一次依赖（`pnpm up chinese-days`）再打包，让离线的用户也有数据。只用它的 JSON 数据，不用它的 `isWorkday()`：那个函数分不清“周末”和“法定假日”，也不告诉你数据到哪一年。
 - 用户或聊天工具改提醒、备忘，要用 `changeReminders`、`changeNotes`、`keepNote`（`src/worklog/store.ts`）并写明来源，不要直接调 `updateAgenda`、`updateNotes`、`saveNote`，否则工作日志漏记。只有不算用户操作的整理（标记已提醒、过期作废、旧数据迁移）可以直接写。数据库的表结构只能往 `database.rs` 的 `MIGRATIONS` 末尾加新脚本，不能改已经发出去的。
-- 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮时读内容，平时只看变更计数和类型。
+- 用户递来的内容（复制的文字，以后的拖放文件）发给模型时必须用 `handedMessage` 包成资料块，放在用户自己的话后面；由按钮发起、不需要改数据的回合只给 `BUTTON_SKILLS`。剪贴板只在用户点聊天按钮、或按翻译快捷键却读不到选区时读内容（`handover::copy_from_front`、`recent_copy`），平时只看变更计数和类型。
 - 记忆（关于用户的事）用 `changeFacts`（`src/worklog/store.ts`）改并写明来源。来源是 `user` 的记忆模型不能改：聊天工具只认 `context.facts.learned` 里的编号，不要给用户写的那些编号；用户在设置里改过的聊天记忆就算用户写的。三者的分法：有时间要提醒的是提醒，要原样保存的资料是备忘，关于用户本人、长期成立的是记忆。模型能写进提示词的内容一律标成资料，不当指令。
 - 宠物主动说的话必须走 `PetRuntime.sayProactively()`，需要宠物出来打招呼时走 `PetRuntime.greet()`，这样才会受勿扰和频率限制约束。不要直接发 `pet.say` 或 `pet.greeting`。
 - 宠物自己想说的新话（问候、关心、以后的事前预告和事后问一句）不要在 `App` 或引擎里另起定时器，写成 `src/companion/occasions/` 里的一个场合，放进 `OCCASIONS`：表里靠前的优先，同一刻只说一句。`due()` 每 10 秒跑一次，只用 `Moment` 里的数据，不读慢的东西，不调模型。场合默认等用户手停下（`Moment.paused`）才说，只有「刚回来」这种过了就没有的时刻才标 `rightAway`。请模型写的场合，给它的事实只写用户做了什么，不写应用里的说法：试过把「提醒还没标完成」写进事实，模型就去念叨「提醒还挂着呢」（`occasions/reminders.ts`）。`src/companion/` 不引用 `PetRuntime`、`src/platform/` 和 `ai`，缺什么在 `CompanionPorts` 里加一个口子，由 `App` 接。
