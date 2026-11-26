@@ -147,9 +147,13 @@ body {
 .app--speech-left .speech-bubble::after, .app--speech-right .speech-bubble::after { top: 14px; bottom: auto; }
 .app--speech-right .speech-bubble::after { left: -6px; right: auto; transform: rotate(135deg); }
 .app--speech-left .speech-bubble::after { left: auto; right: -6px; transform: rotate(-45deg); }
-/* Beside the head a bubble is narrow: the answer buttons share the width and wrap under the text. */
+/*
+ * Beside the head a bubble is narrow (about 150px at the screen edge): the answer buttons share the
+ * width when their labels fit, and otherwise each takes its own row rather than squeezing a label
+ * like "10 分钟后" under the next button.
+ */
 :is(.app--speech-left, .app--speech-right) .speech-bubble__choices { flex-wrap: wrap; }
-:is(.app--speech-left, .app--speech-right) .speech-bubble__choices button { flex: 1; min-width: 0; white-space: nowrap; }
+:is(.app--speech-left, .app--speech-right) .speech-bubble__choices button { flex: 1 0 auto; white-space: nowrap; }
 :is(.app--speech-left, .app--speech-right) .speech-bubble__choices .speech-bubble__heading { flex-basis: 100%; padding-right: 0; }
 /* There is height to spare beside the pet, so a narrower bubble keeps more lines. */
 :is(.app--speech-left, .app--speech-right) .speech-bubble--remind .speech-bubble__alert-text { -webkit-line-clamp: 3; }
