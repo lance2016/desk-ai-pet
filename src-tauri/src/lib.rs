@@ -13,6 +13,8 @@ mod dubbing;
 mod floating_panel;
 mod handover;
 mod holidays;
+#[cfg(target_os = "macos")]
+mod key_window;
 mod link_icons;
 mod llm;
 mod mail_code;
@@ -324,45 +326,22 @@ fn build_app_menu(app: &App) -> tauri::Result<(Menu<Wry>, MenuItem<Wry>)> {
 /// The "新聊天" item of the app menu, enabled while the chat window has focus.
 struct NewChatItem(MenuItem<Wry>);
 
-/// The settings window is an ordinary window. While it is open the app shows in the
-/// Dock and ⌘Tab, with its menu bar, so the window can be found again behind others.
-/// The rest of the time the app stays an accessory, as the floating pet was built for.
-fn show_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
-    #[cfg(target_os = "macos")]
-    app.set_activation_policy(tauri::ActivationPolicy::Regular)?;
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
+/// The settings window is an ordinary window, but the app stays an accessory while it is open,
+/// as with chat and dubbing: no Dock icon, no ⌘Tab. The switch to Regular at runtime was dropped
+/// while chasing typing that went nowhere (2.0.0-rc-2); the cause turned out to be the pet taking
+/// the keyboard back (see `key_window`). Opening it again from the menu brings it to the front.
+fn show_settings_window(window: &WebviewWindow) -> tauri::Result<()> {
     window.show()?;
-    window.set_focus()
+    focus_window(window)
 }
 
-fn hide_settings_window(app: &AppHandle, window: &WebviewWindow) -> tauri::Result<()> {
-    window.hide()?;
-    sync_activation_policy(app, Some(SETTINGS_WINDOW))
-}
-
-/// Whether an ordinary window (settings, dubbing) other than `closing` is open.
-fn ordinary_window_open(app: &AppHandle, closing: Option<&str>) -> bool {
-    let settings = closing != Some(SETTINGS_WINDOW)
-        && app
-            .get_webview_window(SETTINGS_WINDOW)
-            .is_some_and(|settings| settings.is_visible().unwrap_or(false));
-    let dubbing = closing != Some(dubbing::WINDOW) && app.get_webview_window(dubbing::WINDOW).is_some();
-    settings || dubbing
-}
-
-/// Keeps the app in the Dock and ⌘Tab while any ordinary window is open, and an accessory
-/// otherwise. `closing` is a window on its way out that still counts as open.
-pub(crate) fn sync_activation_policy(app: &AppHandle, closing: Option<&str>) -> tauri::Result<()> {
+/// Brings an ordinary window (settings, dubbing, chat) to the front with the keyboard. On macOS the
+/// keyboard is checked again once the app is active: see `key_window`.
+pub(crate) fn focus_window(window: &WebviewWindow) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
-    app.set_activation_policy(if ordinary_window_open(app, closing) {
-        tauri::ActivationPolicy::Regular
-    } else {
-        tauri::ActivationPolicy::Accessory
-    })?;
+    return key_window::focus(window);
     #[cfg(not(target_os = "macos"))]
-    let _ = (app, closing);
-    Ok(())
+    window.set_focus()
 }
 
 fn handle_menu_event(app: &AppHandle, id: &str) {
@@ -437,13 +416,13 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
         MAIL_CODE_ID => mail_code::toggle(app),
         SETTINGS_ID => {
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
-                report("show settings", show_settings_window(app, &settings));
+                report("show settings", show_settings_window(&settings));
             }
         }
         ABOUT_ID => {
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
                 report("go to the about page", app.emit_to(SETTINGS_WINDOW, SETTINGS_SECTION_EVENT, ABOUT_SECTION));
-                report("show settings", show_settings_window(app, &settings));
+                report("show settings", show_settings_window(&settings));
             }
         }
         NEW_CHAT_ID => {
@@ -496,40 +475,14 @@ fn sync_dock_menu(app: AppHandle, menu: State<'_, PetMenu>, items: Vec<(String, 
 
 /// Opens the pet menu at the cursor. Called from the webview on right-click.
 #[tauri::command]
-fn show_pet_menu(app: AppHandle, window: WebviewWindow, menu: State<'_, PetMenu>) -> Result<(), String> {
+fn show_pet_menu(window: WebviewWindow, menu: State<'_, PetMenu>) -> Result<(), String> {
     if menu.popped_up.swap(true, Ordering::Relaxed) {
         return Ok(());
     }
     // Returns once the menu is closed: the command is sync, so it runs on the main thread.
-    let shown = show_pet_menu_native(&app, &window, &menu.menu);
+    let shown = window.popup_menu(&menu.menu);
     menu.popped_up.store(false, Ordering::Relaxed);
     shown.map_err(|error| format!("failed to open the pet menu: {error}"))
-}
-
-fn show_pet_menu_native(app: &AppHandle, window: &WebviewWindow, menu: &Menu<Wry>) -> tauri::Result<()> {
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
-
-    #[cfg(target_os = "macos")]
-    let regular = ordinary_window_open(app, None);
-
-    // A regular app can leave its non-activating pet panel behind the full-screen
-    // space when a context menu is requested. The accessory policy is the one the
-    // pet uses normally; restore Regular afterward so Settings and dubbing stay in Dock/⌘Tab.
-    #[cfg(target_os = "macos")]
-    if regular {
-        app.set_activation_policy(tauri::ActivationPolicy::Accessory)?;
-    }
-
-    let shown = window.popup_menu(menu);
-
-    #[cfg(target_os = "macos")]
-    if regular {
-        let restored = sync_activation_policy(app, None);
-        return shown.and(restored);
-    }
-
-    shown
 }
 
 #[tauri::command]
@@ -793,7 +746,7 @@ pub(crate) fn show_beside_pet(app: &AppHandle, label: &str) -> Result<(), String
     }
     // The chat window stays with the accessory app: unlike settings it does not switch to Regular.
     window.show().map_err(|e| e.to_string())?;
-    window.set_focus().map_err(|e| e.to_string())
+    focus_window(&window).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -971,6 +924,26 @@ fn put_panel_away(panel: &WebviewWindow) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Whether the app is the one in front, for the focus log. Always true off macOS.
+pub(crate) fn app_active() -> bool {
+    #[cfg(target_os = "macos")]
+    return key_window::app_active();
+    #[cfg(not(target_os = "macos"))]
+    true
+}
+
+/// A click in an ordinary window found its page inactive; see `key_window`.
+#[tauri::command]
+fn refresh_window_focus(window: WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return key_window::make_key_again(&window).map_err(|error| error.to_string());
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        Ok(())
+    }
+}
+
 /// Shows the settings window, optionally on one section, such as "ai" from the chat window.
 #[tauri::command]
 fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> {
@@ -984,7 +957,7 @@ fn open_settings(app: AppHandle, section: Option<String>) -> Result<(), String> 
         app.emit_to(SETTINGS_WINDOW, SETTINGS_SECTION_EVENT, section)
             .map_err(|e| e.to_string())?;
     }
-    show_settings_window(&app, &window).map_err(|e| e.to_string())
+    show_settings_window(&window).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1072,20 +1045,20 @@ pub fn run() {
                 {
                     floating_panel::apply(&window)?;
                     floating_panel::show_without_focus(&window)?;
+                    key_window::install(&window)?;
                 }
                 #[cfg(not(target_os = "macos"))]
                 window.show()?;
             }
             if let Some(settings) = app.get_webview_window(SETTINGS_WINDOW) {
                 let settings_handle = settings.clone();
-                let app_handle = app.handle().clone();
                 settings.on_window_event(move |event| {
                     if let tauri::WindowEvent::Focused(focused) = event {
-                        log::info!("Input window {SETTINGS_WINDOW} focus changed: {focused}");
+                        log::info!("Input window {SETTINGS_WINDOW} focus changed: {focused} (app active: {})", app_active());
                     }
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        report("hide settings", hide_settings_window(&app_handle, &settings_handle));
+                        report("hide settings", settings_handle.hide());
                     }
                 });
             }
@@ -1220,6 +1193,7 @@ pub fn run() {
             worklog::worklog_export,
             worklog::worklog_replace,
             diagnostics::diagnostics_log,
+            refresh_window_focus,
             diagnostics::diagnostics_read_logs,
             diagnostics::diagnostics_clear_logs,
             diagnostics::diagnostics_reveal_logs,

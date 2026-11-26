@@ -11,7 +11,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TranslationPanel } from "./components/translation/TranslationPanel";
 import { dropTimelessAgenda, timelessAgendaTexts } from "./agenda/AgendaStore";
 import { addNote, updateNotes } from "./notes/NoteStore";
-import { forwardToLog } from "./platform/diagnostics";
+import { forwardToLog, keepWindowTypable } from "./platform/diagnostics";
 import { loadActiveCharacter, migrateLegacyCharacterData, subscribeActiveCharacter } from "./preferences/CharacterPreferences";
 import "./ui/tokens.css";
 import "./ui/controls.css";
@@ -22,6 +22,8 @@ const DubbingPage = lazy(() => import("./components/dubbing/DubbingPage").then((
 const view = new URLSearchParams(window.location.search).get("window");
 if (view) document.documentElement.dataset.window = view;
 forwardToLog(view ?? "main");
+// The ordinary windows; the panels take the keyboard their own way.
+if (view === "settings" || view === "dubbing" || view === "chat") keepWindowTypable(view);
 
 /** Every window follows the active character. The pet and chat restart for a new one. */
 function Root() {

@@ -27,17 +27,21 @@ function send(level: Level, window: string, message: string): void {
   invoke("diagnostics_log", { level, window, message }).catch(() => {});
 }
 
-/** Reports a click that failed to focus an editable field after its default action. */
-export function checkInputFocus(window: "settings" | "dubbing", field: "search" | "script" | "style", input: HTMLInputElement | HTMLTextAreaElement | null): void {
-  if (!isTauri() || !input) return;
-  requestAnimationFrame(() => {
-    if (!input.isConnected) return;
-    const windowFocused = document.hasFocus();
-    const fieldFocused = document.activeElement === input;
-    if (!windowFocused || !fieldFocused) {
-      send("warn", window, `Input click did not focus: field=${field} windowFocused=${windowFocused} fieldFocused=${fieldFocused}`);
-    }
-  });
+/**
+ * After a click, an ordinary window (settings, dubbing, chat) is the active one. When the page still
+ * thinks otherwise, the native side missed telling it: no caret, and typing goes nowhere. The window
+ * is then made key again (`refresh_window_focus`, see `src-tauri/src/key_window.rs`). Call once per window.
+ */
+export function keepWindowTypable(window: string): void {
+  if (!isTauri()) return;
+  document.addEventListener("click", () => {
+    // After the click's default action, when a field it hit has taken focus.
+    requestAnimationFrame(() => {
+      // A confirmation or a save panel can rightly have the keyboard; the native side tells them apart and logs.
+      if (document.hasFocus()) return;
+      invoke("refresh_window_focus").catch((error: unknown) => send("error", window, `Could not make the window key again ${logMessage([error])}`));
+    });
+  }, true);
 }
 
 /**

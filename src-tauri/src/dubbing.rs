@@ -60,7 +60,7 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(WINDOW) {
         let _ = window.unminimize();
         window.show().map_err(|error| error.to_string())?;
-        return window.set_focus().map_err(|error| error.to_string());
+        return crate::focus_window(&window).map_err(|error| error.to_string());
     }
     let window = WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::App(URL.into()))
         .title(TITLE)
@@ -73,20 +73,16 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
     let handle = app.clone();
     window.on_window_event(move |event| {
         if let tauri::WindowEvent::Focused(focused) = event {
-            log::info!("Input window {WINDOW} focus changed: {focused}");
+            log::info!("Input window {WINDOW} focus changed: {focused} (app active: {})", crate::app_active());
         }
         if let tauri::WindowEvent::Destroyed = event {
             // Segments still being made would only be thrown away now.
             if let Some(state) = handle.try_state::<Arc<crate::mimo::MimoSpeechState>>() {
                 state.cancel_window(WINDOW);
             }
-            if let Err(error) = crate::sync_activation_policy(&handle, Some(WINDOW)) {
-                log::warn!("failed to update the activation policy: {error}");
-            }
         }
     });
-    crate::sync_activation_policy(app, None).map_err(|error| error.to_string())?;
-    window.set_focus().map_err(|error| error.to_string())
+    crate::focus_window(&window).map_err(|error| error.to_string())
 }
 
 /// Closes the window for good once the page has agreed to it: the page holds every close back to
